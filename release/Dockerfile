@@ -6,14 +6,14 @@
 #   $TAG            the tag for image identification
 #
 ##########################################################################
-FROM openjdk:13-jdk-oracle
+FROM openjdk:15-jdk-oracle
 
 MAINTAINER CIC Support <cicsupport@tacc.utexas.edu>
 
 WORKDIR /app
 
 # Copy jar file into place
-COPY "v3#systems.jar" .
+COPY "systems.jar" .
 COPY /dependencies dependencies
 
 
@@ -39,4 +39,4 @@ EXPOSE 8080
 EXPOSE 8000
 EXPOSE 9090
 
-CMD ["java", "-Xms4g", "-Xmx4g", "-cp", "v3#systems.jar:dependencies/*", "edu.utexas.tacc.tapis.systems.api.SystemsApplication"]
+CMD ["java", "-Xms4g", "-Xmx4g", "-cp", "systems.jar:dependencies/*", "edu.utexas.tacc.tapis.systems.api.SystemsApplication"]

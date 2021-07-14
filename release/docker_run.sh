@@ -1,19 +1,23 @@
 #!/bin/sh
 # Start up local docker image for tapis/systems service.
 # Environment value must be passed in as first argument: dev, staging, prod
+# Special argument "dev_local" means use a special tag that should only be available
+#   locally and use services from dev enviornment
 # Service password must be set as the env variable TAPIS_SERVICE_PASSWORD
 # Following services from a running tapis3 are required: tenants, tokens, security-kernel
 # Base URL for remote services is determined by environment value passed in.
-# Systems service is available at http://localhost:8080/v3/systems
+# Service is available at http://localhost:8080/v3/<service_name>
 
 PrgName=$(basename "$0")
 
-USAGE1="Usage: $PRG_NAME { dev, staging, prod }"
+USAGE1="Usage: $PRG_NAME { dev_local, dev, staging, prod }"
 
-# Run docker image for Systems service
-BUILD_DIR=../api/target
+SVC_NAME="systems"
+
+# Run docker image for the service
+BUILD_DIR=../tapis-systemsapi/target
 ENV=$1
-TAG="tapis/systems:${ENV}"
+TAG="tapis/${SVC_NAME}:${ENV}"
 
 ##########################################################
 # Check number of arguments.
@@ -31,18 +35,16 @@ if [ -z "$TAPIS_SERVICE_PASSWORD" ]; then
 fi
 
 # Set base url for services we depend on (tenants, tokens, security-kernel)
-if [ "$ENV" = "dev" ]; then
- BASE_URL="https://master.develop.tapis.io"
+if [ "$ENV" = "dev" -o "$ENV" = "dev_local" ]; then
+ BASE_URL="https://admin.develop.tapis.io"
 elif [ "$ENV" = "staging" ]; then
- BASE_URL="https://master.staging.tapis.io"
+ BASE_URL="https://admin.staging.tapis.io"
 elif [ "$ENV" = "prod" ]; then
- BASE_URL="https://master.tapis.io"
+ BASE_URL="https://admin.tapis.io"
 else
   echo $USAGE1
   exit 1
 fi
-
-
 
 # Determine absolute path to location from which we are running.
 export RUN_DIR=$(pwd)
@@ -64,6 +66,6 @@ echo
 # Running with network=host exposes ports directly. Only works for linux
 docker run -e TAPIS_SERVICE_PASSWORD="${TAPIS_SERVICE_PASSWORD}" \
            -e TAPIS_TENANT_SVC_BASEURL="$BASE_URL" \
+           -e TAPIS_SITE_ID="$TAPIS_SITE_ID" \
            -d --rm --network="host" "${TAG}"
-
 cd "$RUN_DIR"

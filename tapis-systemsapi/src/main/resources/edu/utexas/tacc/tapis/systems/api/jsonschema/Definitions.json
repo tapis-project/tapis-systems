@@ -1,0 +1,87 @@
+{
+  "$id": "https://tapis.tacc.utexas.edu/Definitions",
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "description": "Common definitions for requests",
+  "additionalProperties": false,
+
+  "SystemId": { "type": ["string", "null"], "minLength": 1, "maxLength": 80 },
+  "SystemIdNotNull": { "type": "string", "minLength": 1, "maxLength": 80 },
+  "HostName": { "type": ["string", "null"], "minLength": 1, "maxLength": 256 },
+  "HostNameNotNull": { "type": "string", "minLength": 1, "maxLength": 256 },
+  "UserName": { "type": "string", "minLength": 1, "maxLength": 60 },
+  "DirPath": { "type": ["string", "null"], "minLength": 1, "maxLength": 4096 },
+  "DirPathNotNull": { "type": "string", "minLength": 1, "maxLength": 4096 },
+  "SystemTypeEnum": { "type": "string", "enum": ["LINUX","S3"] },
+  "AuthnMethodEnum": { "type": "string", "enum": ["PASSWORD","PKI_KEYS","ACCESS_KEY","CERT"] },
+  "SchedulerTypeEnum": { "type": ["string", "null"], "enum": ["SLURM","CONDOR","PBS","SGE","UGE","TORQUE", null] },
+  "SchedulerTypeEnumNotNull": { "type": "string", "enum": ["SLURM","CONDOR","PBS","SGE","UGE","TORQUE"] },
+  "tagsDefinition": {
+    "type": "array",
+    "items": { "type":  "string", "minLength": 1, "maxLength": 128 }
+  },
+  "KeyValuePair": {
+    "type": "object",
+    "required": [ "key" ],
+    "properties": {
+      "key": { "type": "string", "minLength": 1 },
+      "value": { "type": "string" }
+    }
+  },
+  "LogicalQueue": {
+    "type": "object",
+    "required": [ "name", "hpcQueueName" ],
+    "properties": {
+      "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "hpcQueueName": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "maxJobs": { "type": "integer" },
+      "maxJobsPerUser": { "type": "integer" },
+      "minNodeCount": { "type": "integer" },
+      "maxNodeCount": { "type": "integer" },
+      "minCoresPerNode": { "type": "integer" },
+      "maxCoresPerNode": { "type": "integer" },
+      "minMemoryMB": { "type": "integer" },
+      "maxMemoryMB": { "type": "integer" },
+      "minMinutes": { "type": "integer" },
+      "maxMinutes": { "type": "integer" }
+    }
+  },
+  "JobRuntime": {
+    "type": "object",
+    "required": [ "runtimeType" ],
+    "properties": {
+      "runtimeType": { "type": "string", "enum": ["DOCKER","SINGULARITY"] },
+      "version": { "type": "string" }
+    }
+  },
+  "JobRuntimeList": {
+    "type": ["array", "null"],
+    "minItems": 1,
+    "uniqueItems": true,
+    "items": { "$ref": "#/JobRuntime" }
+  },
+  "CapabilityCategoryEnum": { "type": "string", "enum": ["SCHEDULER", "OS", "HARDWARE", "SOFTWARE", "JOB", "CONTAINER", "MISC", "CUSTOM"] },
+  "CapabilityDatatypeEnum": { "type": "string", "enum": ["STRING", "INTEGER", "BOOLEAN", "NUMBER", "TIMESTAMP"] },
+  "Capability": {
+    "type": "object",
+    "required": [ "category", "name", "datatype" ],
+    "properties": {
+      "category": { "$ref": "#/CapabilityCategoryEnum" },
+      "subcategory": { "type": "string", "maxLength": 128 },
+      "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "datatype": { "$ref": "#/CapabilityDatatypeEnum" },
+      "precedence": { "type": "integer" },
+      "value": { "type": "string", "maxLength": 128 }
+    }
+  },
+  "Credential": {
+    "type": ["object", "null"],
+    "properties": {
+      "password": { "type":  "string" },
+      "privateKey": { "type":  "string" },
+      "publicKey": { "type":  "string" },
+      "accessKey": { "type":  "string" },
+      "accessSecret": { "type":  "string" },
+      "certificate": { "type":  "string" }
+    }
+  }
+}

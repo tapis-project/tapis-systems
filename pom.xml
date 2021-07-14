@@ -7,7 +7,7 @@
     <parent>
       <groupId>edu.utexas.tacc.tapis</groupId>
       <artifactId>tapis-bom</artifactId>
-      <version>[1.11,2.0)</version>
+      <version>[2.0,3.0)</version>
       <!-- Set empty relative path to avoid maven warning and-->
       <!--   ensure parent is found in local repository if that-->
       <!--   is the only place it exists.-->
@@ -17,7 +17,7 @@
     <!-- Test release cycle ver 2 -->
     
     <artifactId>tapis-systems</artifactId>
-    <version>0.0.2</version>
+    <version>1.0.0</version>
     <packaging>pom</packaging>
 
     <name>TACC Tapis Systems Parent POM</name>
@@ -41,53 +41,10 @@
     <plugins>
       <!--  gitflow-maven-plugin supports various git workflow steps, such as gitflow:release-start-->
       <!--    gitflow:release-finish, gitflow:feature-start, gitflow:feature-finish-->
+      <!-- For configuration see parent pom tapis-bom.xml -->
       <plugin>
         <groupId>com.amashchenko.maven.plugin</groupId>
         <artifactId>gitflow-maven-plugin</artifactId>
-        <version>1.14.0</version>
-        <configuration>
-          <!-- false = disable git push for testing -->
-          <pushRemote>true</pushRemote>
-          <!-- true = print output of executed commands -->
-          <verbose>true</verbose>
-          <!-- true = include mvn clean install during execution -->
-          <installProject>true</installProject>
-          <gitFlowConfig>
-            <!-- Branch that will hold the officially released versions and be the source for hotfixes  -->
-            <productionBranch>main</productionBranch>
-            <!-- Branch for development that will always have the latest -->
-            <developmentBranch>dev</developmentBranch>
-            <!-- Prefix when creating release branch. Format will be <prefix>X.Y.Z -->
-            <releaseBranchPrefix>release/</releaseBranchPrefix>
-          </gitFlowConfig>
-
-          <!-- Full list of optional configuration settings (with defaults) -->
-<!-- If desired run verify first -->
-<!-- Execute mvn verify before release -->
-<!--          <preReleaseGoals>verify</preReleaseGoals>-->
-<!--          <preHotfixGoals>verify</preHotfixGoals>-->
-<!--          <mvnExecutable>path_to_maven_executable</mvnExecutable>-->
-<!--          <gitExecutable>path_to_git_executable</gitExecutable>-->
-<!--          <installProject>false</installProject>-->
-<!--          <verbose>false</verbose>-->
-<!--          &lt;!&ndash; true = retain the release branch upon release-finish &ndash;&gt;-->
-<!--          <keepBranch>false</keepBranch>-->
-<!--          &lt;!&ndash; false = disable git push for testing &ndash;&gt;-->
-<!--          <pushRemote>false</pushRemote>-->
-<!--          <gitFlowConfig>-->
-<!--            <productionBranch>master</productionBranch>-->
-<!--            <developmentBranch>develop</developmentBranch>-->
-<!--            <featureBranchPrefix>feature/</featureBranchPrefix>-->
-<!--            <releaseBranchPrefix>release/</releaseBranchPrefix>-->
-<!--            <hotfixBranchPrefix>hotfix/</hotfixBranchPrefix>-->
-<!--            <supportBranchPrefix>support/</supportBranchPrefix>-->
-<!--            <versionTagPrefix></versionTagPrefix>-->
-<!--            <origin>origin</origin>-->
-<!--          </gitFlowConfig>-->
-          <commitMessages>
-            <!-- since 1.2.1, see Customizing commit messages -->
-          </commitMessages>
-        </configuration>
       </plugin>
     </plugins>
 
@@ -143,9 +100,35 @@
     </dependency>
   </dependencies>
 
+  <profiles>
+    <!-- Profile for building using TACC repositories -->
+    <profile>
+      <id>tacc</id>
+      <activation> <activeByDefault>true</activeByDefault> </activation>
+      <repositories>
+        <repository>
+          <id>tapis-local-snapshots</id>
+          <name>Local repo for snapshots</name>
+          <url>http://c002.rodeo.tacc.utexas.edu:30044/repository/maven-snapshots</url>
+          <releases>  <enabled>false</enabled> </releases>
+          <snapshots> <enabled>true</enabled>  </snapshots>
+        </repository>
+        <repository>
+          <id>tapis-local-releases</id>
+          <name>Local repo for releases</name>
+          <url>http://c002.rodeo.tacc.utexas.edu:30044/repository/maven-releases</url>
+        </repository>
+      </repositories>
+    </profile>
+    <!-- Profile for building without using TACC repositories -->
+    <profile>
+      <id>tacc-external</id>
+    </profile>
+  </profiles>
+
   <modules>
-    <module>api</module>
-    <module>lib</module>
+    <module>tapis-systemsapi</module>
+    <module>tapis-systemslib</module>
   </modules>
 
 </project>
