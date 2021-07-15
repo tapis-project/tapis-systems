@@ -27,6 +27,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_SCHEDULER_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BUCKET_NAME_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_EXEC_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_AUTHN_METHOD_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DELETED_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DESCRIPTION_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_MOUNT_POINT_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_MOUNT_SOURCE_PATH_FIELD;
@@ -168,26 +169,24 @@ public final class TapisSystemDTO
    * Create a JsonObject containing the id attribute and any attribute in the selectSet that matches the name
    * of a public field in this class
    * If selectSet is null or empty then all attributes are included.
-   * If selectSet contains one item:
-   *    and that item is "allAttributes" then all attributes are included.
-   *    and that item is "summaryAttributes" then only summary attributes are included.
+   * If selectSet contains "allAttributes" then all attributes are included regardless of other items in set
+   * If selectSet contains "summaryAttributes" then summary attributes are included regardless of other items in set
    * @return JsonObject containing attributes in the select list.
    */
   public JsonObject getDisplayObject(List<String> selectList)
   {
-    // Check for special cases of returning all or summary attributes
-    if (selectList == null || selectList.isEmpty() ||
-        (selectList.size() == 1 && selectList.get(0).equals("allAttributes")))
+    // Check for special case of returning all attributes
+    if (selectList == null || selectList.isEmpty() || selectList.contains("allAttributes"))
     {
       return allAttrs();
     }
-    if (selectList.size() == 1 && selectList.get(0).equals("summaryAttributes"))
-    {
-      return summaryAttrs();
-    }
+
+    var retObj = new JsonObject();
+
+    // If summaryAttrs included then add them
+    if (selectList.contains("summaryAttributes")) addSummaryAttrs(retObj);
 
     // Include specified list of attributes
-    var retObj = new JsonObject();
     // If ID not in list we add it anyway.
     if (!selectList.contains(ID_FIELD)) addDisplayField(retObj, ID_FIELD);
     for (String attrName : selectList)
@@ -204,15 +203,13 @@ public final class TapisSystemDTO
     return gson.fromJson(jsonStr, JsonObject.class).getAsJsonObject();
   }
 
-  // Build a JsonObject with just the summary attributes
-  private JsonObject summaryAttrs()
+  // Add summary attributes to a json object
+  private void addSummaryAttrs(JsonObject jsonObject)
   {
-    var retObj = new JsonObject();
     for (String attrName: SUMMARY_ATTRS)
     {
-      addDisplayField(retObj, attrName);
+      addDisplayField(jsonObject, attrName);
     }
-    return retObj;
   }
 
   /**
@@ -265,10 +262,8 @@ public final class TapisSystemDTO
         jsonStr = gson.toJson(notes);
         jsonObject.add(NOTES_FIELD, gson.fromJson(jsonStr, JsonObject.class));
       }
-      case UUID_FIELD -> {
-        jsonStr = gson.toJson(uuid);
-        jsonObject.add(UUID_FIELD, gson.fromJson(jsonStr, JsonObject.class));
-      }
+      case UUID_FIELD -> jsonObject.addProperty(UUID_FIELD, uuid.toString());
+      case DELETED_FIELD -> jsonObject.addProperty(DELETED_FIELD, Boolean.toString(deleted));
       case CREATED_FIELD -> jsonObject.addProperty(CREATED_FIELD, created.toString());
       case UPDATED_FIELD -> jsonObject.addProperty(UPDATED_FIELD, updated.toString());
     }
