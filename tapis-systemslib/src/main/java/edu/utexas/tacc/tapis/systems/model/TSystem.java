@@ -56,6 +56,7 @@ public final class TSystem
   public static final String OWNER_FIELD = "owner";
   public static final String HOST_FIELD = "host";
   public static final String ENABLED_FIELD = "enabled";
+  public static final String DELETED_FIELD = "deleted";
   public static final String EFFECTIVE_USER_ID_FIELD = "effectiveUserId";
   public static final String DEFAULT_AUTHN_METHOD_FIELD = "defaultAuthnMethod";
   public static final String AUTHN_CREDENTIAL_FIELD = "authnCredential";
