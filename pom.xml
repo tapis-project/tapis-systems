@@ -17,7 +17,7 @@
     <!-- Test release cycle ver 2 -->
     
     <artifactId>tapis-systems</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>TACC Tapis Systems Parent POM</name>
