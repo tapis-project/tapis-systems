@@ -46,7 +46,7 @@ cd $BUILD_DIR || exit
 VER=$(cat classes/tapis.version)
 GIT_BRANCH_LBL=$(awk '{print $1}' classes/git.info)
 GIT_COMMIT_LBL=$(awk '{print $2}' classes/git.info)
-TAG_UNIQ="${REPO}/${SVC_NAME}:${ENV}-${VER}-$(date +%Y%m%d%H%M)-${GIT_COMMIT}"
+TAG_UNIQ="${REPO}/${SVC_NAME}:${ENV}-${VER}-$(date +%Y%m%d%H%M)-${GIT_COMMIT_LBL}"
 TAG_RELEASE_CANDIDATE="${REPO}/${SVC_NAME}:${VER}-rc${RC_VER}"
 TAG_ENV="${REPO}/${SVC_NAME}:${ENV}"
 
