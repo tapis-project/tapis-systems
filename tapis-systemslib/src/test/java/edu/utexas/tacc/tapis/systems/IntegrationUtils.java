@@ -183,6 +183,14 @@ public final class IntegrationUtils
   public static final List<OrderBy> orderByListNull = null;
   public static final List<OrderBy> orderByListAsc = Collections.singletonList(OrderBy.fromString("id(asc)"));
   public static final List<OrderBy> orderByListDesc = Collections.singletonList(OrderBy.fromString("id(desc)"));
+  public static final List<OrderBy> orderByList2Asc = new ArrayList<>(List.of(OrderBy.fromString("system_type(asc)"),
+                                                                              OrderBy.fromString("bucket_name(asc)")));
+  public static final List<OrderBy> orderByList2Desc = new ArrayList<>(List.of(OrderBy.fromString("system_type(asc)"),
+                                                                       OrderBy.fromString("bucket_name(desc)")));
+  public static final List<OrderBy> orderByList3Asc = new ArrayList<>(List.of(OrderBy.fromString("id(asc)"),
+                                                                              OrderBy.fromString("owner(asc)")));
+  public static final List<OrderBy> orderByList3Desc = new ArrayList<>(List.of(OrderBy.fromString("bucket_name(desc)"),
+                                                                               OrderBy.fromString("system_type(desc)")));
   public static final String startAfterNull = null;
 
   public static final String invalidPrivateSshKey = "-----BEGIN OPENSSH PRIVATE KEY-----";
@@ -369,6 +377,11 @@ public final class IntegrationUtils
             capListNull, tagsNull, notesNull);
   }
 
+  public static String getBucketName(String key, int idx)
+  {
+    String suffix = key + "_" + String.format("%03d", idx);
+    return "bucket" + suffix;
+  }
   public static String getSysName(String key, int idx)
   {
     String suffix = key + "_" + String.format("%03d", idx);

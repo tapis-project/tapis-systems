@@ -358,6 +358,14 @@ public class SearchDaoTest
     assertEquals(searchResults.size(), limit, "Incorrect result count");
     // Should get systems named SrchGet_017 to SrchGet_014
     checkOrder(searchResults, numSystems - skip, numSystems - limit);
+
+    // Sort and check multiple orderBy
+    searchResults = dao.getSystems(tenantName, verifiedSearchList, null, null, DEFAULT_LIMIT, orderByList2Asc, DEFAULT_SKIP, startAfterNull, showDeletedFalse);
+    assertEquals(searchResults.size(), numSystems, "Incorrect result count");
+    checkOrder(searchResults, 1, numSystems);
+    searchResults = dao.getSystems(tenantName, verifiedSearchList, null, null, DEFAULT_LIMIT, orderByList2Desc, DEFAULT_SKIP, startAfterNull, showDeletedFalse);
+    assertEquals(searchResults.size(), numSystems, "Incorrect result count");
+    checkOrder(searchResults, numSystems, 1);
   }
 
   /*
@@ -388,6 +396,24 @@ public class SearchDaoTest
     int startWith = numSystems - startAfterIdx + 1;
     startAfter = getSysName(testKey, startAfterIdx);
     searchResults = dao.getSystems(tenantName, verifiedSearchList, null, null, limit, orderByListDesc, DEFAULT_SKIP, startAfter, showDeletedFalse);
+    assertEquals(searchResults.size(), limit, "Incorrect result count");
+    // Should get systems named SrchGet_017 to SrchGet_014
+    checkOrder(searchResults, numSystems - startWith, numSystems - limit);
+
+    // Sort and check multiple orderBy (second order orderBy column has no effect but at least we can check that
+    //    having it does not break things for startAfter
+    limit = 2;
+    startAfterIdx = 5;
+    startAfter = getSysName(testKey, startAfterIdx);
+    searchResults = dao.getSystems(tenantName, verifiedSearchList, null, null, limit, orderByList3Asc, DEFAULT_SKIP, startAfter, showDeletedFalse);
+    assertEquals(searchResults.size(), limit, "Incorrect result count");
+    // Should get systems named SrchGet_006 to SrchGet_007
+    checkOrder(searchResults, startAfterIdx + 1, startAfterIdx + limit);
+    limit = 4;
+    startAfterIdx = 18;
+    startWith = numSystems - startAfterIdx + 1;
+    startAfter = getBucketName(testKey, startAfterIdx);
+    searchResults = dao.getSystems(tenantName, verifiedSearchList, null, null, limit, orderByList3Desc, DEFAULT_SKIP, startAfter, showDeletedFalse);
     assertEquals(searchResults.size(), limit, "Incorrect result count");
     // Should get systems named SrchGet_017 to SrchGet_014
     checkOrder(searchResults, numSystems - startWith, numSystems - limit);

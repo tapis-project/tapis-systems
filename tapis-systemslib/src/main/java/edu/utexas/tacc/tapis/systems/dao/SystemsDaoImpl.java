@@ -17,6 +17,7 @@ import org.flywaydb.core.Flyway;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
+import org.jooq.OrderField;
 import org.jooq.Record;
 import org.jooq.Result;
 import org.jooq.impl.DSL;
@@ -818,43 +819,41 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
                              List<OrderBy> orderByList, String startAfter, boolean showDeleted)
           throws TapisException
   {
-    // TODO - for now just use the major (i.e. first in list) orderBy item.
-    String majorOrderBy = null;
+    // Ensure we have a non-null orderByList
+    List<OrderBy> tmpOrderByList = new ArrayList<>();
+    if (orderByList != null) tmpOrderByList = orderByList;
+
+    // Determine the primary orderBy column (i.e. first in list). Used for startAfter
+    String majorOrderByStr = null;
     OrderByDir majorSortDirection = DEFAULT_ORDERBY_DIRECTION;
-    if (orderByList != null && !orderByList.isEmpty())
+    if (!tmpOrderByList.isEmpty())
     {
-      majorOrderBy = orderByList.get(0).getOrderByAttr();
-      majorSortDirection = orderByList.get(0).getOrderByDir();
+      majorOrderByStr = tmpOrderByList.get(0).getOrderByAttr();
+      majorSortDirection = tmpOrderByList.get(0).getOrderByDir();
     }
 
-    // Convert orderBy column to snake case for checking against column names
-    String majorOrderBySC = SearchUtils.camelCaseToSnakeCase(majorOrderBy);
-
-    // NOTE: Sort matters for the count even though we will not actually need to sort.
-    boolean sortAsc = true;
-    if (majorSortDirection == OrderBy.OrderByDir.DESC) sortAsc = false;
+    // Determine if we are doing an asc sort, important for startAfter
+    boolean sortAsc = majorSortDirection != OrderByDir.DESC;
 
     // If startAfter is given then orderBy is required
-    if (!StringUtils.isBlank(startAfter) && StringUtils.isBlank(majorOrderBy))
+    if (!StringUtils.isBlank(startAfter) && StringUtils.isBlank(majorOrderByStr))
     {
       throw new TapisException(LibUtils.getMsg("SYSLIB_DB_INVALID_SORT_START", SYSTEMS.getName()));
     }
 
-    // If no IDs in list then we are done.
-    if (setOfIDs != null && setOfIDs.isEmpty()) return 0;
-
-    // Determine and check orderBy column
-    Field<?> colOrderBy = SYSTEMS.field(DSL.name(SearchUtils.camelCaseToSnakeCase(majorOrderBy)));
-    if (!StringUtils.isBlank(majorOrderBy) && colOrderBy == null)
+    // Determine and check orderBy columns, build orderFieldList
+    List<OrderField> orderFieldList = new ArrayList<>();
+    for (OrderBy orderBy : tmpOrderByList)
     {
-      String msg = LibUtils.getMsg("SYSLIB_DB_NO_COLUMN_SORT", SYSTEMS.getName(), DSL.name(majorOrderBy));
-      throw new TapisException(msg);
-    }
-    // If orderBy column not found then it is an error
-    if (!StringUtils.isBlank(majorOrderBy) && !SYSTEMS_FIELDS.contains(majorOrderBySC))
-    {
-      String msg = LibUtils.getMsg("SYSLIB_DB_NO_COLUMN_SORT", SYSTEMS.getName(), DSL.name(majorOrderBy));
-      throw new TapisException(msg);
+      String orderByStr = orderBy.getOrderByAttr();
+      Field<?> colOrderBy = SYSTEMS.field(DSL.name(SearchUtils.camelCaseToSnakeCase(orderByStr)));
+      if (StringUtils.isBlank(orderByStr) || colOrderBy == null)
+      {
+        String msg = LibUtils.getMsg("SYSLIB_DB_NO_COLUMN_SORT", SYSTEMS.getName(), DSL.name(orderByStr));
+        throw new TapisException(msg);
+      }
+      if (orderBy.getOrderByDir() == OrderBy.OrderByDir.ASC) orderFieldList.add(colOrderBy.asc());
+      else orderFieldList.add(colOrderBy.desc());
     }
 
     // Begin where condition for the query
@@ -878,8 +877,8 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
     {
       // Build search string so we can re-use code for checking and adding a condition
       String searchStr;
-      if (sortAsc) searchStr = majorOrderBy + ".gt." + startAfter;
-      else searchStr = majorOrderBy + ".lt." + startAfter;
+      if (sortAsc) searchStr = majorOrderByStr + ".gt." + startAfter;
+      else searchStr = majorOrderByStr + ".lt." + startAfter;
       whereCondition = addSearchCondStrToWhere(whereCondition, searchStr, "AND");
     }
 
@@ -895,8 +894,11 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
 
-      // Execute the select including orderByAttrList, startAfter
-      count = db.selectCount().from(SYSTEMS).where(whereCondition).fetchOne(0,int.class);
+      // Execute the select including startAfter
+      // NOTE: This is much simpler than the same section in getSystems() because we are not ordering since
+      //       we only want the count and we are not limiting (we want a count of all records).
+      Integer countInt = db.selectCount().from(SYSTEMS).where(whereCondition).fetchOne(0,Integer.class);
+      count = (countInt == null) ? 0 : countInt;
 
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -938,13 +940,17 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
                              int limit, List<OrderBy> orderByList, int skip, String startAfter, boolean showDeleted)
           throws TapisException
   {
-    // TODO - for now just use the major (i.e. first in list) orderBy item.
-    String majorOrderBy = null;
+    // Ensure we have a non-null orderByList
+    List<OrderBy> tmpOrderByList = new ArrayList<>();
+    if (orderByList != null) tmpOrderByList = orderByList;
+
+    // Determine the primary orderBy column (i.e. first in list). Used for startAfter
+    String majorOrderByStr = null;
     OrderByDir majorSortDirection = DEFAULT_ORDERBY_DIRECTION;
-    if (orderByList != null && !orderByList.isEmpty())
+    if (!tmpOrderByList.isEmpty())
     {
-      majorOrderBy = orderByList.get(0).getOrderByAttr();
-      majorSortDirection = orderByList.get(0).getOrderByDir();
+      majorOrderByStr = tmpOrderByList.get(0).getOrderByAttr();
+      majorSortDirection = tmpOrderByList.get(0).getOrderByDir();
     }
 
     // The result list should always be non-null.
@@ -953,11 +959,11 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
     // Negative skip indicates no skip
     if (skip < 0) skip = 0;
 
-    boolean sortAsc = true;
-    if (majorSortDirection == OrderBy.OrderByDir.DESC) sortAsc = false;
+    // Determine if we are doing an asc sort, important for startAfter
+    boolean sortAsc = majorSortDirection != OrderByDir.DESC;
 
     // If startAfter is given then orderBy is required
-    if (!StringUtils.isBlank(startAfter) && StringUtils.isBlank(majorOrderBy))
+    if (!StringUtils.isBlank(startAfter) && StringUtils.isBlank(majorOrderByStr))
     {
       throw new TapisException(LibUtils.getMsg("SYSLIB_DB_INVALID_SORT_START", SYSTEMS.getName()));
     }
@@ -972,12 +978,19 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
 //      }
 // DEBUG
 
-    // Determine and check orderBy column
-    Field<?> colOrderBy = SYSTEMS.field(DSL.name(SearchUtils.camelCaseToSnakeCase(majorOrderBy)));
-    if (!StringUtils.isBlank(majorOrderBy) && colOrderBy == null)
+    // Determine and check orderBy columns, build orderFieldList
+    List<OrderField> orderFieldList = new ArrayList<>();
+    for (OrderBy orderBy : tmpOrderByList)
     {
-      String msg = LibUtils.getMsg("SYSLIB_DB_NO_COLUMN_SORT", SYSTEMS.getName(), DSL.name(majorOrderBy));
-      throw new TapisException(msg);
+      String orderByStr = orderBy.getOrderByAttr();
+      Field<?> colOrderBy = SYSTEMS.field(DSL.name(SearchUtils.camelCaseToSnakeCase(orderByStr)));
+      if (StringUtils.isBlank(orderByStr) || colOrderBy == null)
+      {
+        String msg = LibUtils.getMsg("SYSLIB_DB_NO_COLUMN_SORT", SYSTEMS.getName(), DSL.name(orderByStr));
+        throw new TapisException(msg);
+      }
+      if (orderBy.getOrderByDir() == OrderBy.OrderByDir.ASC) orderFieldList.add(colOrderBy.asc());
+      else orderFieldList.add(colOrderBy.desc());
     }
 
     // If no IDs in list then we are done.
@@ -1004,8 +1017,8 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
     {
       // Build search string so we can re-use code for checking and adding a condition
       String searchStr;
-      if (sortAsc) searchStr = majorOrderBy + ".gt." + startAfter;
-      else searchStr = majorOrderBy + ".lt." + startAfter;
+      if (sortAsc) searchStr = majorOrderByStr + ".gt." + startAfter;
+      else searchStr = majorOrderByStr + ".lt." + startAfter;
       whereCondition = addSearchCondStrToWhere(whereCondition, searchStr, "AND");
     }
 
@@ -1024,18 +1037,16 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
       // NOTE: LIMIT + OFFSET is not standard among DBs and often very difficult to get right.
       //       Jooq claims to handle it well.
       Result<SystemsRecord> results;
-      org.jooq.SelectConditionStep<SystemsRecord> condStep = db.selectFrom(SYSTEMS).where(whereCondition);
-      if (!StringUtils.isBlank(majorOrderBy) &&  limit >= 0)
+      org.jooq.SelectConditionStep condStep = db.selectFrom(SYSTEMS).where(whereCondition);
+      if (!StringUtils.isBlank(majorOrderByStr) &&  limit >= 0)
       {
         // We are ordering and limiting
-        if (sortAsc) results = condStep.orderBy(colOrderBy.asc()).limit(limit).offset(skip).fetch();
-        else results = condStep.orderBy(colOrderBy.desc()).limit(limit).offset(skip).fetch();
+        results = condStep.orderBy(orderFieldList).limit(limit).offset(skip).fetch();
       }
-      else if (!StringUtils.isBlank(majorOrderBy))
+      else if (!StringUtils.isBlank(majorOrderByStr))
       {
         // We are ordering but not limiting
-        if (sortAsc) results = condStep.orderBy(colOrderBy.asc()).fetch();
-        else results = condStep.orderBy(colOrderBy.desc()).fetch();
+        results = condStep.orderBy(orderFieldList).fetch();
       }
       else if (limit >= 0)
       {
