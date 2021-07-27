@@ -819,6 +819,9 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
                              List<OrderBy> orderByList, String startAfter, boolean showDeleted)
           throws TapisException
   {
+    // If no IDs in list then we are done.
+    if (setOfIDs != null && setOfIDs.isEmpty()) return 0;
+
     // Ensure we have a non-null orderByList
     List<OrderBy> tmpOrderByList = new ArrayList<>();
     if (orderByList != null) tmpOrderByList = orderByList;
@@ -841,19 +844,18 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
       throw new TapisException(LibUtils.getMsg("SYSLIB_DB_INVALID_SORT_START", SYSTEMS.getName()));
     }
 
-    // Determine and check orderBy columns, build orderFieldList
-    List<OrderField> orderFieldList = new ArrayList<>();
+    // Validate orderBy columns
+    // If orderBy column not found then it is an error
+    // For count we do not need the actual column so we just check that the column exists.
+    //   Down below in getSystems() we need the actual column
     for (OrderBy orderBy : tmpOrderByList)
     {
       String orderByStr = orderBy.getOrderByAttr();
-      Field<?> colOrderBy = SYSTEMS.field(DSL.name(SearchUtils.camelCaseToSnakeCase(orderByStr)));
-      if (StringUtils.isBlank(orderByStr) || colOrderBy == null)
+      if (StringUtils.isBlank(orderByStr) || !SYSTEMS_FIELDS.contains(SearchUtils.camelCaseToSnakeCase(orderByStr)))
       {
         String msg = LibUtils.getMsg("SYSLIB_DB_NO_COLUMN_SORT", SYSTEMS.getName(), DSL.name(orderByStr));
         throw new TapisException(msg);
       }
-      if (orderBy.getOrderByDir() == OrderBy.OrderByDir.ASC) orderFieldList.add(colOrderBy.asc());
-      else orderFieldList.add(colOrderBy.desc());
     }
 
     // Begin where condition for the query
@@ -940,6 +942,12 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
                              int limit, List<OrderBy> orderByList, int skip, String startAfter, boolean showDeleted)
           throws TapisException
   {
+    // The result list should always be non-null.
+    var retList = new ArrayList<TSystem>();
+
+    // If no IDs in list then we are done.
+    if (setOfIDs != null && setOfIDs.isEmpty()) return retList;
+
     // Ensure we have a non-null orderByList
     List<OrderBy> tmpOrderByList = new ArrayList<>();
     if (orderByList != null) tmpOrderByList = orderByList;
@@ -952,9 +960,6 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
       majorOrderByStr = tmpOrderByList.get(0).getOrderByAttr();
       majorSortDirection = tmpOrderByList.get(0).getOrderByDir();
     }
-
-    // The result list should always be non-null.
-    var retList = new ArrayList<TSystem>();
 
     // Negative skip indicates no skip
     if (skip < 0) skip = 0;
@@ -979,6 +984,7 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
 // DEBUG
 
     // Determine and check orderBy columns, build orderFieldList
+    // Each OrderField contains the column and direction
     List<OrderField> orderFieldList = new ArrayList<>();
     for (OrderBy orderBy : tmpOrderByList)
     {
@@ -992,9 +998,6 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
       if (orderBy.getOrderByDir() == OrderBy.OrderByDir.ASC) orderFieldList.add(colOrderBy.asc());
       else orderFieldList.add(colOrderBy.desc());
     }
-
-    // If no IDs in list then we are done.
-    if (setOfIDs != null && setOfIDs.isEmpty()) return retList;
 
     // Begin where condition for the query
     Condition whereCondition;

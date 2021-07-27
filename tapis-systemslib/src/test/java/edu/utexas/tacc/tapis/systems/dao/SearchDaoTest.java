@@ -12,6 +12,7 @@ import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,7 +37,6 @@ import static org.testng.Assert.assertEquals;
 public class SearchDaoTest
 {
   private SystemsDaoImpl dao;
-  private ResourceRequestUser rUser;
 
   // Test data
   private static final String testKey = "SrchGet";
@@ -79,17 +79,14 @@ public class SearchDaoTest
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
   TSystem[] systems = IntegrationUtils.makeSystems(numSystems, testKey);
 
-  private LocalDateTime createBegin;
-  private LocalDateTime createEnd;
-
   @BeforeSuite
   public void setup() throws Exception
   {
     System.out.println("Executing BeforeSuite setup method: " + SearchDaoTest.class.getSimpleName());
     dao = new SystemsDaoImpl();
     // Initialize authenticated user
-    rUser = new ResourceRequestUser(new AuthenticatedUser(apiUser, tenantName, TapisThreadContext.AccountType.user.name(),
-                                    null, apiUser, tenantName, null, null, null));
+    ResourceRequestUser rUser = new ResourceRequestUser(new AuthenticatedUser(apiUser, tenantName, TapisThreadContext.AccountType.user.name(),
+            null, apiUser, tenantName, null, null, null));
 
     // Cleanup anything leftover from previous failed run
     teardown();
@@ -105,7 +102,7 @@ public class SearchDaoTest
     systems[numSystems-1].setJobWorkingDir(escapedCommaInListValue);
 
     // Create all the systems in the dB using the in-memory objects, recording start and end times
-    createBegin = TapisUtils.getUTCTimeNow();
+    LocalDateTime createBegin = TapisUtils.getUTCTimeNow();
     Thread.sleep(500);
     for (TSystem sys : systems)
     {
@@ -123,7 +120,8 @@ public class SearchDaoTest
 //    created1Str = TapisUtils.getSQLStringFromUTCTime(created1);
 //    System.out.println("Created System with id=" + dtnSystem1.getId() + " and created=" + created1Str);
 
-    createEnd = TapisUtils.getUTCTimeNow();
+    LocalDateTime createEnd = TapisUtils.getUTCTimeNow();
+    System.out.println("Total time taken for BeforeSuite setup method: " + Duration.between(createBegin, createEnd));
   }
 
   @AfterSuite
@@ -160,12 +158,12 @@ public class SearchDaoTest
     }
     var validCaseInputs = new HashMap<Integer, CaseData>();
     // Test basic types and operators
-    validCaseInputs.put(1, new CaseData(1, Arrays.asList("id.eq." + sys0Id))); // 1 has specific name
-    validCaseInputs.put(2, new CaseData(1, Arrays.asList("description.eq." + sys0.getDescription())));
-    validCaseInputs.put(3, new CaseData(1, Arrays.asList("host.eq." + sys0.getHost())));
-    validCaseInputs.put(4, new CaseData(1, Arrays.asList("bucket_name.eq." + sys0.getBucketName())));
-    validCaseInputs.put(5, new CaseData(1, Arrays.asList("root_dir.eq." + sys0.getRootDir())));
-    validCaseInputs.put(6, new CaseData(1, Arrays.asList("job_working_dir.eq." + sys0.getJobWorkingDir())));
+    validCaseInputs.put(1, new CaseData(1, List.of("id.eq." + sys0Id))); // 1 has specific name
+    validCaseInputs.put(2, new CaseData(1, List.of("description.eq." + sys0.getDescription())));
+    validCaseInputs.put(3, new CaseData(1, List.of("host.eq." + sys0.getHost())));
+    validCaseInputs.put(4, new CaseData(1, List.of("bucket_name.eq." + sys0.getBucketName())));
+    validCaseInputs.put(5, new CaseData(1, List.of("root_dir.eq." + sys0.getRootDir())));
+    validCaseInputs.put(6, new CaseData(1, List.of("job_working_dir.eq." + sys0.getJobWorkingDir())));
     validCaseInputs.put(7, new CaseData(20, Arrays.asList(sysIdLikeAll, "batch_scheduler.eq." + sys0.getBatchScheduler())));
     validCaseInputs.put(8, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "batch_default_logical_queue.eq." + sys0.getBatchDefaultLogicalQueue())));
     validCaseInputs.put(10, new CaseData(numSystems / 2, Arrays.asList(sysIdLikeAll, "owner.eq." + owner1)));  // Half owned by one user
@@ -174,9 +172,9 @@ public class SearchDaoTest
     validCaseInputs.put(13, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "deleted.eq.false"))); // none are deleted
     validCaseInputs.put(14, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "deleted.neq.true"))); // none are deleted
     validCaseInputs.put(15, new CaseData(0, Arrays.asList(sysIdLikeAll, "deleted.eq.true")));           // none are deleted
-    validCaseInputs.put(16, new CaseData(1, Arrays.asList("id.like." + sys0Id)));
-    validCaseInputs.put(17, new CaseData(0, Arrays.asList("id.like.NOSUCHSYSTEMxFM2c29bc8RpKWeE2sht7aZrJzQf3s")));
-    validCaseInputs.put(18, new CaseData(numSystems, Arrays.asList(sysIdLikeAll)));
+    validCaseInputs.put(16, new CaseData(1, List.of("id.like." + sys0Id)));
+    validCaseInputs.put(17, new CaseData(0, List.of("id.like.NOSUCHSYSTEMxFM2c29bc8RpKWeE2sht7aZrJzQf3s")));
+    validCaseInputs.put(18, new CaseData(numSystems, List.of(sysIdLikeAll)));
     validCaseInputs.put(19, new CaseData(numSystems - 1, Arrays.asList(sysIdLikeAll, "id.nlike." + sys0Id)));
     validCaseInputs.put(20, new CaseData(1, Arrays.asList(sysIdLikeAll, "id.in." + nameList)));
     validCaseInputs.put(21, new CaseData(numSystems - 1, Arrays.asList(sysIdLikeAll, "id.nin." + nameList)));
@@ -262,8 +260,7 @@ public class SearchDaoTest
   @Test(groups={"integration"})
   public void testLimitSkip() throws Exception
   {
-    String searchCond = sysIdLikeAll;
-    String verifiedCondStr = SearchUtils.validateAndProcessSearchCondition(searchCond);
+    String verifiedCondStr = SearchUtils.validateAndProcessSearchCondition(sysIdLikeAll);
     var verifiedSearchList = Collections.singletonList(verifiedCondStr);
     System.out.println("VerfiedInput: " + verifiedSearchList);
     List<TSystem> searchResults;
@@ -321,8 +318,7 @@ public class SearchDaoTest
   @Test(groups={"integration"})
   public void testSortingSkip() throws Exception
   {
-    String searchCond = sysIdLikeAll;
-    String verifiedCondStr = SearchUtils.validateAndProcessSearchCondition(searchCond);
+    String verifiedCondStr = SearchUtils.validateAndProcessSearchCondition(sysIdLikeAll);
     var verifiedSearchList = Collections.singletonList(verifiedCondStr);
     System.out.println("VerfiedInput: " + verifiedSearchList);
     List<TSystem> searchResults;
@@ -374,8 +370,7 @@ public class SearchDaoTest
   @Test(groups={"integration"})
   public void testSortingStartAfter() throws Exception
   {
-    String searchCond = sysIdLikeAll;
-    String verifiedCondStr = SearchUtils.validateAndProcessSearchCondition(searchCond);
+    String verifiedCondStr = SearchUtils.validateAndProcessSearchCondition(sysIdLikeAll);
     var verifiedSearchList = Collections.singletonList(verifiedCondStr);
     System.out.println("VerfiedInput: " + verifiedSearchList);
     List<TSystem> searchResults;
