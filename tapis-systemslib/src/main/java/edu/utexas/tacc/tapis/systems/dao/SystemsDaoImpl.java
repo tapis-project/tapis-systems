@@ -12,7 +12,6 @@ import java.util.regex.Pattern;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import edu.utexas.tacc.tapis.systems.model.ResourceRequestUser;
 import org.flywaydb.core.Flyway;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -34,6 +33,7 @@ import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy.OrderByDir;
+import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 
 import static edu.utexas.tacc.tapis.shared.threadlocal.OrderBy.DEFAULT_ORDERBY_DIRECTION;
 
@@ -1338,8 +1338,8 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
             .set(SYSTEM_UPDATES.SYSTEM_SEQ_ID, seqId)
             .set(SYSTEM_UPDATES.SYSTEM_TENANT, tenantId)
             .set(SYSTEM_UPDATES.SYSTEM_ID, id)
-            .set(SYSTEM_UPDATES.USER_TENANT, rUser.getApiUserId())
-            .set(SYSTEM_UPDATES.USER_NAME, rUser.getApiUserId())
+            .set(SYSTEM_UPDATES.USER_TENANT, rUser.getOboTenantId())
+            .set(SYSTEM_UPDATES.USER_NAME, rUser.getOboUserId())
             .set(SYSTEM_UPDATES.OPERATION, op)
             .set(SYSTEM_UPDATES.UPD_JSON, TapisGsonUtils.getGson().fromJson(updJsonStr, JsonElement.class))
             .set(SYSTEM_UPDATES.UPD_TEXT, upd_text)

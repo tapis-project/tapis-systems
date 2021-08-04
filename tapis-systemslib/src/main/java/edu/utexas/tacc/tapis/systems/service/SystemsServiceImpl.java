@@ -28,7 +28,7 @@ import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
-import edu.utexas.tacc.tapis.systems.model.ResourceRequestUser;
+import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import org.apache.commons.lang3.StringUtils;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
@@ -196,7 +196,7 @@ public class SystemsServiceImpl implements SystemsService
     String effectiveUserId = system.getEffectiveUserId();
 
     // ----------------- Resolve variables for any attributes that might contain them --------------------
-    system.resolveVariables(rUser.getApiUserId());
+    system.resolveVariables(rUser.getOboUserId());
 
     // ------------------------- Check service level authorization -------------------------
     checkAuth(rUser, op, system.getId(), system.getOwner(), null, null);
@@ -497,7 +497,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(newOwnerName))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    String resourceTenantId = rUser.getApiTenantId();
+    String resourceTenantId = rUser.getOboTenantId();
 
     // System must already exist and not be deleted
     if (!dao.checkForSystem(resourceTenantId, systemId, false))
@@ -617,7 +617,7 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
     // We need owner to check auth and if system not there cannot find owner, so cannot do auth check if no system
-    if (dao.checkForSystem(rUser.getApiTenantId(), systemId, includeDeleted)) {
+    if (dao.checkForSystem(rUser.getOboTenantId(), systemId, includeDeleted)) {
       // ------------------------- Check service level authorization -------------------------
       checkAuth(rUser, op, systemId, null, null, null);
       return true;
@@ -643,7 +643,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    String resourceTenantId = rUser.getApiTenantId();
+    String resourceTenantId = rUser.getOboTenantId();
 
     // Resource must exist and not be deleted
     if (!dao.checkForSystem(resourceTenantId, systemId, false))
@@ -675,7 +675,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    String resourceTenantId = rUser.getApiTenantId();
+    String resourceTenantId = rUser.getOboTenantId();
 
     // We need owner to check auth and if system not there cannot find owner, so return null if no system.
     if (!dao.checkForSystem(resourceTenantId, systemId, false)) return null;
@@ -685,7 +685,7 @@ public class SystemsServiceImpl implements SystemsService
     // If flag is set to also require EXECUTE perm then make a special auth call
     if (requireExecPerm)
     {
-      checkAuthUser(rUser, SystemOperation.execute, resourceTenantId, rUser.getApiUserId(),
+      checkAuthUser(rUser, SystemOperation.execute, resourceTenantId, rUser.getOboUserId(),
                     systemId, null, null, null);
     }
 
@@ -760,7 +760,7 @@ public class SystemsServiceImpl implements SystemsService
     if (allowedSysIDs != null && allowedSysIDs.isEmpty()) return 0;
 
     // Count all allowed systems matching the search conditions
-    return dao.getSystemsCount(rUser.getApiTenantId(), verifiedSearchList, null, allowedSysIDs, orderByList, startAfter,
+    return dao.getSystemsCount(rUser.getOboTenantId(), verifiedSearchList, null, allowedSysIDs, orderByList, startAfter,
                                showDeleted);
   }
 
@@ -809,7 +809,7 @@ public class SystemsServiceImpl implements SystemsService
     Set<String> allowedSysIDs = getAllowedSysIDs(rUser);
 
     // Get all allowed systems matching the search conditions
-    List<TSystem> systems = dao.getSystems(rUser.getApiTenantId(), verifiedSearchList, null, allowedSysIDs,
+    List<TSystem> systems = dao.getSystems(rUser.getOboTenantId(), verifiedSearchList, null, allowedSysIDs,
                                             limit, orderByList, skip, startAfter, showDeleted);
 
     for (TSystem system : systems)
@@ -868,7 +868,7 @@ public class SystemsServiceImpl implements SystemsService
     Set<String> allowedSysIDs = getAllowedSysIDs(rUser);
 
     // Get all allowed systems matching the search conditions
-    List<TSystem> systems = dao.getSystems(rUser.getApiTenantId(), null, searchAST, allowedSysIDs,
+    List<TSystem> systems = dao.getSystems(rUser.getOboTenantId(), null, searchAST, allowedSysIDs,
                                            limit, orderByList, skip, startAfter, showDeleted);
 
     for (TSystem system : systems)
@@ -908,7 +908,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Get all allowed systems matching the constraint conditions
-    List<TSystem> systems = dao.getSystemsSatisfyingConstraints(rUser.getApiTenantId(), matchAST, allowedSysIDs);
+    List<TSystem> systems = dao.getSystemsSatisfyingConstraints(rUser.getOboTenantId(), matchAST, allowedSysIDs);
 
     for (TSystem system : systems)
     {
@@ -936,12 +936,12 @@ public class SystemsServiceImpl implements SystemsService
 
     // We need owner to check auth and if system not there cannot find owner, so
     // if system does not exist then return null
-    if (!dao.checkForSystem(rUser.getApiTenantId(), systemId, false)) return null;
+    if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false)) return null;
 
     // ------------------------- Check service level authorization -------------------------
     checkAuth(rUser, op, systemId, null, null, null);
 
-    return dao.getSystemOwner(rUser.getApiTenantId(), systemId);
+    return dao.getSystemOwner(rUser.getOboTenantId(), systemId);
   }
 
   // -----------------------------------------------------------------------
@@ -970,7 +970,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    String resourceTenantId = rUser.getApiTenantId();
+    String resourceTenantId = rUser.getOboTenantId();
 
     // If system does not exist or has been deleted then throw an exception
     if (!dao.checkForSystem(resourceTenantId, systemId, false))
@@ -1056,7 +1056,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    String resourceTenantId = rUser.getApiTenantId();
+    String resourceTenantId = rUser.getOboTenantId();
 
     // We need owner to check auth and if system not there cannot find owner, so
     // if system does not exist or has been deleted then return 0 changes
@@ -1139,14 +1139,14 @@ public class SystemsServiceImpl implements SystemsService
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
     // If system does not exist or has been deleted then return null
-    if (!dao.checkForSystem(rUser.getApiTenantId(), systemId, false)) return null;
+    if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false)) return null;
 
     // ------------------------- Check service level authorization -------------------------
     checkAuth(rUser, op, systemId, null, userName, null);
 
     // Use Security Kernel client to check for each permission in the enum list
     var skClient = getSKClient();
-    return getUserPermSet(skClient, userName, rUser.getApiTenantId(), systemId);
+    return getUserPermSet(skClient, userName, rUser.getOboTenantId(), systemId);
   }
 
   // -----------------------------------------------------------------------
@@ -1175,7 +1175,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    String resourceTenantId = rUser.getApiTenantId();
+    String resourceTenantId = rUser.getOboTenantId();
 
     // If system does not exist or has been deleted then throw an exception
     if (!dao.checkForSystem(resourceTenantId, systemId, false))
@@ -1234,7 +1234,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    String resourceTenantId = rUser.getApiTenantId();
+    String resourceTenantId = rUser.getOboTenantId();
 
     int changeCount = 0;
     // If system does not exist or has been deleted then return 0 changes
@@ -1289,7 +1289,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUserId))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    String resourceTenantId = rUser.getApiTenantId();
+    String resourceTenantId = rUser.getOboTenantId();
 
     // If system does not exist or has been deleted then return null
     if (!dao.checkForSystem(resourceTenantId, systemId, false)) return null;
@@ -1320,7 +1320,7 @@ public class SystemsServiceImpl implements SystemsService
      *   key_type is sshkey, password, accesskey or cert and S1 is the reserved SecretName associated with the Systems.
      * Hence the following code
      *     new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME)
-     *     sParms.setTenant(rUser.getApiTenantId()).setSysId(systemId).setSysUser(targetUserId);
+     *     sParms.setTenant(rUser.getOboTenantId()).setSysId(systemId).setSysUser(targetUserId);
      *
      */
     Credential credential = null;
@@ -1334,12 +1334,12 @@ public class SystemsServiceImpl implements SystemsService
 
       // Set tenant, system and user associated with the secret.
       // These values are used to build the vault path to the secret.
-      sParms.setTenant(rUser.getApiTenantId()).setSysId(systemId).setSysUser(targetUserId);
+      sParms.setTenant(rUser.getOboTenantId()).setSysId(systemId).setSysUser(targetUserId);
 
       // NOTE: This is needed for the SK call. Not clear if it should be targetUserId, serviceUserId, apiUserId.
       //       If not set then the first getAuthnCred in SystemsServiceTest.testUserCredentials
       //          fails. But it appears the value does not matter. Even an invalid userId appears to be OK.
-      sParms.setUser(rUser.getApiUserId());
+      sParms.setUser(rUser.getOboUserId());
       // Set key type based on authn method
       if (authnMethod.equals(AuthnMethod.PASSWORD))sParms.setKeyType(KeyType.password);
       else if (authnMethod.equals(AuthnMethod.PKI_KEYS))sParms.setKeyType(KeyType.sshkey);
@@ -1394,7 +1394,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    String resourceTenantId = rUser.getApiTenantId();
+    String resourceTenantId = rUser.getOboTenantId();
 
     // resource must already exist and not be deleted
     if (!dao.checkForSystem(resourceTenantId, systemId, false))
@@ -1432,7 +1432,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    String resourceTenantId = rUser.getApiTenantId();
+    String resourceTenantId = rUser.getOboTenantId();
 
     // System must exist
     if (!dao.checkForSystem(resourceTenantId, systemId, true))
@@ -1637,11 +1637,11 @@ public class SystemsServiceImpl implements SystemsService
           throws TapisException, NotAuthorizedException
   {
     // Look up owner. If not found then consider not authorized. Very unlikely at this point.
-    String owner = dao.getSystemOwner(rUser.getApiTenantId(), systemId);
+    String owner = dao.getSystemOwner(rUser.getOboTenantId(), systemId);
     if (StringUtils.isBlank(owner))
         throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, opStr), NO_CHALLENGE);
     // If owner making the request and owner is the target user for the perm update then reject.
-    if (owner.equals(rUser.getApiUserId()) && owner.equals(userName))
+    if (owner.equals(rUser.getOboUserId()) && owner.equals(userName))
     {
       // If it is a svc making request reject with no auth, if user making request reject with special message.
       // Need this check since svc not allowed to update perms but checkAuth happens after checkForOwnerPermUpdate.
@@ -1816,7 +1816,7 @@ public class SystemsServiceImpl implements SystemsService
       return null;
     }
     var sysIDs = new HashSet<String>();
-    var userPerms = getSKClient().getUserPerms(rUser.getApiTenantId(), rUser.getApiUserId());
+    var userPerms = getSKClient().getUserPerms(rUser.getOboTenantId(), rUser.getOboUserId());
     // Check each perm to see if it allows user READ access.
     for (String userPerm : userPerms)
     {
@@ -1910,7 +1910,7 @@ public class SystemsServiceImpl implements SystemsService
           throws TapisException, IllegalStateException
   {
     // Get the effectiveUserId. If not ${apiUserId} then considered an error since credential would never be used.
-    String effectiveUserId = dao.getSystemEffectiveUserId(rUser.getApiTenantId(), systemId);
+    String effectiveUserId = dao.getSystemEffectiveUserId(rUser.getOboTenantId(), systemId);
     if (StringUtils.isBlank(effectiveUserId) || !effectiveUserId.equals(APIUSERID_VAR))
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOTAPIUSER", rUser, systemId, op.name());
@@ -1965,7 +1965,7 @@ public class SystemsServiceImpl implements SystemsService
       sParms.setData(dataMap);
       // First 2 parameters correspond to tenant and user from request payload
       // Tenant is used in constructing full path for secret, user is not used.
-      skClient.writeSecret(rUser.getApiTenantId(), rUser.getApiUserId(), sParms);
+      skClient.writeSecret(rUser.getOboTenantId(), rUser.getOboUserId(), sParms);
     }
     // Store PKI keys if both present
     if (!StringUtils.isBlank(credential.getPublicKey()) && !StringUtils.isBlank(credential.getPublicKey())) {
@@ -1974,7 +1974,7 @@ public class SystemsServiceImpl implements SystemsService
       dataMap.put(SK_KEY_PUBLIC_KEY, credential.getPublicKey());
       dataMap.put(SK_KEY_PRIVATE_KEY, credential.getPrivateKey());
       sParms.setData(dataMap);
-      skClient.writeSecret(rUser.getApiTenantId(), rUser.getApiUserId(), sParms);
+      skClient.writeSecret(rUser.getOboTenantId(), rUser.getOboUserId(), sParms);
     }
     // Store Access key and secret if both present
     if (!StringUtils.isBlank(credential.getAccessKey()) && !StringUtils.isBlank(credential.getAccessSecret())) {
@@ -1983,7 +1983,7 @@ public class SystemsServiceImpl implements SystemsService
       dataMap.put(SK_KEY_ACCESS_KEY, credential.getAccessKey());
       dataMap.put(SK_KEY_ACCESS_SECRET, credential.getAccessSecret());
       sParms.setData(dataMap);
-      skClient.writeSecret(rUser.getApiTenantId(), rUser.getApiUserId(), sParms);
+      skClient.writeSecret(rUser.getOboTenantId(), rUser.getOboUserId(), sParms);
     }
     // TODO if necessary handle ssh certificate when supported
   }
@@ -1995,8 +1995,8 @@ public class SystemsServiceImpl implements SystemsService
   private static int deleteCredential(SKClient skClient, ResourceRequestUser rUser, String systemId, String userName)
           throws TapisClientException
   {
-    String apiTenantId = rUser.getApiTenantId();
-    String apiUserId = rUser.getApiUserId();
+    String apiTenantId = rUser.getOboTenantId();
+    String apiUserId = rUser.getOboUserId();
 
     // Return 0 if credential does not exist
     var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);

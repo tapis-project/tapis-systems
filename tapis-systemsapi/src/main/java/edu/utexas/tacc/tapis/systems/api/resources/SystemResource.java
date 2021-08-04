@@ -27,9 +27,15 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
-
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.glassfish.grizzly.http.server.Request;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
+
+import edu.utexas.tacc.tapis.sharedapi.responses.RespAbstract;
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.search.SearchUtils;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
@@ -40,16 +46,8 @@ import edu.utexas.tacc.tapis.sharedapi.responses.RespBoolean;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultBoolean;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
 
-import edu.utexas.tacc.tapis.sharedapi.responses.RespAbstract;
-import edu.utexas.tacc.tapis.systems.model.ResourceRequestUser;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.glassfish.grizzly.http.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
-import edu.utexas.tacc.tapis.systems.model.PatchSystem;
+import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidator;
@@ -61,6 +59,7 @@ import edu.utexas.tacc.tapis.sharedapi.responses.RespChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespResourceUrl;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultResourceUrl;
+import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPatchSystem;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPostSystem;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPutSystem;
@@ -231,7 +230,7 @@ public class SystemResource
     }
 
     // Create a TSystem from the request
-    TSystem tSystem = createTSystemFromPostRequest(rUser.getApiTenantId(), req, rawJson);
+    TSystem tSystem = createTSystemFromPostRequest(rUser.getOboTenantId(), req, rawJson);
 
     // Mask any secret info that might be contained in rawJson
     String scrubbedJson = rawJson;
@@ -363,7 +362,7 @@ public class SystemResource
       return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
 
-    PatchSystem patchSystem = createPatchSystemFromRequest(req, rUser.getApiTenantId(), systemId, rawJson);
+    PatchSystem patchSystem = createPatchSystemFromRequest(req, rUser.getOboTenantId(), systemId, rawJson);
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_PATCH_TRACE", rUser, rawJson));
 
     // No attributes are required. Constraints validated and defaults filled in on server side.
@@ -489,7 +488,7 @@ public class SystemResource
     }
 
     // Create a TSystem from the request
-    TSystem putSystem = createTSystemFromPutRequest(rUser.getApiTenantId(), systemId, req, rawJson);
+    TSystem putSystem = createTSystemFromPutRequest(rUser.getOboTenantId(), systemId, req, rawJson);
 
     // Mask any secret info that might be contained in rawJson
     String scrubbedJson = rawJson;

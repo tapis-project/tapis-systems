@@ -52,11 +52,6 @@
       <groupId>com.fasterxml.jackson.datatype</groupId>
       <artifactId>jackson-datatype-jsr310</artifactId>
     </dependency>
-    <!-- Jersey 2 entity filtering -->
-    <dependency>
-      <groupId>org.glassfish.jersey.ext</groupId>
-      <artifactId>jersey-entity-filtering</artifactId>
-    </dependency>
 
   </dependencies>
 

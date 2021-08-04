@@ -7,6 +7,7 @@ import edu.utexas.tacc.tapis.shared.security.TenantManager;
 import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
+import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.IntegrationUtils;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
@@ -16,7 +17,6 @@ import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
-import edu.utexas.tacc.tapis.systems.model.ResourceRequestUser;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.ServiceLocatorUtilities;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
@@ -391,7 +391,7 @@ public class SystemsServiceTest
     try {
       svc.deleteSystem(rOwner1, sys0.getId());
       Assert.fail("Original owner should not have permission to update system after change of ownership. System name: " + sys0.getId() +
-              " Old owner: " + rOwner1.getApiUserId() + " New Owner: " + newOwnerName);
+              " Old owner: " + rOwner1.getOboUserId() + " New Owner: " + newOwnerName);
     } catch (Exception e) {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
     }
@@ -399,7 +399,7 @@ public class SystemsServiceTest
     try {
       svc.getSystem(rOwner1, sys0.getId(), false, null, false);
       Assert.fail("Original owner should not have permission to read system after change of ownership. System name: " + sys0.getId() +
-              " Old owner: " + rOwner1.getApiUserId() + " New Owner: " + newOwnerName);
+              " Old owner: " + rOwner1.getOboUserId() + " New Owner: " + newOwnerName);
     } catch (Exception e) {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
     }
@@ -462,11 +462,11 @@ public class SystemsServiceTest
     // Create 3 systems, 2 of which are owned by testUser4.
     TSystem sys0 = systems[16];
     String sys1Name = sys0.getId();
-    sys0.setOwner(rTestUser4.getApiUserId());
+    sys0.setOwner(rTestUser4.getOboUserId());
     svc.createSystem(rTestUser4, sys0, scrubbedJson);
     sys0 = systems[17];
     String sys2Name = sys0.getId();
-    sys0.setOwner(rTestUser4.getApiUserId());
+    sys0.setOwner(rTestUser4.getOboUserId());
     svc.createSystem(rTestUser4, sys0, scrubbedJson);
     sys0 = systems[18];
     svc.createSystem(rOwner1, sys0, scrubbedJson);
