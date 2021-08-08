@@ -64,6 +64,10 @@ public class SystemsDaoTest
       dao.hardDeleteSystem(tenantName, systems[i].getId());
     }
 
+    // Delete scheduler profiles
+    dao.deleteSchedulerProfile(tenantName, "schedProfile1");
+    dao.deleteSchedulerProfile(tenantName, "schedProfile2");
+
     Assert.assertFalse(dao.checkForSystem(tenantName, systems[0].getId(), true),
                        "System not deleted. System name: " + systems[0].getId());
   }
@@ -345,6 +349,5 @@ public class SystemsDaoTest
     Assert.assertFalse(StringUtils.isBlank(tmpProfile.getUuid().toString()));
     Assert.assertFalse(StringUtils.isBlank(tmpProfile.getCreated().toString()));
     Assert.assertFalse(StringUtils.isBlank(tmpProfile.getUpdated().toString()));
-
   }
 }

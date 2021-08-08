@@ -1432,6 +1432,38 @@ public class SystemsDaoImpl implements SystemsDao
     return result;
   }
 
+  /**
+   * Delete a scheduler profile.
+   */
+  @Override
+  public int deleteSchedulerProfile(String tenantId, String name) throws TapisException
+  {
+    String opName = "deleteSchedulerProfile";
+    int rows = -1;
+    // ------------------------- Check Input -------------------------
+    if (StringUtils.isBlank(tenantId)) LibUtils.logAndThrowNullParmException(opName, "tenant");
+    if (StringUtils.isBlank(name)) LibUtils.logAndThrowNullParmException(opName, "name");
+
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      db.deleteFrom(SCHEDULER_PROFILES).where(SCHEDULER_PROFILES.TENANT.eq(tenantId),SCHEDULER_PROFILES.NAME.eq(name)).execute();
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      LibUtils.rollbackDB(conn, e,"DB_DELETE_FAILURE", "scheduler_profiles");
+    }
+    finally
+    {
+      LibUtils.finalCloseDB(conn);
+    }
+    return rows;
+  }
+
   /* ********************************************************************** */
   /*                             Private Methods                            */
   /* ********************************************************************** */
