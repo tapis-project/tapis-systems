@@ -8,6 +8,8 @@ import edu.utexas.tacc.tapis.systems.IntegrationUtils;
 import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
+import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
+import org.jooq.tools.StringUtils;
 import org.testng.Assert;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
@@ -23,6 +25,7 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.SystemType;
 
 import static edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters.*;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.*;
+import static edu.utexas.tacc.tapis.systems.model.SchedulerProfile.HiddenOption;
 
 /**
  * Test the SystemsDao class against a DB running locally
@@ -289,5 +292,59 @@ public class SystemsDaoTest
     Assert.assertTrue(pass);
     Assert.assertNull(dao.getSystem(tenantName, fakeSystemName));
     Assert.assertNull(dao.getSystemOwner(tenantName, fakeSystemName));
+  }
+
+  // ******************************************************************
+  //   Scheduler Profiles
+  // ******************************************************************
+
+  @Test
+  public void testCreateSchedulerProfile() throws Exception
+  {
+    List<HiddenOption> hiddenOptions = new ArrayList<>(List.of(HiddenOption.MEM));
+    String moduleLoadCmd = "module load";
+    String[] modulesToLoad = {"value1", "value2"};
+    SchedulerProfile schedProfile = new SchedulerProfile(tenantName, "schedProfile1", testUser2, "Test profile 1",
+                                                         hiddenOptions, moduleLoadCmd, modulesToLoad, null, null, null);
+    boolean itemCreated = dao.createSchedulerProfile(rUser, schedProfile, gson.toJson(schedProfile), scrubbedJson);
+    Assert.assertTrue(itemCreated, "Profile not created, id: " + schedProfile.getName());
+    System.out.println("Scheduler Profile created: " + schedProfile.getName());
+  }
+
+  @Test
+  public void testGetSchedulerProfile() throws Exception
+  {
+    List<HiddenOption> hiddenOptions = new ArrayList<>(List.of(HiddenOption.MEM));
+    String moduleLoadCmd = "moduleLoad2";
+    String[] modulesToLoad = {"value3", "value4"};
+    SchedulerProfile schedProfile = new SchedulerProfile(tenantName, "schedProfile2", testUser2, "Test profile 2",
+            hiddenOptions, moduleLoadCmd, modulesToLoad, null, null, null);
+    boolean itemCreated = dao.createSchedulerProfile(rUser, schedProfile, gson.toJson(schedProfile), scrubbedJson);
+    Assert.assertTrue(itemCreated, "Profile not created, id: " + schedProfile.getName());
+    System.out.println("Scheduler Profile created: " + schedProfile.getName());
+
+    SchedulerProfile tmpProfile = dao.getSchedulerProfile(tenantName, schedProfile.getName());
+    System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
+    Assert.assertEquals(tmpProfile.getTenant(), schedProfile.getTenant());
+    Assert.assertEquals(tmpProfile.getName(), schedProfile.getName());
+    Assert.assertEquals(tmpProfile.getDescription(), schedProfile.getDescription());
+    Assert.assertEquals(tmpProfile.getOwner(), schedProfile.getOwner());
+    Assert.assertEquals(tmpProfile.getModuleLoadCommand(), schedProfile.getModuleLoadCommand());
+
+    Assert.assertNotNull(tmpProfile.getHiddenOptions());
+    Assert.assertFalse(tmpProfile.getHiddenOptions().isEmpty());
+    Assert.assertEquals(tmpProfile.getHiddenOptions().size(), schedProfile.getHiddenOptions().size());
+
+
+    Assert.assertNotNull(tmpProfile.getModulesToLoad());
+    Assert.assertEquals(tmpProfile.getModulesToLoad().length, schedProfile.getModulesToLoad().length);
+
+    Assert.assertNotNull(tmpProfile.getUuid());
+    Assert.assertNotNull(tmpProfile.getCreated());
+    Assert.assertNotNull(tmpProfile.getUpdated());
+    Assert.assertFalse(StringUtils.isBlank(tmpProfile.getUuid().toString()));
+    Assert.assertFalse(StringUtils.isBlank(tmpProfile.getCreated().toString()));
+    Assert.assertFalse(StringUtils.isBlank(tmpProfile.getUpdated().toString()));
+
   }
 }

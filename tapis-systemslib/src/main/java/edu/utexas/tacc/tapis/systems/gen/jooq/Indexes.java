@@ -5,6 +5,7 @@ package edu.utexas.tacc.tapis.systems.gen.jooq;
 
 
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.FlywaySchemaHistory;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.Systems;
 
 import org.jooq.Index;
@@ -24,6 +25,7 @@ public class Indexes {
     // -------------------------------------------------------------------------
 
     public static final Index FLYWAY_SCHEMA_HISTORY_S_IDX = Internal.createIndex(DSL.name("flyway_schema_history_s_idx"), FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY, new OrderField[] { FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY.SUCCESS }, false);
+    public static final Index SCHEDPROF_TENANT_NAME_IDX = Internal.createIndex(DSL.name("schedprof_tenant_name_idx"), SchedulerProfiles.SCHEDULER_PROFILES, new OrderField[] { SchedulerProfiles.SCHEDULER_PROFILES.TENANT, SchedulerProfiles.SCHEDULER_PROFILES.NAME }, false);
     public static final Index SYS_HOST_IDX = Internal.createIndex(DSL.name("sys_host_idx"), Systems.SYSTEMS, new OrderField[] { Systems.SYSTEMS.HOST }, false);
     public static final Index SYS_OWNER_IDX = Internal.createIndex(DSL.name("sys_owner_idx"), Systems.SYSTEMS, new OrderField[] { Systems.SYSTEMS.OWNER }, false);
     public static final Index SYS_TAGS_IDX = Internal.createIndex(DSL.name("sys_tags_idx"), Systems.SYSTEMS, new OrderField[] { Systems.SYSTEMS.TAGS }, false);

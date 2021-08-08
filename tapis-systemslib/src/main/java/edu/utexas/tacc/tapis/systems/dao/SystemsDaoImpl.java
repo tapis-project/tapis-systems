@@ -12,6 +12,11 @@ import java.util.regex.Pattern;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisDBConnectionException;
+import edu.utexas.tacc.tapis.shareddb.datasource.TapisDataSource;
+import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedulerProfilesRecord;
+import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import org.flywaydb.core.Flyway;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -53,10 +58,12 @@ import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
+import javax.sql.DataSource;
+
 /*
  * Class to handle persistence and queries for Tapis System objects.
  */
-public class SystemsDaoImpl extends AbstractDao implements SystemsDao
+public class SystemsDaoImpl implements SystemsDao
 {
   /* ********************************************************************** */
   /*                               Constants                                */
@@ -1307,8 +1314,182 @@ public class SystemsDaoImpl extends AbstractDao implements SystemsDao
   }
 
   /* ********************************************************************** */
+  /*                         Scheduler Profile Methods                      */
+  /* ********************************************************************** */
+
+  /**
+   * Create a new scheduler profile
+   *
+   * @return true if created
+   * @throws TapisException - on error
+   * @throws IllegalStateException - if profile already exists
+   */
+  @Override
+  public boolean createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile schedulerProfile,
+                                        String createJsonStr, String scrubbedText)
+          throws TapisException, IllegalStateException {
+    String opName = "createSchedulerProfile";
+    String tenantId = schedulerProfile.getTenant();
+    String name = schedulerProfile.getName();
+    // ------------------------- Check Input -------------------------
+    if (schedulerProfile == null) LibUtils.logAndThrowNullParmException(opName, "schedulerProfile");
+    if (rUser == null) LibUtils.logAndThrowNullParmException(opName, "resourceRequestUser");
+    if (StringUtils.isBlank(createJsonStr)) LibUtils.logAndThrowNullParmException(opName, "createJson");
+    if (StringUtils.isBlank(schedulerProfile.getTenant())) LibUtils.logAndThrowNullParmException(opName, "tenant");
+    if (StringUtils.isBlank(schedulerProfile.getName())) LibUtils.logAndThrowNullParmException(opName, "schedulerProfileName");
+
+    // Make sure owner, effectiveUserId, notes and tags are all set
+    String owner = TSystem.DEFAULT_OWNER;
+    String[] hiddenOptionsStrArray = null;
+    String[] modulesToLoadStrArray = null;
+
+    if (StringUtils.isNotBlank(schedulerProfile.getOwner())) owner = schedulerProfile.getOwner();
+    // Convert hiddenOptions array from enum to string
+    if (schedulerProfile.getHiddenOptions() != null)
+    {
+      hiddenOptionsStrArray = schedulerProfile.getHiddenOptions().stream().map(SchedulerProfile.HiddenOption::name).toArray(String[]::new);
+    }
+    if (schedulerProfile.getModulesToLoad() != null) modulesToLoadStrArray = schedulerProfile.getModulesToLoad();
+
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+
+      // Check to see if it exists. If yes then throw IllegalStateException
+      if (db.fetchExists(SCHEDULER_PROFILES,SCHEDULER_PROFILES.TENANT.eq(tenantId),SCHEDULER_PROFILES.NAME.eq(name)))
+        throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_PRF_EXISTS", rUser, schedulerProfile.getName()));
+
+      // Generate uuid for the new resource
+      schedulerProfile.setUuid(UUID.randomUUID());
+
+      db.insertInto(SCHEDULER_PROFILES)
+              .set(SCHEDULER_PROFILES.TENANT, schedulerProfile.getTenant())
+              .set(SCHEDULER_PROFILES.NAME, schedulerProfile.getName())
+              .set(SCHEDULER_PROFILES.DESCRIPTION, schedulerProfile.getDescription())
+              .set(SCHEDULER_PROFILES.OWNER, owner)
+              .set(SCHEDULER_PROFILES.HIDDEN_OPTIONS, hiddenOptionsStrArray)
+              .set(SCHEDULER_PROFILES.MODULE_LOAD_COMMAND, schedulerProfile.getModuleLoadCommand())
+              .set(SCHEDULER_PROFILES.MODULES_TO_LOAD, modulesToLoadStrArray)
+              .set(SCHEDULER_PROFILES.UUID, schedulerProfile.getUuid()).execute();
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "scheduler_profiles");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return true;
+  }
+
+  /**
+   * getSchedulerProfile
+   * @param name - system name
+   * @return Profile object if found, null if not found
+   * @throws TapisException - on error
+   */
+  @Override
+  public SchedulerProfile getSchedulerProfile(String tenantId, String name) throws TapisException
+  {
+    // Initialize result.
+    SchedulerProfile result = null;
+
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      SchedulerProfilesRecord r;
+      r = db.selectFrom(SCHEDULER_PROFILES).where(SCHEDULER_PROFILES.TENANT.eq(tenantId),SCHEDULER_PROFILES.NAME.eq(name)).fetchOne();
+      if (r == null) return null;
+      else result = r.into(SchedulerProfile.class);
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "SchedulerProfile", tenantId, name, e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return result;
+  }
+
+  /* ********************************************************************** */
   /*                             Private Methods                            */
   /* ********************************************************************** */
+
+  /**
+   *  Return a connection from the static datasource.  Create the datasource
+   *  on demand if it doesn't exist.
+   *
+   * @return a database connection
+   * @throws TapisException on error
+   */
+  private static synchronized Connection getConnection()
+          throws TapisException
+  {
+    // Use the existing datasource.
+    DataSource ds = getDataSource();
+
+    // Get the connection.
+    Connection conn = null;
+    try {conn = ds.getConnection();}
+    catch (Exception e) {
+      String msg = MsgUtils.getMsg("DB_FAILED_CONNECTION");
+      _log.error(msg, e);
+      throw new TapisDBConnectionException(msg, e);
+    }
+
+    return conn;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* getDataSource:                                                         */
+  /* ---------------------------------------------------------------------- */
+  private static DataSource getDataSource() throws TapisException
+  {
+    // Use the existing datasource.
+    DataSource ds = TapisDataSource.getDataSource();
+    if (ds == null) {
+      try {
+        // Get a database connection.
+        RuntimeParameters parms = RuntimeParameters.getInstance();
+        ds = TapisDataSource.getDataSource(parms.getInstanceName(),
+                parms.getDbConnectionPoolName(),
+                parms.getJdbcURL(),
+                parms.getDbUser(),
+                parms.getDbPassword(),
+                parms.getDbConnectionPoolSize(),
+                parms.getDbMeterMinutes());
+      }
+      catch (TapisException e) {
+        // Details are already logged at exception site.
+        String msg = MsgUtils.getMsg("DB_FAILED_DATASOURCE");
+        _log.error(msg, e);
+        throw new TapisException(msg, e);
+      }
+    }
+
+    return ds;
+  }
 
   /**
    * Given an sql connection and basic info add an update record

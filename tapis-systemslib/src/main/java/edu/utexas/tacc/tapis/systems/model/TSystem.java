@@ -101,26 +101,26 @@ public final class TSystem
   public static final int DEFAULT_JOBMAXJOBS = -1;
   public static final int DEFAULT_JOBMAXJOBSPERUSER = -1;
 
-  // Message keys
-  private static final String CREATE_MISSING_ATTR = "SYSLIB_CREATE_MISSING_ATTR";
-  private static final String INVALID_STR_ATTR = "SYSLIB_INVALID_STR_ATTR";
-  private static final String TOO_LONG_ATTR = "SYSLIB_TOO_LONG_ATTR";
-
   // Validation patterns
   //ID Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
-  private final String PATTERN_VALID_ID = "^[a-zA-Z]([a-zA-Z0-9]|[-\\._~])*";
+  public static final String PATTERN_VALID_ID = "^[a-zA-Z]([a-zA-Z0-9]|[-\\._~])*";
 
   // Validation constants
-  private final Integer MAX_ID_LEN = 80;
-  private final Integer MAX_DESCRIPTION_LEN = 2048;
-  private final Integer MAX_PATH_LEN = 4096;
-  private final Integer MAX_USERNAME_LEN = 60;
-  private final Integer MAX_BUCKETNAME_LEN = 63;
-  private final Integer MAX_QUEUENAME_LEN = 128;
-  private final Integer MAX_HPCQUEUENAME_LEN = 128;
-  private final Integer MAX_RUNTIME_VER_LEN = 128;
-  private final Integer MAX_CAPABILITYNAME_LEN = 128;
-  private final Integer MAX_TAG_LEN = 128;
+  public static final Integer MAX_ID_LEN = 80;
+  public static final Integer MAX_DESCRIPTION_LEN = 2048;
+  public static final Integer MAX_PATH_LEN = 4096;
+  public static final Integer MAX_USERNAME_LEN = 60;
+  public static final Integer MAX_BUCKETNAME_LEN = 63;
+  public static final Integer MAX_QUEUENAME_LEN = 128;
+  public static final Integer MAX_HPCQUEUENAME_LEN = 128;
+  public static final Integer MAX_RUNTIME_VER_LEN = 128;
+  public static final Integer MAX_CAPABILITYNAME_LEN = 128;
+  public static final Integer MAX_TAG_LEN = 128;
+
+  // Message keys
+  public static final String CREATE_MISSING_ATTR = "SYSLIB_CREATE_MISSING_ATTR";
+  public static final String INVALID_STR_ATTR = "SYSLIB_INVALID_STR_ATTR";
+  public static final String TOO_LONG_ATTR = "SYSLIB_TOO_LONG_ATTR";
 
   // ************************************************************************
   // *********************** Enums ******************************************
@@ -397,6 +397,12 @@ public final class TSystem
     return errMessages;
   }
 
+  /**
+   * Validate an ID string.
+   * Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
+   */
+  public static boolean isValidId(String id) { return id.matches(PATTERN_VALID_ID); }
+
   // ************************************************************************
   // *********************** Private methods *********************************
   // ************************************************************************
@@ -615,12 +621,6 @@ public final class TSystem
         errMessages.add(LibUtils.getMsg("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1"));
     }
   }
-
-  /**
-   * Validate an ID string.
-   * Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
-   */
-  private boolean isValidId(String id) { return id.matches(PATTERN_VALID_ID); }
 
   /**
    * Validate a host string.

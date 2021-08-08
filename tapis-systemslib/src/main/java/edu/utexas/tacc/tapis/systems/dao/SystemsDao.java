@@ -5,6 +5,7 @@ import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
+import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
@@ -14,6 +15,15 @@ import java.util.Set;
 
 public interface SystemsDao
 {
+
+  Exception checkDB();
+
+  void migrateDB() throws TapisException;
+
+  /* ********************************************************************** */
+  /*                             Systems                                    */
+  /* ********************************************************************** */
+
   boolean createSystem(ResourceRequestUser rUser, TSystem system, String createJsonStr, String scrubbedText)
           throws TapisException, IllegalStateException;
 
@@ -34,10 +44,6 @@ public interface SystemsDao
                        String upd_json, String upd_text) throws TapisException;
 
   int hardDeleteSystem(String tenantId, String id) throws TapisException;
-
-  Exception checkDB();
-
-  void migrateDB() throws TapisException;
 
   boolean checkForSystem(String tenantId, String id, boolean includeDeleted) throws TapisException;
 
@@ -61,4 +67,15 @@ public interface SystemsDao
   String getSystemEffectiveUserId(String tenantId, String id) throws TapisException;
 
   AuthnMethod getSystemDefaultAuthnMethod(String tenantId, String id) throws TapisException;
+
+
+  /* ********************************************************************** */
+  /*                             Scheduler Profiles                         */
+  /* ********************************************************************** */
+
+  boolean createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile profile, String createJsonStr, String scrubbedText)
+          throws TapisException, IllegalStateException;
+
+  SchedulerProfile getSchedulerProfile(String tenantId, String name) throws TapisException;
+
 }

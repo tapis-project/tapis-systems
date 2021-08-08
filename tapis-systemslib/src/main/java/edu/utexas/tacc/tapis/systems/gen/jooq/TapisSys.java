@@ -8,6 +8,7 @@ import edu.utexas.tacc.tapis.systems.gen.jooq.tables.Capabilities;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.FlywaySchemaHistory;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.JobRuntimes;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.LogicalQueues;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemUpdates;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.Systems;
 
@@ -54,6 +55,11 @@ public class TapisSys extends SchemaImpl {
     public final LogicalQueues LOGICAL_QUEUES = LogicalQueues.LOGICAL_QUEUES;
 
     /**
+     * The table <code>tapis_sys.scheduler_profiles</code>.
+     */
+    public final SchedulerProfiles SCHEDULER_PROFILES = SchedulerProfiles.SCHEDULER_PROFILES;
+
+    /**
      * The table <code>tapis_sys.system_updates</code>.
      */
     public final SystemUpdates SYSTEM_UPDATES = SystemUpdates.SYSTEM_UPDATES;
@@ -93,6 +99,7 @@ public class TapisSys extends SchemaImpl {
             FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY,
             JobRuntimes.JOB_RUNTIMES,
             LogicalQueues.LOGICAL_QUEUES,
+            SchedulerProfiles.SCHEDULER_PROFILES,
             SystemUpdates.SYSTEM_UPDATES,
             Systems.SYSTEMS);
     }
