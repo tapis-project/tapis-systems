@@ -29,6 +29,7 @@ import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
+import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import org.apache.commons.lang3.StringUtils;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
@@ -51,6 +52,7 @@ import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
+import edu.utexas.tacc.tapis.systems.model.SchedulerProfile.SchedulerProfileOperation;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
@@ -1367,6 +1369,149 @@ public class SystemsServiceImpl implements SystemsService
       _log.warn(tce.toString());
     }
     return credential;
+  }
+
+  // -----------------------------------------------------------------------
+  // ------------------- Scheduler Profiles---------------------------------
+  // -----------------------------------------------------------------------
+
+  /**
+   * Create a scheduler profile.
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param schedulerProfile - Pre-populated SchedulerProfile object (including tenant and name)
+   * @param scrubbedText - Text used to create the TSystem object - secrets should be scrubbed. Saved in update record.
+   * @throws TapisException - for Tapis related exceptions
+   * @throws IllegalStateException - system exists OR TSystem in invalid state
+   * @throws IllegalArgumentException - invalid parameter passed in
+   * @throws NotAuthorizedException - unauthorized
+   */
+  @Override
+  public void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile schedulerProfile, String scrubbedText)
+          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException, NotAuthorizedException
+  {
+    SchedulerProfileOperation op = SchedulerProfileOperation.create;
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (schedulerProfile == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_PROFILE", rUser));
+    _log.trace(LibUtils.getMsgAuth("SYSLIB_CREATE_TRACE", rUser, scrubbedText));
+    String resourceTenantId = schedulerProfile.getTenant();
+    String resourceId = schedulerProfile.getName();
+
+    // ---------------------------- Check inputs ------------------------------------
+    // Required system attributes: tenant, id, moduleLoadCommand
+    if (StringUtils.isBlank(resourceTenantId) || StringUtils.isBlank(resourceId) ||
+            StringUtils.isBlank(schedulerProfile.getModuleLoadCommand()) || StringUtils.isBlank(scrubbedText))
+    {
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ARG", rUser, resourceId));
+    }
+
+    // Check if schedulerProfile already exists
+    if (dao.checkForSchedulerProfile(resourceTenantId, resourceId))
+    {
+      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_PRF_EXISTS", rUser, resourceId));
+    }
+
+    // ------------------------- Check service level authorization -------------------------
+    // TODO
+//TODO    checkAuth(rUser, op, schedulerProfile.getName(), schedulerProfile.getOwner(), null, null);
+    // TODO
+
+    // Construct Json string representing the resource about to be created
+    String createJsonStr = TapisGsonUtils.getGson().toJson(schedulerProfile);
+
+    // ----------------- Create all artifacts --------------------
+    // Use try/catch to rollback any writes in case of failure.
+    boolean itemCreated = false;
+    String systemsPermSpecALL = getPermSpecAllStr(resourceTenantId, resourceId);
+
+    // Get SK client now. If we cannot get this rollback not needed.
+    var skClient = getSKClient();
+    try {
+      // ------------------- Make Dao call to persist the system -----------------------------------
+      itemCreated = dao.createSchedulerProfile(rUser, schedulerProfile, createJsonStr, scrubbedText);
+
+      // ------------------- Add permissions -----------------------------
+      // Give owner full access
+      skClient.grantUserPermission(resourceTenantId, schedulerProfile.getOwner(), systemsPermSpecALL);
+
+    }
+    catch (Exception e0)
+    {
+      // Something went wrong. Attempt to undo all changes and then re-throw the exception
+      // Log error
+      String msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ROLLBACK", rUser, resourceId, e0.getMessage());
+      _log.error(msg);
+      // Rollback
+      // Remove from DB
+      if (itemCreated) try {dao.deleteSchedulerProfile(resourceTenantId, resourceId); }
+      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, resourceId, "delete", e.getMessage()));}
+      // Remove perms
+      try { skClient.revokeUserPermission(resourceTenantId, schedulerProfile.getOwner(), systemsPermSpecALL); }
+      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, resourceId, "revokePermOwner", e.getMessage()));}
+      throw e0;
+    }
+  }
+
+  /**
+   * getSchedulerProfile
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param name - Name of the profile
+   * @return schedulerProfile or null if not found or user not authorized.
+   * @throws TapisException - for Tapis related exceptions
+   * @throws NotAuthorizedException - unauthorized
+   */
+  @Override
+  public SchedulerProfile getSchedulerProfile(ResourceRequestUser rUser, String name)
+          throws TapisException, NotAuthorizedException, TapisClientException
+  {
+    // TODO
+    SystemOperation op = SystemOperation.read;
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(name))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_PROFILE", rUser));
+
+    String resourceTenantId = rUser.getOboTenantId();
+
+    // We need owner to check auth and if system not there cannot find owner, so return null if no system.
+    if (!dao.checkForSchedulerProfile(resourceTenantId, name)) return null;
+
+    // ------------------------- Check service level authorization -------------------------
+// TODO
+// TODO    checkAuth(rUser, op, name, null, null, null);
+// TODO
+
+    SchedulerProfile result = dao.getSchedulerProfile(resourceTenantId, name);
+    if (result == null) return null;
+    else return result;
+  }
+
+  /**
+   * Delete scheduler profile
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param name - name of profile
+   * @throws TapisException - for Tapis related exceptions
+   * @throws NotAuthorizedException - unauthorized
+   */
+  @Override
+  public int deleteSchedulerProfile(ResourceRequestUser rUser, String name)
+          throws TapisException, NotAuthorizedException
+  {
+    SystemOperation op = SystemOperation.delete;
+    // Check inputs. If anything null or empty throw an exception
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(name))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_PROFILE", rUser));
+
+    String resourceTenantId = rUser.getOboTenantId();
+
+    // If profile does not exist or has been deleted then return 0 changes
+    if (!dao.checkForSchedulerProfile(resourceTenantId, name)) return 0;
+
+    // TODO
+// TODO    // ------------------------- Check service level authorization -------------------------
+//    checkAuth(rUser, op, name, null, userName, null);
+    // TODO
+
+    return dao.deleteSchedulerProfile(resourceTenantId, name);
   }
 
   // ************************************************************************

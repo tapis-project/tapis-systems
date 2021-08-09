@@ -6,6 +6,7 @@ import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
+import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
@@ -94,4 +95,17 @@ public interface SystemsService
 
   Credential getUserCredential(ResourceRequestUser rUser, String systemId, String userName, AuthnMethod authnMethod)
           throws TapisException, TapisClientException, NotAuthorizedException;
+
+  void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile schedulerProfile, String scrubbedText)
+          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException, IllegalArgumentException;
+
+  SchedulerProfile getSchedulerProfile(ResourceRequestUser rUser, String name)
+          throws TapisException, TapisClientException, NotAuthorizedException;
+
+// TODO
+//  List<SchedulerProfile> getSchedulerProfiles(ResourceRequestUser rUser)
+//          throws TapisException, TapisClientException;
+//
+  int deleteSchedulerProfile(ResourceRequestUser rUser, String name)
+          throws TapisException, NotAuthorizedException, IllegalStateException;
 }

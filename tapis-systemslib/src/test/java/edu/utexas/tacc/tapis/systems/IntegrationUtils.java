@@ -215,6 +215,10 @@ public final class IntegrationUtils
   public static final int skipZero = 0;
   public static final String startAferEmpty = "";
 
+  // Scheduler profiles
+  public static final String schedulerProfileName1 = "SchedProfile1";
+  public static final String schedulerProfileName2 = "SchedProfile2";
+
   /**
    * Create first DTN System
    * Have a separate method for each because each test suite needs one with a unique name to avoid

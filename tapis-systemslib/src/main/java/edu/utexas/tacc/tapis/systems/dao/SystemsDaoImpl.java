@@ -1464,6 +1464,35 @@ public class SystemsDaoImpl implements SystemsDao
     return rows;
   }
 
+  /**
+   * checkForSchedulerProfile
+   * @param name - name of profile
+   * @return true if found else false
+   * @throws TapisException - on error
+   */
+  @Override
+  public boolean checkForSchedulerProfile(String tenantId, String name) throws TapisException
+  {
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      return db.fetchExists(SCHEDULER_PROFILES,SCHEDULER_PROFILES.TENANT.eq(tenantId),SCHEDULER_PROFILES.NAME.eq(name));
+    }
+    catch (Exception e)
+    {
+      String msg = LibUtils.getMsg("DB_SELECT_NAME_ERROR", "SchedulerProfile", tenantId, name, e.getMessage());
+      throw new TapisException(msg,e);
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+
   /* ********************************************************************** */
   /*                             Private Methods                            */
   /* ********************************************************************** */

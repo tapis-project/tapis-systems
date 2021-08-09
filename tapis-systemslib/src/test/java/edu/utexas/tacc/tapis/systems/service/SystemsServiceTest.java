@@ -17,9 +17,11 @@ import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
+import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.ServiceLocatorUtilities;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
+import org.jooq.tools.StringUtils;
 import org.testng.Assert;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
@@ -64,6 +66,9 @@ public class SystemsServiceTest
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
   TSystem[] systems = IntegrationUtils.makeSystems(numSystems, testKey);
+
+  private String schedProfileName1 = testKey + schedulerProfileName1;
+  private String schedProfileName2 = testKey + schedulerProfileName2;
 
   @BeforeSuite
   public void setUp() throws Exception
@@ -150,6 +155,9 @@ public class SystemsServiceTest
 
     Assert.assertFalse(svc.checkForSystem(rAdminUser, systems[0].getId()),
                        "System not deleted. System name: " + systems[0].getId());
+
+    svc.deleteSchedulerProfile(rOwner1, schedProfileName1);
+    svc.deleteSchedulerProfile(rOwner1, schedProfileName2);
   }
 
   @Test
@@ -1180,6 +1188,57 @@ public class SystemsServiceTest
     svc.getSystem(rTestUser3, sys0.getId(), false, null, false);
     svc.getSystem(rTestUser3, sys0.getId(), false, null, true);
     svc.getSystem(rTestUser2, sys0.getId(), false, null, false);
+  }
+
+  // ******************************************************************
+  //   Scheduler Profiles
+  // ******************************************************************
+
+  @Test
+  public void testCreateSchedulerProfile() throws Exception
+  {
+    String moduleLoadCmd = "module load";
+    String[] modulesToLoad = {"value1", "value2"};
+    List<SchedulerProfile.HiddenOption> hiddenOptions = new ArrayList<>(List.of(SchedulerProfile.HiddenOption.MEM));
+    SchedulerProfile schedProfile = new SchedulerProfile(tenantName, schedProfileName1, testUser2, "Test profile 1",
+            moduleLoadCmd, modulesToLoad, hiddenOptions, null, null, null);
+    svc.createSchedulerProfile(rOwner1, schedProfile, scrubbedJson);
+    System.out.println("Scheduler Profile created: " + schedProfile.getName());
+  }
+
+  @Test
+  public void testGetSchedulerProfile() throws Exception
+  {
+    String moduleLoadCmd = "moduleLoad2";
+    String[] modulesToLoad = {"value3", "value4"};
+    List<SchedulerProfile.HiddenOption> hiddenOptions = new ArrayList<>(List.of(SchedulerProfile.HiddenOption.MEM));
+    SchedulerProfile schedProfile = new SchedulerProfile(tenantName, schedProfileName2, testUser2, "Test profile 2",
+            moduleLoadCmd, modulesToLoad, hiddenOptions, null, null, null);
+    svc.createSchedulerProfile(rOwner1, schedProfile, scrubbedJson);
+    System.out.println("Scheduler Profile created: " + schedProfile.getName());
+
+    SchedulerProfile tmpProfile = svc.getSchedulerProfile(rOwner1, schedProfile.getName());
+    Assert.assertNotNull(tmpProfile, "Retrieving scheduler profile resulted in null");
+    System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
+    Assert.assertEquals(tmpProfile.getTenant(), schedProfile.getTenant());
+    Assert.assertEquals(tmpProfile.getName(), schedProfile.getName());
+    Assert.assertEquals(tmpProfile.getDescription(), schedProfile.getDescription());
+    Assert.assertEquals(tmpProfile.getOwner(), schedProfile.getOwner());
+    Assert.assertEquals(tmpProfile.getModuleLoadCommand(), schedProfile.getModuleLoadCommand());
+
+    Assert.assertNotNull(tmpProfile.getModulesToLoad());
+    Assert.assertEquals(tmpProfile.getModulesToLoad().length, schedProfile.getModulesToLoad().length);
+
+    Assert.assertNotNull(tmpProfile.getHiddenOptions());
+    Assert.assertFalse(tmpProfile.getHiddenOptions().isEmpty());
+    Assert.assertEquals(tmpProfile.getHiddenOptions().size(), schedProfile.getHiddenOptions().size());
+
+    Assert.assertNotNull(tmpProfile.getUuid());
+    Assert.assertNotNull(tmpProfile.getCreated());
+    Assert.assertNotNull(tmpProfile.getUpdated());
+    Assert.assertFalse(StringUtils.isBlank(tmpProfile.getUuid().toString()));
+    Assert.assertFalse(StringUtils.isBlank(tmpProfile.getCreated().toString()));
+    Assert.assertFalse(StringUtils.isBlank(tmpProfile.getUpdated().toString()));
   }
 
   // ************************************************************************

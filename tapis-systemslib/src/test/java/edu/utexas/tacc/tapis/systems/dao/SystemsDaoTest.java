@@ -43,6 +43,9 @@ public class SystemsDaoTest
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
   TSystem[] systems = IntegrationUtils.makeSystems(numSystems, testKey);
 
+  private String schedProfileName1 = testKey + schedulerProfileName1;
+  private String schedProfileName2 = testKey + schedulerProfileName2;
+
   @BeforeSuite
   public void setup() throws Exception
   {
@@ -65,8 +68,8 @@ public class SystemsDaoTest
     }
 
     // Delete scheduler profiles
-    dao.deleteSchedulerProfile(tenantName, "schedProfile1");
-    dao.deleteSchedulerProfile(tenantName, "schedProfile2");
+    dao.deleteSchedulerProfile(tenantName, schedProfileName1);
+    dao.deleteSchedulerProfile(tenantName, schedProfileName2);
 
     Assert.assertFalse(dao.checkForSystem(tenantName, systems[0].getId(), true),
                        "System not deleted. System name: " + systems[0].getId());
@@ -308,7 +311,7 @@ public class SystemsDaoTest
     String moduleLoadCmd = "module load";
     String[] modulesToLoad = {"value1", "value2"};
     List<HiddenOption> hiddenOptions = new ArrayList<>(List.of(HiddenOption.MEM));
-    SchedulerProfile schedProfile = new SchedulerProfile(tenantName, "schedProfile1", testUser2, "Test profile 1",
+    SchedulerProfile schedProfile = new SchedulerProfile(tenantName, schedProfileName1, testUser2, "Test profile 1",
                                                          moduleLoadCmd, modulesToLoad, hiddenOptions, null, null, null);
     boolean itemCreated = dao.createSchedulerProfile(rUser, schedProfile, gson.toJson(schedProfile), scrubbedJson);
     Assert.assertTrue(itemCreated, "Profile not created, id: " + schedProfile.getName());
@@ -321,7 +324,7 @@ public class SystemsDaoTest
     String moduleLoadCmd = "moduleLoad2";
     String[] modulesToLoad = {"value3", "value4"};
     List<HiddenOption> hiddenOptions = new ArrayList<>(List.of(HiddenOption.MEM));
-    SchedulerProfile schedProfile = new SchedulerProfile(tenantName, "schedProfile2", testUser2, "Test profile 2",
+    SchedulerProfile schedProfile = new SchedulerProfile(tenantName, schedProfileName2, testUser2, "Test profile 2",
             moduleLoadCmd, modulesToLoad, hiddenOptions, null, null, null);
     boolean itemCreated = dao.createSchedulerProfile(rUser, schedProfile, gson.toJson(schedProfile), scrubbedJson);
     Assert.assertTrue(itemCreated, "Profile not created, id: " + schedProfile.getName());
