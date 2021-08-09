@@ -71,11 +71,6 @@ public class SchedulerProfiles extends TableImpl<SchedulerProfilesRecord> {
     public final TableField<SchedulerProfilesRecord, String> OWNER = createField(DSL.name("owner"), SQLDataType.CLOB.nullable(false), this, "User name of system owner");
 
     /**
-     * The column <code>tapis_sys.scheduler_profiles.hidden_options</code>. Scheduler options that are subsumed by TAPIS.
-     */
-    public final TableField<SchedulerProfilesRecord, String[]> HIDDEN_OPTIONS = createField(DSL.name("hidden_options"), SQLDataType.CLOB.getArrayDataType(), this, "Scheduler options that are subsumed by TAPIS.");
-
-    /**
      * The column <code>tapis_sys.scheduler_profiles.module_load_command</code>. Command to load software library modules.
      */
     public final TableField<SchedulerProfilesRecord, String> MODULE_LOAD_COMMAND = createField(DSL.name("module_load_command"), SQLDataType.CLOB.nullable(false), this, "Command to load software library modules.");
@@ -84,6 +79,11 @@ public class SchedulerProfiles extends TableImpl<SchedulerProfilesRecord> {
      * The column <code>tapis_sys.scheduler_profiles.modules_to_load</code>. Software library modules that should be loaded for each job.
      */
     public final TableField<SchedulerProfilesRecord, String[]> MODULES_TO_LOAD = createField(DSL.name("modules_to_load"), SQLDataType.CLOB.getArrayDataType(), this, "Software library modules that should be loaded for each job.");
+
+    /**
+     * The column <code>tapis_sys.scheduler_profiles.hidden_options</code>. Scheduler options that are subsumed by TAPIS.
+     */
+    public final TableField<SchedulerProfilesRecord, String[]> HIDDEN_OPTIONS = createField(DSL.name("hidden_options"), SQLDataType.CLOB.getArrayDataType(), this, "Scheduler options that are subsumed by TAPIS.");
 
     /**
      * The column <code>tapis_sys.scheduler_profiles.uuid</code>.
@@ -179,7 +179,7 @@ public class SchedulerProfiles extends TableImpl<SchedulerProfilesRecord> {
     // -------------------------------------------------------------------------
 
     @Override
-    public Row10<String, String, String, String, String[], String, String[], java.util.UUID, LocalDateTime, LocalDateTime> fieldsRow() {
+    public Row10<String, String, String, String, String, String[], String[], java.util.UUID, LocalDateTime, LocalDateTime> fieldsRow() {
         return (Row10) super.fieldsRow();
     }
 }

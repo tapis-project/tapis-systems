@@ -1340,16 +1340,16 @@ public class SystemsDaoImpl implements SystemsDao
 
     // Make sure owner, effectiveUserId, notes and tags are all set
     String owner = TSystem.DEFAULT_OWNER;
-    String[] hiddenOptionsStrArray = null;
     String[] modulesToLoadStrArray = null;
+    String[] hiddenOptionsStrArray = null;
 
     if (StringUtils.isNotBlank(schedulerProfile.getOwner())) owner = schedulerProfile.getOwner();
+    if (schedulerProfile.getModulesToLoad() != null) modulesToLoadStrArray = schedulerProfile.getModulesToLoad();
     // Convert hiddenOptions array from enum to string
     if (schedulerProfile.getHiddenOptions() != null)
     {
       hiddenOptionsStrArray = schedulerProfile.getHiddenOptions().stream().map(SchedulerProfile.HiddenOption::name).toArray(String[]::new);
     }
-    if (schedulerProfile.getModulesToLoad() != null) modulesToLoadStrArray = schedulerProfile.getModulesToLoad();
 
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1371,9 +1371,9 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SCHEDULER_PROFILES.NAME, schedulerProfile.getName())
               .set(SCHEDULER_PROFILES.DESCRIPTION, schedulerProfile.getDescription())
               .set(SCHEDULER_PROFILES.OWNER, owner)
-              .set(SCHEDULER_PROFILES.HIDDEN_OPTIONS, hiddenOptionsStrArray)
               .set(SCHEDULER_PROFILES.MODULE_LOAD_COMMAND, schedulerProfile.getModuleLoadCommand())
               .set(SCHEDULER_PROFILES.MODULES_TO_LOAD, modulesToLoadStrArray)
+              .set(SCHEDULER_PROFILES.HIDDEN_OPTIONS, hiddenOptionsStrArray)
               .set(SCHEDULER_PROFILES.UUID, schedulerProfile.getUuid()).execute();
 
       // Close out and commit

@@ -305,11 +305,11 @@ public class SystemsDaoTest
   @Test
   public void testCreateSchedulerProfile() throws Exception
   {
-    List<HiddenOption> hiddenOptions = new ArrayList<>(List.of(HiddenOption.MEM));
     String moduleLoadCmd = "module load";
     String[] modulesToLoad = {"value1", "value2"};
+    List<HiddenOption> hiddenOptions = new ArrayList<>(List.of(HiddenOption.MEM));
     SchedulerProfile schedProfile = new SchedulerProfile(tenantName, "schedProfile1", testUser2, "Test profile 1",
-                                                         hiddenOptions, moduleLoadCmd, modulesToLoad, null, null, null);
+                                                         moduleLoadCmd, modulesToLoad, hiddenOptions, null, null, null);
     boolean itemCreated = dao.createSchedulerProfile(rUser, schedProfile, gson.toJson(schedProfile), scrubbedJson);
     Assert.assertTrue(itemCreated, "Profile not created, id: " + schedProfile.getName());
     System.out.println("Scheduler Profile created: " + schedProfile.getName());
@@ -318,11 +318,11 @@ public class SystemsDaoTest
   @Test
   public void testGetSchedulerProfile() throws Exception
   {
-    List<HiddenOption> hiddenOptions = new ArrayList<>(List.of(HiddenOption.MEM));
     String moduleLoadCmd = "moduleLoad2";
     String[] modulesToLoad = {"value3", "value4"};
+    List<HiddenOption> hiddenOptions = new ArrayList<>(List.of(HiddenOption.MEM));
     SchedulerProfile schedProfile = new SchedulerProfile(tenantName, "schedProfile2", testUser2, "Test profile 2",
-            hiddenOptions, moduleLoadCmd, modulesToLoad, null, null, null);
+            moduleLoadCmd, modulesToLoad, hiddenOptions, null, null, null);
     boolean itemCreated = dao.createSchedulerProfile(rUser, schedProfile, gson.toJson(schedProfile), scrubbedJson);
     Assert.assertTrue(itemCreated, "Profile not created, id: " + schedProfile.getName());
     System.out.println("Scheduler Profile created: " + schedProfile.getName());
@@ -335,13 +335,12 @@ public class SystemsDaoTest
     Assert.assertEquals(tmpProfile.getOwner(), schedProfile.getOwner());
     Assert.assertEquals(tmpProfile.getModuleLoadCommand(), schedProfile.getModuleLoadCommand());
 
+    Assert.assertNotNull(tmpProfile.getModulesToLoad());
+    Assert.assertEquals(tmpProfile.getModulesToLoad().length, schedProfile.getModulesToLoad().length);
+
     Assert.assertNotNull(tmpProfile.getHiddenOptions());
     Assert.assertFalse(tmpProfile.getHiddenOptions().isEmpty());
     Assert.assertEquals(tmpProfile.getHiddenOptions().size(), schedProfile.getHiddenOptions().size());
-
-
-    Assert.assertNotNull(tmpProfile.getModulesToLoad());
-    Assert.assertEquals(tmpProfile.getModulesToLoad().length, schedProfile.getModulesToLoad().length);
 
     Assert.assertNotNull(tmpProfile.getUuid());
     Assert.assertNotNull(tmpProfile.getCreated());

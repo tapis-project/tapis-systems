@@ -46,9 +46,9 @@ public final class SchedulerProfile
   private final String name;
   private final String description;
   private final String owner;
-  private final List<HiddenOption> hiddenOptions;
   private String moduleLoadCommand;
   private String[] modulesToLoad;
+  private final List<HiddenOption> hiddenOptions;
   private UUID uuid;
   private final Instant created; // UTC time for when record was created
   private final Instant updated; // UTC time for when record was last updated
@@ -72,9 +72,9 @@ public final class SchedulerProfile
     updated = sp.getUpdated();
     description = sp.getDescription();
     owner = sp.getOwner();
-    hiddenOptions = sp.getHiddenOptions();
     moduleLoadCommand = sp.getModuleLoadCommand();
     modulesToLoad = sp.getModulesToLoad();
+    hiddenOptions = sp.getHiddenOptions();
     uuid = sp.getUuid();
   }
 
@@ -83,16 +83,16 @@ public final class SchedulerProfile
    * Also useful for testing
    */
   public SchedulerProfile(String tenant1, String name1, String description1, String owner1,
-                          List<HiddenOption> hiddenOptions1, String moduleLoadCommand1, String[] modulesToLoad1,
+                          String moduleLoadCommand1, String[] modulesToLoad1, List<HiddenOption> hiddenOptions1,
                           UUID uuid1, Instant created1, Instant updated1)
   {
     tenant = tenant1;
     name = name1;
     description = description1;
     owner = owner1;
-    hiddenOptions = (hiddenOptions1 == null) ? null : new ArrayList<>(hiddenOptions1);
     moduleLoadCommand = moduleLoadCommand1;
     modulesToLoad = (modulesToLoad1 == null) ? null : modulesToLoad1.clone();
+    hiddenOptions = (hiddenOptions1 == null) ? null : new ArrayList<>(hiddenOptions1);
     uuid = uuid1;
     created = created1;
     updated = updated1;
@@ -112,6 +112,8 @@ public final class SchedulerProfile
     name = t.getName();
     description = t.getDescription();
     owner = t.getOwner();
+    moduleLoadCommand = t.getModuleLoadCommand();
+    modulesToLoad = t.getModulesToLoad();
     hiddenOptions = t.getHiddenOptions();
   }
 
@@ -183,9 +185,9 @@ public final class SchedulerProfile
   public String getName() { return name; }
   public String getDescription() { return description; }
   public String getOwner() { return owner; }
-  public List<HiddenOption> getHiddenOptions() { return (hiddenOptions == null) ? null : new ArrayList<>(hiddenOptions); }
   public String getModuleLoadCommand() { return moduleLoadCommand; }
   public String[] getModulesToLoad() { return (modulesToLoad == null) ? null : modulesToLoad.clone(); }
+  public List<HiddenOption> getHiddenOptions() { return (hiddenOptions == null) ? null : new ArrayList<>(hiddenOptions); }
 
   public UUID getUuid() { return uuid; }
 
