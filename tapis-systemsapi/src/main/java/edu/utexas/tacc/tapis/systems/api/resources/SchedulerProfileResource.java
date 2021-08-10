@@ -2,14 +2,12 @@ package edu.utexas.tacc.tapis.systems.api.resources;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
-import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidator;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidatorSpec;
-import edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters;
 import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
 import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadLocal;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
@@ -25,10 +23,8 @@ import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPostSchedulerProfile;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSchedulerProfile;
-import edu.utexas.tacc.tapis.systems.api.responses.RespSystems;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -303,56 +299,41 @@ public class SchedulerProfileResource
     return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "SchedulerProfile", profileId), resp1);
   }
 
-//  /**
-//   * getSchedulerProfiles
-//   * Retrieve all scheduler profiles
-//   * @param securityContext - user identity
-//   * @return - list of systems accessible by requester and matching search conditions.
-//   */
-//  @GET
-//  @Consumes(MediaType.APPLICATION_JSON)
-//  @Produces(MediaType.APPLICATION_JSON)
-//  public Response getSchedulerProfiles(@Context SecurityContext securityContext)
-//  {
-//    String opName = "getSchedulerProfiles";
-//    // Trace this request.
-//    if (_log.isTraceEnabled()) logRequest(opName);
-//
-//    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
-//    // Utility method returns null if all OK and appropriate error response if there was a problem.
-//    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
-//    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
-//    if (resp != null) return resp;
-//
-//    // Create a user that collects together tenant, user and request information needed by the service call
-//    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
-//
+  /**
+   * getSchedulerProfiles
+   * Retrieve all scheduler profiles
+   * @param securityContext - user identity
+   * @return - list of systems accessible by requester and matching search conditions.
+   */
+  @GET
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getSchedulerProfiles(@Context SecurityContext securityContext)
+  {
+    String opName = "getSchedulerProfiles";
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(opName);
+
+    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
+    // Utility method returns null if all OK and appropriate error response if there was a problem.
+    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
+    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    if (resp != null) return resp;
+
+    // Create a user that collects together tenant, user and request information needed by the service call
+    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // TODO
+    return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse("WIP", PRETTY)).build();
+
 //    // ------------------------- Retrieve records -----------------------------
 //    Response successResponse;
 //    try
 //    {
-//      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted);
-//// ?????
-//      schedulerProfiles = systemsService.getSchedulerProfiles()
-//      else
-//        systems = systemsService.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit,
-//                orderByList, skip, startAfter, showDeleted);
-//      if (systems == null) systems = Collections.emptyList();
-//      itemCountStr = String.format(SYS_CNT_STR, systems.size());
-//      if (computeTotal && limit <= 0) totalCount = systems.size();
+//      var schedulerProfiles = systemsService.getSchedulerProfiles(rUser);
+//      resp1 = new RespSchedulerProfiles(schedulerProfiles);
 //
-//      // If we need the count and there was a limit then we need to make a call
-//      if (computeTotal && limit > 0)
-//      {
-//        totalCount = systemsService.getSystemsTotalCount(rUser, searchList, orderByList,
-//                startAfter, showDeleted);
-//      }
-//
-//      // ---------------------------- Success -------------------------------
-//      resp1 = new RespSystems(systems, limit, orderBy, skip, startAfter, totalCount, selectList);
-//
-//      return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, SYSTEMS_SVC, itemCountStr), resp1);
-//// ?????
+//      return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, SYSTEMS_SVC, ), resp1);
 //    }
 //    catch (Exception e)
 //    {
@@ -361,7 +342,7 @@ public class SchedulerProfileResource
 //      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
 //    }
 //    return successResponse;
-//  }
+  }
 
   /* **************************************************************************** */
   /*                                Private Methods                               */

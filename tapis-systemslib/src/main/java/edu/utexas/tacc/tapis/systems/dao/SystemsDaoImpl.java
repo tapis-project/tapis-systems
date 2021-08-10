@@ -1433,6 +1433,19 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   /**
+   * getSchedulerProfiles
+   * @return list of scheduler profiles
+   * @throws TapisException - on error
+   */
+  @Override
+  public List<SchedulerProfile> getSchedulerProfiles(String tenantId) throws TapisException
+  {
+    // TODO
+    var schedulerProfiles = new ArrayList<SchedulerProfile>();
+    return schedulerProfiles;
+  }
+
+  /**
    * Delete a scheduler profile.
    */
   @Override

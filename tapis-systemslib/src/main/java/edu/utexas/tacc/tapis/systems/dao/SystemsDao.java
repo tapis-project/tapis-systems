@@ -78,6 +78,8 @@ public interface SystemsDao
 
   SchedulerProfile getSchedulerProfile(String tenantId, String name) throws TapisException;
 
+  List<SchedulerProfile> getSchedulerProfiles(String tenantId) throws TapisException;
+
   int deleteSchedulerProfile(String tenantId, String name) throws TapisException;
 
   boolean checkForSchedulerProfile(String tenantId, String name) throws TapisException;

@@ -1452,6 +1452,19 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
+   * Get all scheduler profiles
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @return List of scheduler profiles
+   * @throws TapisException - for Tapis related exceptions
+   */
+  @Override
+  public List<SchedulerProfile> getSchedulerProfiles(ResourceRequestUser rUser) throws TapisException
+  {
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    return dao.getSchedulerProfiles(rUser.getOboTenantId());
+  }
+
+  /**
    * getSchedulerProfile
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param name - Name of the profile
