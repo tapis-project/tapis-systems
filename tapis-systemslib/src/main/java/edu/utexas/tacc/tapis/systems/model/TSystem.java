@@ -37,7 +37,8 @@ public final class TSystem
   // ************************************************************************
 
   // Set of reserved system names
-  public static final Set<String> RESERVED_ID_SET = new HashSet<>(Set.of("HEALTHCHECK", "READYCHECK", "SEARCH"));
+  public static final Set<String> RESERVED_ID_SET = new HashSet<>(Set.of("HEALTHCHECK", "READYCHECK", "SEARCH",
+                                                                         "SCHEDULERPROFILE"));
 
   public static final String PERMISSION_WILDCARD = "*";
   // Allowed substitution variables

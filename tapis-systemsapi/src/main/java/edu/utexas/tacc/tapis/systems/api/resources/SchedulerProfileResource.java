@@ -12,6 +12,7 @@ import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
 import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadLocal;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespAbstract;
+import edu.utexas.tacc.tapis.sharedapi.responses.RespBasic;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespBoolean;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespResourceUrl;
@@ -35,6 +36,7 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import javax.servlet.ServletContext;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.NotAuthorizedException;
@@ -58,10 +60,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
-
-import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.AUTHN_CREDENTIAL_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.NOTES_FIELD;
 
 /*
  * JAX-RS REST resource for a SchedulerProfile
@@ -97,7 +95,7 @@ public class SchedulerProfileResource
   private static final String UPDATED = "SYSAPI_UPDATED";
 
   // Format strings
-  private static final String SYS_CNT_STR = "%d systems";
+  private static final String SYS_CNT_STR = "%d scheduler profiles";
 
   // Always return a nicely formatted response
   private static final boolean PRETTY = true;
@@ -191,7 +189,7 @@ public class SchedulerProfileResource
     }
 
     // Create a scheduler profile from the request
-    SchedulerProfile schedProfile =
+    var schedProfile =
             new SchedulerProfile(rUser.getOboTenantId(), req.name, req.description, req.owner, req.moduleLoadCommand,
                                  req.modulesToLoad, req.hiddenOptions, null, null, null);
 
@@ -246,21 +244,21 @@ public class SchedulerProfileResource
     ResultResourceUrl respUrl = new ResultResourceUrl();
     respUrl.url = _request.getRequestURL().toString() + "/" + profileName;
     RespResourceUrl resp1 = new RespResourceUrl(respUrl);
-    return createSuccessResponse(Status.CREATED, ApiUtils.getMsgAuth("SYSAPI_CREATED", rUser, profileName), resp1);
+    return createSuccessResponse(Status.CREATED, ApiUtils.getMsgAuth("SYSAPI_PRF_CREATED", rUser, profileName), resp1);
   }
 
   /**
    * getSchedulerProfile
-   * @param profileId - name of the profile
+   * @param name - name of the profile
    * @param securityContext - user identity
-   * @return Response with system object as the result
+   * @return Response with scheduler profile as the result
    */
   @GET
-  @Path("{id}")
+  @Path("{name}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getSystem(@PathParam("id") String profileId,
-                            @Context SecurityContext securityContext)
+  public Response getSchedulerProfile(@PathParam("name") String name,
+                                      @Context SecurityContext securityContext)
   {
     String opName = "getSchedulerProfile";
     if (_log.isTraceEnabled()) logRequest(opName);
@@ -277,11 +275,11 @@ public class SchedulerProfileResource
     SchedulerProfile schedulerProfile;
     try
     {
-      schedulerProfile = systemsService.getSchedulerProfile(rUser, profileId);
+      schedulerProfile = systemsService.getSchedulerProfile(rUser, name);
     }
     catch (Exception e)
     {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_GET_PRF_ERROR", rUser, profileId, e.getMessage());
+      String msg = ApiUtils.getMsgAuth("SYSAPI_GET_PRF_ERROR", rUser, name, e.getMessage());
       _log.error(msg, e);
       return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -289,21 +287,21 @@ public class SchedulerProfileResource
     // Resource was not found.
     if (schedulerProfile == null)
     {
-      String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, profileId);
+      String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, name);
       return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
 
     // ---------------------------- Success -------------------------------
-    // Success means we retrieved the system information.
+    // Success means we retrieved the information.
     RespSchedulerProfile resp1 = new RespSchedulerProfile(schedulerProfile);
-    return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "SchedulerProfile", profileId), resp1);
+    return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "SchedulerProfile", name), resp1);
   }
 
   /**
    * getSchedulerProfiles
    * Retrieve all scheduler profiles
    * @param securityContext - user identity
-   * @return - list of systems accessible by requester and matching search conditions.
+   * @return - list of profiles
    */
   @GET
   @Consumes(MediaType.APPLICATION_JSON)
@@ -342,6 +340,79 @@ public class SchedulerProfileResource
 //      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
 //    }
 //    return successResponse;
+  }
+
+  /**
+   * Delete a profile
+   * @param name - name of profile
+   * @param securityContext - user identity
+   * @return - response with change count as the result
+   */
+  @DELETE
+  @Path("{name}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response deleteSchedulerProfile(@PathParam("name") String name,
+                                         @Context SecurityContext securityContext)
+  {
+    String opName = "deleteSchedulerProfile";
+    if (_log.isTraceEnabled()) logRequest(opName);
+
+    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
+    // Utility method returns null if all OK and appropriate error response if there was a problem.
+    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
+    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    if (resp != null) return resp;
+
+    // Create a user that collects together tenant, user and request information needed by the service call
+    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // ---------------------------- Make service call to update the system -------------------------------
+    // TODO
+    int changeCount;
+    String msg;
+    try
+    {
+      changeCount = systemsService.deleteSchedulerProfile(rUser, name);
+    }
+    catch (IllegalStateException e)
+    {
+      if (e.getMessage().contains("SYSLIB_PRF_UNAUTH"))
+      {
+        // IllegalStateException with msg containing SYS_UNAUTH indicates operation not authorized for apiUser - return 401
+        msg = ApiUtils.getMsgAuth("SYSAPI_PRF_UNAUTH", rUser, name, opName);
+        _log.warn(msg);
+        return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      }
+    }
+//    catch (IllegalArgumentException e)
+//    {
+//      // IllegalArgumentException indicates somehow a bad argument made it this far
+//      msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
+//      _log.error(msg);
+//      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+//    }
+    catch (Exception e)
+    {
+      msg = ApiUtils.getMsgAuth("SYSAPI_PRF_DEL_ERROR", rUser, name, e.getMessage());
+      _log.error(msg, e);
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+    }
+
+    // ---------------------------- Success -------------------------------
+    RespBasic resp1 = new RespBasic();
+    return Response.status(Status.OK)
+            .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_PRF_DELETED", rUser, name), PRETTY, resp1))
+            .build();
+
+// TODO/TBD:
+//    // Success means updates were applied
+//    // TODO Return the number of objects impacted.
+//    ResultChangeCount count = new ResultChangeCount();
+//    // TODO
+//    count.changes = changeCount;
+//    RespChangeCount resp1 = new RespChangeCount(count);
+//    return createSuccessResponse(Status.OK, ApiUtils.getMsgAuth("SYSAPI_PRF_DELETED", rUser, name), resp1);
   }
 
   /* **************************************************************************** */
