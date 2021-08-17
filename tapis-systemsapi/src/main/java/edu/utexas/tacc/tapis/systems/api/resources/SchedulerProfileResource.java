@@ -1,9 +1,6 @@
 package edu.utexas.tacc.tapis.systems.api.resources;
 
-import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
-import edu.utexas.tacc.tapis.shared.TapisConstants;
-import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidator;
@@ -13,11 +10,7 @@ import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadLocal;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespAbstract;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespBasic;
-import edu.utexas.tacc.tapis.sharedapi.responses.RespBoolean;
-import edu.utexas.tacc.tapis.sharedapi.responses.RespChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespResourceUrl;
-import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultBoolean;
-import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultResourceUrl;
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
@@ -28,7 +21,6 @@ import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.http.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,17 +29,11 @@ import javax.inject.Inject;
 import javax.servlet.ServletContext;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
-import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
-import javax.ws.rs.NotAuthorizedException;
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.PATCH;
 import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Application;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
@@ -58,8 +44,6 @@ import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.List;
 
 /*
  * JAX-RS REST resource for a SchedulerProfile
@@ -76,8 +60,6 @@ public class SchedulerProfileResource
   // ************************************************************************
   // Local logger.
   private static final Logger _log = LoggerFactory.getLogger(SchedulerProfileResource.class);
-
-  private static final String SYSTEMS_SVC = StringUtils.capitalize(TapisConstants.SERVICE_NAME_SYSTEMS);
 
   // Json schema resource files.
   private static final String FILE_CREATE_REQUEST = "/edu/utexas/tacc/tapis/systems/api/jsonschema/SchedulerProfilePostRequest.json";
@@ -134,7 +116,7 @@ public class SchedulerProfileResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response createSchedulerProfile(InputStream payloadStream,
-                               @Context SecurityContext securityContext)
+                                         @Context SecurityContext securityContext)
   {
     String opName = "createSchedulerProfile";
 
@@ -279,7 +261,7 @@ public class SchedulerProfileResource
     }
     catch (Exception e)
     {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_GET_PRF_ERROR", rUser, name, e.getMessage());
+      String msg = ApiUtils.getMsgAuth("SYSAPI_PRF_GET_ERROR", rUser, name, e.getMessage());
       _log.error(msg, e);
       return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -367,7 +349,7 @@ public class SchedulerProfileResource
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
-    // ---------------------------- Make service call to update the system -------------------------------
+    // ---------------------------- Make service call to delete the profile -------------------------------
     // TODO
     int changeCount;
     String msg;

@@ -92,7 +92,7 @@ COMMENT ON COLUMN systems.owner IS 'User name of system owner';
 COMMENT ON COLUMN systems.host IS 'System host name or ip address';
 COMMENT ON COLUMN systems.enabled IS 'Indicates if system is currently active and available for use';
 COMMENT ON COLUMN systems.effective_user_id IS 'User name to use when accessing the system';
-COMMENT ON COLUMN systems.default_authn_method IS 'Enum for how authorization is handled by default';
+COMMENT ON COLUMN systems.default_authn_method IS 'How authorization is handled by default';
 COMMENT ON COLUMN systems.bucket_name IS 'Name of the bucket for an S3 system';
 COMMENT ON COLUMN systems.root_dir IS 'Effective root directory path for a Unix system';
 COMMENT ON COLUMN systems.port IS 'Port number used to access a system';
@@ -222,3 +222,33 @@ COMMENT ON COLUMN capabilities.name IS 'Name of capability';
 COMMENT ON COLUMN capabilities.datatype IS 'Datatype associated with the value';
 COMMENT ON COLUMN capabilities.precedence IS 'Precedence where higher number has higher precedence';
 COMMENT ON COLUMN capabilities.value IS 'Value for the capability';
+
+-- ----------------------------------------------------------------------------------------
+--                                     SCHEDULER PROFILES
+-- ----------------------------------------------------------------------------------------
+-- Scheduler Profiles table
+CREATE TABLE IF NOT EXISTS scheduler_profiles
+(
+    tenant      TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    description TEXT,
+    owner       TEXT NOT NULL,
+    module_load_command TEXT NOT NULL,
+    modules_to_load TEXT[],
+    hidden_options TEXT[],
+    uuid uuid NOT NULL,
+    created    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+    updated    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+    UNIQUE (tenant, name)
+);
+ALTER TABLE scheduler_profiles OWNER TO tapis_sys;
+CREATE INDEX IF NOT EXISTS schedprof_tenant_name_idx ON scheduler_profiles (tenant, name);
+COMMENT ON COLUMN scheduler_profiles.tenant IS 'Tenant name associated with the profile';
+COMMENT ON COLUMN scheduler_profiles.name IS 'Unique name for the profile';
+COMMENT ON COLUMN scheduler_profiles.description IS 'Profile description';
+COMMENT ON COLUMN scheduler_profiles.owner IS 'User name of system owner';
+COMMENT ON COLUMN scheduler_profiles.module_load_command IS 'Command to load software library modules.';
+COMMENT ON COLUMN scheduler_profiles.modules_to_load IS 'Software library modules that should be loaded for each job.';
+COMMENT ON COLUMN scheduler_profiles.hidden_options IS 'Scheduler options that are subsumed by TAPIS.';
+COMMENT ON COLUMN scheduler_profiles.created IS 'UTC time for when record was created';
+COMMENT ON COLUMN scheduler_profiles.updated IS 'UTC time for when record was last updated';
