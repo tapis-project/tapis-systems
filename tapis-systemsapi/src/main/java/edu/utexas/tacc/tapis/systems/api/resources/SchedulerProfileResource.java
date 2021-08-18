@@ -9,14 +9,16 @@ import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
 import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadLocal;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespAbstract;
-import edu.utexas.tacc.tapis.sharedapi.responses.RespBasic;
+import edu.utexas.tacc.tapis.sharedapi.responses.RespChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespResourceUrl;
+import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultResourceUrl;
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPostSchedulerProfile;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSchedulerProfile;
+import edu.utexas.tacc.tapis.systems.api.responses.RespSchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
@@ -26,22 +28,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import javax.servlet.ServletContext;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.core.Application;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.SecurityContext;
-import javax.ws.rs.core.UriInfo;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
@@ -67,17 +66,15 @@ public class SchedulerProfileResource
   // Message keys
   private static final String INVALID_JSON_INPUT = "NET_INVALID_JSON_INPUT";
   private static final String JSON_VALIDATION_ERR = "TAPIS_JSON_VALIDATION_ERROR";
-  private static final String UPDATE_ERR = "SYSAPI_UPDATE_ERROR";
-  private static final String CREATE_ERR = "SYSAPI_CREATE_ERROR";
-  private static final String SELECT_ERR = "SYSAPI_SELECT_ERROR";
+  private static final String CREATE_ERR = "SYSAPI_PRF_CREATE_ERROR";
+  private static final String LIST_ERR = "SYSAPI_PRF_LIST_ERROR";
   private static final String LIB_UNAUTH = "SYSLIB_PRF_UNAUTH";
   private static final String API_UNAUTH = "SYSAPI_PRF_UNAUTH";
   private static final String TAPIS_FOUND = "TAPIS_FOUND";
-  private static final String NOT_FOUND = "SYSAPI_NOT_FOUND";
-  private static final String UPDATED = "SYSAPI_UPDATED";
+  private static final String NOT_FOUND = "SYSAPI_PRF_NOT_FOUND";
 
   // Format strings
-  private static final String SYS_CNT_STR = "%d scheduler profiles";
+  private static final String PRF_CNT_STR = "%d scheduler profiles";
 
   // Always return a nicely formatted response
   private static final boolean PRETTY = true;
@@ -85,16 +82,6 @@ public class SchedulerProfileResource
   // ************************************************************************
   // *********************** Fields *****************************************
   // ************************************************************************
-  @Context
-  private HttpHeaders _httpHeaders;
-  @Context
-  private Application _application;
-  @Context
-  private UriInfo _uriInfo;
-  @Context
-  private SecurityContext _securityContext;
-  @Context
-  private ServletContext _servletContext;
   @Context
   private Request _request;
 
@@ -186,7 +173,7 @@ public class SchedulerProfileResource
     {
       if (e.getMessage().contains("SYSLIB_PRF_EXISTS"))
       {
-        // IllegalStateException with msg containing SYS_EXISTS indicates object exists - return 409 - Conflict
+        // IllegalStateException with msg containing PRF_EXISTS indicates object exists - return 409 - Conflict
         msg = ApiUtils.getMsgAuth("SYSAPI_PRF_EXISTS", rUser, profileName);
         _log.warn(msg);
         return Response.status(Status.CONFLICT).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
@@ -302,25 +289,24 @@ public class SchedulerProfileResource
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
-    // TODO
-    return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse("WIP", PRETTY)).build();
+    // ------------------------- Retrieve records -----------------------------
+    RespSchedulerProfiles successResponse;
+    try
+    {
+      var schedulerProfiles = systemsService.getSchedulerProfiles(rUser);
+      String itemCountStr = String.format(PRF_CNT_STR, schedulerProfiles.size());
 
-//    // ------------------------- Retrieve records -----------------------------
-//    Response successResponse;
-//    try
-//    {
-//      var schedulerProfiles = systemsService.getSchedulerProfiles(rUser);
-//      resp1 = new RespSchedulerProfiles(schedulerProfiles);
-//
-//      return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, SYSTEMS_SVC, ), resp1);
-//    }
-//    catch (Exception e)
-//    {
-//      String msg = ApiUtils.getMsgAuth(SELECT_ERR, rUser, e.getMessage());
-//      _log.error(msg, e);
-//      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-//    }
-//    return successResponse;
+      successResponse = new RespSchedulerProfiles(schedulerProfiles);
+
+      return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "SchedulerProfiles", itemCountStr),
+                                   successResponse);
+    }
+    catch (Exception e)
+    {
+      String msg = ApiUtils.getMsgAuth(LIST_ERR, rUser, e.getMessage());
+      _log.error(msg, e);
+      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+    }
   }
 
   /**
@@ -349,30 +335,25 @@ public class SchedulerProfileResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // ---------------------------- Make service call to delete the profile -------------------------------
-    // TODO
     int changeCount;
     String msg;
     try
     {
       changeCount = systemsService.deleteSchedulerProfile(rUser, name);
     }
-    catch (IllegalStateException e)
+    catch (NotAuthorizedException e)
     {
-      if (e.getMessage().contains(LIB_UNAUTH))
-      {
-        // IllegalStateException with msg containing UNAUTH indicates operation not authorized for apiUser - return 401
-        msg = ApiUtils.getMsgAuth(API_UNAUTH, rUser, name, opName);
-        _log.warn(msg);
-        return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
+      msg = ApiUtils.getMsgAuth(API_UNAUTH, rUser, name, opName);
+      _log.warn(msg);
+      return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
-//    catch (IllegalArgumentException e)
-//    {
-//      // IllegalArgumentException indicates somehow a bad argument made it this far
-//      msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
-//      _log.error(msg);
-//      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-//    }
+    catch (IllegalArgumentException e)
+    {
+      // IllegalArgumentException indicates somehow a bad argument made it this far
+      msg = ApiUtils.getMsgAuth("SYSAPI_PRF_DEL_ERROR", rUser, name, opName, e.getMessage());
+      _log.error(msg);
+      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+    }
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PRF_DEL_ERROR", rUser, name, e.getMessage());
@@ -381,19 +362,12 @@ public class SchedulerProfileResource
     }
 
     // ---------------------------- Success -------------------------------
-    RespBasic resp1 = new RespBasic();
-    return Response.status(Status.OK)
-            .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_PRF_DELETED", rUser, name), PRETTY, resp1))
-            .build();
-
-// TODO/TBD:
-//    // Success means updates were applied
-//    // TODO Return the number of objects impacted.
-//    ResultChangeCount count = new ResultChangeCount();
-//    // TODO
-//    count.changes = changeCount;
-//    RespChangeCount resp1 = new RespChangeCount(count);
-//    return createSuccessResponse(Status.OK, ApiUtils.getMsgAuth("SYSAPI_PRF_DELETED", rUser, name), resp1);
+    // Success means updates were applied
+    // Return the number of objects impacted.
+    ResultChangeCount count = new ResultChangeCount();
+    count.changes = changeCount;
+    RespChangeCount resp1 = new RespChangeCount(count);
+    return createSuccessResponse(Status.OK, ApiUtils.getMsgAuth("SYSAPI_PRF_DELETED", rUser, name), resp1);
   }
 
   /* **************************************************************************** */

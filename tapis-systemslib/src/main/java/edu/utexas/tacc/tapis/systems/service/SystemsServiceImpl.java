@@ -1465,7 +1465,7 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public int deleteSchedulerProfile(ResourceRequestUser rUser, String name)
-          throws TapisException, TapisClientException, NotAuthorizedException
+          throws TapisException, TapisClientException, NotAuthorizedException, IllegalArgumentException
   {
     SchedulerProfileOperation op = SchedulerProfileOperation.delete;
     // Check inputs. If anything null or empty throw an exception
@@ -1954,7 +1954,7 @@ public class SystemsServiceImpl implements SystemsService
    * @throws NotAuthorizedException - apiUserId not authorized to perform operation
    */
   private void checkPrfAuth(ResourceRequestUser rUser, SchedulerProfileOperation op, String name, String owner)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+          throws TapisException, TapisClientException, NotAuthorizedException
   {
     // Anyone can read, including all services
     if (op == SchedulerProfileOperation.read) return;
