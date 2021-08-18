@@ -10,6 +10,7 @@ import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
+import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
@@ -50,6 +51,7 @@ public final class IntegrationUtils
   public static final String testUser4 = "testuser4";
   public static final String apiUser = "testApiUser";
   public static final String sysNamePrefix = "TestSys";
+  public static final String schedProfileNamePrefix = "TestSchedProfile";
   public static final String description1 = "System description 1";
   public static final String description2 = "System description 2";
   public static final String hostname2 = "my.system2.org";
@@ -215,10 +217,6 @@ public final class IntegrationUtils
   public static final int skipZero = 0;
   public static final String startAferEmpty = "";
 
-  // Scheduler profiles
-  public static final String schedulerProfileName1 = "SchedProfile1";
-  public static final String schedulerProfileName2 = "SchedProfile2";
-
   /**
    * Create first DTN System
    * Have a separate method for each because each test suite needs one with a unique name to avoid
@@ -381,14 +379,48 @@ public final class IntegrationUtils
             capListNull, tagsNull, notesNull);
   }
 
+  /**
+   * Create an array of SchedulerProfile objects in memory
+   * Names will be of format TestSchedProfile_K_NNN where K is the key and NNN runs from 000 to 999
+   * We need a key because maven runs the tests in parallel so each set of systems created by an integration
+   *   test will need its own namespace.
+   * @param n number of objects to create
+   * @return array of objects created
+   */
+  public static SchedulerProfile[] makeSchedulerProfiles(int n, String key)
+  {
+    SchedulerProfile[] schedulerProfiles = new SchedulerProfile[n];
+    List<SchedulerProfile.HiddenOption> hiddenOptions = new ArrayList<>(List.of(SchedulerProfile.HiddenOption.MEM));
+    for (int i = 0; i < n; i++)
+    {
+      // Suffix which should be unique for each system within each integration test
+      String iStr = String.format("%03d", i+1);
+      String suffix = key + "_" + iStr;
+      String name = getSchedulerProfileName(key, i+1);
+      String hostName = "host" + key + iStr + ".test.org";
+      String moduleLoadCmd = "module load" + suffix;
+      String[] modulesToLoad = {"value1" + suffix, "value2" + suffix};
+      schedulerProfiles[i] = new SchedulerProfile(tenantName, name, "Test profile" + suffix, testUser2,
+                                                  moduleLoadCmd, modulesToLoad, hiddenOptions, null, null, null);
+    }
+    return schedulerProfiles;
+  }
+
   public static String getBucketName(String key, int idx)
   {
     String suffix = key + "_" + String.format("%03d", idx);
     return "bucket" + suffix;
   }
+
   public static String getSysName(String key, int idx)
   {
     String suffix = key + "_" + String.format("%03d", idx);
     return sysNamePrefix + "_" + suffix;
+  }
+
+  public static String getSchedulerProfileName(String key, int idx)
+  {
+    String suffix = key + "_" + String.format("%03d", idx);
+    return schedProfileNamePrefix + "_" + suffix;
   }
 }

@@ -100,10 +100,13 @@ public interface SystemsService
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException, IllegalArgumentException;
 
   SchedulerProfile getSchedulerProfile(ResourceRequestUser rUser, String name)
-          throws TapisException, TapisClientException, NotAuthorizedException;
+          throws TapisException, NotAuthorizedException;
 
   List<SchedulerProfile> getSchedulerProfiles(ResourceRequestUser rUser) throws TapisException;
 
   int deleteSchedulerProfile(ResourceRequestUser rUser, String name)
-          throws TapisException, NotAuthorizedException, IllegalStateException;
+          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException;
+
+  boolean checkForSchedulerProfile(ResourceRequestUser rUser, String name)
+          throws TapisException, TapisClientException, NotAuthorizedException;
 }

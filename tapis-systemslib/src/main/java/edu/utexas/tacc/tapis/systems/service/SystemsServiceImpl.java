@@ -1379,9 +1379,9 @@ public class SystemsServiceImpl implements SystemsService
    * Create a scheduler profile.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param schedulerProfile - Pre-populated SchedulerProfile object (including tenant and name)
-   * @param scrubbedText - Text used to create the TSystem object - secrets should be scrubbed. Saved in update record.
+   * @param scrubbedText - Text used to create the profile object - secrets should be scrubbed. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - system exists OR TSystem in invalid state
+   * @throws IllegalStateException - resource exists OR is in invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    */
@@ -1397,7 +1397,7 @@ public class SystemsServiceImpl implements SystemsService
     String resourceId = schedulerProfile.getName();
 
     // ---------------------------- Check inputs ------------------------------------
-    // Required system attributes: tenant, id, moduleLoadCommand
+    // Required attributes: tenant, id, moduleLoadCommand
     if (StringUtils.isBlank(resourceTenantId) || StringUtils.isBlank(resourceId) ||
             StringUtils.isBlank(schedulerProfile.getModuleLoadCommand()) || StringUtils.isBlank(scrubbedText))
     {
@@ -1410,49 +1410,20 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_PRF_EXISTS", rUser, resourceId));
     }
 
-    // ------------------------- Check service level authorization -------------------------
-    // TODO
-//TODO    checkAuth(rUser, op, schedulerProfile.getName(), schedulerProfile.getOwner(), null, null);
-    // TODO
+    // Check authorization
+    checkPrfAuth(rUser, op, schedulerProfile.getName(), schedulerProfile.getOwner());
 
     // Construct Json string representing the resource about to be created
     String createJsonStr = TapisGsonUtils.getGson().toJson(schedulerProfile);
 
-    // ----------------- Create all artifacts --------------------
-    // Use try/catch to rollback any writes in case of failure.
-    boolean itemCreated = false;
-    String systemsPermSpecALL = getPermSpecAllStr(resourceTenantId, resourceId);
-
-    // Get SK client now. If we cannot get this rollback not needed.
-    var skClient = getSKClient();
-    try {
-      // ------------------- Make Dao call to persist the system -----------------------------------
-      itemCreated = dao.createSchedulerProfile(rUser, schedulerProfile, createJsonStr, scrubbedText);
-
-      // ------------------- Add permissions -----------------------------
-      // Give owner full access
-      skClient.grantUserPermission(resourceTenantId, schedulerProfile.getOwner(), systemsPermSpecALL);
-
-    }
-    catch (Exception e0)
-    {
-      // Something went wrong. Attempt to undo all changes and then re-throw the exception
-      // Log error
-      String msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ROLLBACK", rUser, resourceId, e0.getMessage());
-      _log.error(msg);
-      // Rollback
-      // Remove from DB
-      if (itemCreated) try {dao.deleteSchedulerProfile(resourceTenantId, resourceId); }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, resourceId, "delete", e.getMessage()));}
-      // Remove perms
-      try { skClient.revokeUserPermission(resourceTenantId, schedulerProfile.getOwner(), systemsPermSpecALL); }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, resourceId, "revokePermOwner", e.getMessage()));}
-      throw e0;
-    }
+    // No distributed transactions so no distributed rollback needed
+    // Make Dao call to persist the resource
+    dao.createSchedulerProfile(rUser, schedulerProfile, createJsonStr, scrubbedText);
   }
 
   /**
    * Get all scheduler profiles
+   * NOTE: Anyone can read, no filtering based on auth.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @return List of scheduler profiles
    * @throws TapisException - for Tapis related exceptions
@@ -1466,6 +1437,7 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * getSchedulerProfile
+   * NOTE: Anyone can read, no auth check
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param name - Name of the profile
    * @return schedulerProfile or null if not found or user not authorized.
@@ -1474,27 +1446,14 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public SchedulerProfile getSchedulerProfile(ResourceRequestUser rUser, String name)
-          throws TapisException, NotAuthorizedException, TapisClientException
+          throws TapisException, NotAuthorizedException
   {
-    // TODO
-    SystemOperation op = SystemOperation.read;
+    SchedulerProfileOperation op = SchedulerProfileOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(name))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_PROFILE", rUser));
-
-    String resourceTenantId = rUser.getOboTenantId();
-
-    // We need owner to check auth and if system not there cannot find owner, so return null if no system.
-    if (!dao.checkForSchedulerProfile(resourceTenantId, name)) return null;
-
-    // ------------------------- Check service level authorization -------------------------
-// TODO
-// TODO    checkAuth(rUser, op, name, null, null, null);
-// TODO
-
-    SchedulerProfile result = dao.getSchedulerProfile(resourceTenantId, name);
-    if (result == null) return null;
-    else return result;
+    // Use dao to get resource
+    return dao.getSchedulerProfile(rUser.getOboTenantId(), name);
   }
 
   /**
@@ -1506,9 +1465,9 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public int deleteSchedulerProfile(ResourceRequestUser rUser, String name)
-          throws TapisException, NotAuthorizedException
+          throws TapisException, TapisClientException, NotAuthorizedException
   {
-    SystemOperation op = SystemOperation.delete;
+    SchedulerProfileOperation op = SchedulerProfileOperation.delete;
     // Check inputs. If anything null or empty throw an exception
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(name))
@@ -1519,12 +1478,31 @@ public class SystemsServiceImpl implements SystemsService
     // If profile does not exist or has been deleted then return 0 changes
     if (!dao.checkForSchedulerProfile(resourceTenantId, name)) return 0;
 
-    // TODO
-// TODO    // ------------------------- Check service level authorization -------------------------
-//    checkAuth(rUser, op, name, null, userName, null);
-    // TODO
+    // Check authorization
+    checkPrfAuth(rUser, op, name, null);
 
+    // Use dao to delete the resource
     return dao.deleteSchedulerProfile(resourceTenantId, name);
+  }
+
+  /**
+   * checkForSchedulerProfile
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param name - Name of the profile
+   * @return true if system exists and has not been deleted, false otherwise
+   * @throws TapisException - for Tapis related exceptions
+   * @throws NotAuthorizedException - unauthorized
+   */
+  @Override
+  public boolean checkForSchedulerProfile(ResourceRequestUser rUser, String name)
+          throws TapisException, NotAuthorizedException
+  {
+    SystemOperation op = SystemOperation.read;
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(name))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_PROFILE", rUser));
+
+    return dao.checkForSchedulerProfile(rUser.getOboTenantId(), name);
   }
 
   // ************************************************************************
@@ -1960,6 +1938,53 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
+   * Authorization check for Scheduler Profile operations.
+   * A check should be made for existence before calling this method.
+   * If no owner is passed in and one cannot be found then an error is logged and authorization is denied.
+   * NOTE: SK only used to check for admin role. Anyone can read and only owner/admin can create/delete
+   * Operations:
+   *  Create -  must be owner or have admin role
+   *  Delete -  must be owner or have admin role
+   *  Read -    everyone is authorized
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param op - operation name
+   * @param name - name of the profile
+   * @param owner - owner
+   * @throws NotAuthorizedException - apiUserId not authorized to perform operation
+   */
+  private void checkPrfAuth(ResourceRequestUser rUser, SchedulerProfileOperation op, String name, String owner)
+          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+  {
+    // Anyone can read, including all services
+    if (op == SchedulerProfileOperation.read) return;
+
+    String tenantName = rUser.getOboTenantId();
+    String userName = rUser.getOboUserId();
+
+    // Check requires owner. If no owner specified and owner cannot be determined then log an error and deny.
+    if (StringUtils.isBlank(owner)) owner = dao.getSchedulerProfileOwner(tenantName, name);
+    if (StringUtils.isBlank(owner))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_PRF_AUTH_NO_OWNER", rUser, name, op.name());
+      _log.error(msg);
+      throw new NotAuthorizedException(msg, NO_CHALLENGE);
+    }
+
+    // Owner and Admin can create, delete
+    switch(op) {
+      case create:
+      case delete:
+        if (owner.equals(userName) || hasAdminRole(rUser, tenantName, userName))
+          return;
+        break;
+    }
+
+    // Not authorized, throw an exception
+    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_PRF_UNAUTH", rUser, name, op.name()), NO_CHALLENGE);
+  }
+
+  /**
    * Determine all systems that a user is allowed to see.
    * If all systems return null else return list of system IDs
    * An empty list indicates no systems allowed.
@@ -2160,7 +2185,6 @@ public class SystemsServiceImpl implements SystemsService
     var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
     sMetaParms.setTenant(apiTenantId).setUser(apiUserId);
     sMetaParms.setSysId(systemId).setSysUser(userName);
-    SkSecretVersionMetadata skMetaSecret;
     // NOTE: To be sure we know that the secret does not exist we need to check each key type
     //       By default keyType is sshkey which may not exist
     boolean secretNotFound = true;

@@ -73,7 +73,7 @@ public interface SystemsDao
   /*                             Scheduler Profiles                         */
   /* ********************************************************************** */
 
-  boolean createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile profile, String createJsonStr, String scrubbedText)
+  void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile profile, String createJsonStr, String scrubbedText)
           throws TapisException, IllegalStateException;
 
   SchedulerProfile getSchedulerProfile(String tenantId, String name) throws TapisException;
@@ -83,5 +83,7 @@ public interface SystemsDao
   int deleteSchedulerProfile(String tenantId, String name) throws TapisException;
 
   boolean checkForSchedulerProfile(String tenantId, String name) throws TapisException;
+
+  String getSchedulerProfileOwner(String tenant, String name) throws TapisException;
 
 }

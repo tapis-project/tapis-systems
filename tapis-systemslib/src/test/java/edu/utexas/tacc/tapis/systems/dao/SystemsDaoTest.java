@@ -25,7 +25,6 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.SystemType;
 
 import static edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters.*;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.*;
-import static edu.utexas.tacc.tapis.systems.model.SchedulerProfile.HiddenOption;
 
 /**
  * Test the SystemsDao class against a DB running locally
@@ -36,15 +35,14 @@ public class SystemsDaoTest
   private SystemsDaoImpl dao;
   private ResourceRequestUser rUser;
 
-  // Create test system definitions in memory
+  // Create test system definitions and scheduler profiles in memory
   int numSystems = 12;
+  int numSchedulerProfiles = 5;
   String testKey = "Dao";
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
   TSystem[] systems = IntegrationUtils.makeSystems(numSystems, testKey);
-
-  private String schedProfileName1 = testKey + schedulerProfileName1;
-  private String schedProfileName2 = testKey + schedulerProfileName2;
+  SchedulerProfile[] schedulerProfiles = IntegrationUtils.makeSchedulerProfiles(numSchedulerProfiles, testKey);
 
   @BeforeSuite
   public void setup() throws Exception
@@ -68,11 +66,15 @@ public class SystemsDaoTest
     }
 
     // Delete scheduler profiles
-    dao.deleteSchedulerProfile(tenantName, schedProfileName1);
-    dao.deleteSchedulerProfile(tenantName, schedProfileName2);
+    for (int i = 0; i < numSchedulerProfiles; i++)
+    {
+      dao.deleteSchedulerProfile(tenantName, schedulerProfiles[i].getName());
+    }
 
     Assert.assertFalse(dao.checkForSystem(tenantName, systems[0].getId(), true),
                        "System not deleted. System name: " + systems[0].getId());
+    Assert.assertFalse(dao.checkForSchedulerProfile(tenantName, schedulerProfiles[0].getName()),
+                       "Scheduler Profile not deleted. Profile name: " + schedulerProfiles[0].getName());
   }
 
   // Test create for a single item
@@ -188,7 +190,7 @@ public class SystemsDaoTest
     List<TSystem> systems = dao.getSystems(tenantName, null, null, null, DEFAULT_LIMIT, orderByListNull,
                                             DEFAULT_SKIP, startAfterNull, showDeletedFalse);
     for (TSystem system : systems) {
-      System.out.println("Found item with id: " + system.getId() + " and name: " + system.getId());
+      System.out.println("Found item with id: " + system.getId());
     }
   }
 
@@ -209,7 +211,7 @@ public class SystemsDaoTest
     List<TSystem> systems = dao.getSystems(tenantName, null, null, sysIdList, DEFAULT_LIMIT, orderByListNull,
                                             DEFAULT_SKIP, startAfterNull, showDeletedFalse);
     for (TSystem system : systems) {
-      System.out.println("Found item with id: " + system.getId() + " and name: " + system.getId());
+      System.out.println("Found item with id: " + system.getId());
       Assert.assertTrue(sysIdList.contains(system.getId()));
     }
     Assert.assertEquals(sysIdList.size(), systems.size());
@@ -308,42 +310,32 @@ public class SystemsDaoTest
   @Test
   public void testCreateSchedulerProfile() throws Exception
   {
-    String moduleLoadCmd = "module load";
-    String[] modulesToLoad = {"value1", "value2"};
-    List<HiddenOption> hiddenOptions = new ArrayList<>(List.of(HiddenOption.MEM));
-    SchedulerProfile schedProfile = new SchedulerProfile(tenantName, schedProfileName1, testUser2, "Test profile 1",
-                                                         moduleLoadCmd, modulesToLoad, hiddenOptions, null, null, null);
-    boolean itemCreated = dao.createSchedulerProfile(rUser, schedProfile, gson.toJson(schedProfile), scrubbedJson);
-    Assert.assertTrue(itemCreated, "Profile not created, id: " + schedProfile.getName());
-    System.out.println("Scheduler Profile created: " + schedProfile.getName());
+    SchedulerProfile p0 = schedulerProfiles[0];
+    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    System.out.println("Scheduler Profile created: " + p0.getName());
   }
 
   @Test
   public void testGetSchedulerProfile() throws Exception
   {
-    String moduleLoadCmd = "moduleLoad2";
-    String[] modulesToLoad = {"value3", "value4"};
-    List<HiddenOption> hiddenOptions = new ArrayList<>(List.of(HiddenOption.MEM));
-    SchedulerProfile schedProfile = new SchedulerProfile(tenantName, schedProfileName2, testUser2, "Test profile 2",
-            moduleLoadCmd, modulesToLoad, hiddenOptions, null, null, null);
-    boolean itemCreated = dao.createSchedulerProfile(rUser, schedProfile, gson.toJson(schedProfile), scrubbedJson);
-    Assert.assertTrue(itemCreated, "Profile not created, id: " + schedProfile.getName());
-    System.out.println("Scheduler Profile created: " + schedProfile.getName());
+    SchedulerProfile p0 = schedulerProfiles[1];
+    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    System.out.println("Scheduler Profile created: " + p0.getName());
 
-    SchedulerProfile tmpProfile = dao.getSchedulerProfile(tenantName, schedProfile.getName());
+    SchedulerProfile tmpProfile = dao.getSchedulerProfile(tenantName, p0.getName());
     System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
-    Assert.assertEquals(tmpProfile.getTenant(), schedProfile.getTenant());
-    Assert.assertEquals(tmpProfile.getName(), schedProfile.getName());
-    Assert.assertEquals(tmpProfile.getDescription(), schedProfile.getDescription());
-    Assert.assertEquals(tmpProfile.getOwner(), schedProfile.getOwner());
-    Assert.assertEquals(tmpProfile.getModuleLoadCommand(), schedProfile.getModuleLoadCommand());
+    Assert.assertEquals(tmpProfile.getTenant(), p0.getTenant());
+    Assert.assertEquals(tmpProfile.getName(), p0.getName());
+    Assert.assertEquals(tmpProfile.getDescription(), p0.getDescription());
+    Assert.assertEquals(tmpProfile.getOwner(), p0.getOwner());
+    Assert.assertEquals(tmpProfile.getModuleLoadCommand(), p0.getModuleLoadCommand());
 
     Assert.assertNotNull(tmpProfile.getModulesToLoad());
-    Assert.assertEquals(tmpProfile.getModulesToLoad().length, schedProfile.getModulesToLoad().length);
+    Assert.assertEquals(tmpProfile.getModulesToLoad().length, p0.getModulesToLoad().length);
 
     Assert.assertNotNull(tmpProfile.getHiddenOptions());
     Assert.assertFalse(tmpProfile.getHiddenOptions().isEmpty());
-    Assert.assertEquals(tmpProfile.getHiddenOptions().size(), schedProfile.getHiddenOptions().size());
+    Assert.assertEquals(tmpProfile.getHiddenOptions().size(), p0.getHiddenOptions().size());
 
     Assert.assertNotNull(tmpProfile.getUuid());
     Assert.assertNotNull(tmpProfile.getCreated());
@@ -351,5 +343,42 @@ public class SystemsDaoTest
     Assert.assertFalse(StringUtils.isBlank(tmpProfile.getUuid().toString()));
     Assert.assertFalse(StringUtils.isBlank(tmpProfile.getCreated().toString()));
     Assert.assertFalse(StringUtils.isBlank(tmpProfile.getUpdated().toString()));
+  }
+
+  @Test
+  public void testDeleteSchedulerProfile() throws Exception
+  {
+    SchedulerProfile p0 = schedulerProfiles[2];
+    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    System.out.println("Scheduler Profile created: " + p0.getName());
+    dao.deleteSchedulerProfile(rUser.getOboTenantId(), p0.getName());
+    Assert.assertFalse(dao.checkForSchedulerProfile(tenantName, p0.getName()),
+                       "Scheduler Profile not deleted. Profile name: " + p0.getName());
+    System.out.println("Scheduler Profile deleted: " + p0.getName());
+  }
+
+  @Test
+  public void testGetSchedulerProfiles() throws Exception {
+    var profileNameList = new HashSet<String>();
+    SchedulerProfile p0 = schedulerProfiles[3];
+    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    System.out.println("Scheduler Profile created: " + p0.getName());
+    profileNameList.add(p0.getName());
+    p0 = schedulerProfiles[4];
+    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    System.out.println("Scheduler Profile created: " + p0.getName());
+    profileNameList.add(p0.getName());
+
+    List<SchedulerProfile> profiles = dao.getSchedulerProfiles(tenantName);
+    Assert.assertNotNull(profiles, "getSchedulerProfiles returned null");
+    Assert.assertFalse(profiles.isEmpty(), "getSchedulerProfiles returned empty list");
+    for (SchedulerProfile profile : profiles)
+    {
+      System.out.println("Found item with name: " + profile.getName());
+    }
+    Assert.assertTrue(profileNameList.contains(schedulerProfiles[3].getName()),
+                      "getSchedulerProfiles did not return item with name: " + schedulerProfiles[3].getName());
+    Assert.assertTrue(profileNameList.contains(schedulerProfiles[4].getName()),
+                      "getSchedulerProfiles did not return item with name: " + schedulerProfiles[4].getName());
   }
 }

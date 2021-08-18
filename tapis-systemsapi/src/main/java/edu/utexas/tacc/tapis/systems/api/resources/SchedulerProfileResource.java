@@ -70,8 +70,8 @@ public class SchedulerProfileResource
   private static final String UPDATE_ERR = "SYSAPI_UPDATE_ERROR";
   private static final String CREATE_ERR = "SYSAPI_CREATE_ERROR";
   private static final String SELECT_ERR = "SYSAPI_SELECT_ERROR";
-  private static final String LIB_UNAUTH = "SYSLIB_UNAUTH";
-  private static final String API_UNAUTH = "SYSAPI_SYS_UNAUTH";
+  private static final String LIB_UNAUTH = "SYSLIB_PRF_UNAUTH";
+  private static final String API_UNAUTH = "SYSAPI_PRF_UNAUTH";
   private static final String TAPIS_FOUND = "TAPIS_FOUND";
   private static final String NOT_FOUND = "SYSAPI_NOT_FOUND";
   private static final String UPDATED = "SYSAPI_UPDATED";
@@ -175,7 +175,6 @@ public class SchedulerProfileResource
             new SchedulerProfile(rUser.getOboTenantId(), req.name, req.description, req.owner, req.moduleLoadCommand,
                                  req.modulesToLoad, req.hiddenOptions, null, null, null);
 
-
     // ---------------------------- Make service call to create -------------------------------
     // Pull out name for convenience
     String profileName = schedProfile.getName();
@@ -194,7 +193,7 @@ public class SchedulerProfileResource
       }
       else if (e.getMessage().contains(LIB_UNAUTH))
       {
-        // IllegalStateException with msg containing SYS_UNAUTH indicates operation not authorized for apiUser - return 401
+        // IllegalStateException with msg containing UNAUTH indicates operation not authorized for apiUser - return 401
         msg = ApiUtils.getMsgAuth(API_UNAUTH, rUser, profileName, opName);
         _log.warn(msg);
         return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
@@ -359,10 +358,10 @@ public class SchedulerProfileResource
     }
     catch (IllegalStateException e)
     {
-      if (e.getMessage().contains("SYSLIB_PRF_UNAUTH"))
+      if (e.getMessage().contains(LIB_UNAUTH))
       {
-        // IllegalStateException with msg containing SYS_UNAUTH indicates operation not authorized for apiUser - return 401
-        msg = ApiUtils.getMsgAuth("SYSAPI_PRF_UNAUTH", rUser, name, opName);
+        // IllegalStateException with msg containing UNAUTH indicates operation not authorized for apiUser - return 401
+        msg = ApiUtils.getMsgAuth(API_UNAUTH, rUser, name, opName);
         _log.warn(msg);
         return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
       }

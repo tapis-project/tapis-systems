@@ -1325,7 +1325,7 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws IllegalStateException - if profile already exists
    */
   @Override
-  public boolean createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile schedulerProfile,
+  public void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile schedulerProfile,
                                         String createJsonStr, String scrubbedText)
           throws TapisException, IllegalStateException {
     String opName = "createSchedulerProfile";
@@ -1389,7 +1389,6 @@ public class SystemsDaoImpl implements SystemsDao
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
     }
-    return true;
   }
 
   /**
@@ -1440,9 +1439,33 @@ public class SystemsDaoImpl implements SystemsDao
   @Override
   public List<SchedulerProfile> getSchedulerProfiles(String tenantId) throws TapisException
   {
-    // TODO
-    var schedulerProfiles = new ArrayList<SchedulerProfile>();
-    return schedulerProfiles;
+    List<SchedulerProfile> retList = new ArrayList<SchedulerProfile>();
+    // ------------------------- Build and execute SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+
+      retList = db.selectFrom(SCHEDULER_PROFILES).where(SCHEDULER_PROFILES.TENANT.eq(tenantId))
+                  .fetchInto(SchedulerProfile.class);
+      if (retList == null || retList.isEmpty()) return Collections.emptyList();
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_QUERY_ERROR", "scheduler_profiles", e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return retList;
   }
 
   /**
@@ -1505,6 +1528,43 @@ public class SystemsDaoImpl implements SystemsDao
     }
   }
 
+  /**
+   * getSchedulerProfileOwner
+   * @param tenant - name of tenant
+   * @param name - name of profile
+   * @return Owner or null if no resource found
+   * @throws TapisException - on error
+   */
+  @Override
+  public String getSchedulerProfileOwner(String tenant, String name) throws TapisException
+  {
+    String owner = null;
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      owner = db.selectFrom(SCHEDULER_PROFILES)
+                .where(SCHEDULER_PROFILES.TENANT.eq(tenant),SCHEDULER_PROFILES.NAME.eq(name))
+                .fetchOne(SCHEDULER_PROFILES.OWNER);
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_QUERY_ERROR", "scheduler_profiles", e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return owner;
+  }
 
   /* ********************************************************************** */
   /*                             Private Methods                            */
