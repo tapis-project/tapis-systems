@@ -43,6 +43,7 @@
       "items": {"$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/LogicalQueue" }
     },
     "batchDefaultLogicalQueue": { "type": ["string", "null"], "maxLength": 128 },
+    "batchSchedulerProfile": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/SystemId" },
     "jobCapabilities": {
       "type": "array",
       "items": {"$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/Capability" }

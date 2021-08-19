@@ -277,6 +277,7 @@ public class SystemsServiceTest
     sys0.setJobMaxJobsPerUser(jobMaxJobsPerUser2);
     sys0.setBatchScheduler(batchScheduler2);
     sys0.setBatchDefaultLogicalQueue(batchDefaultLogicalQueue2);
+    sys0.setBatchSchedulerProfile(batchSchedulerProfile2);
     sys0.setTags(tags2);
     sys0.setNotes(notes2);
     sys0.setJobRuntimes(runtimeList2);
@@ -337,6 +338,7 @@ public class SystemsServiceTest
     sys0.setJobMaxJobsPerUser(jobMaxJobsPerUser2);
     sys0.setBatchScheduler(batchScheduler2);
     sys0.setBatchDefaultLogicalQueue(batchDefaultLogicalQueue2);
+    sys0.setBatchSchedulerProfile(batchSchedulerProfile2);
     sys0.setTags(tags2);
     sys0.setNotes(notes2);
     sys0.setJobRuntimes(runtimeList2);
@@ -956,8 +958,8 @@ public class SystemsServiceTest
     PatchSystem patchSys = new PatchSystem(tenantName, sys0.getId(), "description PATCHED", "hostPATCHED", "effUserPATCHED",
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, runtimeList1, jobWorkingDir1, jobEnvVariables1, jobMaxJobs1,
-            jobMaxJobsPerUser1, jobIsBatchTrue, batchScheduler1, logicalQueueList1, batchDefaultLogicalQueue1,
-            capList2, tags2, notes2);
+            jobMaxJobsPerUser1, jobIsBatchTrue, batchScheduler1, logicalQueueList1,
+            batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2);
     // CREATE - Deny user not owner/admin, deny service
     boolean pass = false;
     try { svc.createSystem(rTestUser0, sys0, scrubbedJson); }
@@ -1396,6 +1398,7 @@ public class SystemsServiceTest
     Assert.assertEquals(tmpSys.getJobIsBatch(), sys0.getJobIsBatch());
     Assert.assertEquals(tmpSys.getBatchScheduler(), sys0.getBatchScheduler());
     Assert.assertEquals(tmpSys.getBatchDefaultLogicalQueue(), sys0.getBatchDefaultLogicalQueue());
+    Assert.assertEquals(tmpSys.getBatchSchedulerProfile(), sys0.getBatchSchedulerProfile());
 
     // Verify tags
     String[] origTags = sys0.getTags();

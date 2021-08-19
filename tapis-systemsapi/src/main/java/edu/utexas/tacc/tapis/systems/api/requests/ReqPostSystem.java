@@ -59,6 +59,7 @@ public final class ReqPostSystem
   public SchedulerType batchScheduler;
   public List<LogicalQueue> batchLogicalQueues;
   public String batchDefaultLogicalQueue;
+  public String batchSchedulerProfile;
   public List<Capability> jobCapabilities;
   public String[] tags = EMPTY_STR_ARRAY;
   public Object notes = DEFAULT_NOTES;

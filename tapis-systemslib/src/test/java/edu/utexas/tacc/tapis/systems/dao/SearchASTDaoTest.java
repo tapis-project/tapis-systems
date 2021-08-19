@@ -147,6 +147,7 @@ public class SearchASTDaoTest
     validCaseInputs.put( 6,new CaseData(1, String.format("job_working_dir = '%s'",sys0.getJobWorkingDir())));
     validCaseInputs.put( 7,new CaseData(20, sysNameLikeAll + String.format(" AND batch_scheduler = '%s'",sys0.getBatchScheduler().name())));
     validCaseInputs.put( 8,new CaseData(numSystems, sysNameLikeAll + String.format("AND batch_default_logical_queue = '%s'",sys0.getBatchDefaultLogicalQueue())));
+    validCaseInputs.put( 9,new CaseData(numSystems, sysNameLikeAll + String.format("AND batch_scheduler_profile = '%s'",sys0.getBatchSchedulerProfile())));
     validCaseInputs.put(10,new CaseData(numSystems/2, sysNameLikeAll + String.format(" AND owner = '%s'",owner1)));  // Half owned by one user
     validCaseInputs.put(11,new CaseData(numSystems/2, sysNameLikeAll + String.format(" AND owner = '%s'",owner2))); // and half owned by another
     validCaseInputs.put(12,new CaseData(numSystems, sysNameLikeAll + " AND enabled = true"));  // All are enabled

@@ -36,6 +36,7 @@ public final class ReqPatchSystem
   public SchedulerType batchScheduler;
   public List<LogicalQueue> batchLogicalQueues;
   public String batchDefaultLogicalQueue;
+  public String batchSchedulerProfile;
   public List<Capability> jobCapabilities;
   public String[] tags;
   public Object notes;

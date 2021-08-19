@@ -38,6 +38,7 @@ public final class PatchSystem
   private final SchedulerType batchScheduler;
   private final List<LogicalQueue> batchLogicalQueues;
   private final String batchDefaultLogicalQueue;
+  private final String batchSchedulerProfile;
   private final List<Capability> jobCapabilities;
   private final String[] tags;
   private final Object notes;
@@ -55,7 +56,8 @@ public final class PatchSystem
                      String dtnSystemId1, String dtnMountPoint1, String dtnMountSourcePath1,
                      List<JobRuntime> jobRuntimes1, String jobWorkingDir1, String[] jobEnvVariables1,
                      Integer jobMaxJobs1, Integer jobMaxJobsPerUser1, Boolean jobIsBatch1,
-                     SchedulerType batchScheduler1, List<LogicalQueue> batchLogicalQueues1, String batchDefaultLogicalQueue1,
+                     SchedulerType batchScheduler1, List<LogicalQueue> batchLogicalQueues1,
+                     String batchDefaultLogicalQueue1, String batchSchedulerProfile1,
                      List<Capability> jobCapabilities1, String[] tags1, Object notes1)
   {
     tenant = tenant1;
@@ -80,6 +82,7 @@ public final class PatchSystem
     batchScheduler = batchScheduler1;
     batchLogicalQueues = (batchLogicalQueues1 == null) ? null : new ArrayList<>(batchLogicalQueues1);
     batchDefaultLogicalQueue = batchDefaultLogicalQueue1;
+    batchSchedulerProfile = batchSchedulerProfile1;
     jobCapabilities = (jobCapabilities1 == null) ? null : new ArrayList<>(jobCapabilities1);
     tags = (tags1 == null) ? null : tags1.clone();
     notes = notes1;
@@ -137,6 +140,8 @@ public final class PatchSystem
   }
 
   public String getBatchDefaultLogicalQueue() { return batchDefaultLogicalQueue; }
+
+  public String getBatchSchedulerProfile() { return batchSchedulerProfile; }
 
   public List<Capability> getJobCapabilities() {
     return (jobCapabilities == null) ? null : new ArrayList<>(jobCapabilities);

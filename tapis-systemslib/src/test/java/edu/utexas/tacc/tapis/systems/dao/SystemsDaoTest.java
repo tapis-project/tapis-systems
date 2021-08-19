@@ -132,6 +132,7 @@ public class SystemsDaoTest
     Assert.assertEquals(tmpSys.getJobIsBatch(), sys0.getJobIsBatch());
     Assert.assertEquals(tmpSys.getBatchScheduler(), sys0.getBatchScheduler());
     Assert.assertEquals(tmpSys.getBatchDefaultLogicalQueue(), sys0.getBatchDefaultLogicalQueue());
+    Assert.assertEquals(tmpSys.getBatchSchedulerProfile(), sys0.getBatchSchedulerProfile());
 
     // Verify tags
     String[] tmpTags = tmpSys.getTags();
@@ -279,13 +280,15 @@ public class SystemsDaoTest
     PatchSystem patchSys = new PatchSystem(tenantName, fakeSystemName, "description PATCHED", "hostPATCHED", "effUserPATCHED",
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, runtimeList1, jobWorkingDir1, jobEnvVariables1,
-            jobMaxJobs1, jobMaxJobsPerUser1, jobIsBatchTrue, batchScheduler1, logicalQueueList1, batchDefaultLogicalQueue1,
+            jobMaxJobs1, jobMaxJobsPerUser1, jobIsBatchTrue, batchScheduler1, logicalQueueList1,
+            batchDefaultLogicalQueue1, batchSchedulerProfile1,
             capList1, tags1, notes1);
     TSystem patchedSystem = new TSystem(1, tenantName, fakeSystemName, "description", SystemType.LINUX, "owner", "host", isEnabledTrue,
             "effUser", prot2.getAuthnMethod(), "bucket", "/root",
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, isDtnFalse, canExecTrue, "jobWorkDir",
-            jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1, jobIsBatchTrue, batchScheduler1, "batchDefaultLogicalQueue",
+            jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1, jobIsBatchTrue, batchScheduler1,
+            "batchDefaultLogicalQueue", batchSchedulerProfile1,
             tags1, notes1, uuidNull, isDeletedFalse, createdNull, updatedNull);
     // Make sure system does not exist
     Assert.assertFalse(dao.checkForSystem(tenantName, fakeSystemName, true));

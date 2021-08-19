@@ -162,6 +162,7 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.JOB_IS_BATCH, system.getJobIsBatch())
               .set(SYSTEMS.BATCH_SCHEDULER, system.getBatchScheduler())
               .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, system.getBatchDefaultLogicalQueue())
+              .set(SYSTEMS.BATCH_SCHEDULER_PROFILE, system.getBatchSchedulerProfile())
               .set(SYSTEMS.TAGS, tagsStrArray)
               .set(SYSTEMS.NOTES, notesObj)
               .set(SYSTEMS.UUID, system.getUuid())
@@ -214,7 +215,7 @@ public class SystemsDaoImpl implements SystemsDao
    *   description, host, effectiveUserId, defaultAuthnMethod,
    *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
    *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, jobIsBatch,
-   *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, jobCapabilities, tags, notes.
+   *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * @throws TapisException - on error
    * @throws IllegalStateException - if system already exists
    */
@@ -277,6 +278,7 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.JOB_IS_BATCH, putSystem.getJobIsBatch())
               .set(SYSTEMS.BATCH_SCHEDULER, putSystem.getBatchScheduler())
               .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, putSystem.getBatchDefaultLogicalQueue())
+              .set(SYSTEMS.BATCH_SCHEDULER_PROFILE, putSystem.getBatchSchedulerProfile())
               .set(SYSTEMS.TAGS, tagsStrArray)
               .set(SYSTEMS.NOTES, notesObj)
               .set(SYSTEMS.UPDATED, TapisUtils.getUTCTimeNow())
@@ -329,7 +331,7 @@ public class SystemsDaoImpl implements SystemsDao
    *   description, host, effectiveUserId, defaultAuthnMethod,
    *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
    *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, jobIsBatch,
-   *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, jobCapabilities, tags, notes.
+   *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * @throws TapisException - on error
    * @throws IllegalStateException - if system already exists
    */
@@ -394,6 +396,7 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.JOB_IS_BATCH, patchedSystem.getJobIsBatch())
               .set(SYSTEMS.BATCH_SCHEDULER, patchedSystem.getBatchScheduler())
               .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, patchedSystem.getBatchDefaultLogicalQueue())
+              .set(SYSTEMS.BATCH_SCHEDULER_PROFILE, patchedSystem.getBatchSchedulerProfile())
               .set(SYSTEMS.TAGS, tagsStrArray)
               .set(SYSTEMS.NOTES, notesObj)
               .set(SYSTEMS.UPDATED, TapisUtils.getUTCTimeNow())

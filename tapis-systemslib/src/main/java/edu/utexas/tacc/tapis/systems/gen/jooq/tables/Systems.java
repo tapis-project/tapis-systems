@@ -103,9 +103,9 @@ public class Systems extends TableImpl<SystemsRecord> {
     public final TableField<SystemsRecord, String> EFFECTIVE_USER_ID = createField(DSL.name("effective_user_id"), SQLDataType.CLOB.nullable(false), this, "User name to use when accessing the system");
 
     /**
-     * The column <code>tapis_sys.systems.default_authn_method</code>. Enum for how authorization is handled by default
+     * The column <code>tapis_sys.systems.default_authn_method</code>. How authorization is handled by default
      */
-    public final TableField<SystemsRecord, AuthnMethod> DEFAULT_AUTHN_METHOD = createField(DSL.name("default_authn_method"), SQLDataType.CLOB.nullable(false), this, "Enum for how authorization is handled by default", new EnumConverter<String, AuthnMethod>(String.class, AuthnMethod.class));
+    public final TableField<SystemsRecord, AuthnMethod> DEFAULT_AUTHN_METHOD = createField(DSL.name("default_authn_method"), SQLDataType.CLOB.nullable(false), this, "How authorization is handled by default", new EnumConverter<String, AuthnMethod>(String.class, AuthnMethod.class));
 
     /**
      * The column <code>tapis_sys.systems.bucket_name</code>. Name of the bucket for an S3 system
@@ -196,6 +196,11 @@ public class Systems extends TableImpl<SystemsRecord> {
      * The column <code>tapis_sys.systems.batch_default_logical_queue</code>. Default logical batch queue for the system
      */
     public final TableField<SystemsRecord, String> BATCH_DEFAULT_LOGICAL_QUEUE = createField(DSL.name("batch_default_logical_queue"), SQLDataType.CLOB, this, "Default logical batch queue for the system");
+
+    /**
+     * The column <code>tapis_sys.systems.batch_scheduler_profile</code>. Scheduler profile for the system
+     */
+    public final TableField<SystemsRecord, String> BATCH_SCHEDULER_PROFILE = createField(DSL.name("batch_scheduler_profile"), SQLDataType.CLOB, this, "Scheduler profile for the system");
 
     /**
      * The column <code>tapis_sys.systems.tags</code>. Tags for user supplied key:value pairs

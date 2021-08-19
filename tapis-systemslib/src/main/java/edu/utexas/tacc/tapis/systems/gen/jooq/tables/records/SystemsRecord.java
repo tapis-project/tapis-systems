@@ -153,14 +153,14 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.default_authn_method</code>. Enum for how authorization is handled by default
+     * Setter for <code>tapis_sys.systems.default_authn_method</code>. How authorization is handled by default
      */
     public void setDefaultAuthnMethod(AuthnMethod value) {
         set(9, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.default_authn_method</code>. Enum for how authorization is handled by default
+     * Getter for <code>tapis_sys.systems.default_authn_method</code>. How authorization is handled by default
      */
     public AuthnMethod getDefaultAuthnMethod() {
         return (AuthnMethod) get(9);
@@ -419,87 +419,101 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     }
 
     /**
+     * Setter for <code>tapis_sys.systems.batch_scheduler_profile</code>. Scheduler profile for the system
+     */
+    public void setBatchSchedulerProfile(String value) {
+        set(28, value);
+    }
+
+    /**
+     * Getter for <code>tapis_sys.systems.batch_scheduler_profile</code>. Scheduler profile for the system
+     */
+    public String getBatchSchedulerProfile() {
+        return (String) get(28);
+    }
+
+    /**
      * Setter for <code>tapis_sys.systems.tags</code>. Tags for user supplied key:value pairs
      */
     public void setTags(String[] value) {
-        set(28, value);
+        set(29, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.tags</code>. Tags for user supplied key:value pairs
      */
     public String[] getTags() {
-        return (String[]) get(28);
+        return (String[]) get(29);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.notes</code>. Notes for general information stored as JSON
      */
     public void setNotes(JsonElement value) {
-        set(29, value);
+        set(30, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.notes</code>. Notes for general information stored as JSON
      */
     public JsonElement getNotes() {
-        return (JsonElement) get(29);
+        return (JsonElement) get(30);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.uuid</code>.
      */
     public void setUuid(UUID value) {
-        set(30, value);
+        set(31, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.uuid</code>.
      */
     public UUID getUuid() {
-        return (UUID) get(30);
+        return (UUID) get(31);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.deleted</code>. Indicates if system has been soft deleted
      */
     public void setDeleted(Boolean value) {
-        set(31, value);
+        set(32, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.deleted</code>. Indicates if system has been soft deleted
      */
     public Boolean getDeleted() {
-        return (Boolean) get(31);
+        return (Boolean) get(32);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.created</code>. UTC time for when record was created
      */
     public void setCreated(LocalDateTime value) {
-        set(32, value);
+        set(33, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.created</code>. UTC time for when record was created
      */
     public LocalDateTime getCreated() {
-        return (LocalDateTime) get(32);
+        return (LocalDateTime) get(33);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.updated</code>. UTC time for when record was last updated
      */
     public void setUpdated(LocalDateTime value) {
-        set(33, value);
+        set(34, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.updated</code>. UTC time for when record was last updated
      */
     public LocalDateTime getUpdated() {
-        return (LocalDateTime) get(33);
+        return (LocalDateTime) get(34);
     }
 
     // -------------------------------------------------------------------------
@@ -525,7 +539,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     /**
      * Create a detached, initialised SystemsRecord
      */
-    public SystemsRecord(Integer seqId, String tenant, String id, String description, SystemType systemType, String owner, String host, Boolean enabled, String effectiveUserId, AuthnMethod defaultAuthnMethod, String bucketName, String rootDir, Integer port, Boolean useProxy, String proxyHost, Integer proxyPort, String dtnSystemId, String dtnMountPoint, String dtnMountSourcePath, Boolean isDtn, Boolean canExec, String jobWorkingDir, String[] jobEnvVariables, Integer jobMaxJobs, Integer jobMaxJobsPerUser, Boolean jobIsBatch, SchedulerType batchScheduler, String batchDefaultLogicalQueue, String[] tags, JsonElement notes, UUID uuid, Boolean deleted, LocalDateTime created, LocalDateTime updated) {
+    public SystemsRecord(Integer seqId, String tenant, String id, String description, SystemType systemType, String owner, String host, Boolean enabled, String effectiveUserId, AuthnMethod defaultAuthnMethod, String bucketName, String rootDir, Integer port, Boolean useProxy, String proxyHost, Integer proxyPort, String dtnSystemId, String dtnMountPoint, String dtnMountSourcePath, Boolean isDtn, Boolean canExec, String jobWorkingDir, String[] jobEnvVariables, Integer jobMaxJobs, Integer jobMaxJobsPerUser, Boolean jobIsBatch, SchedulerType batchScheduler, String batchDefaultLogicalQueue, String batchSchedulerProfile, String[] tags, JsonElement notes, UUID uuid, Boolean deleted, LocalDateTime created, LocalDateTime updated) {
         super(Systems.SYSTEMS);
 
         setSeqId(seqId);
@@ -556,6 +570,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
         setJobIsBatch(jobIsBatch);
         setBatchScheduler(batchScheduler);
         setBatchDefaultLogicalQueue(batchDefaultLogicalQueue);
+        setBatchSchedulerProfile(batchSchedulerProfile);
         setTags(tags);
         setNotes(notes);
         setUuid(uuid);

@@ -70,6 +70,7 @@ CREATE TABLE systems
   job_is_batch BOOLEAN NOT NULL DEFAULT false,
   batch_scheduler TEXT,
   batch_default_logical_queue TEXT,
+  batch_scheduler_profile TEXT,
   tags       TEXT[] NOT NULL,
   notes      JSONB NOT NULL,
   uuid uuid NOT NULL,
@@ -110,6 +111,7 @@ COMMENT ON COLUMN systems.job_max_jobs_per_user IS 'Maximum total number of jobs
 COMMENT ON COLUMN systems.job_is_batch IS 'Flag indicating if system uses a batch scheduler to run jobs.';
 COMMENT ON COLUMN systems.batch_scheduler IS 'Type of scheduler used when running batch jobs';
 COMMENT ON COLUMN systems.batch_default_logical_queue IS 'Default logical batch queue for the system';
+COMMENT ON COLUMN systems.batch_scheduler_profile IS 'Scheduler profile for the system';
 COMMENT ON COLUMN systems.tags IS 'Tags for user supplied key:value pairs';
 COMMENT ON COLUMN systems.notes IS 'Notes for general information stored as JSON';
 COMMENT ON COLUMN systems.deleted IS 'Indicates if system has been soft deleted';

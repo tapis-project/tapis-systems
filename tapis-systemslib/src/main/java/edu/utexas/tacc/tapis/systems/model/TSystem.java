@@ -81,6 +81,7 @@ public final class TSystem
   public static final String BATCH_SCHEDULER_FIELD = "batchScheduler";
   public static final String BATCH_LOGICAL_QUEUES_FIELD = "batchLogicalQueues";
   public static final String BATCH_DEFAULT_LOGICAL_QUEUE_FIELD = "batchDefaultLogicalQueue";
+  public static final String BATCH_SCHEDULER_PROFILE_FIELD = "batchSchedulerProfile";
   public static final String JOB_CAPABILITIES_FIELD = "jobCapabilities";
   public static final String TAGS_FIELD = "tags";
   public static final String NOTES_FIELD = "notes";
@@ -169,6 +170,7 @@ public final class TSystem
   private SchedulerType batchScheduler;
   private List<LogicalQueue> batchLogicalQueues;
   private String batchDefaultLogicalQueue;
+  private String batchSchedulerProfile;
   private List<Capability> jobCapabilities; // List of job related capabilities supported by the system
   private String[] tags; // List of arbitrary tags as strings
   private Object notes;   // Simple metadata as json.
@@ -236,6 +238,7 @@ public final class TSystem
     batchScheduler = t.getBatchScheduler();
     batchLogicalQueues = t.getBatchLogicalQueues();
     batchDefaultLogicalQueue = t.getBatchDefaultLogicalQueue();
+    batchSchedulerProfile = t.getBatchSchedulerProfile();
     jobCapabilities = t.getJobCapabilities();
     tags = (t.getTags() == null) ? EMPTY_STR_ARRAY : t.getTags().clone();
     notes = t.getNotes();
@@ -254,7 +257,8 @@ public final class TSystem
                  int port1, boolean useProxy1, String proxyHost1, int proxyPort1,
                  String dtnSystemId1, String dtnMountPoint1, String dtnMountSourcePath1, boolean isDtn1,
                  boolean canExec1, String jobWorkingDir1, String[] jobEnvVariables1, int jobMaxJobs1,
-                 int jobMaxJobsPerUser1, boolean jobIsBatch1, SchedulerType batchScheduler1, String batchDefaultLogicalQueue1,
+                 int jobMaxJobsPerUser1, boolean jobIsBatch1, SchedulerType batchScheduler1,
+                 String batchDefaultLogicalQueue1, String batchSchedulerProfile1,
                  String[] tags1, Object notes1, UUID uuid1, boolean deleted1,
                  Instant created1, Instant updated1)
   {
@@ -286,6 +290,7 @@ public final class TSystem
     jobIsBatch = jobIsBatch1;
     batchScheduler = batchScheduler1;
     batchDefaultLogicalQueue = batchDefaultLogicalQueue1;
+    batchSchedulerProfile = batchSchedulerProfile1;
     tags = (tags1 == null) ? EMPTY_STR_ARRAY : tags1.clone();
     notes = notes1;
     uuid = uuid1;
@@ -336,6 +341,7 @@ public final class TSystem
     batchScheduler = t.getBatchScheduler();
     batchLogicalQueues = t.getBatchLogicalQueues();
     batchDefaultLogicalQueue = t.getBatchDefaultLogicalQueue();
+    batchSchedulerProfile = t.getBatchSchedulerProfile();
     jobCapabilities = t.getJobCapabilities();
     tags = (t.getTags() == null) ? EMPTY_STR_ARRAY : t.getTags().clone();
     notes = t.getNotes();
@@ -524,6 +530,7 @@ public final class TSystem
               !(jobEnvVariables == null || jobEnvVariables.length == 0) ||
               !(batchScheduler == null) ||
               !StringUtils.isBlank(batchDefaultLogicalQueue) ||
+              !StringUtils.isBlank(batchSchedulerProfile) ||
               !(batchLogicalQueues == null || batchLogicalQueues.isEmpty()) )
     {
       errMessages.add(LibUtils.getMsg("SYSLIB_DTN_JOBATTRS"));
@@ -537,7 +544,7 @@ public final class TSystem
    *   batchLogicalQueues must not be empty
    *   batchLogicalDefaultQueue must be set
    *   batchLogicalDefaultQueue must be in the list of queues
-   *   If batchLogicalQueues has more then one item then batchDefaultLogicalQueue must be set
+   *   If batchLogicalQueues has more than one item then batchDefaultLogicalQueue must be set
    *   batchDefaultLogicalQueue must be in the list of logical queues.
    */
   private void checkAttrJobIsBatch(List<String> errMessages)
@@ -746,6 +753,9 @@ public final class TSystem
 
   public String getBatchDefaultLogicalQueue() { return batchDefaultLogicalQueue; }
   public TSystem setBatchDefaultLogicalQueue(String s) { batchDefaultLogicalQueue = s; return this; }
+
+  public String getBatchSchedulerProfile() { return batchSchedulerProfile; }
+  public TSystem setBatchSchedulerProfile(String s) { batchSchedulerProfile = s; return this; }
 
   public List<Capability> getJobCapabilities() {
     return (jobCapabilities == null) ? null : new ArrayList<>(jobCapabilities);

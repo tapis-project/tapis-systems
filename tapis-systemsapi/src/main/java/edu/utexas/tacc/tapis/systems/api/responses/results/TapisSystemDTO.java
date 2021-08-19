@@ -24,6 +24,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.AUTHN_CREDENTIAL_FIELD
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_DEFAULT_LOGICAL_QUEUE_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_LOGICAL_QUEUES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_SCHEDULER_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_SCHEDULER_PROFILE_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BUCKET_NAME_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_EXEC_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_AUTHN_METHOD_FIELD;
@@ -95,6 +96,7 @@ public final class TapisSystemDTO
   public TSystem.SchedulerType batchScheduler;
   public List<ResultLogicalQueue> batchLogicalQueues;
   public String batchDefaultLogicalQueue;
+  public String batchSchedulerProfile;
   public List<ResultJobCapability> jobCapabilities;
   public String[] tags;
   public Object notes;
@@ -147,6 +149,7 @@ public final class TapisSystemDTO
         batchLogicalQueues.add(new ResultLogicalQueue(q));
       }
     batchDefaultLogicalQueue = s.getBatchDefaultLogicalQueue();
+    batchSchedulerProfile = s.getBatchSchedulerProfile();
     jobCapabilities = new ArrayList<>();
     if (s.getJobCapabilities() != null)
       for (Capability jc : s.getJobCapabilities())
@@ -256,6 +259,7 @@ public final class TapisSystemDTO
       case BATCH_SCHEDULER_FIELD -> jsonObject.addProperty(BATCH_SCHEDULER_FIELD, batchScheduler.name());
       case BATCH_LOGICAL_QUEUES_FIELD -> jsonObject.add(BATCH_LOGICAL_QUEUES_FIELD, gson.toJsonTree(batchLogicalQueues));
       case BATCH_DEFAULT_LOGICAL_QUEUE_FIELD -> jsonObject.addProperty(BATCH_DEFAULT_LOGICAL_QUEUE_FIELD, batchDefaultLogicalQueue);
+      case BATCH_SCHEDULER_PROFILE_FIELD -> jsonObject.addProperty(BATCH_SCHEDULER_PROFILE_FIELD, batchSchedulerProfile);
       case JOB_CAPABILITIES_FIELD -> jsonObject.add(JOB_CAPABILITIES_FIELD, gson.toJsonTree(jobCapabilities));
       case TAGS_FIELD -> jsonObject.add(TAGS_FIELD, gson.toJsonTree(tags));
       case NOTES_FIELD -> {
