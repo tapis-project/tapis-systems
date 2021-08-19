@@ -584,7 +584,6 @@ public class SystemsDaoImpl implements SystemsDao
   public int hardDeleteSystem(String tenantId, String id) throws TapisException
   {
     String opName = "hardDeleteSystem";
-    int rows = -1;
     // ------------------------- Check Input -------------------------
     if (StringUtils.isBlank(tenantId)) LibUtils.logAndThrowNullParmException(opName, "tenant");
     if (StringUtils.isBlank(id)) LibUtils.logAndThrowNullParmException(opName, "name");
@@ -606,7 +605,7 @@ public class SystemsDaoImpl implements SystemsDao
     {
       LibUtils.finalCloseDB(conn);
     }
-    return rows;
+    return 1;
   }
 
   /**
@@ -1475,7 +1474,6 @@ public class SystemsDaoImpl implements SystemsDao
   public int deleteSchedulerProfile(String tenantId, String name) throws TapisException
   {
     String opName = "deleteSchedulerProfile";
-    int rows = -1;
     // ------------------------- Check Input -------------------------
     if (StringUtils.isBlank(tenantId)) LibUtils.logAndThrowNullParmException(opName, "tenant");
     if (StringUtils.isBlank(name)) LibUtils.logAndThrowNullParmException(opName, "name");
@@ -1497,7 +1495,7 @@ public class SystemsDaoImpl implements SystemsDao
     {
       LibUtils.finalCloseDB(conn);
     }
-    return rows;
+    return 1;
   }
 
   /**
