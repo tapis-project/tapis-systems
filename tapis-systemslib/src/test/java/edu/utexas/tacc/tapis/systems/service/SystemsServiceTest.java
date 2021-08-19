@@ -719,7 +719,7 @@ public class SystemsServiceTest
     try { svc.createSystem(rOwner1, sys0, scrubbedJson); }
     catch (Exception e)
     {
-      Assert.assertTrue(e.getMessage().contains("SYSLIB_LINUX_NOROOTDIR"));
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_NOROOTDIR"));
       pass = true;
     }
     Assert.assertTrue(pass);
@@ -1275,26 +1275,25 @@ public class SystemsServiceTest
 
   @Test
   public void testGetSchedulerProfiles() throws Exception {
-    var profileNameList = new HashSet<String>();
     SchedulerProfile p0 = schedulerProfiles[3];
     svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
     System.out.println("Scheduler Profile created: " + p0.getName());
-    profileNameList.add(p0.getName());
     p0 = schedulerProfiles[4];
     svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
     System.out.println("Scheduler Profile created: " + p0.getName());
-    profileNameList.add(p0.getName());
 
     List<SchedulerProfile> profiles = svc.getSchedulerProfiles(rTestUser2);
     Assert.assertNotNull(profiles, "getSchedulerProfiles returned null");
     Assert.assertFalse(profiles.isEmpty(), "getSchedulerProfiles returned empty list");
+    var profileNamesFound = new HashSet<String>();
     for (SchedulerProfile profile : profiles)
     {
+      profileNamesFound.add(profile.getName());
       System.out.println("Found item with name: " + profile.getName());
     }
-    Assert.assertTrue(profileNameList.contains(schedulerProfiles[3].getName()),
+    Assert.assertTrue(profileNamesFound.contains(schedulerProfiles[3].getName()),
                       "getSchedulerProfiles did not return item with name: " + schedulerProfiles[3].getName());
-    Assert.assertTrue(profileNameList.contains(schedulerProfiles[4].getName()),
+    Assert.assertTrue(profileNamesFound.contains(schedulerProfiles[4].getName()),
                       "getSchedulerProfiles did not return item with name: " + schedulerProfiles[4].getName());
   }
 

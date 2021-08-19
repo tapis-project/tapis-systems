@@ -390,7 +390,7 @@ public final class IntegrationUtils
   /**
    * Create an array of SchedulerProfile objects in memory
    * Names will be of format TestSchedProfile_K_NNN where K is the key and NNN runs from 000 to 999
-   * We need a key because maven runs the tests in parallel so each set of systems created by an integration
+   * We need a key because maven runs the tests in parallel so each set of profiles created by an integration
    *   test will need its own namespace.
    * @param n number of objects to create
    * @return array of objects created
@@ -401,11 +401,10 @@ public final class IntegrationUtils
     List<SchedulerProfile.HiddenOption> hiddenOptions = new ArrayList<>(List.of(SchedulerProfile.HiddenOption.MEM));
     for (int i = 0; i < n; i++)
     {
-      // Suffix which should be unique for each system within each integration test
+      // Suffix which should be unique for each profile within each integration test
       String iStr = String.format("%03d", i+1);
       String suffix = key + "_" + iStr;
       String name = getSchedulerProfileName(key, i+1);
-      String hostName = "host" + key + iStr + ".test.org";
       String moduleLoadCmd = "module load" + suffix;
       String[] modulesToLoad = {"value1" + suffix, "value2" + suffix};
       schedulerProfiles[i] = new SchedulerProfile(tenantName, name, "Test profile" + suffix, testUser2,

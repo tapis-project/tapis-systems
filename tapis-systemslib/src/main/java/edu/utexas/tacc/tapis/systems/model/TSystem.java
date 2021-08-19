@@ -2,7 +2,6 @@ package edu.utexas.tacc.tapis.systems.model;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -127,7 +126,7 @@ public final class TSystem
   // ************************************************************************
   // *********************** Enums ******************************************
   // ************************************************************************
-  public enum SystemType {LINUX, S3}
+  public enum SystemType {LINUX, S3, IRODS, GLOBUS}
   public enum SystemOperation {create, read, modify, execute, delete, undelete, hardDelete, changeOwner, enable, disable,
                                getPerms, grantPerms, revokePerms, setCred, removeCred, getCred}
   public enum Permission {READ, MODIFY, EXECUTE}
@@ -143,15 +142,15 @@ public final class TSystem
   private String tenant;     // Name of the tenant for which the system is defined
   private final String id;       // Name of the system
   private String description; // Full description of the system
-  private final SystemType systemType; // Type of system, e.g. LINUX, OBJECT_STORE
+  private final SystemType systemType; // Type of system, e.g. LINUX, S3
   private String owner;      // User who owns the system and has full privileges
   private String host;       // Host name or IP address
   private boolean enabled; // Indicates if systems is currently enabled
   private String effectiveUserId; // User to use when accessing system, may be static or dynamic
   private AuthnMethod defaultAuthnMethod; // How access authorization is handled by default
   private Credential authnCredential; // Credential to be stored in or retrieved from the Security Kernel
-  private String bucketName; // Name of bucket for system of type OBJECT_STORE
-  private String rootDir;    // Effective root directory for system of type LINUX, can also be used for system of type OBJECT_STORE
+  private String bucketName; // Name of bucket for system of type S3
+  private String rootDir;    // Effective root directory for system of type LINUX, can also be used for system of type S3
   private int port;          // Port number used to access the system
   private boolean useProxy;  // Indicates if a system should be accessed through a proxy
   private String proxyHost;  // Name or IP address of proxy host
@@ -399,7 +398,7 @@ public final class TSystem
     if (canExec) checkAttrCanExec(errMessages);
     if (isDtn) checkAttrIsDtn(errMessages);
     if (jobIsBatch) checkAttrJobIsBatch(errMessages);
-    if (systemType == SystemType.S3) checkAttrObjectStore(errMessages);
+    if (systemType == SystemType.S3) checkAttrS3(errMessages);
     checkAttrMisc(errMessages);
     return errMessages;
   }
@@ -578,17 +577,17 @@ public final class TSystem
   }
 
   /**
-   * Check attributes related to systems of type OBJECT_STORE
-   *  If type is OBJECT_STORE then bucketName must be set, isExec and isDtn must be false.
+   * Check attributes related to systems of type S3
+   *  If type is S3 then bucketName must be set, isExec and isDtn must be false.
    */
-  private void checkAttrObjectStore(List<String> errMessages)
+  private void checkAttrS3(List<String> errMessages)
   {
     // bucketName must be set
-    if (StringUtils.isBlank(bucketName)) errMessages.add(LibUtils.getMsg("SYSLIB_OBJSTORE_NOBUCKET_INPUT"));
+    if (StringUtils.isBlank(bucketName)) errMessages.add(LibUtils.getMsg("SYSLIB_S3_NOBUCKET_INPUT"));
     // canExec must be false
-    if (canExec) errMessages.add(LibUtils.getMsg("SYSLIB_OBJSTORE_CANEXEC_INPUT"));
+    if (canExec) errMessages.add(LibUtils.getMsg("SYSLIB_S3_CANEXEC_INPUT"));
     // isDtn must be false
-    if (isDtn) errMessages.add(LibUtils.getMsg("SYSLIB_OBJSTORE_ISDTN_INPUT"));
+    if (isDtn) errMessages.add(LibUtils.getMsg("SYSLIB_S3_ISDTN_INPUT"));
   }
 
   /**
@@ -600,10 +599,16 @@ public final class TSystem
    */
   private void checkAttrMisc(List<String> errMessages)
   {
-    // LINUX system requires rootDir
-    if (systemType == SystemType.LINUX && StringUtils.isBlank(rootDir))
+    // LINUX and IRODS systems require rootDir
+    if ((systemType == SystemType.LINUX || systemType == SystemType.IRODS) && StringUtils.isBlank(rootDir))
     {
-      errMessages.add(LibUtils.getMsg("SYSLIB_LINUX_NOROOTDIR"));
+      errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR"));
+    }
+
+    // IRODS systems require port
+    if (systemType == SystemType.IRODS && !isValidPort(port))
+    {
+      errMessages.add(LibUtils.getMsg("SYSLIB_NOPORT"));
     }
 
     // For CERT authn the effectiveUserId cannot be static string other than owner
@@ -640,6 +645,14 @@ public final class TSystem
     // First check for valid IP address, then for valid domain name
     if (DomainValidator.getInstance().isValid(host) || InetAddressValidator.getInstance().isValid(host)) return true;
     else return false;
+  }
+
+  /**
+   * Validate a port number. Range is 1-65535
+   */
+  private boolean isValidPort(int p)
+  {
+    return (p > 0 && p <= 65535);
   }
 
   // ************************************************************************
