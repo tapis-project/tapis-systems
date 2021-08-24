@@ -501,10 +501,14 @@ public final class TSystem
 
   /**
    * Check attributes related to canExec
-   *  If canExec is true then jobWorkingDir must be set and jobRuntimes must have at least one entry.
+   *  If canExec is true then:
+   *   - systemType must be LINUX
+   *   - jobWorkingDir must be set
+   *   - jobRuntimes must have at least one entry.
    */
   private void checkAttrCanExec(List<String> errMessages)
   {
+    if (!SystemType.LINUX.equals(systemType)) errMessages.add(LibUtils.getMsg("SYSLIB_CANEXEC_INVALID_SYSTYPE", systemType.name()));
     if (StringUtils.isBlank(jobWorkingDir)) errMessages.add(LibUtils.getMsg("SYSLIB_CANEXEC_NO_JOBWORKINGDIR_INPUT"));
     if (jobRuntimes == null || jobRuntimes.isEmpty()) errMessages.add(LibUtils.getMsg("SYSLIB_CANEXEC_NO_JOBRUNTIME_INPUT"));
   }
@@ -592,7 +596,8 @@ public final class TSystem
 
   /**
    * Check misc attribute restrictions
-   *  If systemType is LINUX then rootDir is required.
+   *  If systemType is LINUX or IRODS then rootDir is required.
+   *  If systemType is IRODS then port is required.
    *  effectiveUserId is restricted.
    *  If effectiveUserId is dynamic then providing credentials is disallowed
    *  If credential is provided and contains ssh keys then validate them
@@ -602,13 +607,13 @@ public final class TSystem
     // LINUX and IRODS systems require rootDir
     if ((systemType == SystemType.LINUX || systemType == SystemType.IRODS) && StringUtils.isBlank(rootDir))
     {
-      errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR"));
+      errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR", systemType.name()));
     }
 
     // IRODS systems require port
     if (systemType == SystemType.IRODS && !isValidPort(port))
     {
-      errMessages.add(LibUtils.getMsg("SYSLIB_NOPORT"));
+      errMessages.add(LibUtils.getMsg("SYSLIB_NOPORT", systemType.name()));
     }
 
     // For CERT authn the effectiveUserId cannot be static string other than owner
