@@ -84,5 +84,5 @@
       "certificate": { "type":  "string" }
     }
   },
-  "SchedulerHiddenOptionEnum": { "type": "string", "enum": ["MEM"] }
+  "SchedulerHiddenOptionEnum": { "type": "string", "enum": ["mem"] }
 }
