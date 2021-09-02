@@ -116,15 +116,7 @@ public class CredentialResource
                                        InputStream payloadStream,
                                        @Context SecurityContext securityContext)
   {
-    String msg;
-    // Trace this request.
-    if (_log.isTraceEnabled())
-    {
-      msg = MsgUtils.getMsg("TAPIS_TRACE_REQUEST", getClass().getSimpleName(), "createUserCredential",
-              "  " + _request.getRequestURL());
-      _log.trace(msg);
-    }
-
+    String opName = "createUserCredential";
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
     // Check that we have all we need from the context, tenant name and apiUserId
@@ -135,6 +127,9 @@ public class CredentialResource
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
     resp = ApiUtils.checkSystemExists(systemsService, rUser, systemName, PRETTY, "createUserCredential");
@@ -143,6 +138,7 @@ public class CredentialResource
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
     String json;
+    String msg;
     try { json = IOUtils.toString(payloadStream, StandardCharsets.UTF_8); }
     catch (Exception e)
     {
@@ -220,17 +216,8 @@ public class CredentialResource
                                     @QueryParam("authnMethod") @DefaultValue("") String authnMethodStr,
                                     @Context SecurityContext securityContext)
   {
-    String msg;
+    String opName = "getUserCredential";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
-
-    // Trace this request.
-    if (_log.isTraceEnabled())
-    {
-      msg = MsgUtils.getMsg("TAPIS_TRACE_REQUEST", getClass().getSimpleName(), "getUserCredential",
-                                   "  " + _request.getRequestURL());
-      _log.trace(msg);
-    }
-
     // Check that we have all we need from the context, the tenant name and apiUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     Response resp = ApiUtils.checkContext(threadContext, PRETTY);
@@ -239,6 +226,9 @@ public class CredentialResource
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
     resp = ApiUtils.checkSystemExists(systemsService, rUser, systemName, PRETTY, "getUserCredential");
@@ -246,6 +236,7 @@ public class CredentialResource
 
     // Check that authnMethodStr is valid if it is passed in
     AuthnMethod authnMethod = null;
+    String msg;
     try { if (!StringUtils.isBlank(authnMethodStr)) authnMethod =  AuthnMethod.valueOf(authnMethodStr); }
     catch (IllegalArgumentException e)
     {
@@ -292,17 +283,8 @@ public class CredentialResource
                                        @PathParam("userName") String userName,
                                        @Context SecurityContext securityContext)
   {
-    String msg;
+    String opName = "removeUserCredential";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
-
-    // Trace this request.
-    if (_log.isTraceEnabled())
-    {
-      msg = MsgUtils.getMsg("TAPIS_TRACE_REQUEST", getClass().getSimpleName(), "removeUserCredential",
-                            "  " + _request.getRequestURL());
-      _log.trace(msg);
-    }
-
     // Check that we have all we need from the context, tenant name and apiUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     Response resp = ApiUtils.checkContext(threadContext, PRETTY);
@@ -310,6 +292,9 @@ public class CredentialResource
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
@@ -324,7 +309,7 @@ public class CredentialResource
     }
     catch (Exception e)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemName, userName, e.getMessage());
+      String msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemName, userName, e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -341,4 +326,14 @@ public class CredentialResource
   // *********************** Private Methods ********************************
   // ************************************************************************
 
+  /**
+   * Trace the incoming request, include info about requesting user, op name and request URL
+   * @param rUser resource user
+   * @param opName name of operation
+   */
+  private void logRequest(ResourceRequestUser rUser, String opName)
+  {
+    String msg = ApiUtils.getMsgAuth("SYSAPI_TRACE_REQUEST", rUser, getClass().getSimpleName(), opName, _request.getRequestURL());
+    _log.trace(msg);
+  }
 }

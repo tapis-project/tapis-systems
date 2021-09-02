@@ -173,13 +173,9 @@ public class SystemResource
                                @Context SecurityContext securityContext)
   {
     String opName = "createSystem";
-
     // Note that although the following approximately 30 lines of code is very similar for many endpoints the slight
     //   variations and use of fetched data makes it difficult to refactor into common routines. Common routines
     //   might make the code even more complex and difficult to follow.
-
-    // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(opName);
 
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -190,6 +186,9 @@ public class SystemResource
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -311,9 +310,6 @@ public class SystemResource
                                @Context SecurityContext securityContext)
   {
     String opName = "updateSystem";
-    // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(opName);
-
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -323,6 +319,9 @@ public class SystemResource
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -434,9 +433,6 @@ public class SystemResource
                             @Context SecurityContext securityContext)
   {
     String opName = "putSystem";
-    // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(opName);
-
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -651,8 +647,6 @@ public class SystemResource
                             @Context SecurityContext securityContext)
   {
     String opName = "getSystem";
-    if (_log.isTraceEnabled()) logRequest(opName);
-
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -661,6 +655,9 @@ public class SystemResource
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 
     // Check that authnMethodStr is valid if is passed in
     AuthnMethod authnMethod = null;
@@ -714,8 +711,6 @@ public class SystemResource
                             @Context SecurityContext securityContext)
   {
     String opName = "isEnabled";
-    if (_log.isTraceEnabled()) logRequest(opName);
-
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
@@ -724,6 +719,9 @@ public class SystemResource
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 
     boolean isEnabled;
     try
@@ -767,9 +765,6 @@ public class SystemResource
                              @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
   {
     String opName = "getSystems";
-    // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(opName);
-
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -778,6 +773,9 @@ public class SystemResource
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 
     // ThreadContext designed to never return null for SearchParameters
     SearchParameters srchParms = threadContext.getSearchParameters();
@@ -812,9 +810,6 @@ public class SystemResource
                                                @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
   {
     String opName = "searchSystemsGet";
-    // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(opName);
-
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -823,6 +818,9 @@ public class SystemResource
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 
     // Create search list based on query parameters
     // Note that some validation is done for each condition but the back end will handle translating LIKE wildcard
@@ -878,9 +876,6 @@ public class SystemResource
                                            @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
   {
     String opName = "searchSystemsPost";
-    // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(opName);
-
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -889,6 +884,9 @@ public class SystemResource
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -962,9 +960,6 @@ public class SystemResource
 //                                   @Context SecurityContext securityContext)
 //  {
 //    String opName = "matchConstraints";
-//    // Trace this request.
-//    if (_log.isTraceEnabled()) logRequest(opName);
-//
 //    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
 //    // Utility method returns null if all OK and appropriate error response if there was a problem.
 //    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -973,6 +968,9 @@ public class SystemResource
 //
 //    // Create a user that collects together tenant, user and request information needed by the service call
 //    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+//
+//  // Trace this request.
+//    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 //
 //    // ------------------------- Extract and validate payload -------------------------
 //    // Read the payload into a string.
@@ -1046,9 +1044,6 @@ public class SystemResource
   private Response postSystemSingleUpdate(String opName, String systemId, String userName,
                                           SecurityContext securityContext)
   {
-    // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(opName);
-
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -1058,6 +1053,9 @@ public class SystemResource
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 
     // ---------------------------- Make service call to update the system -------------------------------
     int changeCount;
@@ -1319,9 +1317,14 @@ public class SystemResource
     return sb.toString();
   }
 
-  private void logRequest(String opName) {
-    String msg = MsgUtils.getMsg("TAPIS_TRACE_REQUEST", getClass().getSimpleName(), opName,
-            "  " + _request.getRequestURL());
+  /**
+   * Trace the incoming request, include info about requesting user, op name and request URL
+   * @param rUser resource user
+   * @param opName name of operation
+   */
+  private void logRequest(ResourceRequestUser rUser, String opName)
+  {
+    String msg = ApiUtils.getMsgAuth("SYSAPI_TRACE_REQUEST", rUser, getClass().getSimpleName(), opName, _request.getRequestURL());
     _log.trace(msg);
   }
 

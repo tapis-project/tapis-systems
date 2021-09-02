@@ -106,10 +106,6 @@ public class SchedulerProfileResource
                                          @Context SecurityContext securityContext)
   {
     String opName = "createSchedulerProfile";
-
-    // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(opName);
-
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -119,6 +115,9 @@ public class SchedulerProfileResource
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -229,8 +228,6 @@ public class SchedulerProfileResource
                                       @Context SecurityContext securityContext)
   {
     String opName = "getSchedulerProfile";
-    if (_log.isTraceEnabled()) logRequest(opName);
-
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -239,6 +236,9 @@ public class SchedulerProfileResource
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 
     SchedulerProfile schedulerProfile;
     try
@@ -277,9 +277,6 @@ public class SchedulerProfileResource
   public Response getSchedulerProfiles(@Context SecurityContext securityContext)
   {
     String opName = "getSchedulerProfiles";
-    // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(opName);
-
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -288,6 +285,9 @@ public class SchedulerProfileResource
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 
     // ------------------------- Retrieve records -----------------------------
     RespSchedulerProfiles successResponse;
@@ -323,8 +323,6 @@ public class SchedulerProfileResource
                                          @Context SecurityContext securityContext)
   {
     String opName = "deleteSchedulerProfile";
-    if (_log.isTraceEnabled()) logRequest(opName);
-
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -333,6 +331,9 @@ public class SchedulerProfileResource
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
 
     // ---------------------------- Make service call to delete the profile -------------------------------
     int changeCount;
@@ -374,9 +375,14 @@ public class SchedulerProfileResource
   /*                                Private Methods                               */
   /* **************************************************************************** */
 
-  private void logRequest(String opName) {
-    String msg = MsgUtils.getMsg("TAPIS_TRACE_REQUEST", getClass().getSimpleName(), opName,
-            "  " + _request.getRequestURL());
+  /**
+   * Trace the incoming request, include info about requesting user, op name and request URL
+   * @param rUser resource user
+   * @param opName name of operation
+   */
+  private void logRequest(ResourceRequestUser rUser, String opName)
+  {
+    String msg = ApiUtils.getMsgAuth("SYSAPI_TRACE_REQUEST", rUser, getClass().getSimpleName(), opName, _request.getRequestURL());
     _log.trace(msg);
   }
 
