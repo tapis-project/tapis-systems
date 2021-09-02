@@ -443,6 +443,9 @@ public class SystemResource
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
+    // Trace this request.
+    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
     String rawJson;
