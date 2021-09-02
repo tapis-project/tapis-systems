@@ -2,6 +2,7 @@ package edu.utexas.tacc.tapis.systems.dao;
 
 import java.sql.Connection;
 import java.sql.Types;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -1403,7 +1404,7 @@ public class SystemsDaoImpl implements SystemsDao
   public SchedulerProfile getSchedulerProfile(String tenantId, String name) throws TapisException
   {
     // Initialize result.
-    SchedulerProfile result = null;
+    SchedulerProfile sp = null;
 
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1415,8 +1416,22 @@ public class SystemsDaoImpl implements SystemsDao
       SchedulerProfilesRecord r;
       r = db.selectFrom(SCHEDULER_PROFILES).where(SCHEDULER_PROFILES.TENANT.eq(tenantId),SCHEDULER_PROFILES.NAME.eq(name)).fetchOne();
       if (r == null) return null;
-      else result = r.into(SchedulerProfile.class);
+//      else result = r.into(SchedulerProfile.class);
+      // Convert type for list of hidden options.
+      // NOTE: Currently the custom conversion config for jOOQ does not seem to work for an array of enums.
+      //       See tapis-systemslib/pom.xml
+      // So for now manually create a SchedulerProfile from the query result.
+      List<SchedulerProfile.HiddenOption> hoList2 = null;
+      String[] hoList1 = r.getHiddenOptions();
+      if (hoList1 != null)
+      {
+        hoList2 = new ArrayList<>();
+        for (String ho : hoList1) { hoList2.add(SchedulerProfile.HiddenOption.valueOf(ho)); }
+      }
 
+      sp = new SchedulerProfile(r.getTenant(), r.getName(), r.getDescription(), r.getOwner(),
+                                    r.getModuleLoadCommand(),r.getModulesToLoad(), hoList2, r.getUuid(),
+                                    r.getCreated().toInstant(ZoneOffset.UTC), r.getUpdated().toInstant(ZoneOffset.UTC));
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -1430,7 +1445,7 @@ public class SystemsDaoImpl implements SystemsDao
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
     }
-    return result;
+    return sp;
   }
 
   /**
@@ -1441,7 +1456,8 @@ public class SystemsDaoImpl implements SystemsDao
   @Override
   public List<SchedulerProfile> getSchedulerProfiles(String tenantId) throws TapisException
   {
-    List<SchedulerProfile> retList = new ArrayList<SchedulerProfile>();
+    List<SchedulerProfile> retList1;
+    var retList2 = new ArrayList<SchedulerProfile>();
     // ------------------------- Build and execute SQL ----------------------------
     Connection conn = null;
     try
@@ -1450,10 +1466,32 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
 
-      retList = db.selectFrom(SCHEDULER_PROFILES).where(SCHEDULER_PROFILES.TENANT.eq(tenantId))
+      retList1 = db.selectFrom(SCHEDULER_PROFILES).where(SCHEDULER_PROFILES.TENANT.eq(tenantId))
                   .fetchInto(SchedulerProfile.class);
-      if (retList == null || retList.isEmpty()) return Collections.emptyList();
+      if (retList1 == null || retList1.isEmpty()) return Collections.emptyList();
 
+      retList2 = new ArrayList<SchedulerProfile>();
+      for (SchedulerProfile sp1 : retList1)
+      {
+        // Convert type for list of hidden options.
+        // NOTE: Currently the custom conversion config for jOOQ does not seem to work for an array of enums.
+        //       See tapis-systemslib/pom.xml
+        // So for now manually create a SchedulerProfile from the query result.
+        List<SchedulerProfile.HiddenOption> hoList2 = null;
+        List<SchedulerProfile.HiddenOption> hoList1 = sp1.getHiddenOptions();
+        if (hoList1 != null)
+        {
+          hoList2 = new ArrayList<>();
+          for (Object ho : hoList1)
+          {
+            hoList2.add(SchedulerProfile.HiddenOption.valueOf(ho.toString()));
+          }
+        }
+        SchedulerProfile sp2 = new SchedulerProfile(sp1.getTenant(), sp1.getName(), sp1.getDescription(), sp1.getOwner(),
+                sp1.getModuleLoadCommand(), sp1.getModulesToLoad(), hoList2, sp1.getUuid(),
+                sp1.getCreated(), sp1.getUpdated());
+        retList2.add(sp2);
+      }
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -1467,7 +1505,7 @@ public class SystemsDaoImpl implements SystemsDao
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
     }
-    return retList;
+    return retList2;
   }
 
   /**

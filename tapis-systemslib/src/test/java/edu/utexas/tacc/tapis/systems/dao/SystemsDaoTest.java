@@ -339,6 +339,7 @@ public class SystemsDaoTest
     Assert.assertNotNull(tmpProfile.getHiddenOptions());
     Assert.assertFalse(tmpProfile.getHiddenOptions().isEmpty());
     Assert.assertEquals(tmpProfile.getHiddenOptions().size(), p0.getHiddenOptions().size());
+    Assert.assertTrue(tmpProfile.getHiddenOptions().contains(SchedulerProfile.HiddenOption.MEM));
 
     Assert.assertNotNull(tmpProfile.getUuid());
     Assert.assertNotNull(tmpProfile.getCreated());
@@ -378,6 +379,9 @@ public class SystemsDaoTest
     for (SchedulerProfile profile : profiles)
     {
       System.out.println("Found item with name: " + profile.getName());
+      Assert.assertNotNull(profile.getHiddenOptions());
+      Assert.assertFalse(profile.getHiddenOptions().isEmpty());
+      Assert.assertTrue(profile.getHiddenOptions().contains(SchedulerProfile.HiddenOption.MEM));
     }
     Assert.assertTrue(profileNameList.contains(schedulerProfiles[3].getName()),
                       "getSchedulerProfiles did not return item with name: " + schedulerProfiles[3].getName());

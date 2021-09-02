@@ -1235,6 +1235,7 @@ public class SystemsServiceTest
     Assert.assertNotNull(tmpProfile.getHiddenOptions());
     Assert.assertFalse(tmpProfile.getHiddenOptions().isEmpty());
     Assert.assertEquals(tmpProfile.getHiddenOptions().size(), p0.getHiddenOptions().size());
+    Assert.assertTrue(tmpProfile.getHiddenOptions().contains(SchedulerProfile.HiddenOption.MEM));
 
     Assert.assertNotNull(tmpProfile.getUuid());
     Assert.assertNotNull(tmpProfile.getCreated());

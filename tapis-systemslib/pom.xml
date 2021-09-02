@@ -283,6 +283,13 @@
                     <includeExpression>systems\.default_authn_method</includeExpression>
                     <includeTypes>.*</includeTypes>
                   </forcedType>
+<!-- This does not work for converting an array of enums. There may be a way to tell jOOQ it is an array -->
+<!--                  <forcedType>-->
+<!--                    <userType>edu.utexas.tacc.tapis.systems.model.SchedulerProfile.HiddenOption</userType>-->
+<!--                    <enumConverter>true</enumConverter>-->
+<!--                    <includeExpression>scheduler_profiles\.hidden_options</includeExpression>-->
+<!--                    <includeTypes>.*</includeTypes>-->
+<!--                  </forcedType>-->
                 </forcedTypes>
               </database>
             </generator>

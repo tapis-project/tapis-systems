@@ -398,7 +398,7 @@ public final class IntegrationUtils
   public static SchedulerProfile[] makeSchedulerProfiles(int n, String key)
   {
     SchedulerProfile[] schedulerProfiles = new SchedulerProfile[n];
-    List<SchedulerProfile.HiddenOption> hiddenOptions = new ArrayList<>(List.of(SchedulerProfile.HiddenOption.mem));
+    List<SchedulerProfile.HiddenOption> hiddenOptions = new ArrayList<>(List.of(SchedulerProfile.HiddenOption.MEM));
     for (int i = 0; i < n; i++)
     {
       // Suffix which should be unique for each profile within each integration test
