@@ -68,6 +68,8 @@ public final class IntegrationUtils
   public static final boolean isDtnFalse = false;
   public static final boolean canExecTrue = true;
   public static final boolean canExecFalse = false;
+  public static final boolean skipCredCheckTrue = true;
+  public static final boolean skipCredCheckFalse = false;
   public static final String hostPatchedId = "patched.system.org";
   public static final String hostMinimalId = "minimal.system.org";
   public static final String rootDir1 = "/root/dir1";

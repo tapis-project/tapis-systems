@@ -113,6 +113,7 @@ public class CredentialResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response createUserCredential(@PathParam("systemName") String systemName,
                                        @PathParam("userName") String userName,
+                                       @QueryParam("skipCredentialCheck") @DefaultValue("false") boolean skipCredCheck,
                                        InputStream payloadStream,
                                        @Context SecurityContext securityContext)
   {
@@ -185,7 +186,7 @@ public class CredentialResource
     // Make the service call to create or update the credential
     try
     {
-      systemsService.createUserCredential(rUser, systemName, userName, credential, updateJsonStr);
+      systemsService.createUserCredential(rUser, systemName, userName, credential, skipCredCheck, updateJsonStr);
     }
     catch (Exception e)
     {

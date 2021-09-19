@@ -160,6 +160,7 @@ public class SystemsServiceImpl implements SystemsService
    * Secrets in the text should be masked.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system - Pre-populated TSystem object (including tenantId and systemId)
+   * @param skipCredCheck - Indicates if cred check for LINUX systems should happen
    * @param scrubbedText - Text used to create the TSystem object - secrets should be scrubbed. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
    * @throws IllegalStateException - system exists OR TSystem in invalid state
@@ -167,7 +168,7 @@ public class SystemsServiceImpl implements SystemsService
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
-  public void createSystem(ResourceRequestUser rUser, TSystem system, String scrubbedText)
+  public void createSystem(ResourceRequestUser rUser, TSystem system, boolean skipCredCheck, String scrubbedText)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException, NotAuthorizedException
   {
     SystemOperation op = SystemOperation.create;
@@ -208,6 +209,9 @@ public class SystemsServiceImpl implements SystemsService
 
     // ---------------- Check constraints on TSystem attributes ------------------------
     validateTSystem(rUser, system);
+
+    // ---------------- Verify credentials ------------------------
+    if (!skipCredCheck) verifyCredentials(rUser, system);
 
     // Construct Json string representing the TSystem (without credentials) about to be created
     TSystem scrubbedSystem = new TSystem(system);
@@ -352,6 +356,7 @@ public class SystemsServiceImpl implements SystemsService
    *   tenant, id, systemType, owner, enabled, bucketName, rootDir, canExec, isDtn
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param putSystem - Pre-populated TSystem object (including tenantId and systemId)
+   * @param skipCredCheck - Indicates if cred check for LINUX systems should happen
    * @param scrubbedText - Text used to create the System object - secrets should be scrubbed. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
    * @throws IllegalStateException - Resulting TSystem would be in an invalid state
@@ -360,7 +365,7 @@ public class SystemsServiceImpl implements SystemsService
    * @throws NotFoundException - Resource not found
    */
   @Override
-  public void putSystem(ResourceRequestUser rUser, TSystem putSystem, String scrubbedText)
+  public void putSystem(ResourceRequestUser rUser, TSystem putSystem, boolean skipCredCheck, String scrubbedText)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException
   {
     SystemOperation op = SystemOperation.modify;
@@ -1161,6 +1166,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - name of system
    * @param userName - Target user for operation
    * @param credential - list of permissions to be granted
+   * @param skipCredCheck - Indicates if cred check for LINUX systems should happen
    * @param updateText - Client provided text used to create the credential - secrets should be scrubbed. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
    * @throws NotAuthorizedException - unauthorized
@@ -1168,7 +1174,7 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public void createUserCredential(ResourceRequestUser rUser, String systemId,
-                                   String userName, Credential credential, String updateText)
+                                   String userName, Credential credential, boolean skipCredCheck, String updateText)
           throws TapisException, NotFoundException, NotAuthorizedException, IllegalStateException, TapisClientException
   {
     SystemOperation op = SystemOperation.setCred;
@@ -1636,6 +1642,65 @@ public class SystemsServiceImpl implements SystemsService
    */
   private void validateTSystem(ResourceRequestUser rUser, TSystem tSystem1) throws IllegalStateException
   {
+    String msg;
+    // Make api level checks, i.e. checks that do not involve a dao or service call.
+    List<String> errMessages = tSystem1.checkAttributeRestrictions();
+
+    // Now make checks that do require a dao or service call.
+
+    // If DTN is used (i.e. dtnSystemId is set) verify that dtnSystemId exists with isDtn = true
+    if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))
+    {
+      TSystem dtnSystem = null;
+      try
+      {
+        dtnSystem = dao.getSystem(tSystem1.getTenant(), tSystem1.getDtnSystemId());
+      }
+      catch (TapisException e)
+      {
+        msg = LibUtils.getMsg("SYSLIB_DTN_CHECK_ERROR", tSystem1.getDtnSystemId(), e.getMessage());
+        _log.error(msg, e);
+        errMessages.add(msg);
+      }
+      if (dtnSystem == null)
+      {
+        msg = LibUtils.getMsg("SYSLIB_DTN_NO_SYSTEM", tSystem1.getDtnSystemId());
+        errMessages.add(msg);
+      }
+      else if (!dtnSystem.isDtn())
+      {
+        msg = LibUtils.getMsg("SYSLIB_DTN_NOT_DTN", tSystem1.getDtnSystemId());
+        errMessages.add(msg);
+      }
+    }
+
+    // If validation failed throw an exception
+    if (!errMessages.isEmpty())
+    {
+      // Construct message reporting all errors
+      String allErrors = getListOfErrors(rUser, tSystem1.getId(), errMessages);
+      _log.error(allErrors);
+      throw new IllegalStateException(allErrors);
+    }
+  }
+
+  /**
+   * Verify that effectiveUserId can connect to the system using provided credentials.
+   * Skipped if no credentials provided or effectiveUserId is not static.
+   * NOTE: Skipped for non-LINUX systems
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param tSystem1 - the TSystem to check
+   * @throws IllegalStateException - if credentials not verified
+   */
+  private void verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1) throws IllegalStateException
+  {
+    // Check is only done for LINUX systems
+    if (!tSystem1.getSystemType().equals(TSystem.SystemType.LINUX)) return;
+    // If no credentials provided or effectiveUserId is not static then skip check.
+    if (tSystem1.getAuthnCredential() == null || tSystem1.getEffectiveUserId().equals(APIUSERID_VAR)) return;
+
+    // TODO
     String msg;
     // Make api level checks, i.e. checks that do not involve a dao or service call.
     List<String> errMessages = tSystem1.checkAttributeRestrictions();

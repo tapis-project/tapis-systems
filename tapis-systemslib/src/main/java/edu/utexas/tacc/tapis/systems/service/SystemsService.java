@@ -24,13 +24,13 @@ import java.util.Set;
 @Contract
 public interface SystemsService
 {
-  void createSystem(ResourceRequestUser rUser, TSystem system, String scrubbedText)
+  void createSystem(ResourceRequestUser rUser, TSystem system, boolean skipCredCheck, String scrubbedText)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException, IllegalArgumentException;
 
   void patchSystem(ResourceRequestUser rUser, PatchSystem patchSystem, String scrubbedText)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException, IllegalArgumentException, NotFoundException;
 
-  void putSystem(ResourceRequestUser rUser, TSystem putSystem, String scrubbedText)
+  void putSystem(ResourceRequestUser rUser, TSystem putSystem, boolean skipCredCheck, String scrubbedText)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException, IllegalArgumentException, NotFoundException;
 
   int enableSystem(ResourceRequestUser rUser, String systemId)
@@ -87,7 +87,8 @@ public interface SystemsService
   Set<Permission> getUserPermissions(ResourceRequestUser rUser, String systemId, String userName)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
-  void createUserCredential(ResourceRequestUser rUser, String systemId, String userName, Credential credential, String scrubbedText)
+  void createUserCredential(ResourceRequestUser rUser, String systemId, String userName, Credential credential,
+                            boolean skipCredCheck, String scrubbedText)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException;
 
   int deleteUserCredential(ResourceRequestUser rUser, String systemId, String userName)
