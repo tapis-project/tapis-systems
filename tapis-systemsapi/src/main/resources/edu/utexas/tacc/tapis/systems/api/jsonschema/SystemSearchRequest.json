@@ -2,10 +2,10 @@
   "$id": "https://tapis.tacc.utexas.edu/SystemSearchRequest",
   "$schema": "https://json-schema.org/draft-07/schema#",
   "description": "Schema for a request to search for systems",
-  "additionalProperties": false,
 
   "type": "object",
   "required": [ "search" ],
+  "additionalProperties": false,
   "properties": {
     "search": {
       "type": "array",

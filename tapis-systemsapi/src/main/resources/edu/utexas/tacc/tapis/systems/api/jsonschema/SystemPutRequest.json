@@ -2,9 +2,9 @@
   "$id": "https://tapis.tacc.utexas.edu/SystemPutRequest",
   "$schema": "https://json-schema.org/draft-07/schema#",
   "description": "Schema for a request to create a system",
-  "additionalProperties": false,
 
   "type": "object",
+  "additionalProperties": false,
   "properties": {
     "id": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/SystemId" },
     "description": { "type": ["string", "null"], "maxLength": 2048 },

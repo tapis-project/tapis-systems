@@ -2,9 +2,9 @@
   "$id": "https://tapis.tacc.utexas.edu/SystemPatchRequest",
   "$schema": "https://json-schema.org/draft-07/schema#",
   "description": "Schema for a request to update a system",
-  "additionalProperties": false,
 
   "type": "object",
+  "additionalProperties": false,
   "properties": {
     "description": { "type": "string", "maxLength": 2048 },
     "host": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/HostNameNotNull" },

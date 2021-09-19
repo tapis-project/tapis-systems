@@ -22,6 +22,7 @@
   "KeyValuePair": {
     "type": "object",
     "required": [ "key" ],
+    "additionalProperties": false,
     "properties": {
       "key": { "type": "string", "minLength": 1 },
       "value": { "type": "string" }
@@ -30,6 +31,7 @@
   "LogicalQueue": {
     "type": "object",
     "required": [ "name", "hpcQueueName" ],
+    "additionalProperties": false,
     "properties": {
       "name": { "type": "string", "minLength": 1, "maxLength": 128 },
       "hpcQueueName": { "type": "string", "minLength": 1, "maxLength": 128 },
@@ -48,6 +50,7 @@
   "JobRuntime": {
     "type": "object",
     "required": [ "runtimeType" ],
+    "additionalProperties": false,
     "properties": {
       "runtimeType": { "type": "string", "enum": ["DOCKER","SINGULARITY"] },
       "version": { "type": "string" }
@@ -64,6 +67,7 @@
   "Capability": {
     "type": "object",
     "required": [ "category", "name", "datatype" ],
+    "additionalProperties": false,
     "properties": {
       "category": { "$ref": "#/CapabilityCategoryEnum" },
       "subcategory": { "type": "string", "maxLength": 128 },
@@ -75,6 +79,7 @@
   },
   "Credential": {
     "type": ["object", "null"],
+    "additionalProperties": false,
     "properties": {
       "password": { "type":  "string" },
       "privateKey": { "type":  "string" },

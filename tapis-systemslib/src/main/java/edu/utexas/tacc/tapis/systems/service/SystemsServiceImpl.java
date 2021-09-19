@@ -1637,7 +1637,10 @@ public class SystemsServiceImpl implements SystemsService
   private void validateTSystem(ResourceRequestUser rUser, TSystem tSystem1) throws IllegalStateException
   {
     String msg;
+    // Make api level checks, i.e. checks that do not involve a dao or service call.
     List<String> errMessages = tSystem1.checkAttributeRestrictions();
+
+    // Now make checks that do require a dao or service call.
 
     // If DTN is used (i.e. dtnSystemId is set) verify that dtnSystemId exists with isDtn = true
     if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))
