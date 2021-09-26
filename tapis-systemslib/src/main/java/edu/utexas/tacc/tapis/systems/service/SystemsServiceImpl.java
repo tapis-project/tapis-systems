@@ -27,6 +27,8 @@ import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
+import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
+import edu.utexas.tacc.tapis.shared.ssh.apache.system.TapisRunCommand;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
@@ -211,7 +213,10 @@ public class SystemsServiceImpl implements SystemsService
     validateTSystem(rUser, system);
 
     // ---------------- Verify credentials ------------------------
-    if (!skipCredCheck) verifyCredentials(rUser, system);
+    if (!skipCredCheck && system.getAuthnCredential() != null)
+    {
+      verifyCredentials(rUser, system, system.getAuthnCredential());
+    }
 
     // Construct Json string representing the TSystem (without credentials) about to be created
     TSystem scrubbedSystem = new TSystem(system);
@@ -394,6 +399,12 @@ public class SystemsServiceImpl implements SystemsService
 
     // ---------------- Check constraints on TSystem attributes ------------------------
     validateTSystem(rUser, updatedTSystem);
+
+    // ---------------- Verify credentials ------------------------
+    if (!skipCredCheck && updatedTSystem.getAuthnCredential() != null)
+    {
+      verifyCredentials(rUser, updatedTSystem, updatedTSystem.getAuthnCredential());
+    }
 
     // Construct Json string representing the PutSystem about to be used to update the system
     String updateJsonStr = TapisGsonUtils.getGson().toJson(putSystem);
@@ -1200,6 +1211,13 @@ public class SystemsServiceImpl implements SystemsService
     }
 
 
+    // ---------------- Verify credentials ------------------------
+    if (!skipCredCheck)
+    {
+      TSystem system = dao.getSystem(resourceTenantId, systemId);
+      verifyCredentials(rUser, system, credential);
+    }
+
     // Create credential
     // If this throws an exception we do not try to rollback. Attempting to track which secrets
     //   have been changed and reverting seems fraught with peril and not a good ROI.
@@ -1691,56 +1709,48 @@ public class SystemsServiceImpl implements SystemsService
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tSystem1 - the TSystem to check
+   * @param cred - authorization credential to check
    * @throws IllegalStateException - if credentials not verified
    */
-  private void verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1) throws IllegalStateException
+  private void verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential cred) throws IllegalStateException
   {
+    if (tSystem1 == null || cred == null) return;
     // Check is only done for LINUX systems
     if (!tSystem1.getSystemType().equals(TSystem.SystemType.LINUX)) return;
     // If no credentials provided or effectiveUserId is not static then skip check.
     if (tSystem1.getAuthnCredential() == null || tSystem1.getEffectiveUserId().equals(APIUSERID_VAR)) return;
 
-    // TODO
+    String host = tSystem1.getHost();
+    int port = tSystem1.getPort();
+    String userName = tSystem1.getEffectiveUserId();
+    AuthnMethod authnMethod = tSystem1.getDefaultAuthnMethod();
+    // Attempt to connect to the system
     String msg;
-    // Make api level checks, i.e. checks that do not involve a dao or service call.
-    List<String> errMessages = tSystem1.checkAttributeRestrictions();
-
-    // Now make checks that do require a dao or service call.
-
-    // If DTN is used (i.e. dtnSystemId is set) verify that dtnSystemId exists with isDtn = true
-    if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))
+    SSHConnection sshConnection = null;
+    try
     {
-      TSystem dtnSystem = null;
-      try
+      if (AuthnMethod.PASSWORD.equals(authnMethod))
       {
-        dtnSystem = dao.getSystem(tSystem1.getTenant(), tSystem1.getDtnSystemId());
+        sshConnection = new SSHConnection(host, port, userName, cred.getPassword());
       }
-      catch (TapisException e)
+      else if (AuthnMethod.PKI_KEYS.equals(authnMethod))
       {
-        msg = LibUtils.getMsg("SYSLIB_DTN_CHECK_ERROR", tSystem1.getDtnSystemId(), e.getMessage());
-        _log.error(msg, e);
-        errMessages.add(msg);
+        sshConnection = new SSHConnection(host, port, userName, cred.getPrivateKey(), cred.getPublicKey());
       }
-      if (dtnSystem == null)
+      else
       {
-        msg = LibUtils.getMsg("SYSLIB_DTN_NO_SYSTEM", tSystem1.getDtnSystemId());
-        errMessages.add(msg);
-      }
-      else if (!dtnSystem.isDtn())
-      {
-        msg = LibUtils.getMsg("SYSLIB_DTN_NOT_DTN", tSystem1.getDtnSystemId());
-        errMessages.add(msg);
+        msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_INVALID_AUTHN", rUser, tSystem1.getId(), userName, authnMethod.name());
+        _log.error(msg);
       }
     }
-
-    // If validation failed throw an exception
-    if (!errMessages.isEmpty())
+    catch (TapisException e)
     {
-      // Construct message reporting all errors
-      String allErrors = getListOfErrors(rUser, tSystem1.getId(), errMessages);
-      _log.error(allErrors);
-      throw new IllegalStateException(allErrors);
+      msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, userName, authnMethod.name(),
+                                e.getMessage());
+      _log.error(msg, e);
+      throw new IllegalStateException(msg);
     }
+    finally { if (sshConnection != null) sshConnection.close(); }
   }
 
   /**

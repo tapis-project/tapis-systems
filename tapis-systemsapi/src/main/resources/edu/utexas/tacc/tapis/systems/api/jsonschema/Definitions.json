@@ -25,7 +25,7 @@
     "additionalProperties": false,
     "properties": {
       "key": { "type": "string", "minLength": 1 },
-      "value": { "type": "string" }
+      "value": { "type": "string", "default": "" }
     }
   },
   "LogicalQueue": {
