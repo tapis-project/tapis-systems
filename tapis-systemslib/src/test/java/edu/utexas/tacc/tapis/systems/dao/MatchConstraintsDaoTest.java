@@ -116,10 +116,10 @@ public class MatchConstraintsDaoTest
                        "System not deleted. System name: " + systems[0].getId());
   }
 
-  /*
+  /*TODO
    * Check valid cases
    */
-  @Test(groups={"integration"})
+  @Test(groups={"integration"}, enabled = false)
   public void testValidCases() throws Exception
   {
     TSystem sys0 = systems[0];

@@ -2,8 +2,10 @@ package edu.utexas.tacc.tapis.systems.dao;
 
 import java.sql.Connection;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -17,6 +19,7 @@ import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisDBConnectionExce
 import edu.utexas.tacc.tapis.shareddb.datasource.TapisDataSource;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedulerProfilesRecord;
+import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import org.flywaydb.core.Flyway;
 import org.jooq.Condition;
@@ -47,7 +50,6 @@ import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsRecord;
 import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.*;
 import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.SYSTEMS;
 
-import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.search.SearchUtils;
 import edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
@@ -116,7 +118,7 @@ public class SystemsDaoImpl implements SystemsDao
     String effectiveUserId = TSystem.DEFAULT_EFFECTIVEUSERID;
     if (StringUtils.isNotBlank(system.getEffectiveUserId())) effectiveUserId = system.getEffectiveUserId();
     JsonElement jobEnvVariablesJson = TSystem.DEFAULT_JOBENV_VARIABLES;
-    if (system.getJobEnvVariables() != null) TapisGsonUtils.getGson().toJsonTree(system.getJobEnvVariables());
+    if (system.getJobEnvVariables() != null) jobEnvVariablesJson = TapisGsonUtils.getGson().toJsonTree(system.getJobEnvVariables());
     JsonElement jobRuntimesJson = TSystem.DEFAULT_JOB_RUNTIMES;
     if (system.getJobRuntimes() != null) jobRuntimesJson = TapisGsonUtils.getGson().toJsonTree(system.getJobRuntimes());
     JsonElement batchLogicalQueuesJson = TSystem.DEFAULT_BATCH_LOGICAL_QUEUES;
@@ -242,7 +244,7 @@ public class SystemsDaoImpl implements SystemsDao
     String effectiveUserId = TSystem.DEFAULT_EFFECTIVEUSERID;
     if (StringUtils.isNotBlank(putSystem.getEffectiveUserId())) effectiveUserId = putSystem.getEffectiveUserId();
     JsonElement jobEnvVariablesJson = TSystem.DEFAULT_JOBENV_VARIABLES;
-    if (putSystem.getJobEnvVariables() != null) TapisGsonUtils.getGson().toJsonTree(putSystem.getJobEnvVariables());
+    if (putSystem.getJobEnvVariables() != null) jobEnvVariablesJson = TapisGsonUtils.getGson().toJsonTree(putSystem.getJobEnvVariables());
     JsonElement jobRuntimesJson = TSystem.DEFAULT_JOB_RUNTIMES;
     if (putSystem.getJobRuntimes() != null) jobRuntimesJson = TapisGsonUtils.getGson().toJsonTree(putSystem.getJobRuntimes());
     JsonElement batchLogicalQueuesJson = TSystem.DEFAULT_BATCH_LOGICAL_QUEUES;
@@ -357,7 +359,7 @@ public class SystemsDaoImpl implements SystemsDao
     if (StringUtils.isNotBlank(patchedSystem.getEffectiveUserId())) effectiveUserId = patchedSystem.getEffectiveUserId();
 
     JsonElement jobEnvVariablesJson = TSystem.DEFAULT_JOBENV_VARIABLES;
-    if (patchedSystem.getJobEnvVariables() != null) TapisGsonUtils.getGson().toJsonTree(patchedSystem.getJobEnvVariables());
+    if (patchedSystem.getJobEnvVariables() != null) jobEnvVariablesJson = TapisGsonUtils.getGson().toJsonTree(patchedSystem.getJobEnvVariables());
 
     JsonElement jobRuntimesJson = TSystem.DEFAULT_JOB_RUNTIMES;
     if (patchedSystem.getJobRuntimes() != null) jobRuntimesJson = TapisGsonUtils.getGson().toJsonTree(patchedSystem.getJobRuntimes());
@@ -682,7 +684,7 @@ public class SystemsDaoImpl implements SystemsDao
     catch (Exception e)
     {
       // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "System", tenantId, id, e.getMessage());
+      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "System", tenantId, id, e.getMessage());
     }
     finally
     {
@@ -720,7 +722,7 @@ public class SystemsDaoImpl implements SystemsDao
     catch (Exception e)
     {
       // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "System", tenantId, sysId, e.getMessage());
+      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "System", tenantId, sysId, e.getMessage());
     }
     finally
     {
@@ -767,7 +769,7 @@ public class SystemsDaoImpl implements SystemsDao
       else
         r = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(id),SYSTEMS.DELETED.eq(false)).fetchOne();
       if (r == null) return null;
-      else result = r.into(TSystem.class);
+      else result = getSystemFromRecord(r);
 
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -775,7 +777,7 @@ public class SystemsDaoImpl implements SystemsDao
     catch (Exception e)
     {
       // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "System", tenantId, id, e.getMessage());
+      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "System", tenantId, id, e.getMessage());
     }
     finally
     {
@@ -1064,7 +1066,7 @@ public class SystemsDaoImpl implements SystemsDao
 //        retList.add(s);
 //      }
 
-      retList = results.into(TSystem.class);
+      for (Record r : results) { TSystem s = getSystemFromRecord(r); retList.add(s); }
 
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -1418,7 +1420,7 @@ public class SystemsDaoImpl implements SystemsDao
     catch (Exception e)
     {
       // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "SchedulerProfile", tenantId, name, e.getMessage());
+      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "SchedulerProfile", tenantId, name, e.getMessage());
     }
     finally
     {
@@ -1537,7 +1539,7 @@ public class SystemsDaoImpl implements SystemsDao
     }
     catch (Exception e)
     {
-      String msg = LibUtils.getMsg("DB_SELECT_NAME_ERROR", "SchedulerProfile", tenantId, name, e.getMessage());
+      String msg = LibUtils.getMsg("SYSLIB_DB_SELECT_ERROR", "SchedulerProfile", tenantId, name, e.getMessage());
       throw new TapisException(msg,e);
     }
     finally
@@ -2208,5 +2210,42 @@ public class SystemsDaoImpl implements SystemsDao
         throw new TapisException(msg);
       }
     }
+  }
+
+  /**
+   * Given an appRecord from a JOIN, create an App object
+   *
+   */
+  private static TSystem getSystemFromRecord(Record r)
+  {
+    TSystem system;
+    int sysSeqId = r.get(SYSTEMS.SEQ_ID);
+
+    // Convert LocalDateTime to Instant. Note that although "Local" is in the type, timestamps from the DB are in UTC.
+    Instant created = r.get(SYSTEMS.CREATED).toInstant(ZoneOffset.UTC);
+    Instant updated = r.get(SYSTEMS.UPDATED).toInstant(ZoneOffset.UTC);
+
+    // Convert JSONB columns to native types
+    JsonElement jobRuntimesJson = r.get(SYSTEMS.JOB_RUNTIMES);
+    List<JobRuntime> jobRuntimes = Arrays.asList(TapisGsonUtils.getGson().fromJson(jobRuntimesJson, JobRuntime[].class));
+    JsonElement jobEnvVariablesJson = r.get(SYSTEMS.JOB_ENV_VARIABLES);
+    List<KeyValuePair> jobEnvVariables = Arrays.asList(TapisGsonUtils.getGson().fromJson(jobEnvVariablesJson, KeyValuePair[].class));
+    JsonElement logicalQueuesJson = r.get(SYSTEMS.BATCH_LOGICAL_QUEUES);
+    List<LogicalQueue> logicalQueues = Arrays.asList(TapisGsonUtils.getGson().fromJson(logicalQueuesJson, LogicalQueue[].class));
+    JsonElement capabilitiesJson = r.get(SYSTEMS.JOB_CAPABILITIES);
+    List<Capability> capabilities = Arrays.asList(TapisGsonUtils.getGson().fromJson(capabilitiesJson, Capability[].class));
+
+    system = new TSystem(sysSeqId, r.get(SYSTEMS.TENANT), r.get(SYSTEMS.ID), r.get(SYSTEMS.DESCRIPTION),
+            r.get(SYSTEMS.SYSTEM_TYPE), r.get(SYSTEMS.OWNER), r.get(SYSTEMS.HOST), r.get(SYSTEMS.ENABLED),
+            r.get(SYSTEMS.EFFECTIVE_USER_ID), r.get(SYSTEMS.DEFAULT_AUTHN_METHOD), r.get(SYSTEMS.BUCKET_NAME),
+            r.get(SYSTEMS.ROOT_DIR),
+            r.get(SYSTEMS.PORT), r.get(SYSTEMS.USE_PROXY), r.get(SYSTEMS.PROXY_HOST), r.get(SYSTEMS.PROXY_PORT),
+            r.get(SYSTEMS.DTN_SYSTEM_ID), r.get(SYSTEMS.DTN_MOUNT_POINT), r.get(SYSTEMS.DTN_MOUNT_SOURCE_PATH),
+            r.get(SYSTEMS.IS_DTN), r.get(SYSTEMS.CAN_EXEC), jobRuntimes, r.get(SYSTEMS.JOB_WORKING_DIR),
+            jobEnvVariables, r.get(SYSTEMS.JOB_MAX_JOBS), r.get(SYSTEMS.JOB_MAX_JOBS_PER_USER),
+            r.get(SYSTEMS.JOB_IS_BATCH), r.get(SYSTEMS.BATCH_SCHEDULER), logicalQueues,
+            r.get(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE), r.get(SYSTEMS.BATCH_SCHEDULER_PROFILE), capabilities,
+            r.get(SYSTEMS.TAGS), r.get(SYSTEMS.NOTES), r.get(SYSTEMS.UUID), r.get(SYSTEMS.DELETED), created, updated);
+    return system;
   }
 }
