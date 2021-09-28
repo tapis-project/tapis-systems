@@ -7,7 +7,7 @@ import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.IntegrationUtils;
 import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
-import edu.utexas.tacc.tapis.systems.model.PatchSystem;
+import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import org.jooq.tools.StringUtils;
 import org.testng.Assert;
@@ -116,16 +116,8 @@ public class SystemsDaoTest
     Assert.assertEquals(tmpSys.getCanExec(), sys0.getCanExec());
     Assert.assertEquals(tmpSys.getJobWorkingDir(), sys0.getJobWorkingDir());
 
-    // Verify jogEnvVariables
-    String[] tmpVars = tmpSys.getJobEnvVariables();
-    Assert.assertNotNull(tmpVars, "jobEnvVariables value was null");
-    var varsList = Arrays.asList(tmpVars);
-    Assert.assertEquals(tmpVars.length, jobEnvVariables1.length, "Wrong number of jobEnvVariables");
-    for (String varStr : jobEnvVariables1)
-    {
-      Assert.assertTrue(varsList.contains(varStr));
-      System.out.println("Found jobEnvVarialbe: " + varStr);
-    }
+    // Verify jobEnvVariables
+    verifyKeyValuePairs(sys0.getJobEnvVariables(), tmpSys.getJobEnvVariables());
 
     Assert.assertEquals(tmpSys.getJobMaxJobs(), sys0.getJobMaxJobs());
     Assert.assertEquals(tmpSys.getJobMaxJobsPerUser(), sys0.getJobMaxJobsPerUser());
@@ -277,25 +269,19 @@ public class SystemsDaoTest
   @Test
   public void testMissingSystem() throws Exception {
     String fakeSystemName = "AMissingSystemName";
-    PatchSystem patchSys = new PatchSystem(tenantName, fakeSystemName, "description PATCHED", "hostPATCHED", "effUserPATCHED",
-            prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
-            dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, runtimeList1, jobWorkingDir1, jobEnvVariables1,
-            jobMaxJobs1, jobMaxJobsPerUser1, jobIsBatchTrue, batchScheduler1, logicalQueueList1,
-            batchDefaultLogicalQueue1, batchSchedulerProfile1,
-            capList1, tags1, notes1);
-    TSystem patchedSystem = new TSystem(1, tenantName, fakeSystemName, "description", SystemType.LINUX, "owner", "host", isEnabledTrue,
-            "effUser", prot2.getAuthnMethod(), "bucket", "/root",
+    TSystem patchedSystem = new TSystem(1, tenantName, fakeSystemName, "description", SystemType.LINUX, "owner", "host",
+            isEnabledTrue, "effUser", prot2.getAuthnMethod(), "bucket", "/root",
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
-            dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, isDtnFalse, canExecTrue, "jobWorkDir",
-            jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1, jobIsBatchTrue, batchScheduler1,
-            "batchDefaultLogicalQueue", batchSchedulerProfile1,
-            tags1, notes1, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, isDtnFalse,
+            canExecTrue, jobRuntimes1, "jobWorkDir", jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1,
+            jobIsBatchTrue, batchScheduler1, logicalQueueList1, "batchDefaultLogicalQueue", batchSchedulerProfile1,
+            capList1, tags1, notes1, uuidNull, isDeletedFalse, createdNull, updatedNull);
     // Make sure system does not exist
     Assert.assertFalse(dao.checkForSystem(tenantName, fakeSystemName, true));
     Assert.assertFalse(dao.checkForSystem(tenantName, fakeSystemName, false));
     // update should throw not found exception
     boolean pass = false;
-    try { dao.patchSystem(rUser, patchedSystem, patchSys, scrubbedJson, null); }
+    try { dao.patchSystem(rUser, fakeSystemName, patchedSystem, scrubbedJson, null); }
     catch (IllegalStateException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_NOT_FOUND"));

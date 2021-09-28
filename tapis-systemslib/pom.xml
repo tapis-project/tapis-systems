@@ -233,26 +233,26 @@
                     <userType>com.google.gson.JsonElement</userType>
                     <binding>edu.utexas.tacc.tapis.systems.dao.JSONBToJsonElementBinding</binding>
                     <!-- Match only certain columns, no need to filter on type -->
-                    <includeExpression>(systems\.notes|system_updates\.upd_json)</includeExpression>
+                    <includeExpression>(systems\.job_env_variables|systems\.job_runtimes|systems\.batch_logical_queues|systems\.job_capabilities|systems\.notes|system_updates\.upd_json)</includeExpression>
                     <includeTypes>.*</includeTypes>
                   </forcedType>
                   <!-- ****************************************** -->
                   <!-- Bind our enum types for convenience -->
                   <!-- ****************************************** -->
-                  <forcedType>
-                    <userType>edu.utexas.tacc.tapis.systems.model.Capability.Category</userType>
-                    <!-- Use built-in enum converter -->
-                    <enumConverter>true</enumConverter>
-                    <!-- Explicitly match one column. -->
-                    <includeExpression>capabilities\.category</includeExpression>
-                    <includeTypes>.*</includeTypes>
-                  </forcedType>
-                  <forcedType>
-                    <userType>edu.utexas.tacc.tapis.systems.model.Capability.Datatype</userType>
-                    <enumConverter>true</enumConverter>
-                    <includeExpression>capabilities\.datatype</includeExpression>
-                    <includeTypes>.*</includeTypes>
-                  </forcedType>
+<!--                  <forcedType>-->
+<!--                    <userType>edu.utexas.tacc.tapis.systems.model.Capability.Category</userType>-->
+<!--                    &lt;!&ndash; Use built-in enum converter &ndash;&gt;-->
+<!--                    <enumConverter>true</enumConverter>-->
+<!--                    &lt;!&ndash; Explicitly match one column. &ndash;&gt;-->
+<!--                    <includeExpression>capabilities\.category</includeExpression>-->
+<!--                    <includeTypes>.*</includeTypes>-->
+<!--                  </forcedType>-->
+<!--                  <forcedType>-->
+<!--                    <userType>edu.utexas.tacc.tapis.systems.model.Capability.Datatype</userType>-->
+<!--                    <enumConverter>true</enumConverter>-->
+<!--                    <includeExpression>capabilities\.datatype</includeExpression>-->
+<!--                    <includeTypes>.*</includeTypes>-->
+<!--                  </forcedType>-->
                   <forcedType>
                     <userType>edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation</userType>
                     <enumConverter>true</enumConverter>
@@ -265,12 +265,12 @@
                     <includeExpression>systems\.system_type</includeExpression>
                     <includeTypes>.*</includeTypes>
                   </forcedType>
-                  <forcedType>
-                    <userType>edu.utexas.tacc.tapis.systems.model.JobRuntime.RuntimeType</userType>
-                    <enumConverter>true</enumConverter>
-                    <includeExpression>job_runtimes\.runtime_type</includeExpression>
-                    <includeTypes>.*</includeTypes>
-                  </forcedType>
+<!--                  <forcedType>-->
+<!--                    <userType>edu.utexas.tacc.tapis.systems.model.JobRuntime.RuntimeType</userType>-->
+<!--                    <enumConverter>true</enumConverter>-->
+<!--                    <includeExpression>job_runtimes\.runtime_type</includeExpression>-->
+<!--                    <includeTypes>.*</includeTypes>-->
+<!--                  </forcedType>-->
                   <forcedType>
                     <userType>edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType</userType>
                     <enumConverter>true</enumConverter>

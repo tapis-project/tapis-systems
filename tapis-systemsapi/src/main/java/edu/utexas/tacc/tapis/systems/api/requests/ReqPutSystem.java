@@ -1,10 +1,9 @@
 package edu.utexas.tacc.tapis.systems.api.requests;
 
-import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
-import edu.utexas.tacc.tapis.systems.api.utils.KeyValuePair;
 import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
+import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
@@ -12,7 +11,6 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
 import java.util.List;
 
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_JOBENV_VARIABLES;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_JOBMAXJOBS;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_JOBMAXJOBSPERUSER;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_NOTES;
@@ -41,7 +39,7 @@ public final class ReqPutSystem
   public String dtnMountSourcePath;
   public List<JobRuntime> jobRuntimes;
   public String jobWorkingDir;
-  public List<KeyValuePair> jobEnvVariables = ApiUtils.getKeyValuesAsList(DEFAULT_JOBENV_VARIABLES);
+  public List<KeyValuePair> jobEnvVariables;
   public int jobMaxJobs = DEFAULT_JOBMAXJOBS;
   public int jobMaxJobsPerUser = DEFAULT_JOBMAXJOBSPERUSER;
   public boolean jobIsBatch;

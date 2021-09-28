@@ -313,15 +313,15 @@ public class SystemsServiceImpl implements SystemsService
    * @throws NotFoundException - Resource not found
    */
   @Override
-  public void patchSystem(ResourceRequestUser rUser, PatchSystem patchSystem, String scrubbedText)
+  public void patchSystem(ResourceRequestUser rUser, String systemId, PatchSystem patchSystem, String scrubbedText)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException
   {
     SystemOperation op = SystemOperation.modify;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (patchSystem == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
     // Extract various names for convenience
-    String resourceTenantId = patchSystem.getTenant();
-    String resourceId = patchSystem.getId();
+    String resourceTenantId = rUser.getOboTenantId();
+    String resourceId = systemId;
 
     // ---------------------------- Check inputs ------------------------------------
     if (StringUtils.isBlank(resourceId) || StringUtils.isBlank(scrubbedText))
@@ -350,7 +350,7 @@ public class SystemsServiceImpl implements SystemsService
     // ----------------- Create all artifacts --------------------
     // No distributed transactions so no distributed rollback needed
     // ------------------- Make Dao call to persist the system -----------------------------------
-    dao.patchSystem(rUser, patchedTSystem, patchSystem, updateJsonStr, scrubbedText);
+    dao.patchSystem(rUser, resourceId, patchedTSystem, updateJsonStr, scrubbedText);
   }
 
   /**

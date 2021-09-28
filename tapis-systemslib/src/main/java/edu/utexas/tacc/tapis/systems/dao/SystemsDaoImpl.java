@@ -110,11 +110,19 @@ public class SystemsDaoImpl implements SystemsDao
     if (system.getSystemType() == null) LibUtils.logAndThrowNullParmException(opName, "systemType");
     if (system.getDefaultAuthnMethod() == null) LibUtils.logAndThrowNullParmException(opName, "defaultAuthnMethod");
     
-    // Make sure owner, effectiveUserId, notes and tags are all set
+    // Make sure owner, effectiveUserId, etc are set
     String owner = TSystem.DEFAULT_OWNER;
     if (StringUtils.isNotBlank(system.getOwner())) owner = system.getOwner();
     String effectiveUserId = TSystem.DEFAULT_EFFECTIVEUSERID;
     if (StringUtils.isNotBlank(system.getEffectiveUserId())) effectiveUserId = system.getEffectiveUserId();
+    JsonElement jobEnvVariablesJson = TSystem.DEFAULT_JOBENV_VARIABLES;
+    if (system.getJobEnvVariables() != null) TapisGsonUtils.getGson().toJsonTree(system.getJobEnvVariables());
+    JsonElement jobRuntimesJson = TSystem.DEFAULT_JOB_RUNTIMES;
+    if (system.getJobRuntimes() != null) jobRuntimesJson = TapisGsonUtils.getGson().toJsonTree(system.getJobRuntimes());
+    JsonElement batchLogicalQueuesJson = TSystem.DEFAULT_BATCH_LOGICAL_QUEUES;
+    if (system.getBatchLogicalQueues() != null) batchLogicalQueuesJson = TapisGsonUtils.getGson().toJsonTree(system.getBatchLogicalQueues());
+    JsonElement jobCapabilitiesJson = TSystem.DEFAULT_JOB_CAPABILITIES;
+    if (system.getJobCapabilities() != null) jobCapabilitiesJson = TapisGsonUtils.getGson().toJsonTree(system.getJobCapabilities());
     String[] tagsStrArray = TSystem.EMPTY_STR_ARRAY;
     if (system.getTags() != null) tagsStrArray = system.getTags();
     JsonObject notesObj = TSystem.DEFAULT_NOTES;
@@ -156,14 +164,17 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.DTN_MOUNT_POINT, system.getDtnMountPoint())
               .set(SYSTEMS.IS_DTN, system.isDtn())
               .set(SYSTEMS.CAN_EXEC, system.getCanExec())
+              .set(SYSTEMS.JOB_RUNTIMES, jobRuntimesJson)
               .set(SYSTEMS.JOB_WORKING_DIR, system.getJobWorkingDir())
-              .set(SYSTEMS.JOB_ENV_VARIABLES, system.getJobEnvVariables())
+              .set(SYSTEMS.JOB_ENV_VARIABLES, jobEnvVariablesJson)
               .set(SYSTEMS.JOB_MAX_JOBS, system.getJobMaxJobs())
               .set(SYSTEMS.JOB_MAX_JOBS_PER_USER, system.getJobMaxJobsPerUser())
               .set(SYSTEMS.JOB_IS_BATCH, system.getJobIsBatch())
               .set(SYSTEMS.BATCH_SCHEDULER, system.getBatchScheduler())
+              .set(SYSTEMS.BATCH_LOGICAL_QUEUES, batchLogicalQueuesJson)
               .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, system.getBatchDefaultLogicalQueue())
               .set(SYSTEMS.BATCH_SCHEDULER_PROFILE, system.getBatchSchedulerProfile())
+              .set(SYSTEMS.JOB_CAPABILITIES, jobCapabilitiesJson)
               .set(SYSTEMS.TAGS, tagsStrArray)
               .set(SYSTEMS.NOTES, notesObj)
               .set(SYSTEMS.UUID, system.getUuid())
@@ -180,15 +191,6 @@ public class SystemsDaoImpl implements SystemsDao
       int seqId = record.getValue(SYSTEMS.SEQ_ID);
 
       if (seqId < 1) return false;
-
-      // Persist job runtimes
-      persistJobRuntimes(db, system, seqId);
-
-      // Persist batch logical queues
-      persistLogicalQueues(db, system, seqId);
-
-      // Persist job capabilities
-      persistJobCapabilities(db, system, seqId);
 
       // Persist update record
       addUpdate(db, rUser, system.getTenant(), system.getId(), seqId, SystemOperation.create,
@@ -236,9 +238,17 @@ public class SystemsDaoImpl implements SystemsDao
     if (StringUtils.isBlank(systemId)) LibUtils.logAndThrowNullParmException(opName, "systemId");
     if (putSystem.getSystemType() == null) LibUtils.logAndThrowNullParmException(opName, "systemType");
 
-    // Make sure effectiveUserId, notes and tags are all set
+    // Make sure effectiveUserId, notes, etc are set
     String effectiveUserId = TSystem.DEFAULT_EFFECTIVEUSERID;
     if (StringUtils.isNotBlank(putSystem.getEffectiveUserId())) effectiveUserId = putSystem.getEffectiveUserId();
+    JsonElement jobEnvVariablesJson = TSystem.DEFAULT_JOBENV_VARIABLES;
+    if (putSystem.getJobEnvVariables() != null) TapisGsonUtils.getGson().toJsonTree(putSystem.getJobEnvVariables());
+    JsonElement jobRuntimesJson = TSystem.DEFAULT_JOB_RUNTIMES;
+    if (putSystem.getJobRuntimes() != null) jobRuntimesJson = TapisGsonUtils.getGson().toJsonTree(putSystem.getJobRuntimes());
+    JsonElement batchLogicalQueuesJson = TSystem.DEFAULT_BATCH_LOGICAL_QUEUES;
+    if (putSystem.getBatchLogicalQueues() != null) batchLogicalQueuesJson = TapisGsonUtils.getGson().toJsonTree(putSystem.getBatchLogicalQueues());
+    JsonElement jobCapabilitiesJson = TSystem.DEFAULT_JOB_CAPABILITIES;
+    if (putSystem.getJobCapabilities() != null) jobCapabilitiesJson = TapisGsonUtils.getGson().toJsonTree(putSystem.getJobCapabilities());
     String[] tagsStrArray = TSystem.EMPTY_STR_ARRAY;
     if (putSystem.getTags() != null) tagsStrArray = putSystem.getTags();
     JsonObject notesObj =  TSystem.DEFAULT_NOTES;
@@ -272,14 +282,17 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.DTN_SYSTEM_ID, putSystem.getDtnSystemId())
               .set(SYSTEMS.DTN_MOUNT_POINT, putSystem.getDtnMountPoint())
               .set(SYSTEMS.DTN_MOUNT_SOURCE_PATH, putSystem.getDtnMountSourcePath())
+              .set(SYSTEMS.JOB_RUNTIMES, jobRuntimesJson)
               .set(SYSTEMS.JOB_WORKING_DIR, putSystem.getJobWorkingDir())
-              .set(SYSTEMS.JOB_ENV_VARIABLES, putSystem.getJobEnvVariables())
+              .set(SYSTEMS.JOB_ENV_VARIABLES, jobEnvVariablesJson)
               .set(SYSTEMS.JOB_MAX_JOBS, putSystem.getJobMaxJobs())
               .set(SYSTEMS.JOB_MAX_JOBS_PER_USER, putSystem.getJobMaxJobsPerUser())
               .set(SYSTEMS.JOB_IS_BATCH, putSystem.getJobIsBatch())
               .set(SYSTEMS.BATCH_SCHEDULER, putSystem.getBatchScheduler())
+              .set(SYSTEMS.BATCH_LOGICAL_QUEUES, batchLogicalQueuesJson)
               .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, putSystem.getBatchDefaultLogicalQueue())
               .set(SYSTEMS.BATCH_SCHEDULER_PROFILE, putSystem.getBatchSchedulerProfile())
+              .set(SYSTEMS.JOB_CAPABILITIES, jobCapabilitiesJson)
               .set(SYSTEMS.TAGS, tagsStrArray)
               .set(SYSTEMS.NOTES, notesObj)
               .set(SYSTEMS.UPDATED, TapisUtils.getUTCTimeNow())
@@ -294,18 +307,6 @@ public class SystemsDaoImpl implements SystemsDao
       }
 
       int seqId = result.getValue(SYSTEMS.SEQ_ID);
-
-      // Persist new job runtimes
-      db.deleteFrom(JOB_RUNTIMES).where(JOB_RUNTIMES.SYSTEM_SEQ_ID.eq(seqId)).execute();
-      persistJobRuntimes(db, putSystem, seqId);
-
-      // Persist new batch logical queues
-      db.deleteFrom(LOGICAL_QUEUES).where(LOGICAL_QUEUES.SYSTEM_SEQ_ID.eq(seqId)).execute();
-      persistLogicalQueues(db, putSystem, seqId);
-
-      // Persist new job capabilities
-      db.deleteFrom(CAPABILITIES).where(CAPABILITIES.SYSTEM_SEQ_ID.eq(seqId)).execute();
-      persistJobCapabilities(db, putSystem, seqId);
 
       // Persist update record
       addUpdate(db, rUser, putSystem.getTenant(), putSystem.getId(), seqId, SystemOperation.modify,
@@ -327,7 +328,7 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   /**
-   * Update selected attributes of an existing system.
+   * Patch selected attributes of an existing system.
    * Following columns will be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
    *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
@@ -337,29 +338,33 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws IllegalStateException - if system already exists
    */
   @Override
-  public void patchSystem(ResourceRequestUser rUser, TSystem patchedSystem, PatchSystem patchSystem,
+  public void patchSystem(ResourceRequestUser rUser, String systemId, TSystem patchedSystem,
                           String updateJsonStr, String scrubbedText)
           throws TapisException, IllegalStateException {
     String opName = "patchSystem";
     // ------------------------- Check Input -------------------------
     if (patchedSystem == null) LibUtils.logAndThrowNullParmException(opName, "patchedSystem");
-    if (patchSystem == null) LibUtils.logAndThrowNullParmException(opName, "patchSystem");
     if (rUser == null) LibUtils.logAndThrowNullParmException(opName, "resourceRequestUser");
     // Pull out some values for convenience
-    String tenant = patchedSystem.getTenant();
-    String systemId = patchedSystem.getId();
+    String tenant = rUser.getOboTenantId();
     if (StringUtils.isBlank(updateJsonStr)) LibUtils.logAndThrowNullParmException(opName, "updateJson");
     if (StringUtils.isBlank(tenant)) LibUtils.logAndThrowNullParmException(opName, "tenant");
     if (StringUtils.isBlank(systemId)) LibUtils.logAndThrowNullParmException(opName, "systemId");
     if (patchedSystem.getSystemType() == null) LibUtils.logAndThrowNullParmException(opName, "systemType");
     
-    // Make sure effectiveUserId, jobEnvVariables, notes and tags are all set
+    // Make sure effectiveUserId, jobEnvVariables, etc are set
     String effectiveUserId = TSystem.DEFAULT_EFFECTIVEUSERID;
     if (StringUtils.isNotBlank(patchedSystem.getEffectiveUserId())) effectiveUserId = patchedSystem.getEffectiveUserId();
 
-    String[] jobEnvVariablesStrArray = TSystem.EMPTY_STR_ARRAY;
-    if (patchedSystem.getJobEnvVariables() != null) jobEnvVariablesStrArray = patchedSystem.getJobEnvVariables();
+    JsonElement jobEnvVariablesJson = TSystem.DEFAULT_JOBENV_VARIABLES;
+    if (patchedSystem.getJobEnvVariables() != null) TapisGsonUtils.getGson().toJsonTree(patchedSystem.getJobEnvVariables());
 
+    JsonElement jobRuntimesJson = TSystem.DEFAULT_JOB_RUNTIMES;
+    if (patchedSystem.getJobRuntimes() != null) jobRuntimesJson = TapisGsonUtils.getGson().toJsonTree(patchedSystem.getJobRuntimes());
+    JsonElement batchLogicalQueuesJson = TSystem.DEFAULT_BATCH_LOGICAL_QUEUES;
+    if (patchedSystem.getBatchLogicalQueues() != null) batchLogicalQueuesJson = TapisGsonUtils.getGson().toJsonTree(patchedSystem.getBatchLogicalQueues());
+    JsonElement jobCapabilitiesJson = TSystem.DEFAULT_JOB_CAPABILITIES;
+    if (patchedSystem.getJobCapabilities() != null) jobCapabilitiesJson = TapisGsonUtils.getGson().toJsonTree(patchedSystem.getJobCapabilities());
     String[] tagsStrArray = TSystem.EMPTY_STR_ARRAY;
     if (patchedSystem.getTags() != null) tagsStrArray = patchedSystem.getTags();
     JsonObject notesObj =  TSystem.DEFAULT_NOTES;
@@ -390,14 +395,17 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.DTN_SYSTEM_ID, patchedSystem.getDtnSystemId())
               .set(SYSTEMS.DTN_MOUNT_POINT, patchedSystem.getDtnMountPoint())
               .set(SYSTEMS.DTN_MOUNT_SOURCE_PATH, patchedSystem.getDtnMountSourcePath())
+              .set(SYSTEMS.JOB_RUNTIMES, jobRuntimesJson)
               .set(SYSTEMS.JOB_WORKING_DIR, patchedSystem.getJobWorkingDir())
-              .set(SYSTEMS.JOB_ENV_VARIABLES, jobEnvVariablesStrArray)
+              .set(SYSTEMS.JOB_ENV_VARIABLES, jobEnvVariablesJson)
               .set(SYSTEMS.JOB_MAX_JOBS, patchedSystem.getJobMaxJobs())
               .set(SYSTEMS.JOB_MAX_JOBS_PER_USER, patchedSystem.getJobMaxJobsPerUser())
               .set(SYSTEMS.JOB_IS_BATCH, patchedSystem.getJobIsBatch())
               .set(SYSTEMS.BATCH_SCHEDULER, patchedSystem.getBatchScheduler())
+              .set(SYSTEMS.BATCH_LOGICAL_QUEUES, batchLogicalQueuesJson)
               .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, patchedSystem.getBatchDefaultLogicalQueue())
               .set(SYSTEMS.BATCH_SCHEDULER_PROFILE, patchedSystem.getBatchSchedulerProfile())
+              .set(SYSTEMS.JOB_CAPABILITIES, jobCapabilitiesJson)
               .set(SYSTEMS.TAGS, tagsStrArray)
               .set(SYSTEMS.NOTES, notesObj)
               .set(SYSTEMS.UPDATED, TapisUtils.getUTCTimeNow())
@@ -412,24 +420,6 @@ public class SystemsDaoImpl implements SystemsDao
       }
 
       int seqId = result.getValue(SYSTEMS.SEQ_ID);
-
-      // If jobRuntimes updated then replace them
-      if (patchSystem.getJobRuntimes() != null) {
-        db.deleteFrom(JOB_RUNTIMES).where(JOB_RUNTIMES.SYSTEM_SEQ_ID.eq(seqId)).execute();
-        persistJobRuntimes(db, patchedSystem, seqId);
-      }
-
-      // If batchLogicalQueues updated then replace them
-      if (patchSystem.getBatchLogicalQueues() != null) {
-        db.deleteFrom(LOGICAL_QUEUES).where(LOGICAL_QUEUES.SYSTEM_SEQ_ID.eq(seqId)).execute();
-        persistLogicalQueues(db, patchedSystem, seqId);
-      }
-
-      // If jobCapabilities updated then replace them
-      if (patchSystem.getJobCapabilities() != null) {
-        db.deleteFrom(CAPABILITIES).where(CAPABILITIES.SYSTEM_SEQ_ID.eq(seqId)).execute();
-        persistJobCapabilities(db, patchedSystem, seqId);
-      }
 
       // Persist update record
       addUpdate(db, rUser, tenant, systemId, seqId, SystemOperation.modify, updateJsonStr, scrubbedText,
@@ -779,18 +769,6 @@ public class SystemsDaoImpl implements SystemsDao
       if (r == null) return null;
       else result = r.into(TSystem.class);
 
-      // TODO: Looks like jOOQ has fetchGroups() which should allow us to retrieve LogicalQueues and Capabilities
-      //       in one call which might improve performance.
-
-      // Retrieve and set jobRuntimes
-      result.setJobRuntimes(retrieveJobRuntimes(db, result.getSeqId()));
-
-      // Retrieve and set batch logical queues
-      result.setBatchLogicalQueues(retrieveLogicalQueues(db, result.getSeqId()));
-
-      // Retrieve and set job capabilities
-      result.setJobCapabilities(retrieveJobCaps(db, result.getSeqId()));
-
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -953,7 +931,7 @@ public class SystemsDaoImpl implements SystemsDao
           throws TapisException
   {
     // The result list should always be non-null.
-    var retList = new ArrayList<TSystem>();
+    List<TSystem> retList = new ArrayList<>();
 
     // If no IDs in list then we are done.
     if (setOfIDs != null && setOfIDs.isEmpty()) return retList;
@@ -1077,14 +1055,16 @@ public class SystemsDaoImpl implements SystemsDao
       // Fill in batch logical queues and job capabilities list from aux tables
       // TODO: Looks like jOOQ has fetchGroups() which should allow us to retrieve LogicalQueues and Capabilities
       //       in one call which might improve performance.
-      for (SystemsRecord r : results)
-      {
-        TSystem s = r.into(TSystem.class);
-        s.setJobRuntimes(retrieveJobRuntimes(db, s.getSeqId()));
-        s.setBatchLogicalQueues(retrieveLogicalQueues(db, s.getSeqId()));
-        s.setJobCapabilities(retrieveJobCaps(db, s.getSeqId()));
-        retList.add(s);
-      }
+//      for (SystemsRecord r : results)
+//      {
+//        TSystem s = r.into(TSystem.class);
+//        s.setJobRuntimes(retrieveJobRuntimes(db, s.getSeqId()));
+//        s.setBatchLogicalQueues(retrieveLogicalQueues(db, s.getSeqId()));
+//        s.setJobCapabilities(retrieveJobCaps(db, s.getSeqId()));
+//        retList.add(s);
+//      }
+
+      retList = results.into(TSystem.class);
 
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -1716,106 +1696,6 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   /**
-   * Persist batch logical queues given an sql connection and a system
-   */
-  private static void persistLogicalQueues(DSLContext db, TSystem tSystem, int seqId)
-  {
-    var logicalQueues = tSystem.getBatchLogicalQueues();
-    if (logicalQueues == null || logicalQueues.isEmpty()) return;
-    for (LogicalQueue queue : logicalQueues) {
-      db.insertInto(LOGICAL_QUEUES).set(LOGICAL_QUEUES.SYSTEM_SEQ_ID, seqId)
-              .set(LOGICAL_QUEUES.NAME, queue.getName())
-              .set(LOGICAL_QUEUES.HPC_QUEUE_NAME, queue.getHpcQueueName())
-              .set(LOGICAL_QUEUES.MAX_JOBS, queue.getMaxJobs())
-              .set(LOGICAL_QUEUES.MAX_JOBS_PER_USER, queue.getMaxJobsPerUser())
-              .set(LOGICAL_QUEUES.MIN_NODE_COUNT, queue.getMinNodeCount())
-              .set(LOGICAL_QUEUES.MAX_NODE_COUNT, queue.getMaxNodeCount())
-              .set(LOGICAL_QUEUES.MIN_CORES_PER_NODE, queue.getMinCoresPerNode())
-              .set(LOGICAL_QUEUES.MAX_CORES_PER_NODE, queue.getMaxCoresPerNode())
-              .set(LOGICAL_QUEUES.MIN_MEMORY_MB, queue.getMinMemoryMB())
-              .set(LOGICAL_QUEUES.MAX_MEMORY_MB, queue.getMaxMemoryMB())
-              .set(LOGICAL_QUEUES.MIN_MINUTES, queue.getMinMinutes())
-              .set(LOGICAL_QUEUES.MAX_MINUTES, queue.getMaxMinutes())
-              .execute();
-    }
-  }
-
-  /**
-   * Persist job capabilities given an sql connection and a system
-   */
-  private static void persistJobCapabilities(DSLContext db, TSystem tSystem, int seqId)
-  {
-    var jobCapabilities = tSystem.getJobCapabilities();
-    if (jobCapabilities == null || jobCapabilities.isEmpty()) return;
-
-    for (Capability cap : jobCapabilities) {
-      int precedence = Capability.DEFAULT_PRECEDENCE;
-      String valStr = Capability.DEFAULT_VALUE;
-      if (cap.getPrecedence() > 0) precedence = cap.getPrecedence();
-      if (cap.getValue() != null ) valStr = cap.getValue();
-      db.insertInto(CAPABILITIES).set(CAPABILITIES.SYSTEM_SEQ_ID, seqId)
-              .set(CAPABILITIES.CATEGORY, cap.getCategory())
-              .set(CAPABILITIES.NAME, cap.getName())
-              .set(CAPABILITIES.DATATYPE, cap.getDatatype())
-              .set(CAPABILITIES.PRECEDENCE, precedence)
-              .set(CAPABILITIES.VALUE, valStr)
-              .execute();
-    }
-  }
-
-  /**
-   * Persist job runtimes given an sql connection and a system
-   */
-  private static void persistJobRuntimes(DSLContext db, TSystem tSystem, int seqId)
-  {
-    var jobRuntimes = tSystem.getJobRuntimes();
-    if (jobRuntimes == null || jobRuntimes.isEmpty()) return;
-    for (JobRuntime runtime : jobRuntimes) {
-      db.insertInto(JOB_RUNTIMES).set(JOB_RUNTIMES.SYSTEM_SEQ_ID, seqId)
-            .set(JOB_RUNTIMES.RUNTIME_TYPE, runtime.getRuntimeType())
-            .set(JOB_RUNTIMES.VERSION, runtime.getVersion())
-              .execute();
-    }
-  }
-
-  /**
-   * Get batch logical queues for a system from an auxiliary table
-   * @param db - DB connection
-   * @param seqId - system
-   * @return list of logical queues
-   */
-  private static List<LogicalQueue> retrieveLogicalQueues(DSLContext db, int seqId)
-  {
-    List<LogicalQueue> qRecords = db.selectFrom(LOGICAL_QUEUES).where(LOGICAL_QUEUES.SYSTEM_SEQ_ID.eq(seqId)).fetchInto(LogicalQueue.class);
-    return qRecords;
-  }
-
-  /**
-   * Get capabilities for a system from an auxiliary table
-   * @param db - DB connection
-   * @param seqId - system
-   * @return list of capabilities
-   */
-  private static List<Capability> retrieveJobCaps(DSLContext db, int seqId)
-  {
-    List<Capability> capRecords = db.selectFrom(CAPABILITIES).where(CAPABILITIES.SYSTEM_SEQ_ID.eq(seqId)).fetchInto(Capability.class);
-    return capRecords;
-  }
-
-  /**
-   * Get jobRuntimes for a system from an auxiliary table
-   * @param db - DB connection
-   * @param seqId - system
-   * @return list of runtimes
-   */
-  private static List<JobRuntime> retrieveJobRuntimes(DSLContext db, int seqId)
-  {
-    List<JobRuntime> jobRuntimes = db.selectFrom(JOB_RUNTIMES).where(JOB_RUNTIMES.SYSTEM_SEQ_ID.eq(seqId)).fetchInto(JobRuntime.class);
-    if (jobRuntimes == null || jobRuntimes.isEmpty()) return null;
-    return jobRuntimes;
-  }
-
-  /**
    * Get all system sequence IDs for specified tenant
    * @param db - DB connection
    * @param tenantId - tenant name
@@ -2254,62 +2134,62 @@ public class SystemsDaoImpl implements SystemsDao
     List<TSystem> retList = new ArrayList<>();
     if (allowedIDs == null || allowedIDs.isEmpty()) return retList;
 
-    // Begin where condition for the query
-    Condition whereCondition = (SYSTEMS.TENANT.eq(tenantId)).and(SYSTEMS.DELETED.eq(false));
-
-    Field catCol = CAPABILITIES.CATEGORY;
-    Field nameCol = CAPABILITIES.NAME;
-
-    // For each capability add a condition joined by OR
-    Condition newCondition1 = null;
-    for (Capability cap : capabilityList)
-    {
-      Condition newCondition2 = catCol.eq(cap.getCategory().name());
-      newCondition2 = newCondition2.and(nameCol.eq(cap.getName()));
-      if (newCondition1 == null) newCondition1 = newCondition2;
-      else newCondition1 = newCondition1.or(newCondition2);
-    }
-    whereCondition = whereCondition.and(newCondition1);
-
-    // TODO: Work out raw SQL, copy it here and translate it into jOOQ.
-    /*
-     * --  select S.id,S.name as s_name, C.id as c_id, C.category,C.name,C.value from systems as S
-     * select S.* from systems as S
-     *   join capabilities as C on (S.id = C.system_id)
-     *   where c.category = 'SCHEDULER' and c.name = 'Type'
-     *   and S.id in (222, 230, 245);
-     *
-     * select S.* from systems as S
-     *   inner join capabilities as C on (S.id = C.system_id)
-     *   where (c.category = 'SCHEDULER' and c.name = 'Type') OR
-     *   (c.category = 'SCHEDULER' and c.name = 'Type')
-     *   AND S.id in (222, 230, 245);
-     */
-
-    // Add IN condition for list of IDs
-    whereCondition = whereCondition.and(SYSTEMS.ID.in(allowedIDs));
-
-    // Inner join on capabilities table
-    // Execute the select
-
-    Result<SystemsRecord> results = db.selectFrom(SYSTEMS.join(CAPABILITIES).on(SYSTEMS.SEQ_ID.eq(CAPABILITIES.SYSTEM_SEQ_ID)))
-                                      .where(whereCondition).fetchInto(SYSTEMS);
-//    Result<SystemsRecord> results = db.select(SYSTEMS.fields()).from(SYSTEMS)
-//            .innerJoin(CAPABILITIES).on(SYSTEMS.SEQ_ID.eq(CAPABILITIES.SYSTEM_ID))
-//            .where(whereCondition).fetchInto(SYSTEMS);
-
-    if (results == null || results.isEmpty()) return retList;
-
-    // Fill in batch logical queues and job capabilities list from aux tables
-    // TODO might be able to use fetchGroups to populate these.
-    for (SystemsRecord r : results)
-    {
-      TSystem s = r.into(TSystem.class);
-      s.setJobRuntimes(retrieveJobRuntimes(db, s.getSeqId()));
-      s.setBatchLogicalQueues(retrieveLogicalQueues(db, s.getSeqId()));
-      s.setJobCapabilities(retrieveJobCaps(db, s.getSeqId()));
-      retList.add(s);
-    }
+// TODO    // Begin where condition for the query
+//    Condition whereCondition = (SYSTEMS.TENANT.eq(tenantId)).and(SYSTEMS.DELETED.eq(false));
+//
+//    Field catCol = CAPABILITIES.CATEGORY;
+//    Field nameCol = CAPABILITIES.NAME;
+//
+//    // For each capability add a condition joined by OR
+//    Condition newCondition1 = null;
+//    for (Capability cap : capabilityList)
+//    {
+//      Condition newCondition2 = catCol.eq(cap.getCategory().name());
+//      newCondition2 = newCondition2.and(nameCol.eq(cap.getName()));
+//      if (newCondition1 == null) newCondition1 = newCondition2;
+//      else newCondition1 = newCondition1.or(newCondition2);
+//    }
+//    whereCondition = whereCondition.and(newCondition1);
+//
+//    // TODO: Work out raw SQL, copy it here and translate it into jOOQ.
+//    /*
+//     * --  select S.id,S.name as s_name, C.id as c_id, C.category,C.name,C.value from systems as S
+//     * select S.* from systems as S
+//     *   join capabilities as C on (S.id = C.system_id)
+//     *   where c.category = 'SCHEDULER' and c.name = 'Type'
+//     *   and S.id in (222, 230, 245);
+//     *
+//     * select S.* from systems as S
+//     *   inner join capabilities as C on (S.id = C.system_id)
+//     *   where (c.category = 'SCHEDULER' and c.name = 'Type') OR
+//     *   (c.category = 'SCHEDULER' and c.name = 'Type')
+//     *   AND S.id in (222, 230, 245);
+//     */
+//
+//    // Add IN condition for list of IDs
+//    whereCondition = whereCondition.and(SYSTEMS.ID.in(allowedIDs));
+//
+//    // Inner join on capabilities table
+//    // Execute the select
+//
+//    Result<SystemsRecord> results = db.selectFrom(SYSTEMS.join(CAPABILITIES).on(SYSTEMS.SEQ_ID.eq(CAPABILITIES.SYSTEM_SEQ_ID)))
+//                                      .where(whereCondition).fetchInto(SYSTEMS);
+////    Result<SystemsRecord> results = db.select(SYSTEMS.fields()).from(SYSTEMS)
+////            .innerJoin(CAPABILITIES).on(SYSTEMS.SEQ_ID.eq(CAPABILITIES.SYSTEM_ID))
+////            .where(whereCondition).fetchInto(SYSTEMS);
+//
+//    if (results == null || results.isEmpty()) return retList;
+//
+//    // Fill in batch logical queues and job capabilities list from aux tables
+//    // TODO might be able to use fetchGroups to populate these.
+//    for (SystemsRecord r : results)
+//    {
+//      TSystem s = r.into(TSystem.class);
+//      s.setJobRuntimes(retrieveJobRuntimes(db, s.getSeqId()));
+//      s.setBatchLogicalQueues(retrieveLogicalQueues(db, s.getSeqId()));
+//      s.setJobCapabilities(retrieveJobCaps(db, s.getSeqId()));
+//      retList.add(s);
+//    }
     return retList;
   }
 

@@ -163,6 +163,11 @@ public class Systems extends TableImpl<SystemsRecord> {
     public final TableField<SystemsRecord, Boolean> CAN_EXEC = createField(DSL.name("can_exec"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "Indicates if system can be used to execute jobs");
 
     /**
+     * The column <code>tapis_sys.systems.job_runtimes</code>. Runtimes associated with system
+     */
+    public final TableField<SystemsRecord, JsonElement> JOB_RUNTIMES = createField(DSL.name("job_runtimes"), SQLDataType.JSONB.nullable(false), this, "Runtimes associated with system", new JSONBToJsonElementBinding());
+
+    /**
      * The column <code>tapis_sys.systems.job_working_dir</code>. Parent directory from which a job is run. Relative to effective root directory.
      */
     public final TableField<SystemsRecord, String> JOB_WORKING_DIR = createField(DSL.name("job_working_dir"), SQLDataType.CLOB, this, "Parent directory from which a job is run. Relative to effective root directory.");
@@ -170,7 +175,7 @@ public class Systems extends TableImpl<SystemsRecord> {
     /**
      * The column <code>tapis_sys.systems.job_env_variables</code>. Environment variables added to shell environment
      */
-    public final TableField<SystemsRecord, String[]> JOB_ENV_VARIABLES = createField(DSL.name("job_env_variables"), SQLDataType.CLOB.getArrayDataType(), this, "Environment variables added to shell environment");
+    public final TableField<SystemsRecord, JsonElement> JOB_ENV_VARIABLES = createField(DSL.name("job_env_variables"), SQLDataType.JSONB.nullable(false), this, "Environment variables added to shell environment", new JSONBToJsonElementBinding());
 
     /**
      * The column <code>tapis_sys.systems.job_max_jobs</code>. Maximum total number of jobs that can be queued or running on the system at a given time.
@@ -193,6 +198,11 @@ public class Systems extends TableImpl<SystemsRecord> {
     public final TableField<SystemsRecord, SchedulerType> BATCH_SCHEDULER = createField(DSL.name("batch_scheduler"), SQLDataType.CLOB, this, "Type of scheduler used when running batch jobs", new EnumConverter<String, SchedulerType>(String.class, SchedulerType.class));
 
     /**
+     * The column <code>tapis_sys.systems.batch_logical_queues</code>. Logical queues associated with system
+     */
+    public final TableField<SystemsRecord, JsonElement> BATCH_LOGICAL_QUEUES = createField(DSL.name("batch_logical_queues"), SQLDataType.JSONB.nullable(false), this, "Logical queues associated with system", new JSONBToJsonElementBinding());
+
+    /**
      * The column <code>tapis_sys.systems.batch_default_logical_queue</code>. Default logical batch queue for the system
      */
     public final TableField<SystemsRecord, String> BATCH_DEFAULT_LOGICAL_QUEUE = createField(DSL.name("batch_default_logical_queue"), SQLDataType.CLOB, this, "Default logical batch queue for the system");
@@ -201,6 +211,11 @@ public class Systems extends TableImpl<SystemsRecord> {
      * The column <code>tapis_sys.systems.batch_scheduler_profile</code>. Scheduler profile for the system
      */
     public final TableField<SystemsRecord, String> BATCH_SCHEDULER_PROFILE = createField(DSL.name("batch_scheduler_profile"), SQLDataType.CLOB, this, "Scheduler profile for the system");
+
+    /**
+     * The column <code>tapis_sys.systems.job_capabilities</code>. Capabilities associated with system
+     */
+    public final TableField<SystemsRecord, JsonElement> JOB_CAPABILITIES = createField(DSL.name("job_capabilities"), SQLDataType.JSONB.nullable(false), this, "Capabilities associated with system", new JSONBToJsonElementBinding());
 
     /**
      * The column <code>tapis_sys.systems.tags</code>. Tags for user supplied key:value pairs

@@ -3,8 +3,8 @@ package edu.utexas.tacc.tapis.systems.api.requests;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.Credential;
-import edu.utexas.tacc.tapis.systems.api.utils.KeyValuePair;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
+import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemType;
@@ -52,7 +52,7 @@ public final class ReqPostSystem
   public boolean canExec;
   public List<JobRuntime> jobRuntimes;
   public String jobWorkingDir;
-  public List<KeyValuePair> jobEnvVariables = ApiUtils.getKeyValuesAsList(DEFAULT_JOBENV_VARIABLES);
+  public List<KeyValuePair> jobEnvVariables;
   public int jobMaxJobs = DEFAULT_JOBMAXJOBS;
   public int jobMaxJobsPerUser = DEFAULT_JOBMAXJOBSPERUSER;
   public boolean jobIsBatch;

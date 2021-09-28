@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.apache.commons.lang3.StringUtils;
@@ -93,7 +94,10 @@ public final class TSystem
   public static final String DEFAULT_OWNER = APIUSERID_VAR;
   public static final boolean DEFAULT_ENABLED = true;
   public static final String DEFAULT_EFFECTIVEUSERID = APIUSERID_VAR;
-  public static final String[] DEFAULT_JOBENV_VARIABLES = EMPTY_STR_ARRAY;
+  public static final JsonElement DEFAULT_JOBENV_VARIABLES = TapisGsonUtils.getGson().fromJson("[]", JsonElement.class);
+  public static final JsonElement DEFAULT_JOB_RUNTIMES = TapisGsonUtils.getGson().fromJson("[]", JsonElement.class);
+  public static final JsonElement DEFAULT_BATCH_LOGICAL_QUEUES = TapisGsonUtils.getGson().fromJson("[]", JsonElement.class);
+  public static final JsonElement DEFAULT_JOB_CAPABILITIES = TapisGsonUtils.getGson().fromJson("[]", JsonElement.class);
   public static final JsonObject DEFAULT_NOTES = TapisGsonUtils.getGson().fromJson("{}", JsonObject.class);
   public static final int DEFAULT_PORT = -1;
   public static final boolean DEFAULT_USEPROXY = false;
@@ -162,7 +166,7 @@ public final class TSystem
   private final boolean canExec; // Indicates if system will be used to execute jobs
   private List<JobRuntime> jobRuntimes;
   private String jobWorkingDir; // Parent directory from which a job is run. Relative to effective root dir.
-  private String[] jobEnvVariables;
+  private List<KeyValuePair> jobEnvVariables;
   private int jobMaxJobs;
   private int jobMaxJobsPerUser;
   private boolean jobIsBatch;
@@ -255,9 +259,10 @@ public final class TSystem
                  String bucketName1, String rootDir1,
                  int port1, boolean useProxy1, String proxyHost1, int proxyPort1,
                  String dtnSystemId1, String dtnMountPoint1, String dtnMountSourcePath1, boolean isDtn1,
-                 boolean canExec1, String jobWorkingDir1, String[] jobEnvVariables1, int jobMaxJobs1,
-                 int jobMaxJobsPerUser1, boolean jobIsBatch1, SchedulerType batchScheduler1,
-                 String batchDefaultLogicalQueue1, String batchSchedulerProfile1,
+                 boolean canExec1, List<JobRuntime> jobRuntimes1, String jobWorkingDir1, List<KeyValuePair> jobEnvVariables1,
+                 int jobMaxJobs1, int jobMaxJobsPerUser1, boolean jobIsBatch1, SchedulerType batchScheduler1,
+                 List<LogicalQueue> batchLogicalQueues1, String batchDefaultLogicalQueue1,
+                 String batchSchedulerProfile1, List<Capability> jobCapabilities1,
                  String[] tags1, Object notes1, UUID uuid1, boolean deleted1,
                  Instant created1, Instant updated1)
   {
@@ -282,14 +287,17 @@ public final class TSystem
     dtnMountSourcePath = dtnMountSourcePath1;
     isDtn = isDtn1;
     canExec = canExec1;
+    jobRuntimes = jobRuntimes1;
     jobWorkingDir = jobWorkingDir1;
-    jobEnvVariables = (jobEnvVariables1 == null) ? DEFAULT_JOBENV_VARIABLES : jobEnvVariables1.clone();
+    jobEnvVariables = jobEnvVariables1;
     jobMaxJobs = jobMaxJobs1;
     jobMaxJobsPerUser = jobMaxJobsPerUser1;
     jobIsBatch = jobIsBatch1;
     batchScheduler = batchScheduler1;
+    batchLogicalQueues = batchLogicalQueues1;
     batchDefaultLogicalQueue = batchDefaultLogicalQueue1;
     batchSchedulerProfile = batchSchedulerProfile1;
+    jobCapabilities = jobCapabilities1;
     tags = (tags1 == null) ? EMPTY_STR_ARRAY : tags1.clone();
     notes = notes1;
     uuid = uuid1;
@@ -530,7 +538,7 @@ public final class TSystem
     if (!StringUtils.isBlank(jobWorkingDir) ||
               !(jobCapabilities == null || jobCapabilities.isEmpty()) ||
               !(jobRuntimes == null || jobRuntimes.isEmpty()) ||
-              !(jobEnvVariables == null || jobEnvVariables.length == 0) ||
+              !(jobEnvVariables == null || jobEnvVariables.isEmpty()) ||
               !(batchScheduler == null) ||
               !StringUtils.isBlank(batchDefaultLogicalQueue) ||
               !StringUtils.isBlank(batchSchedulerProfile) ||
@@ -741,11 +749,11 @@ public final class TSystem
   public String getJobWorkingDir() { return jobWorkingDir; }
   public TSystem setJobWorkingDir(String s) { jobWorkingDir = s; return this; }
 
-  public String[] getJobEnvVariables() {
-    return (jobEnvVariables == null) ? DEFAULT_JOBENV_VARIABLES : jobEnvVariables.clone();
+  public List<KeyValuePair> getJobEnvVariables() {
+    return (jobEnvVariables == null) ? null : new ArrayList<>(jobEnvVariables);
   }
-  public TSystem setJobEnvVariables(String[] jev) {
-    jobEnvVariables = (jev == null) ? DEFAULT_JOBENV_VARIABLES : jev.clone();
+  public TSystem setJobEnvVariables(List<KeyValuePair> jev) {
+    jobEnvVariables = (jev == null) ? null : new ArrayList<>(jev);
     return this;
   }
 

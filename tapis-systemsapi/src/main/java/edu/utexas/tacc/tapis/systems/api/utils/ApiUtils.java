@@ -206,23 +206,23 @@ public class ApiUtils
     return null;
   }
 
-  /**
-   * Return String[] array of jobEnvVariables given list of KeyValuePair
-   */
-  public static String[] getKeyValuesAsArray(List<KeyValuePair> kvList)
-  {
-    if (kvList == null) return null;
-    if (kvList.size() == 0) return TSystem.EMPTY_STR_ARRAY;
-    return kvList.stream().map(KeyValuePair::toString).toArray(String[]::new);
-  }
-
-  /**
-   * Return list of KeyValuePair given String[] array of jobEnvVariables given
-   */
-  public static List<KeyValuePair> getKeyValuesAsList(String[] kvArray)
-  {
-    if (kvArray == null || kvArray.length == 0) return Collections.emptyList();
-    List<KeyValuePair> kvList = Arrays.stream(kvArray).map(KeyValuePair::fromString).collect(Collectors.toList());
-    return kvList;
-  }
+//  /**
+//   * Return String[] array of jobEnvVariables given list of KeyValuePair
+//   */
+//  public static String[] getKeyValuesAsArray(List<KeyValuePair> kvList)
+//  {
+//    if (kvList == null) return null;
+//    if (kvList.size() == 0) return TSystem.EMPTY_STR_ARRAY;
+//    return kvList.stream().map(KeyValuePair::toString).toArray(String[]::new);
+//  }
+//
+//  /**
+//   * Return list of KeyValuePair given String[] array of jobEnvVariables given
+//   */
+//  public static List<KeyValuePair> getKeyValuesAsList(String[] kvArray)
+//  {
+//    if (kvArray == null || kvArray.length == 0) return Collections.emptyList();
+//    List<KeyValuePair> kvList = Arrays.stream(kvArray).map(KeyValuePair::fromString).collect(Collectors.toList());
+//    return kvList;
+//  }
 }

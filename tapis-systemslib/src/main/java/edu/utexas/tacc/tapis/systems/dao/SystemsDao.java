@@ -30,7 +30,7 @@ public interface SystemsDao
   void putSystem(ResourceRequestUser rUser, TSystem putSystem, String updateJsonStr, String scrubbedText)
           throws TapisException, IllegalStateException;
 
-  void patchSystem(ResourceRequestUser rUser, TSystem patchedSystem, PatchSystem patchSystem,
+  void patchSystem(ResourceRequestUser rUser, String systemId, TSystem patchedSystem,
                    String updateJsonStr, String scrubbedText)
           throws TapisException, IllegalStateException;
 

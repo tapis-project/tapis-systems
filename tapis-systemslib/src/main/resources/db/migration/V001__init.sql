@@ -63,14 +63,17 @@ CREATE TABLE systems
   dtn_mount_source_path TEXT,
   is_dtn   BOOLEAN NOT NULL DEFAULT false,
   can_exec   BOOLEAN NOT NULL DEFAULT false,
+  job_runtimes JSONB NOT NULL,
   job_working_dir TEXT,
-  job_env_variables TEXT[],
+  job_env_variables JSONB NOT NULL,
   job_max_jobs INTEGER NOT NULL DEFAULT -1,
   job_max_jobs_per_user INTEGER NOT NULL DEFAULT -1,
   job_is_batch BOOLEAN NOT NULL DEFAULT false,
   batch_scheduler TEXT,
+  batch_logical_queues JSONB NOT NULL,
   batch_default_logical_queue TEXT,
   batch_scheduler_profile TEXT,
+  job_capabilities JSONB NOT NULL,
   tags       TEXT[] NOT NULL,
   notes      JSONB NOT NULL,
   uuid uuid NOT NULL,
@@ -104,14 +107,17 @@ COMMENT ON COLUMN systems.dtn_system_id IS 'Alternate system to use as a Data Tr
 COMMENT ON COLUMN systems.dtn_mount_point IS 'Mount point on local system for the DTN';
 COMMENT ON COLUMN systems.is_dtn IS 'Indicates if system is to serve as a data transfer node';
 COMMENT ON COLUMN systems.can_exec IS 'Indicates if system can be used to execute jobs';
+COMMENT ON COLUMN systems.job_runtimes IS 'Runtimes associated with system';
 COMMENT ON COLUMN systems.job_working_dir IS 'Parent directory from which a job is run. Relative to effective root directory.';
 COMMENT ON COLUMN systems.job_env_variables IS 'Environment variables added to shell environment';
 COMMENT ON COLUMN systems.job_max_jobs IS 'Maximum total number of jobs that can be queued or running on the system at a given time.';
 COMMENT ON COLUMN systems.job_max_jobs_per_user IS 'Maximum total number of jobs associated with a specific user that can be queued or running on the system at a given time.';
 COMMENT ON COLUMN systems.job_is_batch IS 'Flag indicating if system uses a batch scheduler to run jobs.';
 COMMENT ON COLUMN systems.batch_scheduler IS 'Type of scheduler used when running batch jobs';
+COMMENT ON COLUMN systems.batch_logical_queues IS 'Logical queues associated with system';
 COMMENT ON COLUMN systems.batch_default_logical_queue IS 'Default logical batch queue for the system';
 COMMENT ON COLUMN systems.batch_scheduler_profile IS 'Scheduler profile for the system';
+COMMENT ON COLUMN systems.job_capabilities IS 'Capabilities associated with system';
 COMMENT ON COLUMN systems.tags IS 'Tags for user supplied key:value pairs';
 COMMENT ON COLUMN systems.notes IS 'Notes for general information stored as JSON';
 COMMENT ON COLUMN systems.deleted IS 'Indicates if system has been soft deleted';
@@ -145,85 +151,6 @@ COMMENT ON COLUMN system_updates.operation IS 'Type of update operation';
 COMMENT ON COLUMN system_updates.upd_json IS 'JSON representing the update - with secrets scrubbed';
 COMMENT ON COLUMN system_updates.upd_text IS 'Text data supplied by client - secrets should be scrubbed';
 COMMENT ON COLUMN system_updates.created IS 'UTC time for when record was created';
-
--- ----------------------------------------------------------------------------------------
---                               LOGICAL QUEUES
--- ----------------------------------------------------------------------------------------
--- Logical queues table
--- Logical queues associated with a system
-CREATE TABLE logical_queues
-(
-    seq_id SERIAL PRIMARY KEY,
-    system_seq_id INTEGER REFERENCES systems(seq_id) ON DELETE CASCADE,
-    name TEXT NOT NULL DEFAULT '',
-    hpc_queue_name TEXT NOT NULL DEFAULT '',
-    max_jobs INTEGER NOT NULL DEFAULT -1,
-    max_jobs_per_user INTEGER NOT NULL DEFAULT -1,
-    min_node_count INTEGER NOT NULL DEFAULT 0,
-    max_node_count INTEGER NOT NULL DEFAULT -1,
-    min_cores_per_node INTEGER NOT NULL DEFAULT 0,
-    max_cores_per_node INTEGER NOT NULL DEFAULT -1,
-    min_memory_mb INTEGER NOT NULL DEFAULT 0,
-    max_memory_mb INTEGER NOT NULL DEFAULT -1,
-    min_minutes INTEGER NOT NULL DEFAULT 0,
-    max_minutes INTEGER NOT NULL DEFAULT -1,
-    UNIQUE (system_seq_id, name)
-);
-ALTER TABLE logical_queues OWNER TO tapis_sys;
-COMMENT ON COLUMN logical_queues.seq_id IS 'Logical queue sequence id';
-COMMENT ON COLUMN logical_queues.system_seq_id IS 'Sequence id of system associated with the logical queue';
-COMMENT ON COLUMN logical_queues.name IS 'Name of logical queue';
-COMMENT ON COLUMN logical_queues.hpc_queue_name IS 'Name of the associated hpc queue';
-COMMENT ON COLUMN logical_queues.max_jobs IS 'Maximum total number of jobs that can be queued or running in this queue at a given time.';
-COMMENT ON COLUMN logical_queues.max_jobs_per_user IS 'Maximum number of jobs associated with a specific user that can be queued or running in this queue at a given time.';
-COMMENT ON COLUMN logical_queues.min_node_count IS 'Minimum number of nodes that can be requested when submitting a job to the queue.';
-COMMENT ON COLUMN logical_queues.max_node_count IS 'Maximum number of nodes that can be requested when submitting a job to the queue.';
-COMMENT ON COLUMN logical_queues.min_cores_per_node IS 'Minimum number of cores per node that can be requested when submitting a job to the queue.';
-COMMENT ON COLUMN logical_queues.max_cores_per_node IS 'Maximum number of cores per node that can be requested when submitting a job to the queue.';
-COMMENT ON COLUMN logical_queues.min_memory_mb IS 'Minimum memory in megabytes that can be requested when submitting a job to the queue.';
-COMMENT ON COLUMN logical_queues.max_memory_mb IS 'Maximum memory in megabytes that can be requested when submitting a job to the queue.';
-COMMENT ON COLUMN logical_queues.min_minutes IS 'Minimum run time in minutes that can be requested when submitting a job to the queue.';
-COMMENT ON COLUMN logical_queues.max_minutes IS 'Maximum run time in minutes that can be requested when submitting a job to the queue.';
-
--- ----------------------------------------------------------------------------------------
---                               JOB RUNTIMES
--- ----------------------------------------------------------------------------------------
--- Job runtimes table
--- Runtimes associated with a system
-CREATE TABLE job_runtimes
-(
-    seq_id SERIAL PRIMARY KEY,
-    system_seq_id INTEGER REFERENCES systems(seq_id) ON DELETE CASCADE,
-    runtime_type TEXT NOT NULL,
-    version TEXT
-);
-ALTER TABLE job_runtimes OWNER TO tapis_sys;
-
--- ----------------------------------------------------------------------------------------
---                               CAPABILITIES
--- ----------------------------------------------------------------------------------------
--- Capabilities table
--- Capabilities associated with a system
--- All columns are specified NOT NULL to make queries easier. <col> = null is not the same as <col> is null
-CREATE TABLE capabilities
-(
-    seq_id SERIAL PRIMARY KEY,
-    system_seq_id INTEGER REFERENCES systems(seq_id) ON DELETE CASCADE,
-    category TEXT NOT NULL,
-    name TEXT NOT NULL DEFAULT '',
-    datatype TEXT NOT NULL,
-    precedence INTEGER NOT NULL DEFAULT 100,
-    value  TEXT,
-    UNIQUE (system_seq_id, category, name)
-);
-ALTER TABLE capabilities OWNER TO tapis_sys;
-COMMENT ON COLUMN capabilities.seq_id IS 'Capability sequence id';
-COMMENT ON COLUMN capabilities.system_seq_id IS 'Sequence id of system supporting the capability';
-COMMENT ON COLUMN capabilities.category IS 'Category for grouping of capabilities';
-COMMENT ON COLUMN capabilities.name IS 'Name of capability';
-COMMENT ON COLUMN capabilities.datatype IS 'Datatype associated with the value';
-COMMENT ON COLUMN capabilities.precedence IS 'Precedence where higher number has higher precedence';
-COMMENT ON COLUMN capabilities.value IS 'Value for the capability';
 
 -- ----------------------------------------------------------------------------------------
 --                                     SCHEDULER PROFILES

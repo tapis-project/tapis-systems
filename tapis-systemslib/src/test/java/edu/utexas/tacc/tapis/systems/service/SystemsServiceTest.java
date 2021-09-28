@@ -262,7 +262,7 @@ public class SystemsServiceTest
   {
     TSystem sys0 = systems[25];
     String systemId = sys0.getId();
-    sys0.setJobRuntimes(runtimeList1);
+    sys0.setJobRuntimes(jobRuntimes1);
     sys0.setBatchLogicalQueues(logicalQueueList1);
     sys0.setJobCapabilities(capList1);
     String createText = "{\"testPut\": \"0-create1\"}";
@@ -309,7 +309,7 @@ public class SystemsServiceTest
     sys0.setBatchSchedulerProfile(batchSchedulerProfile2);
     sys0.setTags(tags2);
     sys0.setNotes(notes2);
-    sys0.setJobRuntimes(runtimeList2);
+    sys0.setJobRuntimes(jobRuntimes2);
     sys0.setBatchLogicalQueues(logicalQueueList2);
     sys0.setJobCapabilities(capList2);
     // Check common system attributes:
@@ -323,7 +323,7 @@ public class SystemsServiceTest
   {
     TSystem sys0 = systems[13];
     String systemId = sys0.getId();
-    sys0.setJobRuntimes(runtimeList1);
+    sys0.setJobRuntimes(jobRuntimes1);
     sys0.setBatchLogicalQueues(logicalQueueList1);
     sys0.setJobCapabilities(capList1);
     String createText = "{\"testUpdate\": \"0-create1\"}";
@@ -339,8 +339,8 @@ public class SystemsServiceTest
     PatchSystem patchSystemFull = IntegrationUtils.makePatchSystemFull(testKey, systemId);
 
     // Update using patchSys
-    svc.patchSystem(rOwner1, patchSystemFull, patch1Text);
-    TSystem tmpSysFull = svc.getSystem(rOwner1, sys0.getId(), false, null, false);
+    svc.patchSystem(rOwner1, systemId, patchSystemFull, patch1Text);
+    TSystem tmpSysFull = svc.getSystem(rOwner1, systemId, false, null, false);
 
     // Get last updated timestamp
     updated = LocalDateTime.ofInstant(tmpSysFull.getUpdated(), ZoneOffset.UTC);
@@ -370,7 +370,7 @@ public class SystemsServiceTest
     sys0.setBatchSchedulerProfile(batchSchedulerProfile2);
     sys0.setTags(tags2);
     sys0.setNotes(notes2);
-    sys0.setJobRuntimes(runtimeList2);
+    sys0.setJobRuntimes(jobRuntimes2);
     sys0.setBatchLogicalQueues(logicalQueueList2);
     sys0.setJobCapabilities(capList2);
     // Check common system attributes:
@@ -379,7 +379,7 @@ public class SystemsServiceTest
     // Test updating just a few attributes
     sys0 = systems[22];
     systemId = sys0.getId();
-    sys0.setJobRuntimes(runtimeList1);
+    sys0.setJobRuntimes(jobRuntimes1);
     sys0.setBatchLogicalQueues(logicalQueueList1);
     sys0.setJobCapabilities(capList1);
     createText = "{\"testUpdate\": \"0-create2\"}";
@@ -390,15 +390,15 @@ public class SystemsServiceTest
     PatchSystem patchSystemPartial = IntegrationUtils.makePatchSystemPartial(testKey, systemId);
 
     // Update using patchSys
-    svc.patchSystem(rOwner1, patchSystemPartial, patch2Text);
-    TSystem tmpSysPartial = svc.getSystem(rOwner1, sys0.getId(), false, null, false);
+    svc.patchSystem(rOwner1, systemId, patchSystemPartial, patch2Text);
+    TSystem tmpSysPartial = svc.getSystem(rOwner1, systemId, false, null, false);
 
     // Update original definition with patched values so we can use the checkCommon method.
     sys0.setDescription(description2);
     sys0.setDefaultAuthnMethod(prot2.getAuthnMethod());
     sys0.setDtnMountPoint(dtnMountPoint2);
     sys0.setJobMaxJobsPerUser(jobMaxJobsPerUser2);
-    sys0.setJobRuntimes(runtimeList2);
+    sys0.setJobRuntimes(jobRuntimes2);
     // Check common system attributes:
     checkCommonSysAttrs(sys0, tmpSysPartial);
   }
@@ -727,7 +727,7 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
-    sys0.setJobRuntimes(runtimeList1);
+    sys0.setJobRuntimes(jobRuntimes1);
 
     // If jobIsBatch is true
     //     batchScheduler must be specified
@@ -984,9 +984,10 @@ public class SystemsServiceTest
   {
     // NOTE: By default seed data has owner as owner1 == "owner1"
     TSystem sys0 = systems[12];
-    PatchSystem patchSys = new PatchSystem(tenantName, sys0.getId(), "description PATCHED", "hostPATCHED", "effUserPATCHED",
+    String systemId = sys0.getId();
+    PatchSystem patchSys = new PatchSystem("description PATCHED", "hostPATCHED", "effUserPATCHED",
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
-            dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, runtimeList1, jobWorkingDir1, jobEnvVariables1, jobMaxJobs1,
+            dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, jobRuntimes1, jobWorkingDir1, jobEnvVariables1, jobMaxJobs1,
             jobMaxJobsPerUser1, jobIsBatchTrue, batchScheduler1, logicalQueueList1,
             batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2);
     // CREATE - Deny user not owner/admin, deny service
@@ -1013,12 +1014,12 @@ public class SystemsServiceTest
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
     // Grant testUesr3 - READ and testUser2 - MODIFY
-    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREAD, scrubbedJson);
-    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser2, testPermsMODIFY, scrubbedJson);
+    svc.grantUserPermissions(rOwner1, systemId, testUser3, testPermsREAD, scrubbedJson);
+    svc.grantUserPermissions(rOwner1, systemId, testUser2, testPermsMODIFY, scrubbedJson);
 
     // READ - deny user not owner/admin and no READ or MODIFY access
     pass = false;
-    try { svc.getSystem(rTestUser0, sys0.getId(), false, null, false); }
+    try { svc.getSystem(rTestUser0, systemId, false, null, false); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1028,7 +1029,7 @@ public class SystemsServiceTest
 
     // EXECUTE - deny user not owner/admin with READ but not EXECUTE
     pass = false;
-    try { svc.getSystem(rTestUser3, sys0.getId(), false, null, true); }
+    try { svc.getSystem(rTestUser3, systemId, false, null, true); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1038,7 +1039,7 @@ public class SystemsServiceTest
 
     // MODIFY Deny user with no READ or MODIFY, deny user with only READ, deny service
     pass = false;
-    try { svc.patchSystem(rTestUser0, patchSys, scrubbedJson); }
+    try { svc.patchSystem(rTestUser0, systemId, patchSys, scrubbedJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1046,7 +1047,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.patchSystem(rTestUser3, patchSys, scrubbedJson); }
+    try { svc.patchSystem(rTestUser3, systemId, patchSys, scrubbedJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1054,7 +1055,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.patchSystem(rFilesSvcOwner1, patchSys, scrubbedJson); }
+    try { svc.patchSystem(rFilesSvcOwner1, systemId, patchSys, scrubbedJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1064,7 +1065,7 @@ public class SystemsServiceTest
 
     // DELETE - deny user not owner/admin, deny service
     pass = false;
-    try { svc.deleteSystem(rTestUser3, sys0.getId()); }
+    try { svc.deleteSystem(rTestUser3, systemId); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1072,7 +1073,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.deleteSystem(rFilesSvcOwner1, sys0.getId()); }
+    try { svc.deleteSystem(rFilesSvcOwner1, systemId); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1082,7 +1083,7 @@ public class SystemsServiceTest
 
     // CHANGE_OWNER - deny user not owner/admin, deny service
     pass = false;
-    try { svc.changeSystemOwner(rTestUser3, sys0.getId(), testUser2); }
+    try { svc.changeSystemOwner(rTestUser3, systemId, testUser2); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1090,7 +1091,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.changeSystemOwner(rFilesSvcOwner1, sys0.getId(), testUser2); }
+    try { svc.changeSystemOwner(rFilesSvcOwner1, systemId, testUser2); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1100,7 +1101,7 @@ public class SystemsServiceTest
 
     // GET_PERMS - deny user not owner/admin and no READ or MODIFY access
     pass = false;
-    try { svc.getUserPermissions(rTestUser0, sys0.getId(), owner1); }
+    try { svc.getUserPermissions(rTestUser0, systemId, owner1); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1110,7 +1111,7 @@ public class SystemsServiceTest
 
     // GRANT_PERMS - deny user not owner/admin, deny service
     pass = false;
-    try { svc.grantUserPermissions(rTestUser3, sys0.getId(), testUser0, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.grantUserPermissions(rTestUser3, systemId, testUser0, testPermsREADMODIFY, scrubbedJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1118,7 +1119,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.grantUserPermissions(rFilesSvcOwner1, sys0.getId(), testUser0, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.grantUserPermissions(rFilesSvcOwner1, systemId, testUser0, testPermsREADMODIFY, scrubbedJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1128,7 +1129,7 @@ public class SystemsServiceTest
 
     // REVOKE_PERMS - deny user not owner/admin, deny service
     pass = false;
-    try { svc.revokeUserPermissions(rTestUser3, sys0.getId(), owner1, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.revokeUserPermissions(rTestUser3, systemId, owner1, testPermsREADMODIFY, scrubbedJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1136,7 +1137,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.revokeUserPermissions(rFilesSvcOwner1, sys0.getId(), owner1, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.revokeUserPermissions(rFilesSvcOwner1, systemId, owner1, testPermsREADMODIFY, scrubbedJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1146,7 +1147,7 @@ public class SystemsServiceTest
 
     // SET_CRED - deny user not owner/admin and not target user, deny service
     pass = false;
-    try { svc.createUserCredential(rTestUser3, sys0.getId(), owner1, cred0, skipCredCheckTrue, scrubbedJson); }
+    try { svc.createUserCredential(rTestUser3, systemId, owner1, cred0, skipCredCheckTrue, scrubbedJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1154,7 +1155,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.createUserCredential(rFilesSvcOwner1, sys0.getId(), owner1, cred0, skipCredCheckTrue, scrubbedJson); }
+    try { svc.createUserCredential(rFilesSvcOwner1, systemId, owner1, cred0, skipCredCheckTrue, scrubbedJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1164,7 +1165,7 @@ public class SystemsServiceTest
 
     // REMOVE_CRED - deny user not owner/admin and not target user, deny service
     pass = false;
-    try { svc.deleteUserCredential(rTestUser3, sys0.getId(), owner1); }
+    try { svc.deleteUserCredential(rTestUser3, systemId, owner1); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1172,7 +1173,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.deleteUserCredential(rFilesSvcOwner1, sys0.getId(), owner1); }
+    try { svc.deleteUserCredential(rFilesSvcOwner1, systemId, owner1); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1182,7 +1183,7 @@ public class SystemsServiceTest
 
     // GET_CRED - deny user not owner/admin, deny owner - with special message
     pass = false;
-    try { svc.getUserCredential(rTestUser3, sys0.getId(), owner1, null); }
+    try { svc.getUserCredential(rTestUser3, systemId, owner1, null); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_AUTH_GETCRED"));
@@ -1190,7 +1191,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.getUserCredential(rOwner1, sys0.getId(), owner1, null); }
+    try { svc.getUserCredential(rOwner1, systemId, owner1, null); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_AUTH_GETCRED"));
@@ -1410,17 +1411,7 @@ public class SystemsServiceTest
     Assert.assertEquals(tmpSys.getJobWorkingDir(), sys0.getJobWorkingDir());
 
     // Verify jobEnvVariables
-    String[] origVars = sys0.getJobEnvVariables();
-    String[] tmpVars = tmpSys.getJobEnvVariables();
-    Assert.assertNotNull(origVars, "Orig jobEnvVariables should not be null");
-    Assert.assertNotNull(tmpVars, "Fetched jobEnvVariables should not be null");
-    var varsList = Arrays.asList(tmpVars);
-    Assert.assertEquals(tmpVars.length, origVars.length, "Wrong number of jobEnvVariables");
-    for (String varStr : origVars)
-    {
-      Assert.assertTrue(varsList.contains(varStr));
-      System.out.println("Found jobEnvVariable: " + varStr);
-    }
+    verifyKeyValuePairs(sys0.getJobEnvVariables(), tmpSys.getJobEnvVariables());
 
     Assert.assertEquals(tmpSys.getJobMaxJobs(), sys0.getJobMaxJobs());
     Assert.assertEquals(tmpSys.getJobMaxJobsPerUser(), sys0.getJobMaxJobsPerUser());

@@ -60,7 +60,6 @@ import edu.utexas.tacc.tapis.sharedapi.responses.RespResourceUrl;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultResourceUrl;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
-import edu.utexas.tacc.tapis.systems.api.requests.ReqPatchSystem;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPostSystem;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPutSystem;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystem;
@@ -174,7 +173,7 @@ public class SystemResource
                                @Context SecurityContext securityContext)
   {
     String opName = "createSystem";
-    // Note that although the following approximately 30 lines of code is very similar for many endpoints the slight
+    // Note that although the following approximately 30 line block of code is very similar for many endpoints the slight
     //   variations and use of fetched data makes it difficult to refactor into common routines. Common routines
     //   might make the code even more complex and difficult to follow.
 
@@ -306,9 +305,9 @@ public class SystemResource
   @Path("{systemId}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response updateSystem(@PathParam("systemId") String systemId,
-                               InputStream payloadStream,
-                               @Context SecurityContext securityContext)
+  public Response patchSystem(@PathParam("systemId") String systemId,
+                              InputStream payloadStream,
+                              @Context SecurityContext securityContext)
   {
     String opName = "updateSystem";
     // ------------------------- Retrieve and validate thread context -------------------------
@@ -346,24 +345,20 @@ public class SystemResource
     }
 
     // ------------------------- Create a PatchSystem from the json and validate constraints -------------------------
-    ReqPatchSystem req;
-    try { req = TapisGsonUtils.getGson().fromJson(rawJson, ReqPatchSystem.class); }
+    PatchSystem patchSystem;
+    try { patchSystem = TapisGsonUtils.getGson().fromJson(rawJson, PatchSystem.class); }
     catch (JsonSyntaxException e)
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
-    // If req is null that is an unrecoverable error
-    if (req == null)
-    {
-      msg = ApiUtils.getMsgAuth("SYSAPI_UPDATE_ERROR", rUser, systemId, opName, "ReqPatchSystem == null");
-      _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
 
-    PatchSystem patchSystem = createPatchSystemFromRequest(req, rUser.getOboTenantId(), systemId, rawJson);
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_PATCH_TRACE", rUser, rawJson));
+
+    // Notes require special handling. Else they end up as a LinkedTreeMap which causes trouble when attempting to
+    // convert to a JsonObject.
+    patchSystem.setNotes(extractNotes(rawJson));
 
     // No attributes are required. Constraints validated and defaults filled in on server side.
     // No secrets in PatchSystem so no need to scrub
@@ -371,7 +366,7 @@ public class SystemResource
     // ---------------------------- Make service call to update the system -------------------------------
     try
     {
-      systemsService.patchSystem(rUser, patchSystem, rawJson);
+      systemsService.patchSystem(rUser, systemId, patchSystem, rawJson);
     }
     catch (NotFoundException e)
     {
@@ -1130,17 +1125,17 @@ public class SystemResource
    */
   private static TSystem createTSystemFromPostRequest(String tenantId, ReqPostSystem req, String rawJson)
   {
-    // Convert jobEnvVariables to array of strings
-    String[] jobEnvVariables = ApiUtils.getKeyValuesAsArray(req.jobEnvVariables);
     // Extract Notes from the raw json.
     Object notes = extractNotes(rawJson);
 
     var tSystem = new TSystem(-1, tenantId, req.id, req.description, req.systemType, req.owner, req.host,
                        req.enabled, req.effectiveUserId, req.defaultAuthnMethod, req.bucketName, req.rootDir,
                        req.port, req.useProxy, req.proxyHost, req.proxyPort,
-                       req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, req.isDtn, req.canExec, req.jobWorkingDir,
-                       jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser, req.jobIsBatch, req.batchScheduler,
-                       req.batchDefaultLogicalQueue, req.batchSchedulerProfile, req.tags, notes, null, false, null, null);
+                       req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, req.isDtn,
+                       req.canExec, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs,
+                       req.jobMaxJobsPerUser, req.jobIsBatch, req.batchScheduler, req.batchLogicalQueues,
+                       req.batchDefaultLogicalQueue, req.batchSchedulerProfile, req.jobCapabilities,
+                       req.tags, notes, null, false, null, null);
     tSystem.setAuthnCredential(req.authnCredential);
     tSystem.setBatchLogicalQueues(req.batchLogicalQueues);
     tSystem.setJobRuntimes(req.jobRuntimes);
@@ -1153,8 +1148,6 @@ public class SystemResource
    */
   private static TSystem createTSystemFromPutRequest(String tenantId, String systemId, ReqPutSystem req, String rawJson)
   {
-    // Convert jobEnvVariables to array of strings
-    String[] jobEnvVariables = ApiUtils.getKeyValuesAsArray(req.jobEnvVariables);
     // Extract Notes from the raw json.
     Object notes = extractNotes(rawJson);
 
@@ -1169,35 +1162,15 @@ public class SystemResource
     var tSystem = new TSystem(-1, tenantId, systemId, req.description, systemType, owner, req.host,
             enabled, req.effectiveUserId, req.defaultAuthnMethod, bucketName, rootDir,
             req.port, req.useProxy, req.proxyHost, req.proxyPort,
-            req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, isDtn, canExec, req.jobWorkingDir,
-            jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser, req.jobIsBatch, req.batchScheduler,
-            req.batchDefaultLogicalQueue, req.batchSchedulerProfile, req.tags, notes, null, false, null, null);
+            req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, isDtn,
+            canExec, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
+            req.jobIsBatch, req.batchScheduler, req.batchLogicalQueues, req.batchDefaultLogicalQueue,
+            req.batchSchedulerProfile, req.jobCapabilities, req.tags, notes, null, false, null, null);
     tSystem.setAuthnCredential(req.authnCredential);
     tSystem.setBatchLogicalQueues(req.batchLogicalQueues);
     tSystem.setJobRuntimes(req.jobRuntimes);
     tSystem.setJobCapabilities(req.jobCapabilities);
     return tSystem;
-  }
-
-  /**
-   * Create a PatchSystem from a ReqPatchSystem
-   * Note that tenant and id are for tracking and needed by the service call. They are not updated.
-   */
-  private static PatchSystem createPatchSystemFromRequest(ReqPatchSystem req, String tenantId, String systemId,
-                                                          String rawJson)
-  {
-    // Convert jobEnvVariables to array of strings
-    String[] jobEnvVariables = ApiUtils.getKeyValuesAsArray(req.jobEnvVariables);
-
-    // Extract Notes from the raw json.
-    Object notes = extractNotes(rawJson);
-
-    return new PatchSystem(tenantId, systemId, req.description, req.host, req.effectiveUserId,
-                           req.defaultAuthnMethod, req.port, req.useProxy,
-                           req.proxyHost, req.proxyPort, req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath,
-                           req.jobRuntimes, req.jobWorkingDir, jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
-                           req.jobIsBatch, req.batchScheduler, req.batchLogicalQueues, req.batchDefaultLogicalQueue,
-                           req.batchSchedulerProfile, req.jobCapabilities, req.tags, notes);
   }
 
   /**

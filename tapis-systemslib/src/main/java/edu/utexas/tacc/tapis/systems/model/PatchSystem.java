@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /*
- * Class representing an update to a Tapis System.
+ * Class representing a patch of a Tapis System.
  * Fields set to null indicate attribute not updated.
  *
  * Make defensive copies as needed on get/set to keep this class as immutable as possible.
@@ -16,8 +16,6 @@ public final class PatchSystem
   // ************************************************************************
   // *********************** Fields *****************************************
   // ************************************************************************
-  private String tenant;// No update - reference only
-  private String id;// No update - reference only
   private final String description;
   private final String host;
   private final String effectiveUserId;
@@ -31,7 +29,7 @@ public final class PatchSystem
   private final String dtnMountSourcePath;
   private final List<JobRuntime> jobRuntimes;
   private final String jobWorkingDir;
-  private final String[] jobEnvVariables;
+  private final List<KeyValuePair> jobEnvVariables;
   private final Integer jobMaxJobs;
   private final Integer jobMaxJobsPerUser;
   private final Boolean jobIsBatch;
@@ -41,7 +39,7 @@ public final class PatchSystem
   private final String batchSchedulerProfile;
   private final List<Capability> jobCapabilities;
   private final String[] tags;
-  private final Object notes;
+  private Object notes;
 
   // ************************************************************************
   // *********************** Constructors ***********************************
@@ -50,18 +48,16 @@ public final class PatchSystem
   /**
    * Constructor setting all final attributes.
    */
-  public PatchSystem(String tenant1, String id1, String description1, String host1, String effectiveUserId1,
+  public PatchSystem(String description1, String host1, String effectiveUserId1,
                      AuthnMethod defaultAuthnMethod1,
                      Integer port1, Boolean useProxy1, String proxyHost1, Integer proxyPort1,
                      String dtnSystemId1, String dtnMountPoint1, String dtnMountSourcePath1,
-                     List<JobRuntime> jobRuntimes1, String jobWorkingDir1, String[] jobEnvVariables1,
+                     List<JobRuntime> jobRuntimes1, String jobWorkingDir1, List<KeyValuePair> jobEnvVariables1,
                      Integer jobMaxJobs1, Integer jobMaxJobsPerUser1, Boolean jobIsBatch1,
                      SchedulerType batchScheduler1, List<LogicalQueue> batchLogicalQueues1,
                      String batchDefaultLogicalQueue1, String batchSchedulerProfile1,
                      List<Capability> jobCapabilities1, String[] tags1, Object notes1)
   {
-    tenant = tenant1;
-    id = id1;
     description = description1;
     host = host1;
     effectiveUserId = effectiveUserId1;
@@ -75,7 +71,7 @@ public final class PatchSystem
     dtnMountSourcePath = dtnMountSourcePath1;
     jobRuntimes = (jobRuntimes1 == null) ? null : new ArrayList<>(jobRuntimes1);
     jobWorkingDir = jobWorkingDir1;
-    jobEnvVariables = (jobEnvVariables1 == null) ? null : jobEnvVariables1.clone();
+    jobEnvVariables = (jobEnvVariables1 == null) ? null : new ArrayList<>(jobEnvVariables1);
     jobMaxJobs = jobMaxJobs1;
     jobMaxJobsPerUser = jobMaxJobsPerUser1;
     jobIsBatch = jobIsBatch1;
@@ -91,10 +87,6 @@ public final class PatchSystem
   // ************************************************************************
   // *********************** Accessors **************************************
   // ************************************************************************
-  public String getTenant() { return tenant; }
-
-  public String getId() { return id; }
-
   public String getDescription() { return description; }
 
   public String getHost() { return host; }
@@ -123,8 +115,8 @@ public final class PatchSystem
 
   public String getJobWorkingDir() { return jobWorkingDir; }
 
-  public String[] getJobEnvVariables() {
-    return (jobEnvVariables == null) ? null : jobEnvVariables.clone();
+  public List<KeyValuePair> getJobEnvVariables() {
+    return (jobEnvVariables == null) ? null : new ArrayList<>(jobEnvVariables);
   }
 
   public Integer getJobMaxJobs() { return jobMaxJobs; }
@@ -154,4 +146,5 @@ public final class PatchSystem
   public Object getNotes() {
     return notes;
   }
+  public void setNotes(Object o) { notes = o; }
 }

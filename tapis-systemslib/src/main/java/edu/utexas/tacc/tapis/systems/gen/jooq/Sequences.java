@@ -16,21 +16,6 @@ import org.jooq.impl.SQLDataType;
 public class Sequences {
 
     /**
-     * The sequence <code>tapis_sys.capabilities_seq_id_seq</code>
-     */
-    public static final Sequence<Integer> CAPABILITIES_SEQ_ID_SEQ = Internal.createSequence("capabilities_seq_id_seq", TapisSys.TAPIS_SYS, SQLDataType.INTEGER.nullable(false), null, null, null, null, false, null);
-
-    /**
-     * The sequence <code>tapis_sys.job_runtimes_seq_id_seq</code>
-     */
-    public static final Sequence<Integer> JOB_RUNTIMES_SEQ_ID_SEQ = Internal.createSequence("job_runtimes_seq_id_seq", TapisSys.TAPIS_SYS, SQLDataType.INTEGER.nullable(false), null, null, null, null, false, null);
-
-    /**
-     * The sequence <code>tapis_sys.logical_queues_seq_id_seq</code>
-     */
-    public static final Sequence<Integer> LOGICAL_QUEUES_SEQ_ID_SEQ = Internal.createSequence("logical_queues_seq_id_seq", TapisSys.TAPIS_SYS, SQLDataType.INTEGER.nullable(false), null, null, null, null, false, null);
-
-    /**
      * The sequence <code>tapis_sys.system_updates_seq_id_seq</code>
      */
     public static final Sequence<Integer> SYSTEM_UPDATES_SEQ_ID_SEQ = Internal.createSequence("system_updates_seq_id_seq", TapisSys.TAPIS_SYS, SQLDataType.INTEGER.nullable(false), null, null, null, null, false, null);

@@ -1,21 +1,16 @@
 package edu.utexas.tacc.tapis.systems.api.responses.results;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
-import edu.utexas.tacc.tapis.systems.api.model.ResultJobCapability;
-import edu.utexas.tacc.tapis.systems.api.model.ResultJobRuntime;
-import edu.utexas.tacc.tapis.systems.api.model.ResultLogicalQueue;
-import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
-import edu.utexas.tacc.tapis.systems.api.utils.KeyValuePair;
 import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
+import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 
@@ -61,6 +56,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.UPDATED_FIELD;
 
 /*
     Class representing a TSystem result to be returned
+    Provides for selecting only certain attributes to be included.
  */
 public final class TapisSystemDTO
 {
@@ -87,17 +83,17 @@ public final class TapisSystemDTO
   public String dtnMountSourcePath;
   public boolean isDtn;
   public boolean canExec;
-  public List<ResultJobRuntime> jobRuntimes;
+  public List<JobRuntime> jobRuntimes;
   public String jobWorkingDir;
   public List<KeyValuePair> jobEnvVariables;
   public int jobMaxJobs;
   public int jobMaxJobsPerUser;
   public boolean jobIsBatch;
   public TSystem.SchedulerType batchScheduler;
-  public List<ResultLogicalQueue> batchLogicalQueues;
+  public List<LogicalQueue> batchLogicalQueues;
   public String batchDefaultLogicalQueue;
   public String batchSchedulerProfile;
-  public List<ResultJobCapability> jobCapabilities;
+  public List<Capability> jobCapabilities;
   public String[] tags;
   public Object notes;
   public UUID uuid;
@@ -107,8 +103,6 @@ public final class TapisSystemDTO
 
   public TapisSystemDTO(TSystem s)
   {
-    // Convert jobEnvVariables from array of "key=value" to list of KeyValuePair
-    jobEnvVariables = ApiUtils.getKeyValuesAsList(s.getJobEnvVariables());
     // All other attributes come directly from TSystem
     tenant = s.getTenant();
     id = s.getId();
@@ -131,31 +125,17 @@ public final class TapisSystemDTO
     dtnMountSourcePath = s.getDtnMountSourcePath();
     isDtn = s.isDtn();
     canExec = s.getCanExec();
-    jobRuntimes = null;
-    if (s.getJobRuntimes() != null && !s.getJobRuntimes().isEmpty())
-    {
-      jobRuntimes = new ArrayList<>();
-      for (JobRuntime rt : s.getJobRuntimes()) { jobRuntimes.add(new ResultJobRuntime(rt)); }
-    }
+    jobRuntimes = s.getJobRuntimes();
+    jobEnvVariables = s.getJobEnvVariables();
     jobWorkingDir = s.getJobWorkingDir();
     jobMaxJobs = s.getJobMaxJobs();
     jobMaxJobsPerUser = s.getJobMaxJobsPerUser();
     jobIsBatch = s.getJobIsBatch();
     batchScheduler = s.getBatchScheduler();
-    batchLogicalQueues = new ArrayList<>();
-    if (s.getBatchLogicalQueues() != null)
-      for (LogicalQueue q : s.getBatchLogicalQueues())
-      {
-        batchLogicalQueues.add(new ResultLogicalQueue(q));
-      }
+    batchLogicalQueues = s.getBatchLogicalQueues();
     batchDefaultLogicalQueue = s.getBatchDefaultLogicalQueue();
     batchSchedulerProfile = s.getBatchSchedulerProfile();
-    jobCapabilities = new ArrayList<>();
-    if (s.getJobCapabilities() != null)
-      for (Capability jc : s.getJobCapabilities())
-      {
-        jobCapabilities.add(new ResultJobCapability(jc));
-      }
+    jobCapabilities = s.getJobCapabilities();
     tags = s.getTags();
     notes = s.getNotes();
     uuid = s.getUuid();
@@ -172,8 +152,8 @@ public final class TapisSystemDTO
    * Create a JsonObject containing the id attribute and any attribute in the selectSet that matches the name
    * of a public field in this class
    * If selectSet is null or empty then all attributes are included.
-   * If selectSet contains "allAttributes" then all attributes are included regardless of other items in set
-   * If selectSet contains "summaryAttributes" then summary attributes are included regardless of other items in set
+   * else if selectSet contains "allAttributes" then all attributes are included regardless of other items in set
+   * else if selectSet contains "summaryAttributes" then summary attributes are included regardless of other items in set
    * @return JsonObject containing attributes in the select list.
    */
   public JsonObject getDisplayObject(List<String> selectList)
