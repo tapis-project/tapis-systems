@@ -454,7 +454,10 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Update deleted to true for a system
+   * Soft delete a system
+   *   - Remove effectiveUser credentials associated with the system.
+   *   - Remove permissions associated with the system.
+   *   - Update deleted to true for a system
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @return Number of items updated
@@ -469,11 +472,33 @@ public class SystemsServiceImpl implements SystemsService
   public int deleteSystem(ResourceRequestUser rUser, String systemId)
           throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
   {
-    return updateDeleted(rUser, systemId, SystemOperation.delete);
+    SystemOperation op = SystemOperation.delete;
+    // ---------------------------- Check inputs ------------------------------------
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+
+    String resourceTenantId = rUser.getOboTenantId();
+
+    // System must exist
+    if (!dao.checkForSystem(resourceTenantId, systemId, true))
+      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+
+    // ------------------------- Check service level authorization -------------------------
+    checkAuth(rUser, op, systemId, null, null, null);
+
+    // Remove effectiveUser credentials associated with the system
+    // Remove permissions associated with the system
+    removeSKArtifacts(rUser, resourceTenantId, systemId);
+
+    // Update deleted attribute
+    return updateDeleted(rUser, systemId, op);
   }
 
   /**
-   * Update deleted to false for a system
+   * Undelete a system
+   *  - Add permissions for owner
+   *  - Update deleted to false for a system
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @return Number of items updated
@@ -488,7 +513,41 @@ public class SystemsServiceImpl implements SystemsService
   public int undeleteSystem(ResourceRequestUser rUser, String systemId)
           throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
   {
-    return updateDeleted(rUser, systemId, SystemOperation.undelete);
+    SystemOperation op = SystemOperation.undelete;
+    // ---------------------------- Check inputs ------------------------------------
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+
+    String resourceTenantId = rUser.getOboTenantId();
+
+    // System must exist
+    if (!dao.checkForSystem(resourceTenantId, systemId, true))
+      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+
+    // Get owner, if not found it is an error
+    String owner = dao.getSystemOwner(resourceTenantId, systemId);
+    if (StringUtils.isBlank(owner)) {
+      String msg = LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, systemId, op.name());
+      _log.error(msg);
+      throw new IllegalStateException(msg);
+    }
+    // ------------------------- Check service level authorization -------------------------
+    checkAuth(rUser, op, systemId, null, null, null);
+
+    // Add permissions for owner
+    String systemsPermSpecALL = getPermSpecAllStr(resourceTenantId, systemId);
+    // TODO remove filesPermSpec related code (jira cic-3071)
+    String filesPermSpec = "files:" + resourceTenantId + ":*:" + systemId;
+    var skClient = getSKClient();
+    // Give owner and possibly effectiveUser full access to the system
+    skClient.grantUserPermission(resourceTenantId, owner, systemsPermSpecALL);
+    // TODO remove filesPermSpec related code (jira cic-3071)
+    // Give owner files service related permission for root directory
+    skClient.grantUserPermission(resourceTenantId, owner, filesPermSpec);
+
+    // Update deleted attribute
+    return updateDeleted(rUser, systemId, op);
   }
 
   /**
@@ -1587,20 +1646,7 @@ public class SystemsServiceImpl implements SystemsService
   private int updateDeleted(ResourceRequestUser rUser, String systemId, SystemOperation sysOp)
           throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
   {
-    // ---------------------------- Check inputs ------------------------------------
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId))
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
-
     String resourceTenantId = rUser.getOboTenantId();
-
-    // System must exist
-    if (!dao.checkForSystem(resourceTenantId, systemId, true))
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
-
-    // ------------------------- Check service level authorization -------------------------
-    checkAuth(rUser, sysOp, systemId, null, null, null);
-
     // ----------------- Make update --------------------
     if (sysOp == SystemOperation.delete)
       dao.updateDeleted(rUser, resourceTenantId, systemId, true);
@@ -2313,10 +2359,16 @@ public class SystemsServiceImpl implements SystemsService
     // Fetch the system. If system not found then return
     TSystem system = dao.getSystem(resourceTenantId, systemId, true);
     if (system == null) return;
-
     // Resolve effectiveUserId if necessary
     String effectiveUserId = system.getEffectiveUserId();
-    effectiveUserId = resolveEffectiveUserId(effectiveUserId, system.getOwner(), rUser);
+    String resolvedEffectiveUserId = resolveEffectiveUserId(effectiveUserId, system.getOwner(), rUser);
+
+    // TODO remove filesPermSpec related code (jira cic-3071)
+    // Remove files perm for owner and possibly effectiveUser
+    String filesPermSpec = "files:" + resourceTenantId + ":*:" + systemId;
+    skClient.revokeUserPermission(resourceTenantId, system.getOwner(), filesPermSpec);
+    if (!effectiveUserId.equals(APIUSERID_VAR))
+      skClient.revokeUserPermission(resourceTenantId, resolvedEffectiveUserId, filesPermSpec);;
 
     // Remove credentials associated with the system.
     // TODO: Have SK do this in one operation?
@@ -2324,7 +2376,7 @@ public class SystemsServiceImpl implements SystemsService
     // Remove credentials in Security Kernel if effectiveUser is static
     if (!effectiveUserId.equals(APIUSERID_VAR)) {
       // Use private internal method instead of public API to skip auth and other checks not needed here.
-      deleteCredential(skClient, rUser, system.getId(), effectiveUserId);
+      deleteCredential(skClient, rUser, system.getId(), resolvedEffectiveUserId);
     }
   }
 
