@@ -53,7 +53,7 @@
     "additionalProperties": false,
     "properties": {
       "runtimeType": { "type": "string", "enum": ["DOCKER","SINGULARITY"] },
-      "version": { "type": "string" }
+      "version": { "type": ["string", "null"] }
     }
   },
   "JobRuntimeList": {

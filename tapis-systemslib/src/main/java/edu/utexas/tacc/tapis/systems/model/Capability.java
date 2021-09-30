@@ -32,9 +32,6 @@ public final class Capability
   /* ********************************************************************** */
   /*                                 Fields                                 */
   /* ********************************************************************** */
-  private final int seqId;           // Unique database sequence number
-  private final int systemSeqId;
-
   private final Category category; // Type or category of capability
   private final String name;   // Name of the capability
   private final Datatype datatype; // Datatype associated with the value
@@ -45,23 +42,8 @@ public final class Capability
   /*                           Constructors                                 */
   /* ********************************************************************** */
   // Constructor initializing all fields.
-  public Capability(int seqId1, int systemSeqId1, Category category1, String name1,
-                    Datatype datatype1, int precedence1, String value1)
-  {
-    seqId = seqId1;
-    systemSeqId = systemSeqId1;
-    category = category1;
-    name = name1;
-    datatype = datatype1;
-    precedence = precedence1;
-    value = value1;
-  }
-
-  // Constructor initializing minimal number of fields, useful for testing. Should not be persisted.
   public Capability(Category category1, String name1, Datatype datatype1, int precedence1, String value1)
   {
-    seqId = -1;
-    systemSeqId = -1;
     category = category1;
     name = name1;
     datatype = datatype1;
@@ -72,8 +54,6 @@ public final class Capability
   /* ********************************************************************** */
   /*                               Accessors                                */
   /* ********************************************************************** */
-  public int getSeqId() { return seqId; }
-  public int getSystemSeqId() { return systemSeqId; }
   public Category getCategory() { return category; }
   public String getName() { return name; }
   public Datatype getDatatype() { return datatype; }
