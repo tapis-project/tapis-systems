@@ -98,6 +98,8 @@ public class CredentialResource
   @Inject
   private SystemsService systemsService;
 
+  private final String className = getClass().getSimpleName();
+
   // ************************************************************************
   // *********************** Public Methods *********************************
   // ************************************************************************
@@ -108,10 +110,10 @@ public class CredentialResource
    * @return basic response
    */
   @POST
-  @Path("/{systemName}/user/{userName}")
+  @Path("/{systemId}/user/{userName}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response createUserCredential(@PathParam("systemName") String systemName,
+  public Response createUserCredential(@PathParam("systemId") String systemId,
                                        @PathParam("userName") String userName,
                                        @QueryParam("skipCredentialCheck") @DefaultValue("true") boolean skipCredCheck,
                                        InputStream payloadStream,
@@ -129,11 +131,12 @@ public class CredentialResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled())
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,"userName="+userName,"skipCredentialCheck="+skipCredCheck);
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemName, PRETTY, "createUserCredential");
+    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, "createUserCredential");
     if (resp != null) return resp;
 
     // ------------------------- Extract and validate payload -------------------------
@@ -143,7 +146,7 @@ public class CredentialResource
     try { json = IOUtils.toString(payloadStream, StandardCharsets.UTF_8); }
     catch (Exception e)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_JSON_ERROR", rUser, systemName, userName, e.getMessage());
+      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_JSON_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -152,7 +155,7 @@ public class CredentialResource
     try { JsonValidator.validate(spec); }
     catch (TapisJSONException e)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_JSON_INVALID", rUser, systemName, userName, e.getMessage());
+      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_JSON_INVALID", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -163,18 +166,18 @@ public class CredentialResource
                                            req.accessSecret, req.certificate);
 
     // If one of PKI keys is missing then reject
-    resp = ApiUtils.checkSecrets(rUser, systemName, userName, PRETTY, AuthnMethod.PKI_KEYS.name(), PRIVATE_KEY_FIELD, PUBLIC_KEY_FIELD,
+    resp = ApiUtils.checkSecrets(rUser, systemId, userName, PRETTY, AuthnMethod.PKI_KEYS.name(), PRIVATE_KEY_FIELD, PUBLIC_KEY_FIELD,
                                  credential.getPrivateKey(), credential.getPublicKey());
     if (resp != null) return resp;
     // If one of Access key or Access secret is missing then reject
-    resp = ApiUtils.checkSecrets(rUser, systemName, userName, PRETTY, AuthnMethod.ACCESS_KEY.name(), ACCESS_KEY_FIELD, ACCESS_SECRET_FIELD,
+    resp = ApiUtils.checkSecrets(rUser, systemId, userName, PRETTY, AuthnMethod.ACCESS_KEY.name(), ACCESS_KEY_FIELD, ACCESS_SECRET_FIELD,
                                  credential.getAccessKey(), credential.getAccessSecret());
     if (resp != null) return resp;
 
     // If PKI private key is not compatible with Tapis then reject
     if (!StringUtils.isBlank(credential.getPrivateKey()) && !credential.isValidPrivateSshKey())
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_INVALID_PRIVATE_SSHKEY", rUser, systemName, userName);
+      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_INVALID_PRIVATE_SSHKEY", rUser, systemId, userName);
       return Response.status(Response.Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
 
@@ -186,11 +189,11 @@ public class CredentialResource
     // Make the service call to create or update the credential
     try
     {
-      systemsService.createUserCredential(rUser, systemName, userName, credential, skipCredCheck, updateJsonStr);
+      systemsService.createUserCredential(rUser, systemId, userName, credential, skipCredCheck, updateJsonStr);
     }
     catch (Exception e)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemName, userName, e.getMessage());
+      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -198,7 +201,7 @@ public class CredentialResource
     // ---------------------------- Success -------------------------------
     RespBasic resp1 = new RespBasic();
     return Response.status(Status.CREATED)
-      .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_CRED_UPDATED", rUser, systemName, userName),
+      .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_CRED_UPDATED", rUser, systemId, userName),
                                                    PRETTY, resp1))
       .build();
   }
@@ -209,10 +212,10 @@ public class CredentialResource
    * @return Response
    */
   @GET
-  @Path("/{systemName}/user/{userName}")
+  @Path("/{systemId}/user/{userName}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getUserCredential(@PathParam("systemName") String systemName,
+  public Response getUserCredential(@PathParam("systemId") String systemId,
                                     @PathParam("userName") String userName,
                                     @QueryParam("authnMethod") @DefaultValue("") String authnMethodStr,
                                     @Context SecurityContext securityContext)
@@ -228,11 +231,12 @@ public class CredentialResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled())
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,"userName="+userName,"authnMethod="+authnMethodStr);
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemName, PRETTY, "getUserCredential");
+    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, "getUserCredential");
     if (resp != null) return resp;
 
     // Check that authnMethodStr is valid if it is passed in
@@ -241,7 +245,7 @@ public class CredentialResource
     try { if (!StringUtils.isBlank(authnMethodStr)) authnMethod =  AuthnMethod.valueOf(authnMethodStr); }
     catch (IllegalArgumentException e)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_ACCMETHOD_ENUM_ERROR", rUser, systemName, authnMethodStr, e.getMessage());
+      msg = ApiUtils.getMsgAuth("SYSAPI_ACCMETHOD_ENUM_ERROR", rUser, systemId, authnMethodStr, e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -249,10 +253,10 @@ public class CredentialResource
     // ------------------------- Perform the operation -------------------------
     // Make the service call to get the credentials
     Credential credential;
-    try { credential = systemsService.getUserCredential(rUser, systemName, userName, authnMethod); }
+    try { credential = systemsService.getUserCredential(rUser, systemId, userName, authnMethod); }
     catch (Exception e)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemName, userName, e.getMessage());
+      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
       return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -260,7 +264,7 @@ public class CredentialResource
     // Resource was not found.
     if (credential == null)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_NOT_FOUND", rUser, systemName, userName);
+      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_NOT_FOUND", rUser, systemId, userName);
       _log.warn(msg);
       return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -269,7 +273,7 @@ public class CredentialResource
     // Success means we retrieved the information.
     RespCredential resp1 = new RespCredential(credential);
     return Response.status(Status.OK).entity(TapisRestUtils.createSuccessResponse(
-            ApiUtils.getMsgAuth("SYSAPI_CRED_FOUND", rUser, systemName, userName), PRETTY, resp1)).build();
+            ApiUtils.getMsgAuth("SYSAPI_CRED_FOUND", rUser, systemId, userName), PRETTY, resp1)).build();
   }
 
   /**
@@ -277,10 +281,10 @@ public class CredentialResource
    * @return basic response
    */
   @DELETE
-  @Path("/{systemName}/user/{userName}")
+  @Path("/{systemId}/user/{userName}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response removeUserCredential(@PathParam("systemName") String systemName,
+  public Response removeUserCredential(@PathParam("systemId") String systemId,
                                        @PathParam("userName") String userName,
                                        @Context SecurityContext securityContext)
   {
@@ -295,22 +299,23 @@ public class CredentialResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled())
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,"userName="+userName);
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemName, PRETTY, "removeUserCredential");
+    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, "removeUserCredential");
     if (resp != null) return resp;
 
     // ------------------------- Perform the operation -------------------------
     // Make the service call to remove the credential
     try
     {
-      systemsService.deleteUserCredential(rUser, systemName, userName);
+      systemsService.deleteUserCredential(rUser, systemId, userName);
     }
     catch (Exception e)
     {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemName, userName, e.getMessage());
+      String msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -318,7 +323,7 @@ public class CredentialResource
     // ---------------------------- Success -------------------------------
     RespBasic resp1 = new RespBasic();
     return Response.status(Status.CREATED)
-      .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_CRED_DELETED", rUser, systemName,
+      .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_CRED_DELETED", rUser, systemId,
                                                                        userName), PRETTY, resp1))
       .build();
   }
@@ -327,14 +332,4 @@ public class CredentialResource
   // *********************** Private Methods ********************************
   // ************************************************************************
 
-  /**
-   * Trace the incoming request, include info about requesting user, op name and request URL
-   * @param rUser resource user
-   * @param opName name of operation
-   */
-  private void logRequest(ResourceRequestUser rUser, String opName)
-  {
-    String msg = ApiUtils.getMsgAuth("SYSAPI_TRACE_REQUEST", rUser, getClass().getSimpleName(), opName, _request.getRequestURL());
-    _log.trace(msg);
-  }
 }

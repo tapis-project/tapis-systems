@@ -206,6 +206,20 @@ public class ApiUtils
     return null;
   }
 
+  /**
+   * Trace the incoming request, include info about requesting user, op name and request URL
+   * @param rUser resource user
+   * @param opName name of operation
+   */
+  public static void logRequest(ResourceRequestUser rUser, String className, String opName, String reqUrl, String... strParms)
+  {
+    // Build list of args passed in
+    String argListStr = "";
+    if (strParms != null && strParms.length > 0) argListStr = String.join(",", strParms);
+    String msg = ApiUtils.getMsgAuth("SYSAPI_TRACE_REQUEST", rUser, className, opName, reqUrl, argListStr);
+    _log.trace(msg);
+  }
+
 //  /**
 //   * Return String[] array of jobEnvVariables given list of KeyValuePair
 //   */

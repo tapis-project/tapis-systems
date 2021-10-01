@@ -89,6 +89,8 @@ public class SchedulerProfileResource
   @Inject
   private SystemsService systemsService;
 
+  private final String className = getClass().getSimpleName();
+
   // ************************************************************************
   // *********************** Public Methods *********************************
   // ************************************************************************
@@ -117,7 +119,8 @@ public class SchedulerProfileResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled())
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString());
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -238,7 +241,8 @@ public class SchedulerProfileResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled())
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "name="+name);
 
     SchedulerProfile schedulerProfile;
     try
@@ -287,7 +291,8 @@ public class SchedulerProfileResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled())
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString());
 
     // ------------------------- Retrieve records -----------------------------
     RespSchedulerProfiles successResponse;
@@ -333,7 +338,8 @@ public class SchedulerProfileResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled())
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "name="+name);
 
     // ---------------------------- Make service call to delete the profile -------------------------------
     int changeCount;
@@ -374,17 +380,6 @@ public class SchedulerProfileResource
   /* **************************************************************************** */
   /*                                Private Methods                               */
   /* **************************************************************************** */
-
-  /**
-   * Trace the incoming request, include info about requesting user, op name and request URL
-   * @param rUser resource user
-   * @param opName name of operation
-   */
-  private void logRequest(ResourceRequestUser rUser, String opName)
-  {
-    String msg = ApiUtils.getMsgAuth("SYSAPI_TRACE_REQUEST", rUser, getClass().getSimpleName(), opName, _request.getRequestURL());
-    _log.trace(msg);
-  }
 
   /**
    * Create an OK response given message and base response to put in result

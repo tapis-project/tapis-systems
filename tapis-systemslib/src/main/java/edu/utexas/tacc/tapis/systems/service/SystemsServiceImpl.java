@@ -28,7 +28,6 @@ import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
 import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
-import edu.utexas.tacc.tapis.shared.ssh.apache.system.TapisRunCommand;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
@@ -43,7 +42,6 @@ import edu.utexas.tacc.tapis.search.parser.ASTNode;
 import edu.utexas.tacc.tapis.search.SearchUtils;
 import edu.utexas.tacc.tapis.security.client.SKClient;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
-import edu.utexas.tacc.tapis.security.client.gen.model.SkSecretVersionMetadata;
 import edu.utexas.tacc.tapis.security.client.model.KeyType;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretMetaParms;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretReadParms;
@@ -1770,6 +1768,7 @@ public class SystemsServiceImpl implements SystemsService
     int port = tSystem1.getPort();
     String userName = tSystem1.getEffectiveUserId();
     AuthnMethod authnMethod = tSystem1.getDefaultAuthnMethod();
+    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), userName, host, port, authnMethod.name()));
     // Attempt to connect to the system
     String msg;
     SSHConnection sshConnection = null;
@@ -1797,6 +1796,7 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalStateException(msg);
     }
     finally { if (sshConnection != null) sshConnection.close(); }
+    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), userName, host, port, authnMethod.name()));
   }
 
   /**

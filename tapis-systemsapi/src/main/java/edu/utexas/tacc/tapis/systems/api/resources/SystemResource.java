@@ -155,6 +155,8 @@ public class SystemResource
   @Inject
   private SystemsService systemsService;
 
+  private final String className = getClass().getSimpleName();
+
   // ************************************************************************
   // *********************** Public Methods *********************************
   // ************************************************************************
@@ -188,7 +190,8 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+                                                   "skipCredentialCheck="+skipCredCheck);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -309,7 +312,7 @@ public class SystemResource
                               InputStream payloadStream,
                               @Context SecurityContext securityContext)
   {
-    String opName = "updateSystem";
+    String opName = "patchSystem";
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -321,7 +324,7 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -441,7 +444,7 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "skipCredentialCheck="+skipCredCheck, "systemId="+systemId);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -657,7 +660,8 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId, "returnCredentials="+getCreds,
+                                          "authnMethod="+authnMethodStr, "requireExecPerm="+requireExecPerm);
 
     // Check that authnMethodStr is valid if is passed in
     AuthnMethod authnMethod = null;
@@ -699,7 +703,7 @@ public class SystemResource
   /**
    * isEnabled
    * Check if resource is enabled.
-   * @param sysId - name of system
+   * @param systemId - name of system
    * @param securityContext - user identity
    * @return Response with boolean result
    */
@@ -707,7 +711,7 @@ public class SystemResource
   @Path("{systemId}/isEnabled")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response isEnabled(@PathParam("systemId") String sysId,
+  public Response isEnabled(@PathParam("systemId") String systemId,
                             @Context SecurityContext securityContext)
   {
     String opName = "isEnabled";
@@ -721,22 +725,22 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
 
     boolean isEnabled;
     try
     {
-      isEnabled = systemsService.isEnabled(rUser, sysId);
+      isEnabled = systemsService.isEnabled(rUser, systemId);
     }
     catch (NotFoundException e)
     {
-      String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, sysId);
+      String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
       _log.warn(msg);
       return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
     catch (Exception e)
     {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, sysId, e.getMessage());
+      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
       _log.error(msg, e);
       return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -746,7 +750,7 @@ public class SystemResource
     ResultBoolean respResult = new ResultBoolean();
     respResult.aBool = isEnabled;
     RespBoolean resp1 = new RespBoolean(respResult);
-    return createSuccessResponse(Status.OK, MsgUtils.getMsg("TAPIS_FOUND", "System", sysId), resp1);
+    return createSuccessResponse(Status.OK, MsgUtils.getMsg("TAPIS_FOUND", "System", systemId), resp1);
   }
 
   /**
@@ -775,7 +779,7 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "showDeleted="+showDeleted);
 
     // ThreadContext designed to never return null for SearchParameters
     SearchParameters srchParms = threadContext.getSearchParameters();
@@ -820,7 +824,7 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "showDeleted="+showDeleted);
 
     // Create search list based on query parameters
     // Note that some validation is done for each condition but the back end will handle translating LIKE wildcard
@@ -886,7 +890,7 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "showDeleted="+showDeleted);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -970,7 +974,7 @@ public class SystemResource
 //    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 //
 //  // Trace this request.
-//    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+//    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "showDeleted="+showDeleted);
 //
 //    // ------------------------- Extract and validate payload -------------------------
 //    // Read the payload into a string.
@@ -1055,7 +1059,14 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) logRequest(rUser, opName);
+    if (_log.isTraceEnabled())
+    {
+      // NOTE: We deliberately do not check for blank. If empty string passed in we want to record it here.
+      if (userName!=null)
+        ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId, "userName="+userName);
+      else
+        ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
+    }
 
     // ---------------------------- Make service call to update the system -------------------------------
     int changeCount;
@@ -1293,17 +1304,6 @@ public class SystemResource
     sb.append(System.lineSeparator());
     for (String msg : msgList) { sb.append("  ").append(msg).append(System.lineSeparator()); }
     return sb.toString();
-  }
-
-  /**
-   * Trace the incoming request, include info about requesting user, op name and request URL
-   * @param rUser resource user
-   * @param opName name of operation
-   */
-  private void logRequest(ResourceRequestUser rUser, String opName)
-  {
-    String msg = ApiUtils.getMsgAuth("SYSAPI_TRACE_REQUEST", rUser, getClass().getSimpleName(), opName, _request.getRequestURL());
-    _log.trace(msg);
   }
 
   /**
