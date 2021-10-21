@@ -35,8 +35,6 @@ ENV JAVA_TOOL_OPTIONS -agentlib:jdwp=transport=dt_socket,address=8000,server=y,s
 # ENV JAVA_TOOL_OPTIONS -Dp6spy.config.modulelist=
 
 # Server port, debug port and jmx port
-EXPOSE 8080
-EXPOSE 8000
-EXPOSE 9090
+EXPOSE 8080 8000 9090
 
 CMD ["java", "-Xms4g", "-Xmx4g", "-cp", "systems.jar:dependencies/*", "edu.utexas.tacc.tapis.systems.api.SystemsApplication"]
