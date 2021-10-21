@@ -171,7 +171,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response createSystem(InputStream payloadStream,
-                               @QueryParam("skipCredentialCheck") @DefaultValue("true") boolean skipCredCheck,
+                               @QueryParam("skipCredentialCheck") @DefaultValue("false") boolean skipCredCheck,
                                @Context SecurityContext securityContext)
   {
     String opName = "createSystem";
@@ -428,7 +428,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response putSystem(@PathParam("systemId") String systemId,
-                            @QueryParam("skipCredentialCheck") @DefaultValue("true") boolean skipCredCheck,
+                            @QueryParam("skipCredentialCheck") @DefaultValue("false") boolean skipCredCheck,
                             InputStream payloadStream,
                             @Context SecurityContext securityContext)
   {

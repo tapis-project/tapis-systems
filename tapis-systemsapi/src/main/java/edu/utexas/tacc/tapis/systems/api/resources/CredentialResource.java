@@ -115,7 +115,7 @@ public class CredentialResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response createUserCredential(@PathParam("systemId") String systemId,
                                        @PathParam("userName") String userName,
-                                       @QueryParam("skipCredentialCheck") @DefaultValue("true") boolean skipCredCheck,
+                                       @QueryParam("skipCredentialCheck") @DefaultValue("false") boolean skipCredCheck,
                                        InputStream payloadStream,
                                        @Context SecurityContext securityContext)
   {

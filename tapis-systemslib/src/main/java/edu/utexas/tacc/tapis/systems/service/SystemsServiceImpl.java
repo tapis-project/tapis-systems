@@ -213,7 +213,7 @@ public class SystemsServiceImpl implements SystemsService
     // ---------------- Verify credentials ------------------------
     if (!skipCredCheck && system.getAuthnCredential() != null)
     {
-      verifyCredentials(rUser, system, system.getAuthnCredential(), null);
+      verifyCredentials(rUser, system, system.getAuthnCredential());
     }
 
     // Construct Json string representing the TSystem (without credentials) about to be created
@@ -401,7 +401,7 @@ public class SystemsServiceImpl implements SystemsService
     // ---------------- Verify credentials ------------------------
     if (!skipCredCheck && updatedTSystem.getAuthnCredential() != null)
     {
-      verifyCredentials(rUser, updatedTSystem, updatedTSystem.getAuthnCredential(), null);
+      verifyCredentials(rUser, updatedTSystem, updatedTSystem.getAuthnCredential());
     }
 
     // Construct Json string representing the PutSystem about to be used to update the system
@@ -1272,7 +1272,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!skipCredCheck)
     {
       TSystem system = dao.getSystem(resourceTenantId, systemId);
-      verifyCredentials(rUser, system, null, credential);
+      verifyCredentials(rUser, system, credential);
     }
 
     // Create credential
@@ -1750,28 +1750,20 @@ public class SystemsServiceImpl implements SystemsService
    * Verify that effectiveUserId can connect to the system using provided credentials.
    * Skipped if no credentials provided or effectiveUserId is not static.
    * NOTE: Skipped for non-LINUX systems
-   * Also, credUpdCred have precedence. If they are provided sysUpdCred will be ignored.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tSystem1 - the TSystem to check
-   * @param sysUpdCred - credentials to check as provided by a system update
-   * @param credUpdCred - credentials to check as provided by a credential update
-   *                    - these take precedence.
+   * @param credToCheck - credentials to check
    * @throws IllegalStateException - if credentials not verified
    */
-  private void verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential sysUpdCred,
-                                 Credential credUpdCred) throws IllegalStateException
+  private void verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential credToCheck) throws IllegalStateException
   {
-    // We must have the system and at a set of credentials to check.
-    if (tSystem1 == null || (sysUpdCred == null && credUpdCred == null)) return;
+    // We must have the system and a set of credentials to check.
+    if (tSystem1 == null || credToCheck == null) return;
     // Check is only done for LINUX systems
     if (!tSystem1.getSystemType().equals(TSystem.SystemType.LINUX)) return;
     // If effectiveUserId is not static then skip check.
     if (tSystem1.getEffectiveUserId().equals(APIUSERID_VAR)) return;
-
-    // credUpdCred has precedence over sysUpdCred.
-    Credential credToCheck = credUpdCred;
-    if (credToCheck == null) credToCheck = sysUpdCred;
 
     String host = tSystem1.getHost();
     int port = tSystem1.getPort();
@@ -1789,7 +1781,7 @@ public class SystemsServiceImpl implements SystemsService
       }
       else if (AuthnMethod.PKI_KEYS.equals(authnMethod))
       {
-        sshConnection = new SSHConnection(host, port, userName, credToCheck.getPrivateKey(), credToCheck.getPublicKey());
+        sshConnection = new SSHConnection(host, port, userName, credToCheck.getPublicKey(), credToCheck.getPrivateKey());
       }
       else
       {
