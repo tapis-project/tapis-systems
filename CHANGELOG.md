@@ -16,6 +16,7 @@ Incremental improvements.
 - Initial release.
 
 ### New features:
+ - Add importRefId attribute.
  - Support for multiple orderBy in search and sort.
  - Add support for scheduler profiles.
  - Add credential check during system and credential updates. On by default. Use skipCredentialCheck=true to bypass.

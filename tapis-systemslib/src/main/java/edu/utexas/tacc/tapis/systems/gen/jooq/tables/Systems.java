@@ -228,6 +228,11 @@ public class Systems extends TableImpl<SystemsRecord> {
     public final TableField<SystemsRecord, JsonElement> NOTES = createField(DSL.name("notes"), SQLDataType.JSONB.nullable(false), this, "Notes for general information stored as JSON", new JSONBToJsonElementBinding());
 
     /**
+     * The column <code>tapis_sys.systems.import_ref_id</code>. Reference for systems created via import
+     */
+    public final TableField<SystemsRecord, String> IMPORT_REF_ID = createField(DSL.name("import_ref_id"), SQLDataType.CLOB, this, "Reference for systems created via import");
+
+    /**
      * The column <code>tapis_sys.systems.uuid</code>.
      */
     public final TableField<SystemsRecord, java.util.UUID> UUID = createField(DSL.name("uuid"), SQLDataType.UUID.nullable(false), this, "");

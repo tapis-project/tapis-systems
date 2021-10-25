@@ -179,6 +179,7 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.JOB_CAPABILITIES, jobCapabilitiesJson)
               .set(SYSTEMS.TAGS, tagsStrArray)
               .set(SYSTEMS.NOTES, notesObj)
+              .set(SYSTEMS.IMPORT_REF_ID, system.getImportRefId())
               .set(SYSTEMS.UUID, system.getUuid())
               .returningResult(SYSTEMS.SEQ_ID)
               .fetchOne();
@@ -297,6 +298,7 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.JOB_CAPABILITIES, jobCapabilitiesJson)
               .set(SYSTEMS.TAGS, tagsStrArray)
               .set(SYSTEMS.NOTES, notesObj)
+              .set(SYSTEMS.IMPORT_REF_ID, putSystem.getImportRefId())
               .set(SYSTEMS.UPDATED, TapisUtils.getUTCTimeNow())
               .where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId))
               .returningResult(SYSTEMS.SEQ_ID)
@@ -410,6 +412,7 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.JOB_CAPABILITIES, jobCapabilitiesJson)
               .set(SYSTEMS.TAGS, tagsStrArray)
               .set(SYSTEMS.NOTES, notesObj)
+              .set(SYSTEMS.IMPORT_REF_ID, patchedSystem.getImportRefId())
               .set(SYSTEMS.UPDATED, TapisUtils.getUTCTimeNow())
               .where(SYSTEMS.TENANT.eq(tenant),SYSTEMS.ID.eq(systemId))
               .returningResult(SYSTEMS.SEQ_ID)
@@ -2245,7 +2248,8 @@ public class SystemsDaoImpl implements SystemsDao
             jobEnvVariables, r.get(SYSTEMS.JOB_MAX_JOBS), r.get(SYSTEMS.JOB_MAX_JOBS_PER_USER),
             r.get(SYSTEMS.JOB_IS_BATCH), r.get(SYSTEMS.BATCH_SCHEDULER), logicalQueues,
             r.get(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE), r.get(SYSTEMS.BATCH_SCHEDULER_PROFILE), capabilities,
-            r.get(SYSTEMS.TAGS), r.get(SYSTEMS.NOTES), r.get(SYSTEMS.UUID), r.get(SYSTEMS.DELETED), created, updated);
+            r.get(SYSTEMS.TAGS), r.get(SYSTEMS.NOTES), r.get(SYSTEMS.IMPORT_REF_ID), r.get(SYSTEMS.UUID),
+            r.get(SYSTEMS.DELETED), created, updated);
     return system;
   }
 }

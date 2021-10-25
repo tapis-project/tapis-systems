@@ -32,6 +32,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFECTIVE_USER_ID_FIEL
 import static edu.utexas.tacc.tapis.systems.model.TSystem.ENABLED_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.ID_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.IMPORT_REF_ID;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_DTN_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_CAPABILITIES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_ENV_VARIABLES_FIELD;
@@ -96,6 +97,7 @@ public final class TapisSystemDTO
   public List<Capability> jobCapabilities;
   public String[] tags;
   public Object notes;
+  public String importRefId;
   public UUID uuid;
   public boolean deleted;
   public Instant created;
@@ -138,6 +140,7 @@ public final class TapisSystemDTO
     jobCapabilities = s.getJobCapabilities();
     tags = s.getTags();
     notes = s.getNotes();
+    importRefId = s.getImportRefId();
     uuid = s.getUuid();
     deleted = s.isDeleted();
     created = s.getCreated();
@@ -246,6 +249,7 @@ public final class TapisSystemDTO
         jsonStr = gson.toJson(notes);
         jsonObject.add(NOTES_FIELD, gson.fromJson(jsonStr, JsonObject.class));
       }
+      case IMPORT_REF_ID -> jsonObject.addProperty(IMPORT_REF_ID, importRefId);
       case UUID_FIELD -> jsonObject.addProperty(UUID_FIELD, uuid.toString());
       case DELETED_FIELD -> jsonObject.addProperty(DELETED_FIELD, Boolean.toString(deleted));
       case CREATED_FIELD -> jsonObject.addProperty(CREATED_FIELD, created.toString());

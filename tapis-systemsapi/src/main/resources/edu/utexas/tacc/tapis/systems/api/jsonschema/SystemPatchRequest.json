@@ -38,6 +38,7 @@
       "items": {"$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/Capability" }
     },
     "tags": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/tagsDefinition" },
-    "notes": { "type": "object" }
+    "notes": { "type": "object" },
+    "importRefId": { "type": "string" }
   }
 }

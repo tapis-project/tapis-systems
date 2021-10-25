@@ -309,6 +309,7 @@ public class SystemsServiceTest
     sys0.setBatchSchedulerProfile(batchSchedulerProfile2);
     sys0.setTags(tags2);
     sys0.setNotes(notes2);
+    sys0.setImportRefId(importRefId2);
     sys0.setJobRuntimes(jobRuntimes2);
     sys0.setBatchLogicalQueues(logicalQueueList2);
     sys0.setJobCapabilities(capList2);
@@ -370,6 +371,7 @@ public class SystemsServiceTest
     sys0.setBatchSchedulerProfile(batchSchedulerProfile2);
     sys0.setTags(tags2);
     sys0.setNotes(notes2);
+    sys0.setImportRefId(importRefId2);
     sys0.setJobRuntimes(jobRuntimes2);
     sys0.setBatchLogicalQueues(logicalQueueList2);
     sys0.setJobCapabilities(capList2);
@@ -989,7 +991,7 @@ public class SystemsServiceTest
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, jobRuntimes1, jobWorkingDir1, jobEnvVariables1, jobMaxJobs1,
             jobMaxJobsPerUser1, jobIsBatchTrue, batchScheduler1, logicalQueueList1,
-            batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2);
+            batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2, importRefId2);
     // CREATE - Deny user not owner/admin, deny service
     boolean pass = false;
     try { svc.createSystem(rTestUser0, sys0, skipCredCheckTrue, scrubbedJson); }
@@ -1409,6 +1411,8 @@ public class SystemsServiceTest
     Assert.assertEquals(tmpSys.isDtn(), sys0.isDtn());
     Assert.assertEquals(tmpSys.getCanExec(), sys0.getCanExec());
     Assert.assertEquals(tmpSys.getJobWorkingDir(), sys0.getJobWorkingDir());
+
+    Assert.assertEquals(tmpSys.getImportRefId(), sys0.getImportRefId());
 
     // Verify jobEnvVariables
     verifyKeyValuePairs(sys0.getJobEnvVariables(), tmpSys.getJobEnvVariables());

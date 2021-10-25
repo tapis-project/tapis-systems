@@ -136,6 +136,10 @@ public final class IntegrationUtils
   public static final JsonObject notesObj1 = (JsonObject) notes1;
   public static final Object notesNull = null;
 
+  public static final String importRefId1 = "https://exmpale.com/import_ref_id1";
+  public static final String importRefId2 = "import_ref_id2";
+  public static final String importRefIdNull = null;
+
   public static final Protocol prot1 = new Protocol(AuthnMethod.PKI_KEYS, 22, false, "", 0);
   public static final Protocol prot2 = new Protocol(AuthnMethod.PASSWORD, 0, true, "localhost",2222);
   public static final String scrubbedJson = "{}";
@@ -251,7 +255,7 @@ public final class IntegrationUtils
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
             jobIsBatchFalse, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
-            capListNull, tags1, notes1, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
   }
 
   /**
@@ -270,7 +274,7 @@ public final class IntegrationUtils
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs2, jobMaxJobsPerUser2,
             jobIsBatchFalse, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
-            capListNull, tags2, notes2, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            capListNull, tags2, notes2, importRefId2, uuidNull, isDeletedFalse, createdNull, updatedNull);
   }
 
   /**
@@ -295,14 +299,14 @@ public final class IntegrationUtils
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
             jobIsBatchFalse, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
-            capListNull, tags1, notes1, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
     dtnSystem2 = new TSystem(-1, tenantName, dtnSystemName2, "DTN System2 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn2", prot2.getAuthnMethod(), "bucketDtn2", "/root/dtn2",
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs2, jobMaxJobsPerUser2,
             jobIsBatchFalse, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
-            capListNull, tags2, notes2, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            capListNull, tags2, notes2, importRefId2, uuidNull, isDeletedFalse, createdNull, updatedNull);
     for (int i = 0; i < n; i++)
     {
       // Suffix which should be unique for each system within each integration test
@@ -317,7 +321,7 @@ public final class IntegrationUtils
               dtnSystem1.getId(), dtnMountPoint1, dtnMountSourcePath1, isDtnFalse,
               canExecTrue, jobRuntimes1, "jobWorkDir"+suffix, jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1,
               jobIsBatchTrue, batchScheduler1, logicalQueueList1, queueA1.getName(), batchSchedulerProfile1,
-              capList1, tags1, notes1, uuidNull, isDeletedFalse, createdNull, updatedNull);
+              capList1, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
       systems[i].setJobRuntimes(jobRuntimes1);
       systems[i].setBatchLogicalQueues(logicalQueueList1);
       systems[i].setJobCapabilities(capList1);
@@ -342,7 +346,7 @@ public final class IntegrationUtils
               canExecFalse, jobRuntimesNull, null, null, jobMaxJobs1, jobMaxJobsPerUser1,
               jobIsBatchFalse, batchSchedulerNull, logicalQueueListNull, batchDefaultLogicalQueueNull,
               batchSchedulerProfileNull, capListNull,
-              tagsNull, notesNull, uuidNull, isDeletedFalse, createdNull, updatedNull);
+              tagsNull, notesNull, importRefIdNull, uuidNull, isDeletedFalse, createdNull, updatedNull);
     }
     else
     {
@@ -352,7 +356,7 @@ public final class IntegrationUtils
               canExecFalse, jobRuntimesNull, null, null, jobMaxJobs1, jobMaxJobsPerUser1,
               jobIsBatchFalse, batchSchedulerNull, logicalQueueListNull, batchDefaultLogicalQueueNull,
               batchSchedulerProfileNull, capListNull,
-              tagsNull, notesNull, uuidNull, isDeletedFalse, null, null);
+              tagsNull, notesNull, importRefIdNull, uuidNull, isDeletedFalse, null, null);
     }
   }
 
@@ -371,7 +375,7 @@ public final class IntegrationUtils
                        sysNamePrefix+key+dtnSystemId2, dtnMountPoint2, dtnMountSourcePath2, system.isDtn(),
                        system.getCanExec(), jobRuntimes2, jobWorkingDir2, jobEnvVariables2, jobMaxJobs2, jobMaxJobsPerUser2,
                        jobIsBatchTrue, batchScheduler2, logicalQueueList2, batchDefaultLogicalQueue2, batchSchedulerProfile2,
-                       capList2, tags2, notes2, null, false, null, null);
+                       capList2, tags2, notes2, importRefId2, null, false, null, null);
     putSys.setBatchLogicalQueues(logicalQueueList2);
     putSys.setJobRuntimes(jobRuntimes2);
     putSys.setJobCapabilities(capList2);
@@ -390,7 +394,7 @@ public final class IntegrationUtils
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             sysNamePrefix+key+dtnSystemId2, dtnMountPoint2, dtnMountSourcePath2, jobRuntimes2, jobWorkingDir2,
             jobEnvVariables2, jobMaxJobs2, jobMaxJobsPerUser2, jobIsBatchTrue, batchScheduler2,
-            logicalQueueList2, batchDefaultLogicalQueue2, batchSchedulerProfile2, capList2, tags2, notes2);
+            logicalQueueList2, batchDefaultLogicalQueue2, batchSchedulerProfile2, capList2, tags2, notes2, importRefId2);
   }
 
   /**
@@ -403,7 +407,7 @@ public final class IntegrationUtils
             prot2.getAuthnMethod(), portNull, userProxyNull, proxyHostNull, proxyPortNull,
             dtnSystemIdNull, dtnMountPoint2, dtnMountSourcePathNull, jobRuntimes2, jobWorkingDirNull, jobEnvVariablesNull,
             jobMaxJobsNull, jobMaxJobsPerUser2, jobIsBatchNull, batchSchedulerNull, logicalQueueListNull,
-            batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull, tagsNull, notesNull);
+            batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull, tagsNull, notesNull, importRefIdNull);
   }
 
   /**

@@ -503,59 +503,73 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     }
 
     /**
+     * Setter for <code>tapis_sys.systems.import_ref_id</code>. Reference for systems created via import
+     */
+    public void setImportRefId(String value) {
+        set(34, value);
+    }
+
+    /**
+     * Getter for <code>tapis_sys.systems.import_ref_id</code>. Reference for systems created via import
+     */
+    public String getImportRefId() {
+        return (String) get(34);
+    }
+
+    /**
      * Setter for <code>tapis_sys.systems.uuid</code>.
      */
     public void setUuid(UUID value) {
-        set(34, value);
+        set(35, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.uuid</code>.
      */
     public UUID getUuid() {
-        return (UUID) get(34);
+        return (UUID) get(35);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.deleted</code>. Indicates if system has been soft deleted
      */
     public void setDeleted(Boolean value) {
-        set(35, value);
+        set(36, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.deleted</code>. Indicates if system has been soft deleted
      */
     public Boolean getDeleted() {
-        return (Boolean) get(35);
+        return (Boolean) get(36);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.created</code>. UTC time for when record was created
      */
     public void setCreated(LocalDateTime value) {
-        set(36, value);
+        set(37, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.created</code>. UTC time for when record was created
      */
     public LocalDateTime getCreated() {
-        return (LocalDateTime) get(36);
+        return (LocalDateTime) get(37);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.updated</code>. UTC time for when record was last updated
      */
     public void setUpdated(LocalDateTime value) {
-        set(37, value);
+        set(38, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.updated</code>. UTC time for when record was last updated
      */
     public LocalDateTime getUpdated() {
-        return (LocalDateTime) get(37);
+        return (LocalDateTime) get(38);
     }
 
     // -------------------------------------------------------------------------
@@ -581,7 +595,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     /**
      * Create a detached, initialised SystemsRecord
      */
-    public SystemsRecord(Integer seqId, String tenant, String id, String description, SystemType systemType, String owner, String host, Boolean enabled, String effectiveUserId, AuthnMethod defaultAuthnMethod, String bucketName, String rootDir, Integer port, Boolean useProxy, String proxyHost, Integer proxyPort, String dtnSystemId, String dtnMountPoint, String dtnMountSourcePath, Boolean isDtn, Boolean canExec, JsonElement jobRuntimes, String jobWorkingDir, JsonElement jobEnvVariables, Integer jobMaxJobs, Integer jobMaxJobsPerUser, Boolean jobIsBatch, SchedulerType batchScheduler, JsonElement batchLogicalQueues, String batchDefaultLogicalQueue, String batchSchedulerProfile, JsonElement jobCapabilities, String[] tags, JsonElement notes, UUID uuid, Boolean deleted, LocalDateTime created, LocalDateTime updated) {
+    public SystemsRecord(Integer seqId, String tenant, String id, String description, SystemType systemType, String owner, String host, Boolean enabled, String effectiveUserId, AuthnMethod defaultAuthnMethod, String bucketName, String rootDir, Integer port, Boolean useProxy, String proxyHost, Integer proxyPort, String dtnSystemId, String dtnMountPoint, String dtnMountSourcePath, Boolean isDtn, Boolean canExec, JsonElement jobRuntimes, String jobWorkingDir, JsonElement jobEnvVariables, Integer jobMaxJobs, Integer jobMaxJobsPerUser, Boolean jobIsBatch, SchedulerType batchScheduler, JsonElement batchLogicalQueues, String batchDefaultLogicalQueue, String batchSchedulerProfile, JsonElement jobCapabilities, String[] tags, JsonElement notes, String importRefId, UUID uuid, Boolean deleted, LocalDateTime created, LocalDateTime updated) {
         super(Systems.SYSTEMS);
 
         setSeqId(seqId);
@@ -618,6 +632,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
         setJobCapabilities(jobCapabilities);
         setTags(tags);
         setNotes(notes);
+        setImportRefId(importRefId);
         setUuid(uuid);
         setDeleted(deleted);
         setCreated(created);

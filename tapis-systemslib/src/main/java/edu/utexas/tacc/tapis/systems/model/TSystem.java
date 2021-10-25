@@ -85,6 +85,7 @@ public final class TSystem
   public static final String JOB_CAPABILITIES_FIELD = "jobCapabilities";
   public static final String TAGS_FIELD = "tags";
   public static final String NOTES_FIELD = "notes";
+  public static final String IMPORT_REF_ID = "importRefId";
   public static final String UUID_FIELD = "uuid";
   public static final String CREATED_FIELD = "created";
   public static final String UPDATED_FIELD = "updated";
@@ -177,6 +178,7 @@ public final class TSystem
   private List<Capability> jobCapabilities; // List of job related capabilities supported by the system
   private String[] tags; // List of arbitrary tags as strings
   private Object notes;   // Simple metadata as json.
+  private String importRefId;
   private UUID uuid;
   private boolean deleted;
 
@@ -245,6 +247,7 @@ public final class TSystem
     jobCapabilities = t.getJobCapabilities();
     tags = (t.getTags() == null) ? EMPTY_STR_ARRAY : t.getTags().clone();
     notes = t.getNotes();
+    importRefId = t.getImportRefId();
     uuid = t.getUuid();
     deleted = t.isDeleted();
   }
@@ -263,7 +266,7 @@ public final class TSystem
                  int jobMaxJobs1, int jobMaxJobsPerUser1, boolean jobIsBatch1, SchedulerType batchScheduler1,
                  List<LogicalQueue> batchLogicalQueues1, String batchDefaultLogicalQueue1,
                  String batchSchedulerProfile1, List<Capability> jobCapabilities1,
-                 String[] tags1, Object notes1, UUID uuid1, boolean deleted1,
+                 String[] tags1, Object notes1, String importRefId1, UUID uuid1, boolean deleted1,
                  Instant created1, Instant updated1)
   {
     seqId = seqId1;
@@ -300,6 +303,7 @@ public final class TSystem
     jobCapabilities = jobCapabilities1;
     tags = (tags1 == null) ? EMPTY_STR_ARRAY : tags1.clone();
     notes = notes1;
+    importRefId = importRefId1;
     uuid = uuid1;
     deleted = deleted1;
     created = created1;
@@ -352,6 +356,7 @@ public final class TSystem
     jobCapabilities = t.getJobCapabilities();
     tags = (t.getTags() == null) ? EMPTY_STR_ARRAY : t.getTags().clone();
     notes = t.getNotes();
+    importRefId = t.getImportRefId();
   }
 
   // ************************************************************************
@@ -801,6 +806,9 @@ public final class TSystem
 
   public Object getNotes() { return notes; }
   public TSystem setNotes(Object n) { notes = n; return this; }
+
+  public String getImportRefId() { return importRefId; }
+  public TSystem setImportRefId(String s) { importRefId = s; return this; }
 
   public UUID getUuid() { return uuid; }
   public TSystem setUuid(UUID u) { uuid = u; return this; }

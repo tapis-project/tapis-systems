@@ -50,6 +50,7 @@
     },
     "tags": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/tagsDefinition" },
     "notes": { "type": "object" },
+    "importRefId": { "type":  "string" },
     "tenant": { "type":  "string" },
     "uuid": { "type":  "string" },
     "deleted": { "type":  "boolean" },

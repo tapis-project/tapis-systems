@@ -2459,6 +2459,7 @@ public class SystemsServiceImpl implements SystemsService
     if (p.getJobCapabilities() != null) p1.setJobCapabilities(p.getJobCapabilities());
     if (p.getTags() != null) p1.setTags(p.getTags());
     if (p.getNotes() != null) p1.setNotes(p.getNotes());
+    if (p.getImportRefId() != null) p1.setImportRefId(p.getImportRefId());
     return p1;
   }
 }

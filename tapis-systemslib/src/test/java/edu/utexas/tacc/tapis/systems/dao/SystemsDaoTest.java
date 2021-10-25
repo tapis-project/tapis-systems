@@ -275,7 +275,7 @@ public class SystemsDaoTest
             dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, isDtnFalse,
             canExecTrue, jobRuntimes1, "jobWorkDir", jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1,
             jobIsBatchTrue, batchScheduler1, logicalQueueList1, "batchDefaultLogicalQueue", batchSchedulerProfile1,
-            capList1, tags1, notes1, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            capList1, tags1, notes1, importRefIdNull, uuidNull, isDeletedFalse, createdNull, updatedNull);
     // Make sure system does not exist
     Assert.assertFalse(dao.checkForSystem(tenantName, fakeSystemName, true));
     Assert.assertFalse(dao.checkForSystem(tenantName, fakeSystemName, false));

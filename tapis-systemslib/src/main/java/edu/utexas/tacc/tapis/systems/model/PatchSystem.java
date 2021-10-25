@@ -40,6 +40,7 @@ public final class PatchSystem
   private final List<Capability> jobCapabilities;
   private final String[] tags;
   private Object notes;
+  private final String importRefId;
 
   // ************************************************************************
   // *********************** Constructors ***********************************
@@ -56,7 +57,7 @@ public final class PatchSystem
                      Integer jobMaxJobs1, Integer jobMaxJobsPerUser1, Boolean jobIsBatch1,
                      SchedulerType batchScheduler1, List<LogicalQueue> batchLogicalQueues1,
                      String batchDefaultLogicalQueue1, String batchSchedulerProfile1,
-                     List<Capability> jobCapabilities1, String[] tags1, Object notes1)
+                     List<Capability> jobCapabilities1, String[] tags1, Object notes1, String importRefId1)
   {
     description = description1;
     host = host1;
@@ -82,6 +83,7 @@ public final class PatchSystem
     jobCapabilities = (jobCapabilities1 == null) ? null : new ArrayList<>(jobCapabilities1);
     tags = (tags1 == null) ? null : tags1.clone();
     notes = notes1;
+    importRefId = importRefId1;
   }
 
   // ************************************************************************
@@ -143,8 +145,8 @@ public final class PatchSystem
     return (tags == null) ? null : tags.clone();
   }
 
-  public Object getNotes() {
-    return notes;
-  }
+  public Object getNotes() { return notes; }
   public void setNotes(Object o) { notes = o; }
+
+  public String getImportRefId() { return importRefId; }
 }
