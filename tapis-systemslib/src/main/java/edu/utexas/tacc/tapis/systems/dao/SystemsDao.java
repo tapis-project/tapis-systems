@@ -60,6 +60,8 @@ public interface SystemsDao
                            List<OrderBy> orderByList, int skip, String startAfter, boolean showDeleted)
           throws TapisException;
 
+  Set<String> getSystemIDs(String tenant, boolean showDeleted) throws TapisException;
+
   List<TSystem> getSystemsSatisfyingConstraints(String tenantId, ASTNode matchAST, Set<String> setOfIDs) throws TapisException;
 
   String getSystemOwner(String tenantId, String id) throws TapisException;

@@ -660,6 +660,31 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
+   * Hard delete all resources in the "test" tenant.
+   * Also remove artifacts from the Security Kernel.
+   * NOTE: This is package-private. Only test code should ever use it.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @return Number of items deleted
+   * @throws TapisException - for Tapis related exceptions
+   * @throws NotAuthorizedException - unauthorized
+   */
+  int hardDeleteAllTestTenantResources(ResourceRequestUser rUser)
+          throws TapisException, TapisClientException, NotAuthorizedException
+  {
+    // For safety hard code the tenant name
+    String resourceTenantId = "test";
+    // Fetch all resource Ids including deleted items
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    var resourceIdSet = dao.getSystemIDs(resourceTenantId, true);
+    for (String id : resourceIdSet)
+    {
+      hardDeleteSystem(rUser, resourceTenantId, id);
+    }
+    return resourceIdSet.size();
+  }
+
+  /**
    * checkForSystem
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - Name of the system

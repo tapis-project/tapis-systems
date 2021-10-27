@@ -912,6 +912,49 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   /**
+   * getSystemIDs
+   * Fetch all resource IDs in a tenant
+   * @param tenant - tenant name
+   * @param showDeleted - whether to included resources that have been marked as deleted.
+   * @return - List of app names
+   * @throws TapisException - on error
+   */
+  @Override
+  public Set<String> getSystemIDs(String tenant, boolean showDeleted) throws TapisException
+  {
+    // The result list is always non-null.
+    var idList = new HashSet<String>();
+
+    Condition whereCondition;
+    if (showDeleted) whereCondition = SYSTEMS.TENANT.eq(tenant);
+    else whereCondition = (SYSTEMS.TENANT.eq(tenant)).and(SYSTEMS.DELETED.eq(false));
+
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      // ------------------------- Call SQL ----------------------------
+      // Use jOOQ to build query string
+      DSLContext db = DSL.using(conn);
+      Result<?> result = db.select(SYSTEMS.ID).from(SYSTEMS).where(whereCondition).fetch();
+      // Iterate over result
+      for (Record r : result) { idList.add(r.get(SYSTEMS.ID)); }
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_QUERY_ERROR", "apps", e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return idList;
+  }
+
+  /**
    * getSystems
    * Retrieve all TSystems matching various search and sort criteria.
    *     Search conditions given as a list of strings or an abstract syntax tree (AST).
