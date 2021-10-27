@@ -74,7 +74,7 @@
       "name": { "type": "string", "minLength": 1, "maxLength": 128 },
       "datatype": { "$ref": "#/CapabilityDatatypeEnum" },
       "precedence": { "type": "integer" },
-      "value": { "type": "string", "maxLength": 128 }
+      "value": { "type": ["string", "null"], "maxLength": 128 }
     }
   },
   "Credential": {
