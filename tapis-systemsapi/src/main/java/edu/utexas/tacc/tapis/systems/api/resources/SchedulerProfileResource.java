@@ -21,8 +21,10 @@ import edu.utexas.tacc.tapis.systems.api.responses.RespSchedulerProfile;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
+import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.http.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,6 +80,9 @@ public class SchedulerProfileResource
 
   // Always return a nicely formatted response
   private static final boolean PRETTY = true;
+
+  // Default values
+  public static final String DEFAULT_OWNER = TSystem.APIUSERID_VAR;
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -159,10 +164,16 @@ public class SchedulerProfileResource
       return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
 
+
+    // If owner not provided default to apiUserId
+    String ownerId = req.owner;
+    if (StringUtils.isBlank(req.owner)) ownerId = DEFAULT_OWNER;
+
     // Create a scheduler profile from the request
     var schedProfile =
-            new SchedulerProfile(rUser.getOboTenantId(), req.name, req.description, req.owner, req.moduleLoadCommand,
+            new SchedulerProfile(rUser.getOboTenantId(), ownerId, req.description, req.owner, req.moduleLoadCommand,
                                  req.modulesToLoad, req.hiddenOptions, null, null, null);
+
 
     // ---------------------------- Make service call to create -------------------------------
     // Pull out name for convenience
