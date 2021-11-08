@@ -23,20 +23,15 @@ public final class SchedulerProfile
   // ************************************************************************
 
   // Attribute names, also used as field names in Json
-  public static final String TENANT_FIELD = "tenant";
-  public static final String NAME_FIELD = "id";
+  public static final String NAME_FIELD = "name";
   public static final String DESCRIPTION_FIELD = "description";
   public static final String OWNER_FIELD = "owner";
-  public static final String UUID_FIELD = "uuid";
-  public static final String CREATED_FIELD = "created";
-  public static final String UPDATED_FIELD = "updated";
 
   // ************************************************************************
   // *********************** Enums ******************************************
   // ************************************************************************
   public enum HiddenOption {MEM}
   public enum SchedulerProfileOperation {create, read, modify, delete, changeOwner}
-  public enum Permission {READ, MODIFY}
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -46,8 +41,8 @@ public final class SchedulerProfile
   private final String name;
   private final String description;
   private final String owner;
-  private String moduleLoadCommand;
-  private String[] modulesToLoad;
+  private final String moduleLoadCommand;
+  private final String[] modulesToLoad;
   private final List<HiddenOption> hiddenOptions;
   private UUID uuid;
   private final Instant created; // UTC time for when record was created
@@ -120,6 +115,22 @@ public final class SchedulerProfile
   // ************************************************************************
   // *********************** Public methods *********************************
   // ************************************************************************
+  /**
+   * Check constraints on attributes.
+   * Make checks that do not require a dao or service call.
+   * Check only internal consistency and restrictions.
+   *
+   * @return  list of error messages, empty list if no errors
+   */
+  public List<String> checkAttributeRestrictions()
+  {
+    var errMessages = new ArrayList<String>();
+    checkAttrRequired(errMessages);
+    checkAttrValidity(errMessages);
+    checkAttrStringLengths(errMessages);
+    return errMessages;
+  }
+
 
   // ************************************************************************
   // *********************** Private methods *********************************
@@ -131,10 +142,7 @@ public final class SchedulerProfile
    */
   private void checkAttrRequired(List<String> errMessages)
   {
-//    if (StringUtils.isBlank(name)) errMessages.add(LibUtils.getMsg(CREATE_MISSING_ATTR, ID_FIELD));
-//    if (hiddenOptions == null) errMessages.add(LibUtils.getMsg(CREATE_MISSING_ATTR, SYSTEM_TYPE_FIELD));
-//    if (StringUtils.isBlank(host)) errMessages.add(LibUtils.getMsg(CREATE_MISSING_ATTR, HOST_FIELD));
-//    if (defaultAuthnMethod == null) errMessages.add(LibUtils.getMsg(CREATE_MISSING_ATTR, DEFAULT_AUTHN_METHOD_FIELD));
+    if (StringUtils.isBlank(name)) errMessages.add(LibUtils.getMsg(TSystem.CREATE_MISSING_ATTR, NAME_FIELD));
   }
 
   /**
@@ -191,7 +199,5 @@ public final class SchedulerProfile
 
   public UUID getUuid() { return uuid; }
 
-//  public SchedulerProfile setOwner(String s) { owner = s;  return this;}
-//  public SchedulerProfile setDescription(String d) { description = d; return this; }
   public void setUuid(UUID u) { uuid = u; }
 }

@@ -15,6 +15,7 @@
   "AuthnMethodEnum": { "type": "string", "enum": ["PASSWORD","PKI_KEYS","ACCESS_KEY","CERT"] },
   "SchedulerTypeEnum": { "type": ["string", "null"], "enum": ["SLURM","CONDOR","PBS","SGE","UGE","TORQUE", null] },
   "SchedulerTypeEnumNotNull": { "type": "string", "enum": ["SLURM","CONDOR","PBS","SGE","UGE","TORQUE"] },
+  "SchedulerProfileName": { "type": ["string", "null"], "minLength": 1, "maxLength": 80 },
   "tagsDefinition": {
     "type": "array",
     "items": { "type":  "string", "minLength": 1, "maxLength": 128 }

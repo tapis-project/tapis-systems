@@ -1519,6 +1519,9 @@ public class SystemsServiceImpl implements SystemsService
     // Check authorization
     checkPrfAuth(rUser, op, schedulerProfile.getName(), schedulerProfile.getOwner());
 
+    // ---------------- Check constraints on TSystem attributes ------------------------
+    validateSchedulerProfile(rUser, schedulerProfile);
+
     // Construct Json string representing the resource about to be created
     String createJsonStr = TapisGsonUtils.getGson().toJson(schedulerProfile);
 
@@ -1721,19 +1724,30 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Check constraints on TSystem attributes.
+   * If batchSchedulerProfile is set verify that the profile exists.
    * If DTN is used verify that dtnSystemId exists with isDtn = true
    * Collect and report as many errors as possible so they can all be fixed before next attempt
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tSystem1 - the TSystem to check
    * @throws IllegalStateException - if any constraints are violated
    */
-  private void validateTSystem(ResourceRequestUser rUser, TSystem tSystem1) throws IllegalStateException
+  private void validateTSystem(ResourceRequestUser rUser, TSystem tSystem1) throws TapisException, IllegalStateException
   {
     String msg;
     // Make api level checks, i.e. checks that do not involve a dao or service call.
     List<String> errMessages = tSystem1.checkAttributeRestrictions();
 
     // Now make checks that do require a dao or service call.
+
+    // If batchSchedulerProfile is set verify that the profile exists.
+    if (!StringUtils.isBlank(tSystem1.getBatchSchedulerProfile()))
+    {
+      if (!dao.checkForSchedulerProfile(tSystem1.getTenant(), tSystem1.getBatchSchedulerProfile()))
+      {
+        msg = LibUtils.getMsg("SYSLIB_PRF_NO_PROFILE", tSystem1.getBatchSchedulerProfile());
+        errMessages.add(msg);
+      }
+    }
 
     // If DTN is used (i.e. dtnSystemId is set) verify that dtnSystemId exists with isDtn = true
     if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))
@@ -1766,6 +1780,32 @@ public class SystemsServiceImpl implements SystemsService
     {
       // Construct message reporting all errors
       String allErrors = getListOfErrors(rUser, tSystem1.getId(), errMessages);
+      _log.error(allErrors);
+      throw new IllegalStateException(allErrors);
+    }
+  }
+
+  /**
+   * Check constraints on SchedulerProfile attributes.
+   * Collect and report as many errors as possible so they can all be fixed before next attempt
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param profile1 - the profile to check
+   * @throws IllegalStateException - if any constraints are violated
+   */
+  private void validateSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile profile1) throws IllegalStateException
+  {
+    String msg;
+    // Make api level checks, i.e. checks that do not involve a dao or service call.
+    List<String> errMessages = profile1.checkAttributeRestrictions();
+
+    // Now make checks that do require a dao or service call.
+    // NOTE: Currently no such checks needed.
+
+    // If validation failed throw an exception
+    if (!errMessages.isEmpty())
+    {
+      // Construct message reporting all errors
+      String allErrors = getListOfErrors(rUser, profile1.getName(), errMessages);
       _log.error(allErrors);
       throw new IllegalStateException(allErrors);
     }

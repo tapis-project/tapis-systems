@@ -63,7 +63,7 @@ CREATE TABLE systems
   dtn_mount_source_path TEXT,
   is_dtn   BOOLEAN NOT NULL DEFAULT false,
   can_exec   BOOLEAN NOT NULL DEFAULT false,
-  job_runtimes JSONB NOT NULL,
+  job_runtimes JSONB,
   job_working_dir TEXT,
   job_env_variables JSONB NOT NULL,
   job_max_jobs INTEGER NOT NULL DEFAULT -1,

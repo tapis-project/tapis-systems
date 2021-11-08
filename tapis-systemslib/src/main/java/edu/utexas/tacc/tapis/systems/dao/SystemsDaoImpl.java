@@ -119,7 +119,7 @@ public class SystemsDaoImpl implements SystemsDao
     if (StringUtils.isNotBlank(system.getEffectiveUserId())) effectiveUserId = system.getEffectiveUserId();
     JsonElement jobEnvVariablesJson = TSystem.DEFAULT_JOBENV_VARIABLES;
     if (system.getJobEnvVariables() != null) jobEnvVariablesJson = TapisGsonUtils.getGson().toJsonTree(system.getJobEnvVariables());
-    JsonElement jobRuntimesJson = TSystem.DEFAULT_JOB_RUNTIMES;
+    JsonElement jobRuntimesJson = null;
     if (system.getJobRuntimes() != null) jobRuntimesJson = TapisGsonUtils.getGson().toJsonTree(system.getJobRuntimes());
     JsonElement batchLogicalQueuesJson = TSystem.DEFAULT_BATCH_LOGICAL_QUEUES;
     if (system.getBatchLogicalQueues() != null) batchLogicalQueuesJson = TapisGsonUtils.getGson().toJsonTree(system.getBatchLogicalQueues());
@@ -246,7 +246,7 @@ public class SystemsDaoImpl implements SystemsDao
     if (StringUtils.isNotBlank(putSystem.getEffectiveUserId())) effectiveUserId = putSystem.getEffectiveUserId();
     JsonElement jobEnvVariablesJson = TSystem.DEFAULT_JOBENV_VARIABLES;
     if (putSystem.getJobEnvVariables() != null) jobEnvVariablesJson = TapisGsonUtils.getGson().toJsonTree(putSystem.getJobEnvVariables());
-    JsonElement jobRuntimesJson = TSystem.DEFAULT_JOB_RUNTIMES;
+    JsonElement jobRuntimesJson = null;
     if (putSystem.getJobRuntimes() != null) jobRuntimesJson = TapisGsonUtils.getGson().toJsonTree(putSystem.getJobRuntimes());
     JsonElement batchLogicalQueuesJson = TSystem.DEFAULT_BATCH_LOGICAL_QUEUES;
     if (putSystem.getBatchLogicalQueues() != null) batchLogicalQueuesJson = TapisGsonUtils.getGson().toJsonTree(putSystem.getBatchLogicalQueues());
@@ -363,7 +363,7 @@ public class SystemsDaoImpl implements SystemsDao
     JsonElement jobEnvVariablesJson = TSystem.DEFAULT_JOBENV_VARIABLES;
     if (patchedSystem.getJobEnvVariables() != null) jobEnvVariablesJson = TapisGsonUtils.getGson().toJsonTree(patchedSystem.getJobEnvVariables());
 
-    JsonElement jobRuntimesJson = TSystem.DEFAULT_JOB_RUNTIMES;
+    JsonElement jobRuntimesJson = null;
     if (patchedSystem.getJobRuntimes() != null) jobRuntimesJson = TapisGsonUtils.getGson().toJsonTree(patchedSystem.getJobRuntimes());
     JsonElement batchLogicalQueuesJson = TSystem.DEFAULT_BATCH_LOGICAL_QUEUES;
     if (patchedSystem.getBatchLogicalQueues() != null) batchLogicalQueuesJson = TapisGsonUtils.getGson().toJsonTree(patchedSystem.getBatchLogicalQueues());
@@ -2273,7 +2273,11 @@ public class SystemsDaoImpl implements SystemsDao
 
     // Convert JSONB columns to native types
     JsonElement jobRuntimesJson = r.get(SYSTEMS.JOB_RUNTIMES);
-    List<JobRuntime> jobRuntimes = Arrays.asList(TapisGsonUtils.getGson().fromJson(jobRuntimesJson, JobRuntime[].class));
+    List<JobRuntime> jobRuntimes = null;
+    if (jobRuntimesJson != null && !jobRuntimesJson.isJsonNull())
+    {
+      jobRuntimes = Arrays.asList(TapisGsonUtils.getGson().fromJson(jobRuntimesJson, JobRuntime[].class));
+    }
     JsonElement jobEnvVariablesJson = r.get(SYSTEMS.JOB_ENV_VARIABLES);
     List<KeyValuePair> jobEnvVariables = Arrays.asList(TapisGsonUtils.getGson().fromJson(jobEnvVariablesJson, KeyValuePair[].class));
     JsonElement logicalQueuesJson = r.get(SYSTEMS.BATCH_LOGICAL_QUEUES);

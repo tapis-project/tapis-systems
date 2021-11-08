@@ -102,6 +102,7 @@ public final class IntegrationUtils
   public static final String batchSchedulerProfile1 = "schedProfile1";
   public static final String batchSchedulerProfile2 = "schedProfile2";
   public static final String batchSchedulerProfileNull = null;
+  public static final String noSuchSchedulerProfile = "noSuchSchedulerProfile";
   public static final KeyValuePair kv1 = new KeyValuePair("a","b");
   public static final KeyValuePair kv2 = new KeyValuePair("HOME","/home/testuser2");
   public static final KeyValuePair kv3 = new KeyValuePair("TMP","/tmp");

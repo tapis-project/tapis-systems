@@ -96,7 +96,6 @@ public final class TSystem
   public static final boolean DEFAULT_ENABLED = true;
   public static final String DEFAULT_EFFECTIVEUSERID = APIUSERID_VAR;
   public static final JsonElement DEFAULT_JOBENV_VARIABLES = TapisGsonUtils.getGson().fromJson("[]", JsonElement.class);
-  public static final JsonElement DEFAULT_JOB_RUNTIMES = TapisGsonUtils.getGson().fromJson("[]", JsonElement.class);
   public static final JsonElement DEFAULT_BATCH_LOGICAL_QUEUES = TapisGsonUtils.getGson().fromJson("[]", JsonElement.class);
   public static final JsonElement DEFAULT_JOB_CAPABILITIES = TapisGsonUtils.getGson().fromJson("[]", JsonElement.class);
   public static final JsonObject DEFAULT_NOTES = TapisGsonUtils.getGson().fromJson("{}", JsonObject.class);
@@ -255,7 +254,6 @@ public final class TSystem
   /**
    * Constructor for jOOQ with input parameter matching order of columns in DB
    * Also useful for testing
-   * Note that jobRuntimes, batchLogicalQueues and jobCapabilities must be set separately.
    */
   public TSystem(int seqId1, String tenant1, String id1, String description1, SystemType systemType1,
                  String owner1, String host1, boolean enabled1, String effectiveUserId1, AuthnMethod defaultAuthnMethod1,

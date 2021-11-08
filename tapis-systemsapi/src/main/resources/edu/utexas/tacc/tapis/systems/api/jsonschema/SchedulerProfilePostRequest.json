@@ -7,7 +7,7 @@
   "required": [ "name", "moduleLoadCommand" ],
   "additionalProperties": false,
   "properties": {
-    "name": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/SystemId" },
+    "name": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/SchedulerProfileName" },
     "description": { "type": ["string", "null"], "maxLength": 2048 },
     "owner": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/UserName" },
     "moduleLoadCommand": { "type": "string", "minLength": 1},

@@ -9,6 +9,7 @@ import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.IntegrationUtils;
+import edu.utexas.tacc.tapis.systems.client.gen.model.SchedulerHiddenOptionEnum;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDaoImpl;
@@ -127,6 +128,17 @@ public class SystemsServiceTest
     // Create DTN systems for other systems to reference. Otherwise some system definitions are not valid.
     svc.createSystem(rOwner1, dtnSystem1, skipCredCheckTrue, scrubbedJson);
     svc.createSystem(rOwner1, dtnSystem2, skipCredCheckTrue, scrubbedJson);
+
+    // Create a scheduler profile for systems to reference
+    System.out.println("Creating scheduler profile with name: " + batchSchedulerProfile1);
+    List<SchedulerProfile.HiddenOption> hiddenOptions = Arrays.asList(SchedulerProfile.HiddenOption.MEM);
+    SchedulerProfile sp = new SchedulerProfile(tenantName, batchSchedulerProfile1, "test profile1",  owner1, "module load1",
+                                               null, hiddenOptions, null, null, null);
+    svc.createSchedulerProfile(rOwner1, sp, scrubbedJson);
+    System.out.println("Creating scheduler profile with name: " + batchSchedulerProfile2);
+    sp = new SchedulerProfile(tenantName, batchSchedulerProfile2, "test profile2",  owner1, "module load2",
+                              null, hiddenOptions, null, null, null);
+    svc.createSchedulerProfile(rOwner1, sp, scrubbedJson);
   }
 
   @AfterSuite
@@ -157,6 +169,8 @@ public class SystemsServiceTest
     {
       svc.deleteSchedulerProfile(rTestUser2, schedulerProfiles[i].getName());
     }
+    svc.deleteSchedulerProfile(rOwner1, batchSchedulerProfile1);
+    svc.deleteSchedulerProfile(rOwner1, batchSchedulerProfile2);
 
     Assert.assertFalse(svc.checkForSystem(rAdminUser, systems[0].getId()),
             "System not deleted. System name: " + systems[0].getId());
@@ -704,6 +718,7 @@ public class SystemsServiceTest
   // - effectiveUserId is restricted.
   // - If effectiveUserId is dynamic then providing credentials is disallowed
   // - If credential is provided and contains ssh keys then validate them
+  // - SchedulerProfile must exist
   @Test
   public void testCreateInvalidMiscFail()
   {
@@ -755,6 +770,18 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     sys0.setRootDir(rootDir1);
+
+    // SchedulerProfile must exist.
+    pass = false;
+    sys0.setBatchSchedulerProfile(noSuchSchedulerProfile);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson); }
+    catch (Exception e)
+    {
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_PRF_NO_PROFILE"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setBatchSchedulerProfile(batchSchedulerProfile1);
   }
 
   // Test creating, reading and deleting user permissions for a system

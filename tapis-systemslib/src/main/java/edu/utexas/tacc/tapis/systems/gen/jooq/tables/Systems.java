@@ -165,7 +165,7 @@ public class Systems extends TableImpl<SystemsRecord> {
     /**
      * The column <code>tapis_sys.systems.job_runtimes</code>. Runtimes associated with system
      */
-    public final TableField<SystemsRecord, JsonElement> JOB_RUNTIMES = createField(DSL.name("job_runtimes"), SQLDataType.JSONB.nullable(false), this, "Runtimes associated with system", new JSONBToJsonElementBinding());
+    public final TableField<SystemsRecord, JsonElement> JOB_RUNTIMES = createField(DSL.name("job_runtimes"), SQLDataType.JSONB, this, "Runtimes associated with system", new JSONBToJsonElementBinding());
 
     /**
      * The column <code>tapis_sys.systems.job_working_dir</code>. Parent directory from which a job is run. Relative to effective root directory.
