@@ -72,12 +72,12 @@ public final class TSystem
   public static final String DTN_MOUNT_SOURCE_PATH_FIELD = "dtnMountSourcePath";
   public static final String IS_DTN_FIELD = "isDtn";
   public static final String CAN_EXEC_FIELD = "canExec";
+  public static final String CAN_RUN_BATCH_FIELD = "canRunBatch";
   public static final String JOB_RUNTIMES_FIELD = "jobRuntimes";
   public static final String JOB_WORKING_DIR_FIELD = "jobWorkingDir";
   public static final String JOB_ENV_VARIABLES_FIELD = "jobEnvVariables";
   public static final String JOB_MAX_JOBS_FIELD = "jobMaxJobs";
   public static final String JOB_MAX_JOBS_PER_USER_FIELD = "jobMaxJobsPerUser";
-  public static final String JOB_IS_BATCH_FIELD = "jobsIsBatch";
   public static final String BATCH_SCHEDULER_FIELD = "batchScheduler";
   public static final String BATCH_LOGICAL_QUEUES_FIELD = "batchLogicalQueues";
   public static final String BATCH_DEFAULT_LOGICAL_QUEUE_FIELD = "batchDefaultLogicalQueue";
@@ -164,12 +164,12 @@ public final class TSystem
   private String dtnMountSourcePath;
   private boolean isDtn;
   private final boolean canExec; // Indicates if system will be used to execute jobs
+  private boolean canRunBatch;
   private List<JobRuntime> jobRuntimes;
   private String jobWorkingDir; // Parent directory from which a job is run. Relative to effective root dir.
   private List<KeyValuePair> jobEnvVariables;
   private int jobMaxJobs;
   private int jobMaxJobsPerUser;
-  private boolean jobIsBatch;
   private SchedulerType batchScheduler;
   private List<LogicalQueue> batchLogicalQueues;
   private String batchDefaultLogicalQueue;
@@ -238,7 +238,7 @@ public final class TSystem
     jobEnvVariables = t.getJobEnvVariables();
     jobMaxJobs = t.getJobMaxJobs();
     jobMaxJobsPerUser = t.getJobMaxJobsPerUser();
-    jobIsBatch = t.getJobIsBatch();
+    canRunBatch = t.getCanRunBatch();
     batchScheduler = t.getBatchScheduler();
     batchLogicalQueues = t.getBatchLogicalQueues();
     batchDefaultLogicalQueue = t.getBatchDefaultLogicalQueue();
@@ -261,7 +261,7 @@ public final class TSystem
                  int port1, boolean useProxy1, String proxyHost1, int proxyPort1,
                  String dtnSystemId1, String dtnMountPoint1, String dtnMountSourcePath1, boolean isDtn1,
                  boolean canExec1, List<JobRuntime> jobRuntimes1, String jobWorkingDir1, List<KeyValuePair> jobEnvVariables1,
-                 int jobMaxJobs1, int jobMaxJobsPerUser1, boolean jobIsBatch1, SchedulerType batchScheduler1,
+                 int jobMaxJobs1, int jobMaxJobsPerUser1, boolean canRunBatch1, SchedulerType batchScheduler1,
                  List<LogicalQueue> batchLogicalQueues1, String batchDefaultLogicalQueue1,
                  String batchSchedulerProfile1, List<Capability> jobCapabilities1,
                  String[] tags1, Object notes1, String importRefId1, UUID uuid1, boolean deleted1,
@@ -293,7 +293,7 @@ public final class TSystem
     jobEnvVariables = jobEnvVariables1;
     jobMaxJobs = jobMaxJobs1;
     jobMaxJobsPerUser = jobMaxJobsPerUser1;
-    jobIsBatch = jobIsBatch1;
+    canRunBatch = canRunBatch1;
     batchScheduler = batchScheduler1;
     batchLogicalQueues = batchLogicalQueues1;
     batchDefaultLogicalQueue = batchDefaultLogicalQueue1;
@@ -346,7 +346,7 @@ public final class TSystem
     jobEnvVariables = t.getJobEnvVariables();
     jobMaxJobs = t.getJobMaxJobs();
     jobMaxJobsPerUser = t.getJobMaxJobsPerUser();
-    jobIsBatch = t.getJobIsBatch();
+    canRunBatch = t.getCanRunBatch();
     batchScheduler = t.getBatchScheduler();
     batchLogicalQueues = t.getBatchLogicalQueues();
     batchDefaultLogicalQueue = t.getBatchDefaultLogicalQueue();
@@ -370,8 +370,8 @@ public final class TSystem
     if (StringUtils.isBlank(getEffectiveUserId())) setEffectiveUserId(DEFAULT_EFFECTIVEUSERID);
     if (getTags() == null) setTags(EMPTY_STR_ARRAY);
     if (getNotes() == null) setNotes(DEFAULT_NOTES);
-    // If jobIsBatch and qlist has one value then set default q to that value
-    if (getJobIsBatch() && getBatchLogicalQueues() != null && getBatchLogicalQueues().size() == 1)
+    // If canRunBatch and qlist has one value then set default q to that value
+    if (getCanRunBatch() && getBatchLogicalQueues() != null && getBatchLogicalQueues().size() == 1)
     {
       setBatchDefaultLogicalQueue(getBatchLogicalQueues().get(0).getName());
     }
@@ -408,7 +408,7 @@ public final class TSystem
     checkAttrStringLengths(errMessages);
     if (canExec) checkAttrCanExec(errMessages);
     if (isDtn) checkAttrIsDtn(errMessages);
-    if (jobIsBatch) checkAttrJobIsBatch(errMessages);
+    if (canRunBatch) checkAttrCanRunBatch(errMessages);
     if (systemType == SystemType.S3) checkAttrS3(errMessages);
     checkAttrMisc(errMessages);
     return errMessages;
@@ -552,8 +552,8 @@ public final class TSystem
   }
 
   /**
-   * Check attributes related to jobIsBatch
-   * If jobIsBatch is true
+   * Check attributes related to canRunBatch
+   * If canRunBatch is true
    *   batchScheduler must be specified
    *   batchLogicalQueues must not be empty
    *   batchLogicalDefaultQueue must be set
@@ -561,7 +561,7 @@ public final class TSystem
    *   If batchLogicalQueues has more than one item then batchDefaultLogicalQueue must be set
    *   batchDefaultLogicalQueue must be in the list of logical queues.
    */
-  private void checkAttrJobIsBatch(List<String> errMessages)
+  private void checkAttrCanRunBatch(List<String> errMessages)
   {
     if (batchScheduler == null) errMessages.add(LibUtils.getMsg("SYSLIB_ISBATCH_NOSCHED"));
 
@@ -766,8 +766,8 @@ public final class TSystem
   public int getJobMaxJobsPerUser() { return jobMaxJobsPerUser; }
   public TSystem setJobMaxJobsPerUser(int i) { jobMaxJobsPerUser = i; return this; }
 
-  public boolean getJobIsBatch() { return jobIsBatch; }
-  public TSystem setJobIsBatch(boolean b) { jobIsBatch = b; return this; }
+  public boolean getCanRunBatch() { return canRunBatch; }
+  public TSystem setCanRunBatch(boolean b) { canRunBatch = b; return this; }
 
   public SchedulerType getBatchScheduler() { return batchScheduler; }
   public TSystem setBatchScheduler(SchedulerType s) { batchScheduler = s; return this; }

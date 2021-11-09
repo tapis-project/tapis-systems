@@ -163,6 +163,11 @@ public class Systems extends TableImpl<SystemsRecord> {
     public final TableField<SystemsRecord, Boolean> CAN_EXEC = createField(DSL.name("can_exec"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "Indicates if system can be used to execute jobs");
 
     /**
+     * The column <code>tapis_sys.systems.can_run_batch</code>. Flag indicating if system supports running jobs using a batch scheduler.
+     */
+    public final TableField<SystemsRecord, Boolean> CAN_RUN_BATCH = createField(DSL.name("can_run_batch"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "Flag indicating if system supports running jobs using a batch scheduler.");
+
+    /**
      * The column <code>tapis_sys.systems.job_runtimes</code>. Runtimes associated with system
      */
     public final TableField<SystemsRecord, JsonElement> JOB_RUNTIMES = createField(DSL.name("job_runtimes"), SQLDataType.JSONB, this, "Runtimes associated with system", new JSONBToJsonElementBinding());
@@ -186,11 +191,6 @@ public class Systems extends TableImpl<SystemsRecord> {
      * The column <code>tapis_sys.systems.job_max_jobs_per_user</code>. Maximum total number of jobs associated with a specific user that can be queued or running on the system at a given time.
      */
     public final TableField<SystemsRecord, Integer> JOB_MAX_JOBS_PER_USER = createField(DSL.name("job_max_jobs_per_user"), SQLDataType.INTEGER.nullable(false).defaultValue(DSL.field("'-1'::integer", SQLDataType.INTEGER)), this, "Maximum total number of jobs associated with a specific user that can be queued or running on the system at a given time.");
-
-    /**
-     * The column <code>tapis_sys.systems.job_is_batch</code>. Flag indicating if system uses a batch scheduler to run jobs.
-     */
-    public final TableField<SystemsRecord, Boolean> JOB_IS_BATCH = createField(DSL.name("job_is_batch"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "Flag indicating if system uses a batch scheduler to run jobs.");
 
     /**
      * The column <code>tapis_sys.systems.batch_scheduler</code>. Type of scheduler used when running batch jobs

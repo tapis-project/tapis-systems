@@ -120,7 +120,7 @@ public class SystemsDaoTest
 
     Assert.assertEquals(tmpSys.getJobMaxJobs(), sys0.getJobMaxJobs());
     Assert.assertEquals(tmpSys.getJobMaxJobsPerUser(), sys0.getJobMaxJobsPerUser());
-    Assert.assertEquals(tmpSys.getJobIsBatch(), sys0.getJobIsBatch());
+    Assert.assertEquals(tmpSys.getCanRunBatch(), sys0.getCanRunBatch());
     Assert.assertEquals(tmpSys.getBatchScheduler(), sys0.getBatchScheduler());
     Assert.assertEquals(tmpSys.getBatchDefaultLogicalQueue(), sys0.getBatchDefaultLogicalQueue());
     Assert.assertEquals(tmpSys.getBatchSchedulerProfile(), sys0.getBatchSchedulerProfile());
@@ -273,7 +273,7 @@ public class SystemsDaoTest
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, isDtnFalse,
             canExecTrue, jobRuntimes1, "jobWorkDir", jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1,
-            jobIsBatchTrue, batchScheduler1, logicalQueueList1, "batchDefaultLogicalQueue", batchSchedulerProfile1,
+            canRunBatchTrue, batchScheduler1, logicalQueueList1, "batchDefaultLogicalQueue", batchSchedulerProfile1,
             capList1, tags1, notes1, importRefIdNull, uuidNull, isDeletedFalse, createdNull, updatedNull);
     // Make sure system does not exist
     Assert.assertFalse(dao.checkForSystem(tenantName, fakeSystemName, true));

@@ -166,12 +166,12 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.DTN_MOUNT_POINT, system.getDtnMountPoint())
               .set(SYSTEMS.IS_DTN, system.isDtn())
               .set(SYSTEMS.CAN_EXEC, system.getCanExec())
+              .set(SYSTEMS.CAN_RUN_BATCH, system.getCanRunBatch())
               .set(SYSTEMS.JOB_RUNTIMES, jobRuntimesJson)
               .set(SYSTEMS.JOB_WORKING_DIR, system.getJobWorkingDir())
               .set(SYSTEMS.JOB_ENV_VARIABLES, jobEnvVariablesJson)
               .set(SYSTEMS.JOB_MAX_JOBS, system.getJobMaxJobs())
               .set(SYSTEMS.JOB_MAX_JOBS_PER_USER, system.getJobMaxJobsPerUser())
-              .set(SYSTEMS.JOB_IS_BATCH, system.getJobIsBatch())
               .set(SYSTEMS.BATCH_SCHEDULER, system.getBatchScheduler())
               .set(SYSTEMS.BATCH_LOGICAL_QUEUES, batchLogicalQueuesJson)
               .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, system.getBatchDefaultLogicalQueue())
@@ -220,7 +220,7 @@ public class SystemsDaoImpl implements SystemsDao
    * Following columns will be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
    *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
-   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, jobIsBatch,
+   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, canRunBatch,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * @throws TapisException - on error
    * @throws IllegalStateException - if system already exists
@@ -285,12 +285,12 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.DTN_SYSTEM_ID, putSystem.getDtnSystemId())
               .set(SYSTEMS.DTN_MOUNT_POINT, putSystem.getDtnMountPoint())
               .set(SYSTEMS.DTN_MOUNT_SOURCE_PATH, putSystem.getDtnMountSourcePath())
+              .set(SYSTEMS.CAN_RUN_BATCH, putSystem.getCanRunBatch())
               .set(SYSTEMS.JOB_RUNTIMES, jobRuntimesJson)
               .set(SYSTEMS.JOB_WORKING_DIR, putSystem.getJobWorkingDir())
               .set(SYSTEMS.JOB_ENV_VARIABLES, jobEnvVariablesJson)
               .set(SYSTEMS.JOB_MAX_JOBS, putSystem.getJobMaxJobs())
               .set(SYSTEMS.JOB_MAX_JOBS_PER_USER, putSystem.getJobMaxJobsPerUser())
-              .set(SYSTEMS.JOB_IS_BATCH, putSystem.getJobIsBatch())
               .set(SYSTEMS.BATCH_SCHEDULER, putSystem.getBatchScheduler())
               .set(SYSTEMS.BATCH_LOGICAL_QUEUES, batchLogicalQueuesJson)
               .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, putSystem.getBatchDefaultLogicalQueue())
@@ -336,7 +336,7 @@ public class SystemsDaoImpl implements SystemsDao
    * Following columns will be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
    *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
-   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, jobIsBatch,
+   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, canRunBatch,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * @throws TapisException - on error
    * @throws IllegalStateException - if system already exists
@@ -399,12 +399,12 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.DTN_SYSTEM_ID, patchedSystem.getDtnSystemId())
               .set(SYSTEMS.DTN_MOUNT_POINT, patchedSystem.getDtnMountPoint())
               .set(SYSTEMS.DTN_MOUNT_SOURCE_PATH, patchedSystem.getDtnMountSourcePath())
+              .set(SYSTEMS.CAN_RUN_BATCH, patchedSystem.getCanRunBatch())
               .set(SYSTEMS.JOB_RUNTIMES, jobRuntimesJson)
               .set(SYSTEMS.JOB_WORKING_DIR, patchedSystem.getJobWorkingDir())
               .set(SYSTEMS.JOB_ENV_VARIABLES, jobEnvVariablesJson)
               .set(SYSTEMS.JOB_MAX_JOBS, patchedSystem.getJobMaxJobs())
               .set(SYSTEMS.JOB_MAX_JOBS_PER_USER, patchedSystem.getJobMaxJobsPerUser())
-              .set(SYSTEMS.JOB_IS_BATCH, patchedSystem.getJobIsBatch())
               .set(SYSTEMS.BATCH_SCHEDULER, patchedSystem.getBatchScheduler())
               .set(SYSTEMS.BATCH_LOGICAL_QUEUES, batchLogicalQueuesJson)
               .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, patchedSystem.getBatchDefaultLogicalQueue())
@@ -2293,7 +2293,7 @@ public class SystemsDaoImpl implements SystemsDao
             r.get(SYSTEMS.DTN_SYSTEM_ID), r.get(SYSTEMS.DTN_MOUNT_POINT), r.get(SYSTEMS.DTN_MOUNT_SOURCE_PATH),
             r.get(SYSTEMS.IS_DTN), r.get(SYSTEMS.CAN_EXEC), jobRuntimes, r.get(SYSTEMS.JOB_WORKING_DIR),
             jobEnvVariables, r.get(SYSTEMS.JOB_MAX_JOBS), r.get(SYSTEMS.JOB_MAX_JOBS_PER_USER),
-            r.get(SYSTEMS.JOB_IS_BATCH), r.get(SYSTEMS.BATCH_SCHEDULER), logicalQueues,
+            r.get(SYSTEMS.CAN_RUN_BATCH), r.get(SYSTEMS.BATCH_SCHEDULER), logicalQueues,
             r.get(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE), r.get(SYSTEMS.BATCH_SCHEDULER_PROFILE), capabilities,
             r.get(SYSTEMS.TAGS), r.get(SYSTEMS.NOTES), r.get(SYSTEMS.IMPORT_REF_ID), r.get(SYSTEMS.UUID),
             r.get(SYSTEMS.DELETED), created, updated);

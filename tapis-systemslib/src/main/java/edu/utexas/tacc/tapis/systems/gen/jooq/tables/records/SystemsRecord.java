@@ -321,87 +321,87 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     }
 
     /**
+     * Setter for <code>tapis_sys.systems.can_run_batch</code>. Flag indicating if system supports running jobs using a batch scheduler.
+     */
+    public void setCanRunBatch(Boolean value) {
+        set(21, value);
+    }
+
+    /**
+     * Getter for <code>tapis_sys.systems.can_run_batch</code>. Flag indicating if system supports running jobs using a batch scheduler.
+     */
+    public Boolean getCanRunBatch() {
+        return (Boolean) get(21);
+    }
+
+    /**
      * Setter for <code>tapis_sys.systems.job_runtimes</code>. Runtimes associated with system
      */
     public void setJobRuntimes(JsonElement value) {
-        set(21, value);
+        set(22, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.job_runtimes</code>. Runtimes associated with system
      */
     public JsonElement getJobRuntimes() {
-        return (JsonElement) get(21);
+        return (JsonElement) get(22);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.job_working_dir</code>. Parent directory from which a job is run. Relative to effective root directory.
      */
     public void setJobWorkingDir(String value) {
-        set(22, value);
+        set(23, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.job_working_dir</code>. Parent directory from which a job is run. Relative to effective root directory.
      */
     public String getJobWorkingDir() {
-        return (String) get(22);
+        return (String) get(23);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.job_env_variables</code>. Environment variables added to shell environment
      */
     public void setJobEnvVariables(JsonElement value) {
-        set(23, value);
+        set(24, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.job_env_variables</code>. Environment variables added to shell environment
      */
     public JsonElement getJobEnvVariables() {
-        return (JsonElement) get(23);
+        return (JsonElement) get(24);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.job_max_jobs</code>. Maximum total number of jobs that can be queued or running on the system at a given time.
      */
     public void setJobMaxJobs(Integer value) {
-        set(24, value);
+        set(25, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.job_max_jobs</code>. Maximum total number of jobs that can be queued or running on the system at a given time.
      */
     public Integer getJobMaxJobs() {
-        return (Integer) get(24);
+        return (Integer) get(25);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.job_max_jobs_per_user</code>. Maximum total number of jobs associated with a specific user that can be queued or running on the system at a given time.
      */
     public void setJobMaxJobsPerUser(Integer value) {
-        set(25, value);
+        set(26, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.job_max_jobs_per_user</code>. Maximum total number of jobs associated with a specific user that can be queued or running on the system at a given time.
      */
     public Integer getJobMaxJobsPerUser() {
-        return (Integer) get(25);
-    }
-
-    /**
-     * Setter for <code>tapis_sys.systems.job_is_batch</code>. Flag indicating if system uses a batch scheduler to run jobs.
-     */
-    public void setJobIsBatch(Boolean value) {
-        set(26, value);
-    }
-
-    /**
-     * Getter for <code>tapis_sys.systems.job_is_batch</code>. Flag indicating if system uses a batch scheduler to run jobs.
-     */
-    public Boolean getJobIsBatch() {
-        return (Boolean) get(26);
+        return (Integer) get(26);
     }
 
     /**
@@ -595,7 +595,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     /**
      * Create a detached, initialised SystemsRecord
      */
-    public SystemsRecord(Integer seqId, String tenant, String id, String description, SystemType systemType, String owner, String host, Boolean enabled, String effectiveUserId, AuthnMethod defaultAuthnMethod, String bucketName, String rootDir, Integer port, Boolean useProxy, String proxyHost, Integer proxyPort, String dtnSystemId, String dtnMountPoint, String dtnMountSourcePath, Boolean isDtn, Boolean canExec, JsonElement jobRuntimes, String jobWorkingDir, JsonElement jobEnvVariables, Integer jobMaxJobs, Integer jobMaxJobsPerUser, Boolean jobIsBatch, SchedulerType batchScheduler, JsonElement batchLogicalQueues, String batchDefaultLogicalQueue, String batchSchedulerProfile, JsonElement jobCapabilities, String[] tags, JsonElement notes, String importRefId, UUID uuid, Boolean deleted, LocalDateTime created, LocalDateTime updated) {
+    public SystemsRecord(Integer seqId, String tenant, String id, String description, SystemType systemType, String owner, String host, Boolean enabled, String effectiveUserId, AuthnMethod defaultAuthnMethod, String bucketName, String rootDir, Integer port, Boolean useProxy, String proxyHost, Integer proxyPort, String dtnSystemId, String dtnMountPoint, String dtnMountSourcePath, Boolean isDtn, Boolean canExec, Boolean canRunBatch, JsonElement jobRuntimes, String jobWorkingDir, JsonElement jobEnvVariables, Integer jobMaxJobs, Integer jobMaxJobsPerUser, SchedulerType batchScheduler, JsonElement batchLogicalQueues, String batchDefaultLogicalQueue, String batchSchedulerProfile, JsonElement jobCapabilities, String[] tags, JsonElement notes, String importRefId, UUID uuid, Boolean deleted, LocalDateTime created, LocalDateTime updated) {
         super(Systems.SYSTEMS);
 
         setSeqId(seqId);
@@ -619,12 +619,12 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
         setDtnMountSourcePath(dtnMountSourcePath);
         setIsDtn(isDtn);
         setCanExec(canExec);
+        setCanRunBatch(canRunBatch);
         setJobRuntimes(jobRuntimes);
         setJobWorkingDir(jobWorkingDir);
         setJobEnvVariables(jobEnvVariables);
         setJobMaxJobs(jobMaxJobs);
         setJobMaxJobsPerUser(jobMaxJobsPerUser);
-        setJobIsBatch(jobIsBatch);
         setBatchScheduler(batchScheduler);
         setBatchLogicalQueues(batchLogicalQueues);
         setBatchDefaultLogicalQueue(batchDefaultLogicalQueue);

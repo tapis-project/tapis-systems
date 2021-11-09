@@ -9,7 +9,6 @@ import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.IntegrationUtils;
-import edu.utexas.tacc.tapis.systems.client.gen.model.SchedulerHiddenOptionEnum;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDaoImpl;
@@ -706,7 +705,7 @@ public class SystemsServiceTest
   // - If canExec is true then jobWorkingDir must be set and jobRuntimes must have at least one entry.
   // - If isDtn is true then canExec must be false and the following attributes may not be set:
   //       dtnSystemId, dtnMountSourcePath, dtnMountPoint, all job execution related attributes.
-  // - If jobIsBatch is true
+  // - If canRunBatch is true
   //     batchScheduler must be specified
   //     batchLogicalQueues must not be empty
   //     batchLogicalDefaultQueue must be set
@@ -746,7 +745,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     sys0.setJobRuntimes(jobRuntimes1);
 
-    // If jobIsBatch is true
+    // If canRunBatch is true
     //     batchScheduler must be specified
     pass = false;
     sys0.setBatchScheduler(null);
@@ -1017,7 +1016,7 @@ public class SystemsServiceTest
     PatchSystem patchSys = new PatchSystem("description PATCHED", "hostPATCHED", "effUserPATCHED",
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, jobRuntimes1, jobWorkingDir1, jobEnvVariables1, jobMaxJobs1,
-            jobMaxJobsPerUser1, jobIsBatchTrue, batchScheduler1, logicalQueueList1,
+            jobMaxJobsPerUser1, canRunBatchTrue, batchScheduler1, logicalQueueList1,
             batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2, importRefId2);
     // CREATE - Deny user not owner/admin, deny service
     boolean pass = false;
@@ -1446,7 +1445,7 @@ public class SystemsServiceTest
 
     Assert.assertEquals(tmpSys.getJobMaxJobs(), sys0.getJobMaxJobs());
     Assert.assertEquals(tmpSys.getJobMaxJobsPerUser(), sys0.getJobMaxJobsPerUser());
-    Assert.assertEquals(tmpSys.getJobIsBatch(), sys0.getJobIsBatch());
+    Assert.assertEquals(tmpSys.getCanRunBatch(), sys0.getCanRunBatch());
     Assert.assertEquals(tmpSys.getBatchScheduler(), sys0.getBatchScheduler());
     Assert.assertEquals(tmpSys.getBatchDefaultLogicalQueue(), sys0.getBatchDefaultLogicalQueue());
     Assert.assertEquals(tmpSys.getBatchSchedulerProfile(), sys0.getBatchSchedulerProfile());

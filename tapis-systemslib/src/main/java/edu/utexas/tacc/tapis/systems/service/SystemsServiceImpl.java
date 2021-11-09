@@ -297,7 +297,7 @@ public class SystemsServiceImpl implements SystemsService
    * Attributes that can be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
    *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
-   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUser, jobIsBatch,
+   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUser, canRunBatch,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * Attributes that cannot be updated:
    *   tenant, id, systemType, owner, authnCredential, bucketName, rootDir, canExec, isDtn
@@ -2486,7 +2486,7 @@ public class SystemsServiceImpl implements SystemsService
    * Attributes that can be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
    *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
-   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, jobIsBatch,
+   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, canRunBatch,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * The only attribute that can be reset to default is effectiveUserId. It is reset when
    *   a blank string is passed in.
@@ -2516,7 +2516,7 @@ public class SystemsServiceImpl implements SystemsService
     if (p.getJobEnvVariables() != null) p1.setJobEnvVariables(p.getJobEnvVariables());
     if (p.getJobMaxJobs() != null) p1.setJobMaxJobs(p.getJobMaxJobs());
     if (p.getJobMaxJobsPerUser() != null) p1.setJobMaxJobsPerUser(p.getJobMaxJobsPerUser());
-    if (p.getJobIsBatch() != null) p1.setJobIsBatch(p.getJobIsBatch());
+    if (p.getCanRunBatch() != null) p1.setCanRunBatch(p.getCanRunBatch());
     if (p.getBatchScheduler() != null) p1.setBatchScheduler(p.getBatchScheduler());
     if (p.getBatchLogicalQueues() != null) p1.setBatchLogicalQueues(p.getBatchLogicalQueues());
     if (p.getBatchDefaultLogicalQueue() != null) p1.setBatchDefaultLogicalQueue(p.getBatchDefaultLogicalQueue());
