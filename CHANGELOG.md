@@ -8,6 +8,25 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
+## 1.0.2 - 2021-11-12
+
+Incremental improvements and bug fixes.
+
+### Breaking Changes:
+- Initial release.
+
+### New features:
+- Rename jobIsBatch to canRunBatch.
+- Support for public builds from repository.
+- Set scheduler profile owner to apiUserId if owner not specified.
+- Source code cleanup and refactoring.
+- Add check for existence of scheduler profile
+
+### Bug fixes:
+- Allow null for imporRefId and Capability.value
+- Fix several bugs related to scheduler profiles.
+- Fix jobRuntimes PUT bug.
+
 ## 1.0.1 - 2021-10-20
 
 Incremental improvements.

@@ -42,7 +42,7 @@ public final class ReqPutSystem
   public List<KeyValuePair> jobEnvVariables;
   public int jobMaxJobs = DEFAULT_JOBMAXJOBS;
   public int jobMaxJobsPerUser = DEFAULT_JOBMAXJOBSPERUSER;
-  public boolean jobIsBatch;
+  public boolean canRunBatch;
   public SchedulerType batchScheduler;
   public List<LogicalQueue> batchLogicalQueues;
   public String batchDefaultLogicalQueue;

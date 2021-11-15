@@ -63,12 +63,12 @@ CREATE TABLE systems
   dtn_mount_source_path TEXT,
   is_dtn   BOOLEAN NOT NULL DEFAULT false,
   can_exec   BOOLEAN NOT NULL DEFAULT false,
-  job_runtimes JSONB NOT NULL,
+  can_run_batch BOOLEAN NOT NULL DEFAULT false,
+  job_runtimes JSONB,
   job_working_dir TEXT,
   job_env_variables JSONB NOT NULL,
   job_max_jobs INTEGER NOT NULL DEFAULT -1,
   job_max_jobs_per_user INTEGER NOT NULL DEFAULT -1,
-  job_is_batch BOOLEAN NOT NULL DEFAULT false,
   batch_scheduler TEXT,
   batch_logical_queues JSONB NOT NULL,
   batch_default_logical_queue TEXT,
@@ -113,7 +113,7 @@ COMMENT ON COLUMN systems.job_working_dir IS 'Parent directory from which a job 
 COMMENT ON COLUMN systems.job_env_variables IS 'Environment variables added to shell environment';
 COMMENT ON COLUMN systems.job_max_jobs IS 'Maximum total number of jobs that can be queued or running on the system at a given time.';
 COMMENT ON COLUMN systems.job_max_jobs_per_user IS 'Maximum total number of jobs associated with a specific user that can be queued or running on the system at a given time.';
-COMMENT ON COLUMN systems.job_is_batch IS 'Flag indicating if system uses a batch scheduler to run jobs.';
+COMMENT ON COLUMN systems.can_run_batch IS 'Flag indicating if system supports running jobs using a batch scheduler.';
 COMMENT ON COLUMN systems.batch_scheduler IS 'Type of scheduler used when running batch jobs';
 COMMENT ON COLUMN systems.batch_logical_queues IS 'Logical queues associated with system';
 COMMENT ON COLUMN systems.batch_default_logical_queue IS 'Default logical batch queue for the system';

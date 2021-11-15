@@ -119,7 +119,7 @@ public class SystemsDaoImpl implements SystemsDao
     if (StringUtils.isNotBlank(system.getEffectiveUserId())) effectiveUserId = system.getEffectiveUserId();
     JsonElement jobEnvVariablesJson = TSystem.DEFAULT_JOBENV_VARIABLES;
     if (system.getJobEnvVariables() != null) jobEnvVariablesJson = TapisGsonUtils.getGson().toJsonTree(system.getJobEnvVariables());
-    JsonElement jobRuntimesJson = TSystem.DEFAULT_JOB_RUNTIMES;
+    JsonElement jobRuntimesJson = null;
     if (system.getJobRuntimes() != null) jobRuntimesJson = TapisGsonUtils.getGson().toJsonTree(system.getJobRuntimes());
     JsonElement batchLogicalQueuesJson = TSystem.DEFAULT_BATCH_LOGICAL_QUEUES;
     if (system.getBatchLogicalQueues() != null) batchLogicalQueuesJson = TapisGsonUtils.getGson().toJsonTree(system.getBatchLogicalQueues());
@@ -166,12 +166,12 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.DTN_MOUNT_POINT, system.getDtnMountPoint())
               .set(SYSTEMS.IS_DTN, system.isDtn())
               .set(SYSTEMS.CAN_EXEC, system.getCanExec())
+              .set(SYSTEMS.CAN_RUN_BATCH, system.getCanRunBatch())
               .set(SYSTEMS.JOB_RUNTIMES, jobRuntimesJson)
               .set(SYSTEMS.JOB_WORKING_DIR, system.getJobWorkingDir())
               .set(SYSTEMS.JOB_ENV_VARIABLES, jobEnvVariablesJson)
               .set(SYSTEMS.JOB_MAX_JOBS, system.getJobMaxJobs())
               .set(SYSTEMS.JOB_MAX_JOBS_PER_USER, system.getJobMaxJobsPerUser())
-              .set(SYSTEMS.JOB_IS_BATCH, system.getJobIsBatch())
               .set(SYSTEMS.BATCH_SCHEDULER, system.getBatchScheduler())
               .set(SYSTEMS.BATCH_LOGICAL_QUEUES, batchLogicalQueuesJson)
               .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, system.getBatchDefaultLogicalQueue())
@@ -220,7 +220,7 @@ public class SystemsDaoImpl implements SystemsDao
    * Following columns will be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
    *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
-   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, jobIsBatch,
+   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, canRunBatch,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * @throws TapisException - on error
    * @throws IllegalStateException - if system already exists
@@ -246,7 +246,7 @@ public class SystemsDaoImpl implements SystemsDao
     if (StringUtils.isNotBlank(putSystem.getEffectiveUserId())) effectiveUserId = putSystem.getEffectiveUserId();
     JsonElement jobEnvVariablesJson = TSystem.DEFAULT_JOBENV_VARIABLES;
     if (putSystem.getJobEnvVariables() != null) jobEnvVariablesJson = TapisGsonUtils.getGson().toJsonTree(putSystem.getJobEnvVariables());
-    JsonElement jobRuntimesJson = TSystem.DEFAULT_JOB_RUNTIMES;
+    JsonElement jobRuntimesJson = null;
     if (putSystem.getJobRuntimes() != null) jobRuntimesJson = TapisGsonUtils.getGson().toJsonTree(putSystem.getJobRuntimes());
     JsonElement batchLogicalQueuesJson = TSystem.DEFAULT_BATCH_LOGICAL_QUEUES;
     if (putSystem.getBatchLogicalQueues() != null) batchLogicalQueuesJson = TapisGsonUtils.getGson().toJsonTree(putSystem.getBatchLogicalQueues());
@@ -285,12 +285,12 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.DTN_SYSTEM_ID, putSystem.getDtnSystemId())
               .set(SYSTEMS.DTN_MOUNT_POINT, putSystem.getDtnMountPoint())
               .set(SYSTEMS.DTN_MOUNT_SOURCE_PATH, putSystem.getDtnMountSourcePath())
+              .set(SYSTEMS.CAN_RUN_BATCH, putSystem.getCanRunBatch())
               .set(SYSTEMS.JOB_RUNTIMES, jobRuntimesJson)
               .set(SYSTEMS.JOB_WORKING_DIR, putSystem.getJobWorkingDir())
               .set(SYSTEMS.JOB_ENV_VARIABLES, jobEnvVariablesJson)
               .set(SYSTEMS.JOB_MAX_JOBS, putSystem.getJobMaxJobs())
               .set(SYSTEMS.JOB_MAX_JOBS_PER_USER, putSystem.getJobMaxJobsPerUser())
-              .set(SYSTEMS.JOB_IS_BATCH, putSystem.getJobIsBatch())
               .set(SYSTEMS.BATCH_SCHEDULER, putSystem.getBatchScheduler())
               .set(SYSTEMS.BATCH_LOGICAL_QUEUES, batchLogicalQueuesJson)
               .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, putSystem.getBatchDefaultLogicalQueue())
@@ -336,7 +336,7 @@ public class SystemsDaoImpl implements SystemsDao
    * Following columns will be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
    *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
-   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, jobIsBatch,
+   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, canRunBatch,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * @throws TapisException - on error
    * @throws IllegalStateException - if system already exists
@@ -363,7 +363,7 @@ public class SystemsDaoImpl implements SystemsDao
     JsonElement jobEnvVariablesJson = TSystem.DEFAULT_JOBENV_VARIABLES;
     if (patchedSystem.getJobEnvVariables() != null) jobEnvVariablesJson = TapisGsonUtils.getGson().toJsonTree(patchedSystem.getJobEnvVariables());
 
-    JsonElement jobRuntimesJson = TSystem.DEFAULT_JOB_RUNTIMES;
+    JsonElement jobRuntimesJson = null;
     if (patchedSystem.getJobRuntimes() != null) jobRuntimesJson = TapisGsonUtils.getGson().toJsonTree(patchedSystem.getJobRuntimes());
     JsonElement batchLogicalQueuesJson = TSystem.DEFAULT_BATCH_LOGICAL_QUEUES;
     if (patchedSystem.getBatchLogicalQueues() != null) batchLogicalQueuesJson = TapisGsonUtils.getGson().toJsonTree(patchedSystem.getBatchLogicalQueues());
@@ -399,12 +399,12 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.DTN_SYSTEM_ID, patchedSystem.getDtnSystemId())
               .set(SYSTEMS.DTN_MOUNT_POINT, patchedSystem.getDtnMountPoint())
               .set(SYSTEMS.DTN_MOUNT_SOURCE_PATH, patchedSystem.getDtnMountSourcePath())
+              .set(SYSTEMS.CAN_RUN_BATCH, patchedSystem.getCanRunBatch())
               .set(SYSTEMS.JOB_RUNTIMES, jobRuntimesJson)
               .set(SYSTEMS.JOB_WORKING_DIR, patchedSystem.getJobWorkingDir())
               .set(SYSTEMS.JOB_ENV_VARIABLES, jobEnvVariablesJson)
               .set(SYSTEMS.JOB_MAX_JOBS, patchedSystem.getJobMaxJobs())
               .set(SYSTEMS.JOB_MAX_JOBS_PER_USER, patchedSystem.getJobMaxJobsPerUser())
-              .set(SYSTEMS.JOB_IS_BATCH, patchedSystem.getJobIsBatch())
               .set(SYSTEMS.BATCH_SCHEDULER, patchedSystem.getBatchScheduler())
               .set(SYSTEMS.BATCH_LOGICAL_QUEUES, batchLogicalQueuesJson)
               .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, patchedSystem.getBatchDefaultLogicalQueue())
@@ -909,6 +909,49 @@ public class SystemsDaoImpl implements SystemsDao
       LibUtils.finalCloseDB(conn);
     }
     return count;
+  }
+
+  /**
+   * getSystemIDs
+   * Fetch all resource IDs in a tenant
+   * @param tenant - tenant name
+   * @param showDeleted - whether to included resources that have been marked as deleted.
+   * @return - List of app names
+   * @throws TapisException - on error
+   */
+  @Override
+  public Set<String> getSystemIDs(String tenant, boolean showDeleted) throws TapisException
+  {
+    // The result list is always non-null.
+    var idList = new HashSet<String>();
+
+    Condition whereCondition;
+    if (showDeleted) whereCondition = SYSTEMS.TENANT.eq(tenant);
+    else whereCondition = (SYSTEMS.TENANT.eq(tenant)).and(SYSTEMS.DELETED.eq(false));
+
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      // ------------------------- Call SQL ----------------------------
+      // Use jOOQ to build query string
+      DSLContext db = DSL.using(conn);
+      Result<?> result = db.select(SYSTEMS.ID).from(SYSTEMS).where(whereCondition).fetch();
+      // Iterate over result
+      for (Record r : result) { idList.add(r.get(SYSTEMS.ID)); }
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_QUERY_ERROR", "apps", e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return idList;
   }
 
   /**
@@ -2230,7 +2273,11 @@ public class SystemsDaoImpl implements SystemsDao
 
     // Convert JSONB columns to native types
     JsonElement jobRuntimesJson = r.get(SYSTEMS.JOB_RUNTIMES);
-    List<JobRuntime> jobRuntimes = Arrays.asList(TapisGsonUtils.getGson().fromJson(jobRuntimesJson, JobRuntime[].class));
+    List<JobRuntime> jobRuntimes = null;
+    if (jobRuntimesJson != null && !jobRuntimesJson.isJsonNull())
+    {
+      jobRuntimes = Arrays.asList(TapisGsonUtils.getGson().fromJson(jobRuntimesJson, JobRuntime[].class));
+    }
     JsonElement jobEnvVariablesJson = r.get(SYSTEMS.JOB_ENV_VARIABLES);
     List<KeyValuePair> jobEnvVariables = Arrays.asList(TapisGsonUtils.getGson().fromJson(jobEnvVariablesJson, KeyValuePair[].class));
     JsonElement logicalQueuesJson = r.get(SYSTEMS.BATCH_LOGICAL_QUEUES);
@@ -2246,7 +2293,7 @@ public class SystemsDaoImpl implements SystemsDao
             r.get(SYSTEMS.DTN_SYSTEM_ID), r.get(SYSTEMS.DTN_MOUNT_POINT), r.get(SYSTEMS.DTN_MOUNT_SOURCE_PATH),
             r.get(SYSTEMS.IS_DTN), r.get(SYSTEMS.CAN_EXEC), jobRuntimes, r.get(SYSTEMS.JOB_WORKING_DIR),
             jobEnvVariables, r.get(SYSTEMS.JOB_MAX_JOBS), r.get(SYSTEMS.JOB_MAX_JOBS_PER_USER),
-            r.get(SYSTEMS.JOB_IS_BATCH), r.get(SYSTEMS.BATCH_SCHEDULER), logicalQueues,
+            r.get(SYSTEMS.CAN_RUN_BATCH), r.get(SYSTEMS.BATCH_SCHEDULER), logicalQueues,
             r.get(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE), r.get(SYSTEMS.BATCH_SCHEDULER_PROFILE), capabilities,
             r.get(SYSTEMS.TAGS), r.get(SYSTEMS.NOTES), r.get(SYSTEMS.IMPORT_REF_ID), r.get(SYSTEMS.UUID),
             r.get(SYSTEMS.DELETED), created, updated);

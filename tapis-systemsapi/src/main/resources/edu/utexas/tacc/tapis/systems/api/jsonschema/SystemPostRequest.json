@@ -27,6 +27,7 @@
     "dtnMountSourcePath": { "type": ["string", "null"] },
     "isDtn": { "type": "boolean" },
     "canExec": { "type": "boolean" },
+    "canRunBatch": { "type": "boolean", "default": false },
     "jobRuntimes": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/JobRuntimeList" },
     "jobWorkingDir": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/DirPath" },
     "jobEnvVariables": {
@@ -35,7 +36,6 @@
     },
     "jobMaxJobs": { "type": "integer" },
     "jobMaxJobsPerUser": { "type": "integer" },
-    "jobIsBatch": { "type": "boolean" },
     "batchScheduler": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/SchedulerTypeEnum" },
     "batchLogicalQueues": {
       "type": "array",
@@ -43,7 +43,7 @@
       "items": {"$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/LogicalQueue" }
     },
     "batchDefaultLogicalQueue": { "type": ["string", "null"], "maxLength": 128 },
-    "batchSchedulerProfile": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/SystemId" },
+    "batchSchedulerProfile": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/SchedulerProfileName" },
     "jobCapabilities": {
       "type": "array",
       "items": {"$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/Capability" }

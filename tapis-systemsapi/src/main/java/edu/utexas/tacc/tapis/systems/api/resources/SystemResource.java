@@ -1144,13 +1144,10 @@ public class SystemResource
                        req.port, req.useProxy, req.proxyHost, req.proxyPort,
                        req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, req.isDtn,
                        req.canExec, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs,
-                       req.jobMaxJobsPerUser, req.jobIsBatch, req.batchScheduler, req.batchLogicalQueues,
+                       req.jobMaxJobsPerUser, req.canRunBatch, req.batchScheduler, req.batchLogicalQueues,
                        req.batchDefaultLogicalQueue, req.batchSchedulerProfile, req.jobCapabilities,
                        req.tags, notes, req.importRefId, null, false, null, null);
     tSystem.setAuthnCredential(req.authnCredential);
-    tSystem.setBatchLogicalQueues(req.batchLogicalQueues);
-    tSystem.setJobRuntimes(req.jobRuntimes);
-    tSystem.setJobCapabilities(req.jobCapabilities);
     return tSystem;
   }
 
@@ -1175,12 +1172,9 @@ public class SystemResource
             req.port, req.useProxy, req.proxyHost, req.proxyPort,
             req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, isDtn,
             canExec, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
-            req.jobIsBatch, req.batchScheduler, req.batchLogicalQueues, req.batchDefaultLogicalQueue,
+            req.canRunBatch, req.batchScheduler, req.batchLogicalQueues, req.batchDefaultLogicalQueue,
             req.batchSchedulerProfile, req.jobCapabilities, req.tags, notes, req.importRefId, null, false, null, null);
     tSystem.setAuthnCredential(req.authnCredential);
-    tSystem.setBatchLogicalQueues(req.batchLogicalQueues);
-    tSystem.setJobRuntimes(req.jobRuntimes);
-    tSystem.setJobCapabilities(req.jobCapabilities);
     return tSystem;
   }
 
@@ -1237,7 +1231,7 @@ public class SystemResource
     if (!errMessages.isEmpty())
     {
       // Construct message reporting all errors
-      String allErrors = getListOfErrors(errMessages, rUser, tSystem1.getId());
+      String allErrors = ApiUtils.getListOfErrors(errMessages, rUser, tSystem1.getId());
       _log.error(allErrors);
       return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(allErrors, PRETTY)).build();
     }
@@ -1293,17 +1287,6 @@ public class SystemResource
       credObj.remove(field);
       credObj.addProperty(field, SECRETS_MASK);
     }
-  }
-
-  /**
-   * Construct message containing list of errors
-   */
-  private static String getListOfErrors(List<String> msgList, ResourceRequestUser rUser, Object... parms) {
-    if (msgList == null || msgList.isEmpty()) return "";
-    var sb = new StringBuilder(ApiUtils.getMsgAuth("SYSAPI_CREATE_INVALID_ERRORLIST", rUser, parms));
-    sb.append(System.lineSeparator());
-    for (String msg : msgList) { sb.append("  ").append(msg).append(System.lineSeparator()); }
-    return sb.toString();
   }
 
   /**

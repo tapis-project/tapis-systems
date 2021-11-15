@@ -127,6 +127,17 @@ public class SystemsServiceTest
     // Create DTN systems for other systems to reference. Otherwise some system definitions are not valid.
     svc.createSystem(rOwner1, dtnSystem1, skipCredCheckTrue, scrubbedJson);
     svc.createSystem(rOwner1, dtnSystem2, skipCredCheckTrue, scrubbedJson);
+
+    // Create a scheduler profile for systems to reference
+    System.out.println("Creating scheduler profile with name: " + batchSchedulerProfile1);
+    List<SchedulerProfile.HiddenOption> hiddenOptions = Arrays.asList(SchedulerProfile.HiddenOption.MEM);
+    SchedulerProfile sp = new SchedulerProfile(tenantName, batchSchedulerProfile1, "test profile1",  owner1, "module load1",
+                                               null, hiddenOptions, null, null, null);
+    svc.createSchedulerProfile(rOwner1, sp, scrubbedJson);
+    System.out.println("Creating scheduler profile with name: " + batchSchedulerProfile2);
+    sp = new SchedulerProfile(tenantName, batchSchedulerProfile2, "test profile2",  owner1, "module load2",
+                              null, hiddenOptions, null, null, null);
+    svc.createSchedulerProfile(rOwner1, sp, scrubbedJson);
   }
 
   @AfterSuite
@@ -157,6 +168,8 @@ public class SystemsServiceTest
     {
       svc.deleteSchedulerProfile(rTestUser2, schedulerProfiles[i].getName());
     }
+    svc.deleteSchedulerProfile(rOwner1, batchSchedulerProfile1);
+    svc.deleteSchedulerProfile(rOwner1, batchSchedulerProfile2);
 
     Assert.assertFalse(svc.checkForSystem(rAdminUser, systems[0].getId()),
             "System not deleted. System name: " + systems[0].getId());
@@ -692,7 +705,7 @@ public class SystemsServiceTest
   // - If canExec is true then jobWorkingDir must be set and jobRuntimes must have at least one entry.
   // - If isDtn is true then canExec must be false and the following attributes may not be set:
   //       dtnSystemId, dtnMountSourcePath, dtnMountPoint, all job execution related attributes.
-  // - If jobIsBatch is true
+  // - If canRunBatch is true
   //     batchScheduler must be specified
   //     batchLogicalQueues must not be empty
   //     batchLogicalDefaultQueue must be set
@@ -704,6 +717,7 @@ public class SystemsServiceTest
   // - effectiveUserId is restricted.
   // - If effectiveUserId is dynamic then providing credentials is disallowed
   // - If credential is provided and contains ssh keys then validate them
+  // - SchedulerProfile must exist
   @Test
   public void testCreateInvalidMiscFail()
   {
@@ -731,7 +745,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     sys0.setJobRuntimes(jobRuntimes1);
 
-    // If jobIsBatch is true
+    // If canRunBatch is true
     //     batchScheduler must be specified
     pass = false;
     sys0.setBatchScheduler(null);
@@ -755,6 +769,18 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     sys0.setRootDir(rootDir1);
+
+    // SchedulerProfile must exist.
+    pass = false;
+    sys0.setBatchSchedulerProfile(noSuchSchedulerProfile);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson); }
+    catch (Exception e)
+    {
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_PRF_NO_PROFILE"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setBatchSchedulerProfile(batchSchedulerProfile1);
   }
 
   // Test creating, reading and deleting user permissions for a system
@@ -990,7 +1016,7 @@ public class SystemsServiceTest
     PatchSystem patchSys = new PatchSystem("description PATCHED", "hostPATCHED", "effUserPATCHED",
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, jobRuntimes1, jobWorkingDir1, jobEnvVariables1, jobMaxJobs1,
-            jobMaxJobsPerUser1, jobIsBatchTrue, batchScheduler1, logicalQueueList1,
+            jobMaxJobsPerUser1, canRunBatchTrue, batchScheduler1, logicalQueueList1,
             batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2, importRefId2);
     // CREATE - Deny user not owner/admin, deny service
     boolean pass = false;
@@ -1419,7 +1445,7 @@ public class SystemsServiceTest
 
     Assert.assertEquals(tmpSys.getJobMaxJobs(), sys0.getJobMaxJobs());
     Assert.assertEquals(tmpSys.getJobMaxJobsPerUser(), sys0.getJobMaxJobsPerUser());
-    Assert.assertEquals(tmpSys.getJobIsBatch(), sys0.getJobIsBatch());
+    Assert.assertEquals(tmpSys.getCanRunBatch(), sys0.getCanRunBatch());
     Assert.assertEquals(tmpSys.getBatchScheduler(), sys0.getBatchScheduler());
     Assert.assertEquals(tmpSys.getBatchDefaultLogicalQueue(), sys0.getBatchDefaultLogicalQueue());
     Assert.assertEquals(tmpSys.getBatchSchedulerProfile(), sys0.getBatchSchedulerProfile());

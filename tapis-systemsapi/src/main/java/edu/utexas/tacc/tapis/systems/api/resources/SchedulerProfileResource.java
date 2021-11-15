@@ -21,8 +21,10 @@ import edu.utexas.tacc.tapis.systems.api.responses.RespSchedulerProfile;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
+import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.http.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +45,7 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.SecurityContext;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /*
  * JAX-RS REST resource for a SchedulerProfile
@@ -78,6 +81,9 @@ public class SchedulerProfileResource
 
   // Always return a nicely formatted response
   private static final boolean PRETTY = true;
+
+  // Default values
+  public static final String DEFAULT_OWNER = TSystem.APIUSERID_VAR;
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -159,10 +165,17 @@ public class SchedulerProfileResource
       return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
 
+    // If owner not provided default to apiUserId
+    String ownerId = req.owner;
+    if (StringUtils.isBlank(req.owner)) ownerId = DEFAULT_OWNER;
+
     // Create a scheduler profile from the request
     var schedProfile =
-            new SchedulerProfile(rUser.getOboTenantId(), req.name, req.description, req.owner, req.moduleLoadCommand,
+            new SchedulerProfile(rUser.getOboTenantId(), req.name, req.description, ownerId, req.moduleLoadCommand,
                                  req.modulesToLoad, req.hiddenOptions, null, null, null);
+
+    resp = validateSchedulerProfile(schedProfile, rUser);
+    if (resp != null) return resp;
 
     // ---------------------------- Make service call to create -------------------------------
     // Pull out name for convenience
@@ -380,6 +393,30 @@ public class SchedulerProfileResource
   /* **************************************************************************** */
   /*                                Private Methods                               */
   /* **************************************************************************** */
+
+  /**
+   * Check restrictions on SchedulerProfile attributes
+   * Use SchedulerProfile method to check internal consistency of attributes.
+   * Collect and report as many errors as possible so they can all be fixed before next attempt
+   * NOTE: JsonSchema validation should handle some of these checks, but we check here again for robustness.
+   *
+   * @return null if OK or error Response
+   */
+  private Response validateSchedulerProfile(SchedulerProfile profile, ResourceRequestUser rUser)
+  {
+    // Make call for lib level validation
+    List<String> errMessages = profile.checkAttributeRestrictions();
+
+    // If validation failed log error message and return response
+    if (!errMessages.isEmpty())
+    {
+      // Construct message reporting all errors
+      String allErrors = ApiUtils.getListOfErrors(errMessages, rUser, profile.getName());
+      _log.error(allErrors);
+      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(allErrors, PRETTY)).build();
+    }
+    return null;
+  }
 
   /**
    * Create an OK response given message and base response to put in result

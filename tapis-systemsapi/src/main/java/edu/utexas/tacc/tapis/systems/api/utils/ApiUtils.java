@@ -220,6 +220,17 @@ public class ApiUtils
     _log.trace(msg);
   }
 
+  /**
+   * Construct message containing list of errors
+   */
+  public static String getListOfErrors(List<String> msgList, ResourceRequestUser rUser, Object... parms) {
+    if (msgList == null || msgList.isEmpty()) return "";
+    var sb = new StringBuilder(ApiUtils.getMsgAuth("SYSAPI_CREATE_INVALID_ERRORLIST", rUser, parms));
+    sb.append(System.lineSeparator());
+    for (String msg : msgList) { sb.append("  ").append(msg).append(System.lineSeparator()); }
+    return sb.toString();
+  }
+
 //  /**
 //   * Return String[] array of jobEnvVariables given list of KeyValuePair
 //   */

@@ -297,7 +297,7 @@ public class SystemsServiceImpl implements SystemsService
    * Attributes that can be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
    *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
-   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUser, jobIsBatch,
+   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUser, canRunBatch,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * Attributes that cannot be updated:
    *   tenant, id, systemType, owner, authnCredential, bucketName, rootDir, canExec, isDtn
@@ -657,6 +657,31 @@ public class SystemsServiceImpl implements SystemsService
 
     // Delete the system
     return dao.hardDeleteSystem(resourceTenantId, systemId);
+  }
+
+  /**
+   * Hard delete all resources in the "test" tenant.
+   * Also remove artifacts from the Security Kernel.
+   * NOTE: This is package-private. Only test code should ever use it.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @return Number of items deleted
+   * @throws TapisException - for Tapis related exceptions
+   * @throws NotAuthorizedException - unauthorized
+   */
+  int hardDeleteAllTestTenantResources(ResourceRequestUser rUser)
+          throws TapisException, TapisClientException, NotAuthorizedException
+  {
+    // For safety hard code the tenant name
+    String resourceTenantId = "test";
+    // Fetch all resource Ids including deleted items
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    var resourceIdSet = dao.getSystemIDs(resourceTenantId, true);
+    for (String id : resourceIdSet)
+    {
+      hardDeleteSystem(rUser, resourceTenantId, id);
+    }
+    return resourceIdSet.size();
   }
 
   /**
@@ -1494,6 +1519,9 @@ public class SystemsServiceImpl implements SystemsService
     // Check authorization
     checkPrfAuth(rUser, op, schedulerProfile.getName(), schedulerProfile.getOwner());
 
+    // ---------------- Check constraints on TSystem attributes ------------------------
+    validateSchedulerProfile(rUser, schedulerProfile);
+
     // Construct Json string representing the resource about to be created
     String createJsonStr = TapisGsonUtils.getGson().toJson(schedulerProfile);
 
@@ -1696,19 +1724,30 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Check constraints on TSystem attributes.
+   * If batchSchedulerProfile is set verify that the profile exists.
    * If DTN is used verify that dtnSystemId exists with isDtn = true
    * Collect and report as many errors as possible so they can all be fixed before next attempt
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tSystem1 - the TSystem to check
    * @throws IllegalStateException - if any constraints are violated
    */
-  private void validateTSystem(ResourceRequestUser rUser, TSystem tSystem1) throws IllegalStateException
+  private void validateTSystem(ResourceRequestUser rUser, TSystem tSystem1) throws TapisException, IllegalStateException
   {
     String msg;
     // Make api level checks, i.e. checks that do not involve a dao or service call.
     List<String> errMessages = tSystem1.checkAttributeRestrictions();
 
     // Now make checks that do require a dao or service call.
+
+    // If batchSchedulerProfile is set verify that the profile exists.
+    if (!StringUtils.isBlank(tSystem1.getBatchSchedulerProfile()))
+    {
+      if (!dao.checkForSchedulerProfile(tSystem1.getTenant(), tSystem1.getBatchSchedulerProfile()))
+      {
+        msg = LibUtils.getMsg("SYSLIB_PRF_NO_PROFILE", tSystem1.getBatchSchedulerProfile());
+        errMessages.add(msg);
+      }
+    }
 
     // If DTN is used (i.e. dtnSystemId is set) verify that dtnSystemId exists with isDtn = true
     if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))
@@ -1741,6 +1780,32 @@ public class SystemsServiceImpl implements SystemsService
     {
       // Construct message reporting all errors
       String allErrors = getListOfErrors(rUser, tSystem1.getId(), errMessages);
+      _log.error(allErrors);
+      throw new IllegalStateException(allErrors);
+    }
+  }
+
+  /**
+   * Check constraints on SchedulerProfile attributes.
+   * Collect and report as many errors as possible so they can all be fixed before next attempt
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param profile1 - the profile to check
+   * @throws IllegalStateException - if any constraints are violated
+   */
+  private void validateSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile profile1) throws IllegalStateException
+  {
+    String msg;
+    // Make api level checks, i.e. checks that do not involve a dao or service call.
+    List<String> errMessages = profile1.checkAttributeRestrictions();
+
+    // Now make checks that do require a dao or service call.
+    // NOTE: Currently no such checks needed.
+
+    // If validation failed throw an exception
+    if (!errMessages.isEmpty())
+    {
+      // Construct message reporting all errors
+      String allErrors = getListOfErrors(rUser, profile1.getName(), errMessages);
       _log.error(allErrors);
       throw new IllegalStateException(allErrors);
     }
@@ -2421,7 +2486,7 @@ public class SystemsServiceImpl implements SystemsService
    * Attributes that can be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
    *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
-   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, jobIsBatch,
+   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, canRunBatch,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * The only attribute that can be reset to default is effectiveUserId. It is reset when
    *   a blank string is passed in.
@@ -2451,7 +2516,7 @@ public class SystemsServiceImpl implements SystemsService
     if (p.getJobEnvVariables() != null) p1.setJobEnvVariables(p.getJobEnvVariables());
     if (p.getJobMaxJobs() != null) p1.setJobMaxJobs(p.getJobMaxJobs());
     if (p.getJobMaxJobsPerUser() != null) p1.setJobMaxJobsPerUser(p.getJobMaxJobsPerUser());
-    if (p.getJobIsBatch() != null) p1.setJobIsBatch(p.getJobIsBatch());
+    if (p.getCanRunBatch() != null) p1.setCanRunBatch(p.getCanRunBatch());
     if (p.getBatchScheduler() != null) p1.setBatchScheduler(p.getBatchScheduler());
     if (p.getBatchLogicalQueues() != null) p1.setBatchLogicalQueues(p.getBatchLogicalQueues());
     if (p.getBatchDefaultLogicalQueue() != null) p1.setBatchDefaultLogicalQueue(p.getBatchDefaultLogicalQueue());
