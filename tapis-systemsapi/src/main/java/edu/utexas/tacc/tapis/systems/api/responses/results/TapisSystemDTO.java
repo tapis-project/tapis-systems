@@ -84,12 +84,12 @@ public final class TapisSystemDTO
   public String dtnMountSourcePath;
   public boolean isDtn;
   public boolean canExec;
+  public boolean canRunBatch;
   public List<JobRuntime> jobRuntimes;
   public String jobWorkingDir;
   public List<KeyValuePair> jobEnvVariables;
   public int jobMaxJobs;
   public int jobMaxJobsPerUser;
-  public boolean canRunBatch;
   public TSystem.SchedulerType batchScheduler;
   public List<LogicalQueue> batchLogicalQueues;
   public String batchDefaultLogicalQueue;
@@ -127,12 +127,12 @@ public final class TapisSystemDTO
     dtnMountSourcePath = s.getDtnMountSourcePath();
     isDtn = s.isDtn();
     canExec = s.getCanExec();
+    canRunBatch = s.getCanRunBatch();
     jobRuntimes = s.getJobRuntimes();
     jobEnvVariables = s.getJobEnvVariables();
     jobWorkingDir = s.getJobWorkingDir();
     jobMaxJobs = s.getJobMaxJobs();
     jobMaxJobsPerUser = s.getJobMaxJobsPerUser();
-    canRunBatch = s.getCanRunBatch();
     batchScheduler = s.getBatchScheduler();
     batchLogicalQueues = s.getBatchLogicalQueues();
     batchDefaultLogicalQueue = s.getBatchDefaultLogicalQueue();

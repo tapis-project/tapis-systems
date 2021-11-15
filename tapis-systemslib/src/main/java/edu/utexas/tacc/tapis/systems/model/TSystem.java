@@ -233,12 +233,12 @@ public final class TSystem
     dtnSystemId = t.getDtnSystemId();
     dtnMountPoint = t.getDtnMountPoint();
     dtnMountSourcePath = t.dtnMountSourcePath;
+    canRunBatch = t.getCanRunBatch();
     jobRuntimes = t.getJobRuntimes();
     jobWorkingDir = t.getJobWorkingDir();
     jobEnvVariables = t.getJobEnvVariables();
     jobMaxJobs = t.getJobMaxJobs();
     jobMaxJobsPerUser = t.getJobMaxJobsPerUser();
-    canRunBatch = t.getCanRunBatch();
     batchScheduler = t.getBatchScheduler();
     batchLogicalQueues = t.getBatchLogicalQueues();
     batchDefaultLogicalQueue = t.getBatchDefaultLogicalQueue();
@@ -741,6 +741,9 @@ public final class TSystem
 
   public boolean getCanExec() { return canExec; }
 
+  public boolean getCanRunBatch() { return canRunBatch; }
+  public TSystem setCanRunBatch(boolean b) { canRunBatch = b; return this; }
+
   public List<JobRuntime> getJobRuntimes() {
     return (jobRuntimes == null) ? null : new ArrayList<>(jobRuntimes);
   }
@@ -765,9 +768,6 @@ public final class TSystem
 
   public int getJobMaxJobsPerUser() { return jobMaxJobsPerUser; }
   public TSystem setJobMaxJobsPerUser(int i) { jobMaxJobsPerUser = i; return this; }
-
-  public boolean getCanRunBatch() { return canRunBatch; }
-  public TSystem setCanRunBatch(boolean b) { canRunBatch = b; return this; }
 
   public SchedulerType getBatchScheduler() { return batchScheduler; }
   public TSystem setBatchScheduler(SchedulerType s) { batchScheduler = s; return this; }
