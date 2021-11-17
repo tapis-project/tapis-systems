@@ -1516,6 +1516,12 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_PRF_EXISTS", rUser, resourceId));
     }
 
+    // ----------------- Resolve variables for any attributes that might contain them --------------------
+    // For schedulerProfile this is only the owner which may be set to $apiUserId
+    // Resolve owner if necessary. If empty or "${apiUserId}" then fill in with apiUser.
+    String owner = schedulerProfile.getOwner();
+    if (StringUtils.isBlank(owner) || owner.equalsIgnoreCase(APIUSERID_VAR)) schedulerProfile.setOwner(rUser.getOboUserId());
+
     // Check authorization
     checkPrfAuth(rUser, op, schedulerProfile.getName(), schedulerProfile.getOwner());
 

@@ -12,9 +12,6 @@ https://tapis-project.github.io/live-docs
 
 Incremental improvements and bug fixes.
 
-### Breaking Changes:
-- Initial release.
-
 ### New features:
 - Rename jobIsBatch to canRunBatch.
 - Support for public builds from repository.
@@ -30,9 +27,6 @@ Incremental improvements and bug fixes.
 ## 1.0.1 - 2021-10-20
 
 Incremental improvements.
-
-### Breaking Changes:
-- Initial release.
 
 ### New features:
  - Add importRefId attribute.
