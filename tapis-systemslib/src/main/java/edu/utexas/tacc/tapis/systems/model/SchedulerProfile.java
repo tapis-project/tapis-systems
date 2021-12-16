@@ -40,7 +40,7 @@ public final class SchedulerProfile
   private final String tenant;   // Name of the tenant
   private final String name;
   private final String description;
-  private final String owner;
+  private String owner;
   private final String moduleLoadCommand;
   private final String[] modulesToLoad;
   private final List<HiddenOption> hiddenOptions;
@@ -193,6 +193,7 @@ public final class SchedulerProfile
   public String getName() { return name; }
   public String getDescription() { return description; }
   public String getOwner() { return owner; }
+  public void setOwner(String o) { owner = o; };
   public String getModuleLoadCommand() { return moduleLoadCommand; }
   public String[] getModulesToLoad() { return (modulesToLoad == null) ? null : modulesToLoad.clone(); }
   public List<HiddenOption> getHiddenOptions() { return (hiddenOptions == null) ? null : new ArrayList<>(hiddenOptions); }

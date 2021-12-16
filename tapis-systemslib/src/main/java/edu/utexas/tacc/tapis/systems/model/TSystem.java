@@ -73,6 +73,7 @@ public final class TSystem
   public static final String IS_DTN_FIELD = "isDtn";
   public static final String CAN_EXEC_FIELD = "canExec";
   public static final String CAN_RUN_BATCH_FIELD = "canRunBatch";
+  public static final String MPI_CMD_FIELD = "mpiCmd";
   public static final String JOB_RUNTIMES_FIELD = "jobRuntimes";
   public static final String JOB_WORKING_DIR_FIELD = "jobWorkingDir";
   public static final String JOB_ENV_VARIABLES_FIELD = "jobEnvVariables";
@@ -165,6 +166,7 @@ public final class TSystem
   private boolean isDtn;
   private final boolean canExec; // Indicates if system will be used to execute jobs
   private boolean canRunBatch;
+  private String mpiCmd;
   private List<JobRuntime> jobRuntimes;
   private String jobWorkingDir; // Parent directory from which a job is run. Relative to effective root dir.
   private List<KeyValuePair> jobEnvVariables;
@@ -233,12 +235,13 @@ public final class TSystem
     dtnSystemId = t.getDtnSystemId();
     dtnMountPoint = t.getDtnMountPoint();
     dtnMountSourcePath = t.dtnMountSourcePath;
+    canRunBatch = t.getCanRunBatch();
+    mpiCmd = t.getMpiCmd();
     jobRuntimes = t.getJobRuntimes();
     jobWorkingDir = t.getJobWorkingDir();
     jobEnvVariables = t.getJobEnvVariables();
     jobMaxJobs = t.getJobMaxJobs();
     jobMaxJobsPerUser = t.getJobMaxJobsPerUser();
-    canRunBatch = t.getCanRunBatch();
     batchScheduler = t.getBatchScheduler();
     batchLogicalQueues = t.getBatchLogicalQueues();
     batchDefaultLogicalQueue = t.getBatchDefaultLogicalQueue();
@@ -261,7 +264,7 @@ public final class TSystem
                  int port1, boolean useProxy1, String proxyHost1, int proxyPort1,
                  String dtnSystemId1, String dtnMountPoint1, String dtnMountSourcePath1, boolean isDtn1,
                  boolean canExec1, List<JobRuntime> jobRuntimes1, String jobWorkingDir1, List<KeyValuePair> jobEnvVariables1,
-                 int jobMaxJobs1, int jobMaxJobsPerUser1, boolean canRunBatch1, SchedulerType batchScheduler1,
+                 int jobMaxJobs1, int jobMaxJobsPerUser1, boolean canRunBatch1, String mpiCmd1, SchedulerType batchScheduler1,
                  List<LogicalQueue> batchLogicalQueues1, String batchDefaultLogicalQueue1,
                  String batchSchedulerProfile1, List<Capability> jobCapabilities1,
                  String[] tags1, Object notes1, String importRefId1, UUID uuid1, boolean deleted1,
@@ -294,6 +297,7 @@ public final class TSystem
     jobMaxJobs = jobMaxJobs1;
     jobMaxJobsPerUser = jobMaxJobsPerUser1;
     canRunBatch = canRunBatch1;
+    mpiCmd = mpiCmd1;
     batchScheduler = batchScheduler1;
     batchLogicalQueues = batchLogicalQueues1;
     batchDefaultLogicalQueue = batchDefaultLogicalQueue1;
@@ -347,6 +351,7 @@ public final class TSystem
     jobMaxJobs = t.getJobMaxJobs();
     jobMaxJobsPerUser = t.getJobMaxJobsPerUser();
     canRunBatch = t.getCanRunBatch();
+    mpiCmd = t.getMpiCmd();
     batchScheduler = t.getBatchScheduler();
     batchLogicalQueues = t.getBatchLogicalQueues();
     batchDefaultLogicalQueue = t.getBatchDefaultLogicalQueue();
@@ -741,6 +746,12 @@ public final class TSystem
 
   public boolean getCanExec() { return canExec; }
 
+  public boolean getCanRunBatch() { return canRunBatch; }
+  public TSystem setCanRunBatch(boolean b) { canRunBatch = b; return this; }
+
+  public String getMpiCmd() { return mpiCmd; }
+  public TSystem setMpiCmd(String s) { mpiCmd = s; return this; }
+
   public List<JobRuntime> getJobRuntimes() {
     return (jobRuntimes == null) ? null : new ArrayList<>(jobRuntimes);
   }
@@ -765,9 +776,6 @@ public final class TSystem
 
   public int getJobMaxJobsPerUser() { return jobMaxJobsPerUser; }
   public TSystem setJobMaxJobsPerUser(int i) { jobMaxJobsPerUser = i; return this; }
-
-  public boolean getCanRunBatch() { return canRunBatch; }
-  public TSystem setCanRunBatch(boolean b) { canRunBatch = b; return this; }
 
   public SchedulerType getBatchScheduler() { return batchScheduler; }
   public TSystem setBatchScheduler(SchedulerType s) { batchScheduler = s; return this; }

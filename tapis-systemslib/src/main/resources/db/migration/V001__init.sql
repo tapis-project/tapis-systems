@@ -64,6 +64,7 @@ CREATE TABLE systems
   is_dtn   BOOLEAN NOT NULL DEFAULT false,
   can_exec   BOOLEAN NOT NULL DEFAULT false,
   can_run_batch BOOLEAN NOT NULL DEFAULT false,
+  mpi_cmd TEXT,
   job_runtimes JSONB,
   job_working_dir TEXT,
   job_env_variables JSONB NOT NULL,

@@ -313,6 +313,7 @@ public class SystemsServiceTest
     sys0.setDtnSystemId(sysNamePrefix+ testKey +dtnSystemId2);
     sys0.setDtnMountPoint(dtnMountPoint2);
     sys0.setDtnMountSourcePath(dtnMountSourcePath2);
+    sys0.setMpiCmd(mpiCmd2);
     sys0.setJobWorkingDir(jobWorkingDir2);
     sys0.setJobEnvVariables(jobEnvVariables2);
     sys0.setJobMaxJobs(jobMaxJobs2);
@@ -375,6 +376,7 @@ public class SystemsServiceTest
     sys0.setDtnSystemId(sysNamePrefix+ testKey +dtnSystemId2);
     sys0.setDtnMountPoint(dtnMountPoint2);
     sys0.setDtnMountSourcePath(dtnMountSourcePath2);
+    sys0.setMpiCmd(mpiCmd2);
     sys0.setJobWorkingDir(jobWorkingDir2);
     sys0.setJobEnvVariables(jobEnvVariables2);
     sys0.setJobMaxJobs(jobMaxJobs2);
@@ -412,6 +414,7 @@ public class SystemsServiceTest
     sys0.setDescription(description2);
     sys0.setDefaultAuthnMethod(prot2.getAuthnMethod());
     sys0.setDtnMountPoint(dtnMountPoint2);
+    sys0.setMpiCmd(mpiCmd2);
     sys0.setJobMaxJobsPerUser(jobMaxJobsPerUser2);
     sys0.setJobRuntimes(jobRuntimes2);
     // Check common system attributes:
@@ -1016,7 +1019,7 @@ public class SystemsServiceTest
     PatchSystem patchSys = new PatchSystem("description PATCHED", "hostPATCHED", "effUserPATCHED",
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, jobRuntimes1, jobWorkingDir1, jobEnvVariables1, jobMaxJobs1,
-            jobMaxJobsPerUser1, canRunBatchTrue, batchScheduler1, logicalQueueList1,
+            jobMaxJobsPerUser1, canRunBatchTrue, mpiCmd1, batchScheduler1, logicalQueueList1,
             batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2, importRefId2);
     // CREATE - Deny user not owner/admin, deny service
     boolean pass = false;
@@ -1446,6 +1449,7 @@ public class SystemsServiceTest
     Assert.assertEquals(tmpSys.getJobMaxJobs(), sys0.getJobMaxJobs());
     Assert.assertEquals(tmpSys.getJobMaxJobsPerUser(), sys0.getJobMaxJobsPerUser());
     Assert.assertEquals(tmpSys.getCanRunBatch(), sys0.getCanRunBatch());
+    Assert.assertEquals(tmpSys.getMpiCmd(), sys0.getMpiCmd());
     Assert.assertEquals(tmpSys.getBatchScheduler(), sys0.getBatchScheduler());
     Assert.assertEquals(tmpSys.getBatchDefaultLogicalQueue(), sys0.getBatchDefaultLogicalQueue());
     Assert.assertEquals(tmpSys.getBatchSchedulerProfile(), sys0.getBatchSchedulerProfile());

@@ -51,6 +51,7 @@ public final class ReqPostSystem
   public boolean isDtn;
   public boolean canExec;
   public boolean canRunBatch;
+  public String mpiCmd;
   public List<JobRuntime> jobRuntimes;
   public String jobWorkingDir;
   public List<KeyValuePair> jobEnvVariables;
