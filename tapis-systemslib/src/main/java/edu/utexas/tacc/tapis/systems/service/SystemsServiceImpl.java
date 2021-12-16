@@ -297,7 +297,7 @@ public class SystemsServiceImpl implements SystemsService
    * Attributes that can be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
    *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
-   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUser, canRunBatch,
+   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUser, canRunBatch, mpiCmd,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * Attributes that cannot be updated:
    *   tenant, id, systemType, owner, authnCredential, bucketName, rootDir, canExec, isDtn
@@ -820,7 +820,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param searchList - optional list of conditions used for searching
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param startAfter - where to start when sorting, e.g. orderBy=id(asc)&startAfter=101 (may not be used with skip)
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param showDeleted - whether to included resources that have been marked as deleted.
    * @return Count of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
@@ -2034,7 +2034,7 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * User based authorization check.
    * Can be used for OBOUser type checks.
-   * By default use tenant and user from rUser, allow for optional tenant or user.
+   * By default, use tenant and user from rUser, allow for optional tenant or user.
    * A check should be made for system existence before calling this method.
    * If no owner is passed in and one cannot be found then an error is logged and
    *   authorization is denied.
@@ -2492,7 +2492,7 @@ public class SystemsServiceImpl implements SystemsService
    * Attributes that can be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
    *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
-   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, canRunBatch,
+   *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, canRunBatch, mpiCmd,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * The only attribute that can be reset to default is effectiveUserId. It is reset when
    *   a blank string is passed in.
@@ -2523,6 +2523,7 @@ public class SystemsServiceImpl implements SystemsService
     if (p.getJobMaxJobs() != null) p1.setJobMaxJobs(p.getJobMaxJobs());
     if (p.getJobMaxJobsPerUser() != null) p1.setJobMaxJobsPerUser(p.getJobMaxJobsPerUser());
     if (p.getCanRunBatch() != null) p1.setCanRunBatch(p.getCanRunBatch());
+    if (p.getMpiCmd() != null) p1.setMpiCmd(p.getMpiCmd());
     if (p.getBatchScheduler() != null) p1.setBatchScheduler(p.getBatchScheduler());
     if (p.getBatchLogicalQueues() != null) p1.setBatchLogicalQueues(p.getBatchLogicalQueues());
     if (p.getBatchDefaultLogicalQueue() != null) p1.setBatchDefaultLogicalQueue(p.getBatchDefaultLogicalQueue());
