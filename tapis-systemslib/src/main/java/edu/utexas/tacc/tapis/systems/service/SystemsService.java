@@ -24,6 +24,8 @@ import java.util.Set;
 @Contract
 public interface SystemsService
 {
+  // ------------------------- Systems -------------------------------------
+  // -----------------------------------------------------------------------
   void createSystem(ResourceRequestUser rUser, TSystem system, boolean skipCredCheck, String scrubbedText)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException, IllegalArgumentException;
 
@@ -78,6 +80,8 @@ public interface SystemsService
   String getSystemOwner(ResourceRequestUser rUser, String systemId)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
+  // --------------------------- Permissions -------------------------------
+  // -----------------------------------------------------------------------
   void grantUserPermissions(ResourceRequestUser rUser, String systemId, String userName, Set<Permission> permissions, String updateText)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
@@ -87,6 +91,8 @@ public interface SystemsService
   Set<Permission> getUserPermissions(ResourceRequestUser rUser, String systemId, String userName)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
+  // ---------------------------- Credentials ------------------------------
+  // -----------------------------------------------------------------------
   void createUserCredential(ResourceRequestUser rUser, String systemId, String userName, Credential credential,
                             boolean skipCredCheck, String scrubbedText)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException;
@@ -97,6 +103,8 @@ public interface SystemsService
   Credential getUserCredential(ResourceRequestUser rUser, String systemId, String userName, AuthnMethod authnMethod)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
+  // ------------------- Scheduler Profiles---------------------------------
+  // -----------------------------------------------------------------------
   void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile schedulerProfile, String scrubbedText)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException, IllegalArgumentException;
 

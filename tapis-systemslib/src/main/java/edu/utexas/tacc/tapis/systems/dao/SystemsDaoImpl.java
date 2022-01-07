@@ -637,10 +637,6 @@ public class SystemsDaoImpl implements SystemsDao
     catch (Exception e)
     {
       result = e;
-      // Rollback always logs msg and throws exception.
-      // In this case of a simple check we ignore the exception, we just want the log msg
-      try { LibUtils.rollbackDB(conn, e,"DB_QUERY_ERROR", "systems"); }
-      catch (Exception e1) { _log.error(LibUtils.getMsg("SYSLIB_DB_ROLLBACK_ERROR", "checkDB"), e1); }
     }
     finally
     {
@@ -690,7 +686,7 @@ public class SystemsDaoImpl implements SystemsDao
     catch (Exception e)
     {
       // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "System", tenantId, id, e.getMessage());
+      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "System", tenantId, id, e.getMessage());
     }
     finally
     {
