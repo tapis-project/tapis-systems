@@ -199,7 +199,7 @@ public class SystemsServiceImpl implements SystemsService
     String effectiveUserId = system.getEffectiveUserId();
 
     // ----------------- Resolve variables for any attributes that might contain them --------------------
-    system.resolveVariables(rUser.getOboUserId());
+    system.resolveVariablesAtCreate(rUser.getOboUserId());
 
     // ------------------------- Check service level authorization -------------------------
     checkAuth(rUser, op, system.getId(), system.getOwner(), null, null);

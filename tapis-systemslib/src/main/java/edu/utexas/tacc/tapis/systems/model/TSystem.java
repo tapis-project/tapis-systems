@@ -384,7 +384,7 @@ public final class TSystem
   /**
    * Resolve variables for TSystem attributes
    */
-  public void resolveVariables(String apiUserId)
+  public void resolveVariablesAtCreate(String apiUserId)
   {
     // Resolve owner if necessary. If empty or "${apiUserId}" then fill in with apiUser.
     if (StringUtils.isBlank(owner) || owner.equalsIgnoreCase(APIUSERID_VAR)) setOwner(apiUserId);
