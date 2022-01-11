@@ -30,7 +30,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/* Tapis Systems general resource endpoints including healthcheck and readycheck
+/*
+ * Tapis Systems general resource endpoints including healthcheck and readycheck
+ *
+ * The healthcheck corresponds to a kubernetes liveness probe and readycheck to a readiness probe. Please see:
+ *   https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
  *
  *  NOTE: Switching to hand-crafted openapi located in repo openapi-systems, file SystemsAPI.yaml
  *        Could not fully automate generation of spec and annotations have some limits. E.g., how to mark a parameter
@@ -58,6 +62,7 @@ public class SystemsResource
   private static final CallSiteToggle checkTenantsOK = new CallSiteToggle();
   private static final CallSiteToggle checkJWTOK = new CallSiteToggle();
   private static final CallSiteToggle checkDBOK = new CallSiteToggle();
+//  private static final CallSiteToggle checkResourceOK = new CallSiteToggle();
 
   // **************** Inject Services using HK2 ****************
   @Inject
@@ -71,6 +76,7 @@ public class SystemsResource
 
   /**
    * Lightweight non-authenticated health check endpoint.
+   * This intended to serve as a kubernetes liveness probe
    * Note that no JWT is required on this call and no logging is done.
    * @return a success response if all is ok
    */
@@ -94,6 +100,7 @@ public class SystemsResource
 
   /**
    * Lightweight non-authenticated ready check endpoint.
+   * This intended to serve as a kubernetes readiness probe
    * Note that no JWT is required on this call and CallSiteToggle is used to limit logging.
    * Based on similar method in tapis-securityapi.../SecurityResource
    *
@@ -101,6 +108,7 @@ public class SystemsResource
    *    - retrieve tenants map
    *    - get a service JWT
    *    - connect to the DB and verify and that main service table exists
+   *    - Make a call to list resources. This should verify that the service JWT is valid.
    *
    * It is intended as the endpoint that monitoring applications can use to check
    * whether the application is ready to accept traffic.  In particular, kubernetes
@@ -191,6 +199,27 @@ public class SystemsResource
       if (checkDBOK.toggleOn()) _log.info(ApiUtils.getMsg("SYSAPI_READYCHECK_DB_ERRTOGGLE_CLEARED"));
     }
 
+//    // Check that we can access resources
+//    // This indicates the service JWT is valid.
+//    readyCheckException = checkResourceAccess();
+//    if (readyCheckException != null)
+//    {
+//      RespBasic r = new RespBasic("Readiness resource check failed. Check number: " + checkNum);
+//      String msg = MsgUtils.getMsg("TAPIS_NOT_READY", "Systems Service");
+//      // We failed so set the log limiter check.
+//      if (checkResourceOK.toggleOff())
+//      {
+//        _log.warn(msg, readyCheckException);
+//        _log.warn(ApiUtils.getMsg("SYSAPI_READYCHECK_RES_ERRTOGGLE_SET"));
+//      }
+//      return Response.status(Status.SERVICE_UNAVAILABLE).entity(TapisRestUtils.createErrorResponse(msg, false, r)).build();
+//    }
+//    else
+//    {
+//      // We succeeded so clear the log limiter check.
+//      if (checkResourceOK.toggleOn()) _log.info(ApiUtils.getMsg("SYSAPI_READYCHECK_RES_ERRTOGGLE_CLEARED"));
+//    }
+//
     // ---------------------------- Success -------------------------------
     // Create the response payload.
     RespBasic resp = new RespBasic("Ready check passed. Count: " + checkNum);
@@ -212,9 +241,19 @@ public class SystemsResource
   private Exception checkJWT()
   {
     Exception result = null;
-    try {
+    try
+    {
+      // Make sure we have one.
       String jwt = serviceContext.getServiceJWT().getAccessJWT(SystemsApplication.getSiteId());
-      if (StringUtils.isBlank(jwt)) result = new TapisClientException(LibUtils.getMsg("SYSLIB_CHECKJWT_EMPTY"));
+      if (StringUtils.isBlank(jwt))
+      {
+        result = new TapisClientException(LibUtils.getMsg("SYSLIB_CHECKJWT_EMPTY"));
+      }
+      // Make sure it has not expired
+      if (serviceContext.getServiceJWT().hasExpiredAccessJWT(SystemsApplication.getSiteId()))
+      {
+        result =  new TapisClientException(LibUtils.getMsg("SYSLIB_CHECKJWT_EXPIRED"));
+      }
     }
     catch (Exception e) { result = e; }
     return result;
