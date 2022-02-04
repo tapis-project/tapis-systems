@@ -17,7 +17,7 @@ Incremental improvements and bug fixes.
 - Update readyCheck to check for expired service JWT.
 
 ### Bug fixes:
-- Fix issue with credential check at create time. Check was not being done when effectiveUserId set to ${apiUserId} 
+- Fix issue with credential check at create/update time. Check was not being done when effectiveUserId set to ${apiUserId} 
 
 ---------------------------------------------------------------------------
 ## 1.1.0 - 2022-01-07
