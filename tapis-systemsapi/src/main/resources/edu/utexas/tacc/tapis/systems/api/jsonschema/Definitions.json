@@ -87,6 +87,8 @@
       "publicKey": { "type":  "string" },
       "accessKey": { "type":  "string" },
       "accessSecret": { "type":  "string" },
+      "accessToken": { "type":  "string" },
+      "refreshToken": { "type":  "string" },
       "certificate": { "type":  "string" }
     }
   },
