@@ -6,6 +6,8 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRE
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_TOKEN;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_REFRESH_TOKEN;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
@@ -1258,7 +1260,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @param userName - Target user for operation
-   * @param credential - list of permissions to be granted
+   * @param credential - credentials to be stored in SK
    * @param skipCredCheck - Indicates if cred check for LINUX systems should happen
    * @param updateText - Client provided text used to create the credential - secrets should be scrubbed. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
@@ -1291,7 +1293,6 @@ public class SystemsServiceImpl implements SystemsService
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2", rUser, systemId, userName);
       throw new IllegalArgumentException(msg);
     }
-
 
     // ---------------- Verify credentials ------------------------
     if (!skipCredCheck)
@@ -1452,6 +1453,7 @@ public class SystemsServiceImpl implements SystemsService
       if (authnMethod.equals(AuthnMethod.PASSWORD))sParms.setKeyType(KeyType.password);
       else if (authnMethod.equals(AuthnMethod.PKI_KEYS))sParms.setKeyType(KeyType.sshkey);
       else if (authnMethod.equals(AuthnMethod.ACCESS_KEY))sParms.setKeyType(KeyType.accesskey);
+      else if (authnMethod.equals(AuthnMethod.TOKEN))sParms.setKeyType(KeyType.token);
       else if (authnMethod.equals(AuthnMethod.CERT))sParms.setKeyType(KeyType.cert);
 
       // Retrieve the secrets
@@ -1467,6 +1469,8 @@ public class SystemsServiceImpl implements SystemsService
               dataMap.get(SK_KEY_PUBLIC_KEY),
               dataMap.get(SK_KEY_ACCESS_KEY),
               dataMap.get(SK_KEY_ACCESS_SECRET),
+              dataMap.get(SK_KEY_ACCESS_TOKEN),
+              dataMap.get(SK_KEY_REFRESH_TOKEN),
               null); //dataMap.get(CERT) TODO: get ssh certificate when supported
     }
     // If tapis client exception then log error but continue so null is returned.
@@ -2342,7 +2346,7 @@ public class SystemsServiceImpl implements SystemsService
    * Secrets for a system follow the format
    *   secret/tapis/tenant/tenant_id/system_id/user/user_id/key_type/S1
    * where tenant_id, system_id, user_id and key_type are filled in at runtime.
-   *   key_type is sshkey, password, accesskey or cert
+   *   key_type is sshkey, password, accesskey, token or cert
    *   and S1 is the reserved SecretName associated with the Systems.
    * Hence the following code
    *     new SKSecretWriteParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME)
@@ -2365,7 +2369,8 @@ public class SystemsServiceImpl implements SystemsService
     // Check for each secret type and write values if they are present
     // Note that multiple secrets may be present.
     // Store password if present
-    if (!StringUtils.isBlank(credential.getPassword())) {
+    if (!StringUtils.isBlank(credential.getPassword()))
+    {
       dataMap = new HashMap<>();
       sParms.setKeyType(KeyType.password);
       dataMap.put(SK_KEY_PASSWORD, credential.getPassword());
@@ -2375,7 +2380,8 @@ public class SystemsServiceImpl implements SystemsService
       skClient.writeSecret(rUser.getOboTenantId(), rUser.getOboUserId(), sParms);
     }
     // Store PKI keys if both present
-    if (!StringUtils.isBlank(credential.getPublicKey()) && !StringUtils.isBlank(credential.getPublicKey())) {
+    if (!StringUtils.isBlank(credential.getPublicKey()) && !StringUtils.isBlank(credential.getPublicKey()))
+    {
       dataMap = new HashMap<>();
       sParms.setKeyType(KeyType.sshkey);
       dataMap.put(SK_KEY_PUBLIC_KEY, credential.getPublicKey());
@@ -2384,11 +2390,24 @@ public class SystemsServiceImpl implements SystemsService
       skClient.writeSecret(rUser.getOboTenantId(), rUser.getOboUserId(), sParms);
     }
     // Store Access key and secret if both present
-    if (!StringUtils.isBlank(credential.getAccessKey()) && !StringUtils.isBlank(credential.getAccessSecret())) {
+    if (!StringUtils.isBlank(credential.getAccessKey()) && !StringUtils.isBlank(credential.getAccessSecret()))
+    {
       dataMap = new HashMap<>();
       sParms.setKeyType(KeyType.accesskey);
       dataMap.put(SK_KEY_ACCESS_KEY, credential.getAccessKey());
       dataMap.put(SK_KEY_ACCESS_SECRET, credential.getAccessSecret());
+      sParms.setData(dataMap);
+      skClient.writeSecret(rUser.getOboTenantId(), rUser.getOboUserId(), sParms);
+    }
+    // Store Access token and Refresh token if both present
+    if (!StringUtils.isBlank(credential.getAccessToken()) && !StringUtils.isBlank(credential.getRefreshToken()))
+    {
+      dataMap = new HashMap<>();
+      // TODO - update SK
+// TODO      sParms.setKeyType(KeyType.token);
+      sParms.setKeyType(KeyType.token);
+      dataMap.put(SK_KEY_ACCESS_TOKEN, credential.getAccessToken());
+      dataMap.put(SK_KEY_REFRESH_TOKEN, credential.getRefreshToken());
       sParms.setData(dataMap);
       skClient.writeSecret(rUser.getOboTenantId(), rUser.getOboUserId(), sParms);
     }
@@ -2421,6 +2440,9 @@ public class SystemsServiceImpl implements SystemsService
     sMetaParms.setKeyType(KeyType.accesskey);
     try { skClient.readSecretMeta(sMetaParms); secretNotFound = false; }
     catch (Exception e) { _log.trace(e.getMessage()); }
+    sMetaParms.setKeyType(KeyType.token);
+    try { skClient.readSecretMeta(sMetaParms); secretNotFound = false; }
+    catch (Exception e) { _log.trace(e.getMessage()); }
     if (secretNotFound) return 0;
 
     // Construct basic SK secret parameters and attempt to destroy each type of secret.
@@ -2432,6 +2454,9 @@ public class SystemsServiceImpl implements SystemsService
     try { skClient.destroySecretMeta(sMetaParms); }
     catch (Exception e) { _log.trace(e.getMessage()); }
     sMetaParms.setKeyType(KeyType.accesskey);
+    try { skClient.destroySecretMeta(sMetaParms); }
+    catch (Exception e) { _log.trace(e.getMessage()); }
+    sMetaParms.setKeyType(KeyType.token);
     try { skClient.destroySecretMeta(sMetaParms); }
     catch (Exception e) { _log.trace(e.getMessage()); }
     return 1;

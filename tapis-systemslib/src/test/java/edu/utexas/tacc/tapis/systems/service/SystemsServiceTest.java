@@ -230,7 +230,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[1];
     sys0.setJobCapabilities(capList1);
     Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-            "fakeAccessKey", "fakeAccessSecret", "fakeCert");
+            "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
     // Retrieve system as owner, without and with requireExecPerm
@@ -621,7 +621,7 @@ public class SystemsServiceTest
 
     // Create a system with credentials for owner and another user
     sys0 = systems[23];
-    Credential cred0 = new Credential(null, null, "fakePrivateKey", "fakePublicKey", null, null, null);
+    Credential cred0 = new Credential(null, null, "fakePrivateKey", "fakePublicKey", null, null, null, null, null);
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
 
@@ -851,10 +851,10 @@ public class SystemsServiceTest
     sys0.setEffectiveUserId("${apiUserId}");
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
     Credential cred1 = new Credential(null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
-            "fakeAccessKey1", "fakeAccessSecret1", "fakeCert1");
+            "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1", "fakeCert1");
     Credential cred3 = new Credential(null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
-            "fakeAccessKey3", "fakeAccessSecret3", "fakeCert3");
-    Credential cred3a = new Credential(null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null);
+            "fakeAccessKey3", "fakeAccessSecret3", "fakeAccessToken3", "fakeRefreshToken3", "fakeCert3");
+    Credential cred3a = new Credential(null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null, null, null);
 
     // Make the separate calls required to store credentials for each user.
     // In this case for owner1 and testUser3
@@ -992,7 +992,7 @@ public class SystemsServiceTest
 
     // Create credential with no system should throw an exception
     pass = false;
-    cred = new Credential(null, null, null, null, null,"fakeAccessKey2", "fakeAccessSecret2");
+    cred = new Credential(null, null, null, null, "fakeAccessKey2", "fakeAccessSecret2", null, null, null);
     try { svc.createUserCredential(rOwner1, fakeSystemName, fakeUserName, cred, skipCredCheckTrue, scrubbedJson); }
     catch (NotFoundException nfe)
     {
@@ -1041,7 +1041,7 @@ public class SystemsServiceTest
 
     // Create system for remaining auth access tests
     Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-            "fakeAccessKey", "fakeAccessSecret", "fakeCert");
+            "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
     // Grant testUesr3 - READ and testUser2 - MODIFY
@@ -1246,7 +1246,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[14];
     // Create system for remaining auth access tests
     Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-            "fakeAccessKey", "fakeAccessSecret", "fakeCert");
+            "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
     // Grant User1 - READ and User2 - MODIFY

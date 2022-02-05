@@ -73,6 +73,8 @@ public class CredentialResource
   public static final String PUBLIC_KEY_FIELD = "publicKey";
   public static final String ACCESS_KEY_FIELD = "accessKey";
   public static final String ACCESS_SECRET_FIELD = "accessSecret";
+  public static final String ACCESS_TOKEN_FIELD = "accessToken";
+  public static final String REFRESH_TOKEN_FIELD = "refreshToken";
   public static final String CERTIFICATE_FIELD = "certificate";
 
   // Always return a nicely formatted response
@@ -163,7 +165,7 @@ public class CredentialResource
     // Populate credential from payload
     ReqPostCredential req = TapisGsonUtils.getGson().fromJson(json, ReqPostCredential.class);
     Credential credential = new Credential(null, req.password, req.privateKey, req.publicKey, req.accessKey,
-                                           req.accessSecret, req.certificate);
+                                           req.accessSecret, req.accessToken, req.refreshToken, req.certificate);
 
     // If one of PKI keys is missing then reject
     resp = ApiUtils.checkSecrets(rUser, systemId, userName, PRETTY, AuthnMethod.PKI_KEYS.name(), PRIVATE_KEY_FIELD, PUBLIC_KEY_FIELD,
@@ -172,6 +174,10 @@ public class CredentialResource
     // If one of Access key or Access secret is missing then reject
     resp = ApiUtils.checkSecrets(rUser, systemId, userName, PRETTY, AuthnMethod.ACCESS_KEY.name(), ACCESS_KEY_FIELD, ACCESS_SECRET_FIELD,
                                  credential.getAccessKey(), credential.getAccessSecret());
+    if (resp != null) return resp;
+    // If one of Access token or Refresh token is missing then reject
+    resp = ApiUtils.checkSecrets(rUser, systemId, userName, PRETTY, AuthnMethod.TOKEN.name(), ACCESS_TOKEN_FIELD, REFRESH_TOKEN_FIELD,
+            credential.getAccessToken(), credential.getRefreshToken());
     if (resp != null) return resp;
 
     // If PKI private key is not compatible with Tapis then reject
