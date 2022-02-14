@@ -1,5 +1,5 @@
 -- Initial DB schema creation for Tapis Systems Service
--- postgres commands to create all tables, indices and other database artifacts required.
+-- postgres commands to create all tables, indices and other database artifacts.
 -- Prerequisites:
 -- Create DB named tapissysdb and user named tapis_sys
 --   CREATE DATABASE tapissysdb ENCODING='UTF8' LC_COLLATE='en_US.utf8' LC_CTYPE='en_US.utf8';

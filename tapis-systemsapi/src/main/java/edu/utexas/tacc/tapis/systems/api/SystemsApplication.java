@@ -1,7 +1,5 @@
 package edu.utexas.tacc.tapis.systems.api;
 
-import javax.ws.rs.ApplicationPath;
-
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
 import edu.utexas.tacc.tapis.shared.security.TenantManager;
@@ -19,6 +17,7 @@ import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
 import edu.utexas.tacc.tapis.systems.service.ServiceClientsFactory;
 import edu.utexas.tacc.tapis.systems.service.ServiceContextFactory;
 
+import org.apache.commons.lang3.StringUtils;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
 import org.glassfish.grizzly.http.server.HttpServer;
@@ -28,14 +27,13 @@ import org.glassfish.jersey.jackson.JacksonFeature;
 import org.glassfish.jersey.server.ApplicationHandler;
 import org.glassfish.jersey.server.ResourceConfig;
 
-import org.jooq.tools.StringUtils;
-
 import java.net.URI;
+import javax.ws.rs.ApplicationPath;
 
 /*
  * Main startup class for the web application. Uses Jersey and Grizzly frameworks.
  *   Performs setup for HK2 dependency injection.
- *   Registers packages and features for Jersey.
+ *   Register packages and features for Jersey.
  *   Gets runtime parameters from the environment.
  *   Initializes the service:
  *     Init service context.
