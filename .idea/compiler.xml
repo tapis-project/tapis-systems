@@ -11,9 +11,9 @@
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="tapis-systems" target="1.5" />
-      <module name="tapis-systemsapi" target="15" />
-      <module name="tapis-systemslib" target="15" />
+      <module name="tapis-systems" target="17" />
+      <module name="tapis-systemsapi" target="17" />
+      <module name="tapis-systemslib" target="17" />
     </bytecodeTargetLevel>
   </component>
 </project>
