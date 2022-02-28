@@ -62,6 +62,11 @@
       <artifactId>tenants-client</artifactId>
       <version>${tapis-client-java.version}</version>
     </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>globusproxy-client</artifactId>
+      <version>${tapis-client-java.version}</version>
+    </dependency>
     <!-- HTTP for client calls -->
     <dependency>
       <groupId>com.squareup.okhttp3</groupId>

@@ -1,18 +1,5 @@
 package edu.utexas.tacc.tapis.systems.service;
 
-import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_TOKEN;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_REFRESH_TOKEN;
-import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_VAR;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,12 +19,14 @@ import edu.utexas.tacc.tapis.shared.security.ServiceContext;
 import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
+import edu.utexas.tacc.tapis.systems.client.SystemsClient;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import org.apache.commons.lang3.StringUtils;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import edu.utexas.tacc.tapis.globusproxy.client.GlobusProxyClient;
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.search.parser.ASTParser;
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
@@ -60,6 +49,19 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+
+import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_TOKEN;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_REFRESH_TOKEN;
+import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_VAR;
 
 /*
  * Service level methods for Systems.
@@ -1070,7 +1072,7 @@ public class SystemsServiceImpl implements SystemsService
     SystemOperation op = SystemOperation.grantPerms;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_PERM", rUser));
 
     String resourceTenantId = rUser.getOboTenantId();
 
@@ -1156,7 +1158,7 @@ public class SystemsServiceImpl implements SystemsService
     SystemOperation op = SystemOperation.revokePerms;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_PERM", rUser));
 
     String resourceTenantId = rUser.getOboTenantId();
 
@@ -1231,14 +1233,13 @@ public class SystemsServiceImpl implements SystemsService
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
-  public Set<Permission> getUserPermissions(ResourceRequestUser rUser,
-                                            String systemId, String userName)
+  public Set<Permission> getUserPermissions(ResourceRequestUser rUser, String systemId, String userName)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
     SystemOperation op = SystemOperation.getPerms;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_PERM", rUser));
 
     // If system does not exist or has been deleted then return null
     if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false)) return null;
@@ -1276,7 +1277,7 @@ public class SystemsServiceImpl implements SystemsService
     // Check inputs. If anything null or empty throw an exception
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_CRED", rUser));
 
     String resourceTenantId = rUser.getOboTenantId();
 
@@ -1333,15 +1334,14 @@ public class SystemsServiceImpl implements SystemsService
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
-  public int deleteUserCredential(ResourceRequestUser rUser, String systemId,
-                                  String userName)
+  public int deleteUserCredential(ResourceRequestUser rUser, String systemId, String userName)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
     SystemOperation op = SystemOperation.removeCred;
     // Check inputs. If anything null or empty throw an exception
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_CRED", rUser));
 
     String resourceTenantId = rUser.getOboTenantId();
 
@@ -1396,7 +1396,7 @@ public class SystemsServiceImpl implements SystemsService
     SystemOperation op = SystemOperation.getCred;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUserId))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_CRED", rUser));
 
     String resourceTenantId = rUser.getOboTenantId();
 
@@ -1480,6 +1480,94 @@ public class SystemsServiceImpl implements SystemsService
     }
     return credential;
   }
+
+  /**
+   * Given a Globus clientId obtain a URL that can be used to obtain a Globus Native App Authorization Code.
+   * If clientId is null or empty then used default client configured for Tapis.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param clientId - Globus client
+   * @return URL to be used for obtaining a Globus Native App Authorization Code
+   * @throws TapisException - for Tapis related exceptions
+   */
+  @Override
+  public String getGlobusAuthUrl(ResourceRequestUser rUser, String clientId) throws TapisException, TapisClientException
+  {
+    SystemOperation op = SystemOperation.getGlobusAuthUrl;
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+
+    // If clientId not provided then use clientId configured for Tapis.
+    if (StringUtils.isBlank(clientId))
+    {
+      // TODO/TBD pick it up from application settings.
+// TODO      clientId = "";
+      // If no clientId provided and none configured then throw an exception
+      if (StringUtils.isBlank(clientId))
+        throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser));
+    }
+
+    // Call Tapis GlobusProxy service to get the URL
+    return getGlobusProxyClient(rUser).getAuthUrl(clientId);
+  }
+
+  /**
+   * Given a Tapis system, user and Globus auth code generate a pair of access
+   * and refresh tokens. Then same them to SK for the given user and system.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - Id of system
+   * @param userName - Target user for operation
+   * @param authCode - Globus Native App Authorization Code
+   * @throws TapisException - for Tapis related exceptions
+   */
+  @Override
+  public void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName, String authCode)
+          throws NotFoundException, TapisException, TapisClientException
+  {
+    SystemOperation op = SystemOperation.genGlobusTokens;
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName) || StringUtils.isBlank(authCode))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_GLOBUS_TOKENS", rUser));
+
+    String resourceTenantId = rUser.getOboTenantId();
+
+    // If system does not exist or has been deleted then throw an exception
+    if (!dao.checkForSystem(resourceTenantId, systemId, false))
+      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+
+    // ------------------------- Check service level authorization -------------------------
+    checkAuth(rUser, op, systemId, null, userName, null);
+
+    // TODO Call Tapis GlobuxProxy service to get tokens
+
+    // TODO Call SK to store tokens
+    // Create credential
+    // If this throws an exception we do not try to rollback. Attempting to track which secrets
+    //   have been changed and reverting seems fraught with peril and not a good ROI.
+// TODO/TBD: Since we know here we are only updating the tokens use a method other than createCredential()
+//       createCredential() updates all credentials, so to use it we would need to fetch existing credentials.
+//TODO    var skClient = getSKClient();
+//    try
+//    {
+//      createCredential(skClient, rUser, credential, systemId, userName);
+// TODO/TBD updateCredentialTokens(skClient, rUser, accessToken, refreshToken, systemId, userName);
+//    }
+//    // If tapis client exception then log error and convert to TapisException
+//    catch (TapisClientException tce)
+//    {
+//      _log.error(tce.toString());
+//      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
+//    }
+//
+//    // Construct Json string representing the update, with actual secrets masked out
+//    Credential maskedCredential = Credential.createMaskedCredential(credential);
+//    String updateJsonStr = TapisGsonUtils.getGson().toJson(maskedCredential);
+//
+//    // Create a record of the update
+//    dao.addUpdateRecord(rUser, resourceTenantId, systemId, op, updateJsonStr, updateText);
+  }
+
 
   // -----------------------------------------------------------------------
   // ------------------- Scheduler Profiles---------------------------------
@@ -2156,6 +2244,7 @@ public class SystemsServiceImpl implements SystemsService
         break;
       case setCred:
       case removeCred:
+      case genGlobusTokens:
         if (owner.equals(userName) || hasAdminRole(rUser, tenantName, userName) ||
                 (userName.equals(targetUser) && allowUserCredOp(rUser, systemId, op)))
           return;
@@ -2403,7 +2492,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!StringUtils.isBlank(credential.getAccessToken()) && !StringUtils.isBlank(credential.getRefreshToken()))
     {
       dataMap = new HashMap<>();
-      // TODO - update SK
+      // TODO - update SK? type is defined in client, but any updates needed for SK service?
 // TODO      sParms.setKeyType(KeyType.token);
       sParms.setKeyType(KeyType.token);
       dataMap.put(SK_KEY_ACCESS_TOKEN, credential.getAccessToken());
@@ -2587,4 +2676,40 @@ public class SystemsServiceImpl implements SystemsService
     if (p.getImportRefId() != null) p1.setImportRefId(p.getImportRefId());
     return p1;
   }
+
+  /**
+   * Get GlobusProxy client associated with specified tenant
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @return GlobusProxy client
+   * @throws TapisException - for Tapis related exceptions
+   */
+  private GlobusProxyClient getGlobusProxyClient(ResourceRequestUser rUser) throws TapisException
+  {
+    GlobusProxyClient globusProxyClient;
+    String tenantName;
+    String userName;
+    // If service request then use oboTenant and oboUser in OBO headers
+    // else for user request use authenticated username and tenant in OBO headers
+    if (rUser.isServiceRequest())
+    {
+      tenantName = rUser.getOboTenantId();
+      userName = rUser.getOboUserId();
+    }
+    else
+    {
+      tenantName = rUser.getJwtTenantId();
+      userName = rUser.getJwtUserId();
+    }
+    try
+    {
+      globusProxyClient = serviceClients.getClient(userName, tenantName, GlobusProxyClient.class);
+    }
+    catch (Exception e)
+    {
+      String msg = MsgUtils.getMsg("TAPIS_CLIENT_NOT_FOUND", TapisConstants.SERVICE_NAME_GLOBUSPROXY, tenantName, userName);
+      throw new TapisException(msg, e);
+    }
+    return globusProxyClient;
+  }
+
 }

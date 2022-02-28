@@ -16,6 +16,9 @@ Incremental improvements and bug fixes.
 ### New features:
 - Update readyCheck to check for expired service JWT.
 - Add accessToken, refreshToken to Credential for Globus support.
+- Add endpoints for Globus:
+  - GET  /v3/systems/credential/{systemId}/globus/authUrl
+  - POST /v3/systems/credential/{systemId}/globus/{authCode}/tokens/{userName}
 
 ### Bug fixes:
 - Fix issue with credential check at create/update time. Check was not being done when effectiveUserId set to ${apiUserId} 

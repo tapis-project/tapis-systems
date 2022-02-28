@@ -1,5 +1,7 @@
 package edu.utexas.tacc.tapis.systems.api.resources;
 
+import edu.utexas.tacc.tapis.sharedapi.responses.RespResourceUrl;
+import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultResourceUrl;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.http.server.Request;
@@ -138,7 +140,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, "createUserCredential");
+    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, opName);
     if (resp != null) return resp;
 
     // ------------------------- Extract and validate payload -------------------------
@@ -199,7 +201,7 @@ public class CredentialResource
     }
     catch (Exception e)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemId, userName, e.getMessage());
+      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemId, userName, opName, e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -242,7 +244,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, "getUserCredential");
+    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, opName);
     if (resp != null) return resp;
 
     // Check that authnMethodStr is valid if it is passed in
@@ -262,7 +264,7 @@ public class CredentialResource
     try { credential = systemsService.getUserCredential(rUser, systemId, userName, authnMethod); }
     catch (Exception e)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemId, userName, e.getMessage());
+      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemId, userName, opName, e.getMessage());
       _log.error(msg, e);
       return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -310,7 +312,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, "removeUserCredential");
+    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, opName);
     if (resp != null) return resp;
 
     // ------------------------- Perform the operation -------------------------
@@ -321,7 +323,7 @@ public class CredentialResource
     }
     catch (Exception e)
     {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemId, userName, e.getMessage());
+      String msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemId, userName, opName, e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -332,6 +334,121 @@ public class CredentialResource
       .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_CRED_DELETED", rUser, systemId,
                                                                        userName), PRETTY, resp1))
       .build();
+  }
+
+  /**
+   * getGlobusAuthUrl
+   * Retrieve a Globus URL that can be used to generate an oauth2 authorization code.
+   * In Globus this is referred to as a *Native App Authorization Code*.
+   * The host property of the system is used as the Endpoint Id.
+   * Accepts an optional *clientId*. By default a pre-configured *clientId* is used.
+   * Once a user has obtained an authorization code the corresponding Systems endpoint for generating Globus
+   *    tokens should be called to exchange the code for a pair of access and refresh tokens.
+   * @param clientId - authn method to use instead of default
+   * @return Response
+   */
+  @GET
+  @Path("/globus/authUrl")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getGlobusAuthUrl(@QueryParam("clientId") String clientId,
+                                   @Context SecurityContext securityContext)
+  {
+    String opName = "getGlobusAuthUrl";
+    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
+    // Check that we have all we need from the context, the tenant name and apiUserId
+    // Utility method returns null if all OK and appropriate error response if there was a problem.
+    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    if (resp != null) return resp;
+
+    // Create a user that collects together tenant, user and request information needed by the service call
+    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled())
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "clientId="+clientId);
+
+    // ------------------------- Perform the operation -------------------------
+    // Make the service call to get the globus auth url
+    String globusAuthUrl;
+    String msg;
+    try { globusAuthUrl = systemsService.getGlobusAuthUrl(rUser, clientId); }
+    catch (Exception e)
+    {
+      msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL_ERR", rUser, clientId, e.getMessage());
+      _log.error(msg, e);
+      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+    }
+
+    // Resource was not found.
+    if (StringUtils.isBlank(globusAuthUrl))
+    {
+      msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL_ERR", rUser, clientId, "Empty URL");
+      _log.warn(msg);
+      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+    }
+
+    // ---------------------------- Success -------------------------------
+    // Success means we retrieved the information.
+    ResultResourceUrl respUrl = new ResultResourceUrl();
+    respUrl.url = globusAuthUrl;
+    RespResourceUrl resp1 = new RespResourceUrl(respUrl);
+    msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL", rUser, clientId);
+    return Response.status(Status.OK).entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp1)).build();
+  }
+
+  /**
+   * Exchange a Globus auth code for tokens, store for given system and user.
+   * @return basic response
+   */
+  @POST
+  @Path("/{systemId}/user/{userName}/globus/tokens/{authCode}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response generateGlobusTokens(@PathParam("systemId") String systemId,
+                                       @PathParam("userName") String userName,
+                                       @PathParam("authCode") String authCode,
+                                       @Context SecurityContext securityContext)
+  {
+    String opName = "generateGlobusTokens";
+    // ------------------------- Retrieve and validate thread context -------------------------
+    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
+    // Check that we have all we need from the context, tenant name and apiUserId
+    // Utility method returns null if all OK and appropriate error response if there was a problem.
+    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    if (resp != null) return resp;
+
+    // Create a user that collects together tenant, user and request information needed by the service call
+    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled())
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,"userName="+userName);
+
+    // ------------------------- Check prerequisites -------------------------
+    // Check that the system exists
+    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, opName);
+    if (resp != null) return resp;
+
+    // ------------------------- Perform the operation -------------------------
+    // Make the service call to create or update the credential
+    try
+    {
+      systemsService.generateAndSaveGlobusTokens(rUser, systemId, userName, authCode);
+    }
+    catch (Exception e)
+    {
+      String msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemId, userName, opName, e.getMessage());
+      _log.error(msg, e);
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+    }
+
+    // ---------------------------- Success -------------------------------
+    RespBasic resp1 = new RespBasic();
+    return Response.status(Status.CREATED)
+            .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_CRED_UPDATED", rUser, systemId, userName),
+                    PRETTY, resp1))
+            .build();
   }
 
   // ************************************************************************
