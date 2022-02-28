@@ -1,7 +1,5 @@
 package edu.utexas.tacc.tapis.systems.api.resources;
 
-import edu.utexas.tacc.tapis.sharedapi.responses.RespResourceUrl;
-import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultResourceUrl;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.http.server.Request;
@@ -31,7 +29,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
-import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidator;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidatorSpec;
 import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
@@ -47,6 +44,8 @@ import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
+import edu.utexas.tacc.tapis.systems.api.responses.RespGlobusAuthUrl;
+import edu.utexas.tacc.tapis.systems.model.GlobusAuthUrl;
 
 /*
  * JAX-RS REST resource for Tapis System credentials
@@ -370,9 +369,12 @@ public class CredentialResource
 
     // ------------------------- Perform the operation -------------------------
     // Make the service call to get the globus auth url
-    String globusAuthUrl;
+    GlobusAuthUrl globusAuthUrl;
     String msg;
-    try { globusAuthUrl = systemsService.getGlobusAuthUrl(rUser, clientId); }
+    try
+    {
+      globusAuthUrl = systemsService.getGlobusAuthUrl(rUser, clientId);
+    }
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL_ERR", rUser, clientId, e.getMessage());
@@ -381,33 +383,36 @@ public class CredentialResource
     }
 
     // Resource was not found.
-    if (StringUtils.isBlank(globusAuthUrl))
+    String notFoundMsg = null;
+    if (globusAuthUrl == null) notFoundMsg = "Null response";
+    else if (StringUtils.isBlank(globusAuthUrl.getUrl())) notFoundMsg = "Empty URL";
+    else if (StringUtils.isBlank(globusAuthUrl.getSessionId())) notFoundMsg = "Empty SessionId";
+    if (notFoundMsg != null)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL_ERR", rUser, clientId, "Empty URL");
+      msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL_ERR", rUser, clientId, notFoundMsg);
       _log.warn(msg);
       return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
 
     // ---------------------------- Success -------------------------------
     // Success means we retrieved the information.
-    ResultResourceUrl respUrl = new ResultResourceUrl();
-    respUrl.url = globusAuthUrl;
-    RespResourceUrl resp1 = new RespResourceUrl(respUrl);
+    RespGlobusAuthUrl resp1 = new RespGlobusAuthUrl(globusAuthUrl);
     msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL", rUser, clientId);
     return Response.status(Status.OK).entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp1)).build();
   }
 
   /**
-   * Exchange a Globus auth code for tokens, store for given system and user.
+   * Exchange a Globus auth code  + Tapis session Id for tokens, store for given system and user.
    * @return basic response
    */
   @POST
-  @Path("/{systemId}/user/{userName}/globus/tokens/{authCode}")
+  @Path("/{systemId}/user/{userName}/globus/tokens/{authCode}/{sessionId}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response generateGlobusTokens(@PathParam("systemId") String systemId,
                                        @PathParam("userName") String userName,
                                        @PathParam("authCode") String authCode,
+                                       @PathParam("sessionId") String sessionId,
                                        @Context SecurityContext securityContext)
   {
     String opName = "generateGlobusTokens";
@@ -434,7 +439,7 @@ public class CredentialResource
     // Make the service call to create or update the credential
     try
     {
-      systemsService.generateAndSaveGlobusTokens(rUser, systemId, userName, authCode);
+      systemsService.generateAndSaveGlobusTokens(rUser, systemId, userName, authCode, sessionId);
     }
     catch (Exception e)
     {

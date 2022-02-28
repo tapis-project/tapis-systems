@@ -20,6 +20,7 @@ import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.client.SystemsClient;
+import edu.utexas.tacc.tapis.systems.model.GlobusAuthUrl;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import org.apache.commons.lang3.StringUtils;
 import org.jvnet.hk2.annotations.Service;
@@ -1491,7 +1492,8 @@ public class SystemsServiceImpl implements SystemsService
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public String getGlobusAuthUrl(ResourceRequestUser rUser, String clientId) throws TapisException, TapisClientException
+  public GlobusAuthUrl getGlobusAuthUrl(ResourceRequestUser rUser, String clientId)
+          throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.getGlobusAuthUrl;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1506,8 +1508,12 @@ public class SystemsServiceImpl implements SystemsService
         throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser));
     }
 
-    // Call Tapis GlobusProxy service to get the URL
-    return getGlobusProxyClient(rUser).getAuthUrl(clientId);
+    GlobusAuthUrl globusAuthUrl = null;
+
+    // TODO Call Tapis GlobusProxy service and create a GlobusAuthUrl from the client response;
+//TODO    return getGlobusProxyClient(rUser).getAuthUrl(clientId);
+    globusAuthUrl = new GlobusAuthUrl(null, null);
+    return globusAuthUrl;
   }
 
   /**
