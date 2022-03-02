@@ -107,7 +107,8 @@ public interface SystemsService
   GlobusAuthUrl getGlobusAuthUrl(ResourceRequestUser rUser, String clientId)
           throws TapisException, TapisClientException;
 
-  void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName, String authCode)
+  void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName, String authCode,
+                                   String sessionId)
           throws TapisException, TapisClientException;
 
   // ------------------- Scheduler Profiles---------------------------------

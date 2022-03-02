@@ -111,8 +111,12 @@ public final class RuntimeParameters
 	// The slf4j/logback target directory and file.
 	private String  logDirectory;
 	private String  logFile;
-	
-	/* ********************************************************************** */
+
+    // Default Globus client id
+    private String globusClientId;
+
+
+  /* ********************************************************************** */
 	/*                              Constructors                              */
 	/* ********************************************************************** */
 	/** This is where the work happens--either we can successfully create the
@@ -214,6 +218,10 @@ public final class RuntimeParameters
         throw new TapisRuntimeException(msg);
       }
       setSiteId(parm);
+
+      // --------------------- Default Globus client Id ----------------------------
+      parm = inputProperties.getProperty(EnvVar2.TAPIS_GLOBUS_CLIENT_ID.getEnvName());
+      if (!StringUtils.isBlank(parm)) setGlobusClientId(parm);
 
       // --------------------- Base URLs for other services that this service requires ----------------------------
 		// Tenants service base URL is required. Throw runtime exception if not found.
@@ -458,7 +466,11 @@ public final class RuntimeParameters
 		buf.append("\ntapis.smtp.from.address: ");
 		buf.append(this.getEmailFromAddress());
 
-		buf.append("\n------- Support Configuration ---------------------");
+        buf.append("\n------- Default Globus Client Id ----------------------");
+        buf.append("\ntapis.globus.client.id: ");
+        buf.append(globusClientId);
+
+      buf.append("\n------- Support Configuration ---------------------");
 		buf.append("\ntapis.support.name: ");
 		buf.append(this.getSupportName());
 		buf.append("\ntapis.support.email: ");
@@ -650,6 +662,9 @@ public final class RuntimeParameters
     public String getSiteId() { return siteId; }
     private void setSiteId(String s) {siteId = s; }
 
+    public String getGlobusClientId() { return globusClientId; }
+    private void setGlobusClientId(String s) {globusClientId = s; }
+
     public String getTenantsSvcURL() { return tenantsSvcURL; }
 	private void setTenantsSvcURL(String url) {tenantsSvcURL = url; }
 
@@ -781,7 +796,8 @@ public final class RuntimeParameters
     // TODO/TBD Remove sk url. Always look up from tenants svc
 	private enum EnvVar2 {
 		TAPIS_SVC_URL_SK("tapis.svc.url.sk"),
-		TAPIS_SVC_ADMIN_TENANT("tapis.svc.admin.tenant");
+		TAPIS_SVC_ADMIN_TENANT("tapis.svc.admin.tenant"),
+        TAPIS_GLOBUS_CLIENT_ID("tapis.globus.client.id");
 
 		private final String _envName;
 

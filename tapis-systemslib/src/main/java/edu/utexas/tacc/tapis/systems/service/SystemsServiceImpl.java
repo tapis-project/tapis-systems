@@ -20,6 +20,7 @@ import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.client.SystemsClient;
+import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.model.GlobusAuthUrl;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import org.apache.commons.lang3.StringUtils;
@@ -27,6 +28,7 @@ import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import edu.utexas.tacc.tapis.globusproxy.client.gen.model.ResultGlobusAuthUrl;
 import edu.utexas.tacc.tapis.globusproxy.client.GlobusProxyClient;
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.search.parser.ASTParser;
@@ -1483,7 +1485,7 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Given a Globus clientId obtain a URL that can be used to obtain a Globus Native App Authorization Code.
+   * Given a Globus clientId obtain a URL+SessionId that can be used to obtain a Globus Native App Authorization Code.
    * If clientId is null or empty then used default client configured for Tapis.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
@@ -1501,8 +1503,7 @@ public class SystemsServiceImpl implements SystemsService
     // If clientId not provided then use clientId configured for Tapis.
     if (StringUtils.isBlank(clientId))
     {
-      // TODO/TBD pick it up from application settings.
-// TODO      clientId = "";
+      clientId = RuntimeParameters.getInstance().getGlobusClientId();
       // If no clientId provided and none configured then throw an exception
       if (StringUtils.isBlank(clientId))
         throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser));
@@ -1510,9 +1511,9 @@ public class SystemsServiceImpl implements SystemsService
 
     GlobusAuthUrl globusAuthUrl = null;
 
-    // TODO Call Tapis GlobusProxy service and create a GlobusAuthUrl from the client response;
-//TODO    return getGlobusProxyClient(rUser).getAuthUrl(clientId);
-    globusAuthUrl = new GlobusAuthUrl(null, null);
+    // Call Tapis GlobusProxy service and create a GlobusAuthUrl from the client response;
+    ResultGlobusAuthUrl r = getGlobusProxyClient(rUser).getAuthUrl(clientId);
+    globusAuthUrl = new GlobusAuthUrl(r.getUrl(), r.getSesssionId());
     return globusAuthUrl;
   }
 
@@ -1524,16 +1525,19 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - Id of system
    * @param userName - Target user for operation
    * @param authCode - Globus Native App Authorization Code
+   * @param sessionId - Id tracking the oauth2 flow started with the call to getGlobusAuthUrl
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName, String authCode)
+  public void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName,
+                                          String authCode, String sessionId)
           throws NotFoundException, TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.genGlobusTokens;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName) || StringUtils.isBlank(authCode))
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName) || StringUtils.isBlank(authCode)
+        || StringUtils.isBlank(sessionId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_GLOBUS_TOKENS", rUser));
 
     String resourceTenantId = rUser.getOboTenantId();

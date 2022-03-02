@@ -1,7 +1,7 @@
 package edu.utexas.tacc.tapis.systems.model;
 
 /*
- * Class for GlobusAuthUrl needed to obtain Globus credentials
+ * Class for GlobusAuthUrl data needed to obtain Globus credentials
  */
 public final class GlobusAuthUrl
 {
