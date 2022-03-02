@@ -6,6 +6,7 @@ import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
+import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
@@ -87,5 +88,7 @@ public interface SystemsDao
   boolean checkForSchedulerProfile(String tenantId, String name) throws TapisException;
 
   String getSchedulerProfileOwner(String tenant, String name) throws TapisException;
+
+  List<SystemHistoryItem> getSystemHistory(String systemId) throws TapisException;
 
 }
