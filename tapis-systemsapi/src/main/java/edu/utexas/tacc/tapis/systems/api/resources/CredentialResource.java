@@ -1,5 +1,6 @@
 package edu.utexas.tacc.tapis.systems.api.resources;
 
+import edu.utexas.tacc.tapis.systems.model.GlobusAuthInfo;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.http.server.Request;
@@ -45,7 +46,6 @@ import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 import edu.utexas.tacc.tapis.systems.api.responses.RespGlobusAuthUrl;
-import edu.utexas.tacc.tapis.systems.model.GlobusAuthUrl;
 
 /*
  * JAX-RS REST resource for Tapis System credentials
@@ -337,12 +337,12 @@ public class CredentialResource
 
   /**
    * getGlobusAuthUrl
-   * Retrieve a Globus URL that can be used to generate an oauth2 authorization code.
-   * In Globus this is referred to as a *Native App Authorization Code*.
+   * Retrieve a Globus URL + Tapis SessionId that can be used to generate an oauth2 authorization code.
+   * In Globus the authorization code is referred to as a *Native App Authorization Code*.
    * The host property of the system is used as the Endpoint Id.
-   * Accepts an optional *clientId*. By default a pre-configured *clientId* is used.
-   * Once a user has obtained an authorization code the corresponding Systems endpoint for generating Globus
-   *    tokens should be called to exchange the code for a pair of access and refresh tokens.
+   * Accepts an optional *clientId*. By default, a pre-configured *clientId* is used.
+   * Once a user has obtained an authorization code and session id the corresponding Systems endpoint for generating
+   *   Globus tokens should be called to exchange the code for a pair of access and refresh tokens.
    * @param clientId - authn method to use instead of default
    * @return Response
    */
@@ -369,11 +369,11 @@ public class CredentialResource
 
     // ------------------------- Perform the operation -------------------------
     // Make the service call to get the globus auth url
-    GlobusAuthUrl globusAuthUrl;
+    GlobusAuthInfo globusAuthInfo;
     String msg;
     try
     {
-      globusAuthUrl = systemsService.getGlobusAuthUrl(rUser, clientId);
+      globusAuthInfo = systemsService.getGlobusAuthInfo(rUser, clientId);
     }
     catch (Exception e)
     {
@@ -384,9 +384,9 @@ public class CredentialResource
 
     // Resource was not found.
     String notFoundMsg = null;
-    if (globusAuthUrl == null) notFoundMsg = "Null response";
-    else if (StringUtils.isBlank(globusAuthUrl.getUrl())) notFoundMsg = "Empty URL";
-    else if (StringUtils.isBlank(globusAuthUrl.getSessionId())) notFoundMsg = "Empty SessionId";
+    if (globusAuthInfo == null) notFoundMsg = "Null response";
+    else if (StringUtils.isBlank(globusAuthInfo.getUrl())) notFoundMsg = "Empty URL";
+    else if (StringUtils.isBlank(globusAuthInfo.getSessionId())) notFoundMsg = "Empty SessionId";
     if (notFoundMsg != null)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL_ERR", rUser, clientId, notFoundMsg);
@@ -395,14 +395,14 @@ public class CredentialResource
     }
 
     // ---------------------------- Success -------------------------------
-    // Success means we retrieved the information.
-    RespGlobusAuthUrl resp1 = new RespGlobusAuthUrl(globusAuthUrl);
+    // All looks good. Create a response containing the result.
+    RespGlobusAuthUrl resp1 = new RespGlobusAuthUrl(globusAuthInfo);
     msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL", rUser, clientId);
     return Response.status(Status.OK).entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp1)).build();
   }
 
   /**
-   * Exchange a Globus auth code  + Tapis session Id for tokens, store for given system and user.
+   * Exchange a Globus auth code  + Tapis session Id for tokens, then store for given system and user.
    * @return basic response
    */
   @POST

@@ -5,7 +5,7 @@ import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.model.Credential;
-import edu.utexas.tacc.tapis.systems.model.GlobusAuthUrl;
+import edu.utexas.tacc.tapis.systems.model.GlobusAuthInfo;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
@@ -104,7 +104,7 @@ public interface SystemsService
   Credential getUserCredential(ResourceRequestUser rUser, String systemId, String userName, AuthnMethod authnMethod)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
-  GlobusAuthUrl getGlobusAuthUrl(ResourceRequestUser rUser, String clientId)
+  GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser, String clientId)
           throws TapisException, TapisClientException;
 
   void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName, String authCode,

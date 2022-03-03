@@ -23,11 +23,11 @@ import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
-import edu.utexas.tacc.tapis.systems.model.GlobusAuthUrl;
+import edu.utexas.tacc.tapis.systems.model.GlobusAuthInfo;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 
 import edu.utexas.tacc.tapis.globusproxy.client.gen.model.AuthTokens;
-import edu.utexas.tacc.tapis.globusproxy.client.gen.model.ResultGlobusAuthUrl;
+import edu.utexas.tacc.tapis.globusproxy.client.gen.model.ResultGlobusAuthInfo;
 import edu.utexas.tacc.tapis.globusproxy.client.GlobusProxyClient;
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.search.parser.ASTParser;
@@ -1493,10 +1493,10 @@ public class SystemsServiceImpl implements SystemsService
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public GlobusAuthUrl getGlobusAuthUrl(ResourceRequestUser rUser, String clientId)
+  public GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser, String clientId)
           throws TapisException, TapisClientException
   {
-    SystemOperation op = SystemOperation.getGlobusAuthUrl;
+    SystemOperation op = SystemOperation.getGlobusAuthInfo;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
     // If clientId not provided then use clientId configured for Tapis.
@@ -1508,12 +1508,12 @@ public class SystemsServiceImpl implements SystemsService
         throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser));
     }
 
-    GlobusAuthUrl globusAuthUrl;
+    GlobusAuthInfo globusAuthInfo;
 
-    // Call Tapis GlobusProxy service and create a GlobusAuthUrl from the client response;
-    ResultGlobusAuthUrl r = getGlobusProxyClient(rUser).getAuthUrl(clientId);
-    globusAuthUrl = new GlobusAuthUrl(r.getUrl(), r.getSessionId());
-    return globusAuthUrl;
+    // Call Tapis GlobusProxy service and create a GlobusAuthInfo from the client response;
+    ResultGlobusAuthInfo r = getGlobusProxyClient(rUser).getAuthInfo(clientId);
+    globusAuthInfo = new GlobusAuthInfo(r.getUrl(), r.getSessionId());
+    return globusAuthInfo;
   }
 
   /**
@@ -1524,7 +1524,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - Id of system
    * @param userName - Target user for operation
    * @param authCode - Globus Native App Authorization Code
-   * @param sessionId - Id tracking the oauth2 flow started with the call to getGlobusAuthUrl
+   * @param sessionId - Id tracking the oauth2 flow started with the call to getGlobusAuthInfo
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
