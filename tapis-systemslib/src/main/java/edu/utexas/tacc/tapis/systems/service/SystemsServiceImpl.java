@@ -7,10 +7,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-
 import javax.inject.Inject;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
+import org.apache.commons.lang3.StringUtils;
+import org.jvnet.hk2.annotations.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
@@ -19,15 +22,11 @@ import edu.utexas.tacc.tapis.shared.security.ServiceContext;
 import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
-import edu.utexas.tacc.tapis.systems.client.SystemsClient;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.model.GlobusAuthUrl;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
-import org.apache.commons.lang3.StringUtils;
-import org.jvnet.hk2.annotations.Service;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import edu.utexas.tacc.tapis.globusproxy.client.gen.model.AuthTokens;
 import edu.utexas.tacc.tapis.globusproxy.client.gen.model.ResultGlobusAuthUrl;
 import edu.utexas.tacc.tapis.globusproxy.client.GlobusProxyClient;
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
@@ -1509,11 +1508,11 @@ public class SystemsServiceImpl implements SystemsService
         throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser));
     }
 
-    GlobusAuthUrl globusAuthUrl = null;
+    GlobusAuthUrl globusAuthUrl;
 
     // Call Tapis GlobusProxy service and create a GlobusAuthUrl from the client response;
     ResultGlobusAuthUrl r = getGlobusProxyClient(rUser).getAuthUrl(clientId);
-    globusAuthUrl = new GlobusAuthUrl(r.getUrl(), r.getSesssionId());
+    globusAuthUrl = new GlobusAuthUrl(r.getUrl(), r.getSessionId());
     return globusAuthUrl;
   }
 
@@ -1533,7 +1532,7 @@ public class SystemsServiceImpl implements SystemsService
                                           String authCode, String sessionId)
           throws NotFoundException, TapisException, TapisClientException
   {
-    SystemOperation op = SystemOperation.genGlobusTokens;
+    SystemOperation op = SystemOperation.setAccessRefreshTokens;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName) || StringUtils.isBlank(authCode)
@@ -1549,35 +1548,36 @@ public class SystemsServiceImpl implements SystemsService
     // ------------------------- Check service level authorization -------------------------
     checkAuth(rUser, op, systemId, null, userName, null);
 
-    // TODO Call Tapis GlobuxProxy service to get tokens
+    // Call Tapis GlobuxProxy service to get tokens
+    AuthTokens authTokens = getGlobusProxyClient(rUser).getTokens(sessionId, authCode);
+    String accessToken = authTokens.getAccessToken();
+    String refreshToken = authTokens.getRefreshToken();
 
-    // TODO Call SK to store tokens
+    // Call SK to store tokens
     // Create credential
     // If this throws an exception we do not try to rollback. Attempting to track which secrets
     //   have been changed and reverting seems fraught with peril and not a good ROI.
-// TODO/TBD: Since we know here we are only updating the tokens use a method other than createCredential()
-//       createCredential() updates all credentials, so to use it we would need to fetch existing credentials.
-//TODO    var skClient = getSKClient();
-//    try
-//    {
-//      createCredential(skClient, rUser, credential, systemId, userName);
-// TODO/TBD updateCredentialTokens(skClient, rUser, accessToken, refreshToken, systemId, userName);
-//    }
-//    // If tapis client exception then log error and convert to TapisException
-//    catch (TapisClientException tce)
-//    {
-//      _log.error(tce.toString());
-//      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
-//    }
-//
-//    // Construct Json string representing the update, with actual secrets masked out
-//    Credential maskedCredential = Credential.createMaskedCredential(credential);
-//    String updateJsonStr = TapisGsonUtils.getGson().toJson(maskedCredential);
-//
-//    // Create a record of the update
-//    dao.addUpdateRecord(rUser, resourceTenantId, systemId, op, updateJsonStr, updateText);
-  }
+    var skClient = getSKClient();
+    Credential credential = new Credential(null, null, null, null, null, null, accessToken, refreshToken, null);
+    try
+    {
+      createCredential(skClient, rUser, credential, systemId, userName);
+    }
+    // If tapis client exception then log error and convert to TapisException
+    catch (TapisClientException tce)
+    {
+      _log.error(tce.toString());
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
+    }
 
+    // Construct Json string representing the update, with actual secrets masked out
+    Credential maskedCredential = Credential.createMaskedCredential(credential);
+    String updateJsonStr = TapisGsonUtils.getGson().toJson(maskedCredential);
+
+    // Create a record of the update
+    String updateText = null;
+    dao.addUpdateRecord(rUser, resourceTenantId, systemId, op, updateJsonStr, updateText);
+  }
 
   // -----------------------------------------------------------------------
   // ------------------- Scheduler Profiles---------------------------------
@@ -2254,7 +2254,7 @@ public class SystemsServiceImpl implements SystemsService
         break;
       case setCred:
       case removeCred:
-      case genGlobusTokens:
+      case setAccessRefreshTokens:
         if (owner.equals(userName) || hasAdminRole(rUser, tenantName, userName) ||
                 (userName.equals(targetUser) && allowUserCredOp(rUser, systemId, op)))
           return;
