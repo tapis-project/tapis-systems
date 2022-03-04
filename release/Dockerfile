@@ -6,7 +6,7 @@
 #   $TAG            the tag for image identification
 #
 ##########################################################################
-FROM openjdk:15-jdk-oracle
+FROM openjdk:17-jdk-bullseye
 
 MAINTAINER CIC Support <cicsupport@tacc.utexas.edu>
 
@@ -25,6 +25,10 @@ COPY /dependencies dependencies
 # Other environment variables
 ENV TAPIS_REQUEST_LOGGING_FILTER_PREFIXES /v3/systems
 
+# Java module commands that are always needed (java 17 and later).
+ENV JAVA_MODULE_OPTS --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.time=ALL-UNNAMED \
+                     --add-opens java.base/java.util=ALL-UNNAMED
+
 # Options for JVM
 ENV JAVA_TOOL_OPTIONS -agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n \
                       -Djava.rmi.server.hostname=0.0.0.0 -Dcom.sun.management.jmxremote \
@@ -37,4 +41,4 @@ ENV JAVA_TOOL_OPTIONS -agentlib:jdwp=transport=dt_socket,address=8000,server=y,s
 # Server port, debug port and jmx port
 EXPOSE 8080 8000 9090
 
-CMD ["java", "-Xms4g", "-Xmx4g", "-cp", "systems.jar:dependencies/*", "edu.utexas.tacc.tapis.systems.api.SystemsApplication"]
+CMD java -Xms4g -Xmx4g ${JAVA_MODULE_OPTS} -cp "systems.jar:dependencies/*" edu.utexas.tacc.tapis.systems.api.SystemsApplication

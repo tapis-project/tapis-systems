@@ -8,6 +8,19 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
+---------------------------------------------------------------------------
+## 1.1.1 - 2022-03-03
+
+Incremental improvements and bug fixes.
+
+### New features:
+- Update readyCheck to check for expired service JWT.
+- Updates for JDK 17
+
+### Bug fixes:
+- Fix issue with credential check at create/update time. Check was not being done when effectiveUserId set to ${apiUserId} 
+
+---------------------------------------------------------------------------
 ## 1.1.0 - 2022-01-07
 
 New minor release.
@@ -18,6 +31,7 @@ New minor release.
 ### Bug fixes:
 - None
 
+---------------------------------------------------------------------------
 ## 1.0.3 - 2021-12-15
 
 Incremental improvements and bug fixes.
@@ -28,6 +42,7 @@ Incremental improvements and bug fixes.
 ### Bug fixes:
 - Fix bug in setting default for SchedulerProfile owner.
 
+---------------------------------------------------------------------------
 ## 1.0.2 - 2021-11-12
 
 Incremental improvements and bug fixes.
@@ -44,6 +59,7 @@ Incremental improvements and bug fixes.
 - Fix several bugs related to scheduler profiles.
 - Fix jobRuntimes PUT bug.
 
+---------------------------------------------------------------------------
 ## 1.0.1 - 2021-10-20
 
 Incremental improvements.
@@ -58,6 +74,7 @@ Incremental improvements.
 ### Bug fixes:
 - None.
 
+---------------------------------------------------------------------------
 ## 1.0.0 - 2021-07-16
 
 Initial release supporting basic CRUD operations on Tapis System resources

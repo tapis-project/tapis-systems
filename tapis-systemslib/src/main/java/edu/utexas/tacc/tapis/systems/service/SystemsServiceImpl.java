@@ -1819,56 +1819,84 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Verify that effectiveUserId can connect to the system using provided credentials.
-   * Skipped if no credentials provided or effectiveUserId is not static.
-   * NOTE: Skipped for non-LINUX systems
+   * If effectiveUserId is ${apUserId} then rUser.oboUser is used.
+   * Skipped for non-LINUX systems
+   * Skipped if no credentials provided, i.e. no password or ssh keys
+   * Both types (password and ssh keys) are checked if they are provided
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tSystem1 - the TSystem to check
-   * @param credToCheck - credentials to check
+   * @param credential - credentials to check
    * @throws IllegalStateException - if credentials not verified
    */
-  private void verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential credToCheck) throws IllegalStateException
+  private void verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential credential) throws IllegalStateException
   {
     // We must have the system and a set of credentials to check.
-    if (tSystem1 == null || credToCheck == null) return;
+    if (tSystem1 == null || credential == null) return;
     // Check is only done for LINUX systems
     if (!tSystem1.getSystemType().equals(TSystem.SystemType.LINUX)) return;
-    // If effectiveUserId is not static then skip check.
-    if (tSystem1.getEffectiveUserId().equals(APIUSERID_VAR)) return;
+
+    // Determine user to check
+    String userName = tSystem1.getEffectiveUserId();
+    if (userName.equals(APIUSERID_VAR)) userName = rUser.getOboUserId();
+
+    // Determine authnMethod to check, either password or ssh keys
+    // if neither provided then skip check
+    // if both provided check both
+    boolean passwordSet = !StringUtils.isBlank(credential.getPassword());
+    boolean sshKeysSet = (!StringUtils.isBlank(credential.getPublicKey()) && !StringUtils.isBlank(credential.getPublicKey()));
+    if (!passwordSet && !sshKeysSet) return;
 
     String host = tSystem1.getHost();
     int port = tSystem1.getPort();
-    String userName = tSystem1.getEffectiveUserId();
-    AuthnMethod authnMethod = tSystem1.getDefaultAuthnMethod();
-    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), userName, host, port, authnMethod.name()));
-    // Attempt to connect to the system
-    String msg;
+    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), userName, host, port));
+
+    // Attempt to connect to the system using each type of credential provided
+    // Log error for each one that fails
+    String msg = null;
     SSHConnection sshConnection = null;
-    try
+
+    // If password set then try it
+    if (passwordSet)
     {
-      if (AuthnMethod.PASSWORD.equals(authnMethod))
+      try
       {
-        sshConnection = new SSHConnection(host, port, userName, credToCheck.getPassword());
+        _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY", rUser, tSystem1.getId(), userName, host, port, AuthnMethod.PASSWORD.name()));
+        sshConnection = new SSHConnection(host, port, userName, credential.getPassword());
       }
-      else if (AuthnMethod.PKI_KEYS.equals(authnMethod))
+      catch(TapisException e)
       {
-        sshConnection = new SSHConnection(host, port, userName, credToCheck.getPublicKey(), credToCheck.getPrivateKey());
+        msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, userName, AuthnMethod.PASSWORD.name(),
+                                  e.getMessage());
+        _log.error(msg, e);
       }
-      else
-      {
-        msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_INVALID_AUTHN", rUser, tSystem1.getId(), userName, authnMethod.name());
-        _log.error(msg);
-      }
+      finally { if (sshConnection != null) sshConnection.close(); }
     }
-    catch (TapisException e)
+
+    // If ssh keys set then try it
+    if (sshKeysSet)
     {
-      msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, userName, authnMethod.name(),
-                                e.getMessage());
-      _log.error(msg, e);
+      try
+      {
+        _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY", rUser, tSystem1.getId(), userName, host, port, AuthnMethod.PKI_KEYS.name()));
+        sshConnection = new SSHConnection(host, port, userName, credential.getPublicKey(), credential.getPrivateKey());
+      }
+      catch(TapisException e)
+      {
+        msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, userName, AuthnMethod.PKI_KEYS.name(),
+                                  e.getMessage());
+        _log.error(msg, e);
+      }
+      finally { if (sshConnection != null) sshConnection.close(); }
+    }
+
+    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), userName, host, port));
+
+    // If there was an error then throw IllegalStateException
+    if (msg != null)
+    {
       throw new IllegalStateException(msg);
     }
-    finally { if (sshConnection != null) sshConnection.close(); }
-    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), userName, host, port, authnMethod.name()));
   }
 
   /**
