@@ -7,11 +7,11 @@ import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
+import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.ws.rs.core.Response;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Collections;

@@ -5,28 +5,30 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import javax.inject.Inject;
 import javax.servlet.ServletContext;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.NotAuthorizedException;
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.PATCH;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Application;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.core.SecurityContext;
-import javax.ws.rs.core.UriInfo;
+
+import jakarta.ws.rs.PATCH;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.core.Response.Status;
+
+import jakarta.inject.Inject;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotAuthorizedException;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Application;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
+import jakarta.ws.rs.core.UriInfo;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.http.server.Request;
@@ -79,6 +81,8 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.NOTES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.AUTHN_CREDENTIAL_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.SYSTEM_TYPE_FIELD;
+
+import static jakarta.ws.rs.core.Response.Status.*;
 
 /*
  * JAX-RS REST resource for a Tapis System (edu.utexas.tacc.tapis.systems.model.TSystem)
@@ -670,7 +674,7 @@ public class SystemResource
     {
       String msg = ApiUtils.getMsgAuth("SYSAPI_ACCMETHOD_ENUM_ERROR", rUser, systemId, authnMethodStr, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      return Response.status(Response.Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
 
     List<String> selectList = threadContext.getSearchParameters().getSelectList();
@@ -691,13 +695,13 @@ public class SystemResource
     if (tSystem == null)
     {
       String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      return Response.status(Response.Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
 
     // ---------------------------- Success -------------------------------
     // Success means we retrieved the system information.
     RespSystem resp1 = new RespSystem(tSystem, selectList);
-    return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "System", systemId), resp1);
+    return createSuccessResponse(Response.Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "System", systemId), resp1);
   }
 
   /**
@@ -736,7 +740,7 @@ public class SystemResource
     {
       String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
       _log.warn(msg);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      return Response.status(Response.Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
     catch (Exception e)
     {
@@ -750,7 +754,7 @@ public class SystemResource
     ResultBoolean respResult = new ResultBoolean();
     respResult.aBool = isEnabled;
     RespBoolean resp1 = new RespBoolean(respResult);
-    return createSuccessResponse(Status.OK, MsgUtils.getMsg("TAPIS_FOUND", "System", systemId), resp1);
+    return createSuccessResponse(Response.Status.OK, MsgUtils.getMsg("TAPIS_FOUND", "System", systemId), resp1);
   }
 
   /**
@@ -1104,7 +1108,7 @@ public class SystemResource
         // IllegalStateException indicates an Invalid PatchSystem was passed in
         msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
         _log.error(msg);
-        return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+        return Response.status(Response.Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
       }
     }
     catch (IllegalArgumentException e)
@@ -1112,13 +1116,13 @@ public class SystemResource
       // IllegalArgumentException indicates somehow a bad argument made it this far
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      return Response.status(Response.Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
 
     // ---------------------------- Success -------------------------------
@@ -1127,7 +1131,7 @@ public class SystemResource
     ResultChangeCount count = new ResultChangeCount();
     count.changes = changeCount;
     RespChangeCount resp1 = new RespChangeCount(count);
-    return createSuccessResponse(Status.OK, ApiUtils.getMsgAuth(UPDATED, rUser, systemId, opName), resp1);
+    return createSuccessResponse(Response.Status.OK, ApiUtils.getMsgAuth(UPDATED, rUser, systemId, opName), resp1);
   }
 
   /**
@@ -1233,7 +1237,7 @@ public class SystemResource
       // Construct message reporting all errors
       String allErrors = ApiUtils.getListOfErrors(errMessages, rUser, tSystem1.getId());
       _log.error(allErrors);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(allErrors, PRETTY)).build();
+      return Response.status(Response.Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(allErrors, PRETTY)).build();
     }
     return null;
   }

@@ -2,17 +2,18 @@ package edu.utexas.tacc.tapis.systems.api.resources;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.Path;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
 import javax.servlet.ServletContext;
 import org.glassfish.grizzly.http.server.Request;
-import javax.ws.rs.*;
-import javax.ws.rs.core.*;
-import javax.ws.rs.core.Response.Status;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.*;
+import jakarta.ws.rs.core.Response.Status;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;

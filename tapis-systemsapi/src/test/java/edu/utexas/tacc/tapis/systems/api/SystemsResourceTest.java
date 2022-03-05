@@ -32,9 +32,9 @@ import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 
-import javax.ws.rs.NotAuthorizedException;
-import javax.ws.rs.core.Application;
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.NotAuthorizedException;
+import jakarta.ws.rs.core.Application;
+import jakarta.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;

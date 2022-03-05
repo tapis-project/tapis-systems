@@ -17,6 +17,7 @@ import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
 import edu.utexas.tacc.tapis.systems.service.ServiceClientsFactory;
 import edu.utexas.tacc.tapis.systems.service.ServiceContextFactory;
 
+import jakarta.ws.rs.ApplicationPath;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
@@ -28,7 +29,6 @@ import org.glassfish.jersey.server.ApplicationHandler;
 import org.glassfish.jersey.server.ResourceConfig;
 
 import java.net.URI;
-import javax.ws.rs.ApplicationPath;
 
 /*
  * Main startup class for the web application. Uses Jersey and Grizzly frameworks.

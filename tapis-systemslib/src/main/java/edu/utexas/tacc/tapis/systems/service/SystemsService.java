@@ -10,10 +10,10 @@ import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
+import jakarta.ws.rs.NotAuthorizedException;
+import jakarta.ws.rs.NotFoundException;
 import org.jvnet.hk2.annotations.Contract;
 
-import javax.ws.rs.NotAuthorizedException;
-import javax.ws.rs.NotFoundException;
 import java.util.List;
 import java.util.Set;
 

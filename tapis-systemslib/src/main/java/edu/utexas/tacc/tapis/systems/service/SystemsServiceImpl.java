@@ -19,9 +19,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import javax.inject.Inject;
-import javax.ws.rs.NotAuthorizedException;
-import javax.ws.rs.NotFoundException;
 
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
@@ -31,6 +28,9 @@ import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.NotAuthorizedException;
+import jakarta.ws.rs.NotFoundException;
 import org.apache.commons.lang3.StringUtils;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
