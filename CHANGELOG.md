@@ -9,16 +9,27 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.1.? - 2022-??-??
+## 1.1.2 - 2022-??-??
+
+Add support for Globus type systems.
+
+### New features:
+- Add accessToken, refreshToken to Credential for Globus support.
+- Add endpoints for Globus:
+    - GET  /v3/systems/credential/{systemId}/globus/authUrl
+    - POST /v3/systems/credential/{systemId}/globus/{authCode}/tokens/{userName}
+
+### Bug fixes:
+- None
+
+---------------------------------------------------------------------------
+## 1.1.1 - 2022-03-03
 
 Incremental improvements and bug fixes.
 
 ### New features:
 - Update readyCheck to check for expired service JWT.
-- Add accessToken, refreshToken to Credential for Globus support.
-- Add endpoints for Globus:
-  - GET  /v3/systems/credential/{systemId}/globus/authUrl
-  - POST /v3/systems/credential/{systemId}/globus/{authCode}/tokens/{userName}
+- Updates for JDK 17
 
 ### Bug fixes:
 - Fix issue with credential check at create/update time. Check was not being done when effectiveUserId set to ${apiUserId} 
