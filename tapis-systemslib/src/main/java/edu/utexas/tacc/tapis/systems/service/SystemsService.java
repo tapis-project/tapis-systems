@@ -120,5 +120,6 @@ public interface SystemsService
   boolean checkForSchedulerProfile(ResourceRequestUser rUser, String name)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
-List<SystemHistoryItem> getSystemHistory(String systemId) throws TapisException;
+List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
+        throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException;
 }

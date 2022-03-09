@@ -2,7 +2,6 @@ package edu.utexas.tacc.tapis.systems.api.resources;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -70,7 +69,6 @@ import edu.utexas.tacc.tapis.systems.api.responses.RespSystems;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
-import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
@@ -731,7 +729,7 @@ public class SystemResource
     
     try
     {
-    	systemHistory = systemsService.getSystemHistory(systemId);
+    	systemHistory = systemsService.getSystemHistory(rUser, systemId);
     }
     catch (Exception e)
     {

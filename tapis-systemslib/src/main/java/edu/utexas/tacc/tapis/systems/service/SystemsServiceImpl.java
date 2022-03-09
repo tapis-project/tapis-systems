@@ -2566,13 +2566,22 @@ public class SystemsServiceImpl implements SystemsService
   
   /**
   * Get System Updates records for the System ID specified
+   * @throws IllegalStateException 
+   * @throws TapisClientException 
+   * @throws NotAuthorizedException 
   */
   @Override
-  public List<SystemHistoryItem> getSystemHistory(String systemId) throws TapisException {
+  public List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
+      throws TapisException, NotAuthorizedException, IllegalStateException, TapisClientException {
 	
-	List<SystemHistoryItem> systemHistory = dao.getSystemHistory(systemId);
-	if (systemHistory == null) return null;
+    SystemOperation op = SystemOperation.read;
+
+    // ------------------------- Check service level authorization -------------------------
+    checkAuth(rUser, op, systemId, null, null, null);
+    
+	  List<SystemHistoryItem> systemHistory = dao.getSystemHistory(systemId);
+	  if (systemHistory == null) return null;
 	
-	return systemHistory;
+	  return systemHistory;
   }
 }

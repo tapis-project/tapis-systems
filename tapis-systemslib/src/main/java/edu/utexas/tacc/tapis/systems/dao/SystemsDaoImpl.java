@@ -25,8 +25,6 @@ import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 
 import org.flywaydb.core.Flyway;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
@@ -2350,7 +2348,8 @@ public class SystemsDaoImpl implements SystemsDao
   *
   */
   private SystemHistoryItem getSystemHistoryFromRecord(Record r) {
-	return new SystemHistoryItem(r.get(SYSTEM_UPDATES.SYSTEM_ID), r.get(SYSTEM_UPDATES.OPERATION),
-						                  r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
+	return new SystemHistoryItem(r.get(SYSTEM_UPDATES.USER_TENANT), r.get(SYSTEM_UPDATES.USER_NAME), r.get(SYSTEM_UPDATES.OPERATION),
+	                            r.get(SYSTEM_UPDATES.UPD_JSON), r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
   }
+ 
 }
