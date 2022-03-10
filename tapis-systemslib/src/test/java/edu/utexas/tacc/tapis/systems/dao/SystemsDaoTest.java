@@ -78,16 +78,21 @@ public class SystemsDaoTest
 
   // Test create for a single item
   @Test
-  public void testCreate() throws Exception
+  public void testCreateSystem() throws Exception
   {
     TSystem sys0 = systems[0];
     boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
   }
 
+  // ******************************************************************
+  //   Systems
+  // ******************************************************************
+
   // Test retrieving a single item
   @Test
-  public void testGet() throws Exception {
+  public void testGetSystem() throws Exception
+  {
     TSystem sys0 = systems[1];
     boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
@@ -189,7 +194,8 @@ public class SystemsDaoTest
 
   // Test retrieving all systems in a list of IDs
   @Test
-  public void testGetSystemsInIDList() throws Exception {
+  public void testGetSystemsInIDList() throws Exception
+  {
     var sysIdList = new HashSet<String>();
     // Create 2 systems
     TSystem sys0 = systems[5];
@@ -212,7 +218,8 @@ public class SystemsDaoTest
 
   // Test enable/disable/delete/undelete
   @Test
-  public void testEnableDisableDeleteUndelete() throws Exception {
+  public void testEnableDisableDeleteUndeleteSystem() throws Exception
+  {
     TSystem sys0 = systems[11];
     boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
@@ -240,7 +247,8 @@ public class SystemsDaoTest
 
   // Test change system owner
   @Test
-  public void testChangeSystemOwner() throws Exception {
+  public void testChangeSystemOwner() throws Exception
+  {
     TSystem sys0 = systems[7];
     boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
     System.out.println("Created item with systemId: " + sys0.getId());
@@ -252,7 +260,8 @@ public class SystemsDaoTest
 
   // Test hard deleting a single item
   @Test
-  public void testHardDelete() throws Exception {
+  public void testHardDeleteSystem() throws Exception
+  {
     TSystem sys0 = systems[9];
     boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
     System.out.println("Created item with systemId: " + sys0.getId());
@@ -267,7 +276,8 @@ public class SystemsDaoTest
   //  check - returns false
   //  getOwner - returns null
   @Test
-  public void testMissingSystem() throws Exception {
+  public void testMissingSystem() throws Exception
+  {
     String fakeSystemName = "AMissingSystemName";
     TSystem patchedSystem = new TSystem(1, tenantName, fakeSystemName, "description", SystemType.LINUX, "owner", "host",
             isEnabledTrue, "effUser", prot2.getAuthnMethod(), "bucket", "/root",
