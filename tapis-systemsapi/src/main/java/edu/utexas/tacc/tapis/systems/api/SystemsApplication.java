@@ -59,10 +59,6 @@ public class SystemsApplication extends ResourceConfig
   // For all logging use println or similar so we do not have a dependency on a logging subsystem.
   public SystemsApplication()
   {
-    // Log our existence.
-    // Output version information on startup
-    System.out.println("**** Starting tapis-systems. Version: " + TapisUtils.getTapisFullVersion() + " ****");
-
     // Needed for properly returning timestamps
     // Also allows for setting a breakpoint when response is being constructed.
     register(ObjectMapperContextResolver.class);
@@ -80,7 +76,8 @@ public class SystemsApplication extends ResourceConfig
     setApplicationName(TapisConstants.SERVICE_NAME_SYSTEMS);
 
     // Perform remaining init steps in try block so we can print a fatal error message if something goes wrong.
-    try {
+    try
+    {
       // Get runtime parameters
       RuntimeParameters runParms = RuntimeParameters.getInstance();
 
@@ -123,6 +120,10 @@ public class SystemsApplication extends ResourceConfig
    */
   public static void main(String[] args) throws Exception
   {
+    // Log our existence.
+    // Output version information on startup
+    System.out.printf("**** Starting Systems Service. Version: %s ****%n", TapisUtils.getTapisFullVersion());
+
     // If TAPIS_SERVICE_PORT set in env then use it.
     // Useful for starting service locally on a busy system where 8080 may not be available.
     String servicePort = System.getenv("TAPIS_SERVICE_PORT");
