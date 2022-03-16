@@ -400,9 +400,12 @@ public class SystemsDaoTest
    System.out.println("Found system history item: " + sys0.getId());
    
    Assert.assertEquals(systemHistory.size(), 1);
-   for (SystemHistoryItem item:systemHistory) {     
+   for (SystemHistoryItem item:systemHistory) {
+     Assert.assertNotNull(item.getUserTenant(), "Fetched User Tenant should not be null");
+     Assert.assertNotNull(item.getUserName(), "Fetched User Name should not be null");
      Assert.assertEquals(item.getOperation(), SystemOperation.create);
-     Assert.assertNotNull(item.getCreated(), "Fetched created timestamp should not be null"); 
+     Assert.assertNotNull(item.getUpdJson(), "Fetched Json should not be null");
+     Assert.assertNotNull(item.getCreated(), "Fetched created timestamp should not be null");
    }
  }
 }
