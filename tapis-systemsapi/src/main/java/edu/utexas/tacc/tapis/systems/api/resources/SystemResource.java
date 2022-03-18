@@ -738,7 +738,7 @@ public class SystemResource
       return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
     
-    if (systemHistory.size()==0) {
+    if (systemHistory == null || systemHistory.size()==0) {
    	 String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
    	  _log.warn(msg);
    	  return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
