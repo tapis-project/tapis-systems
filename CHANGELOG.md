@@ -1,3 +1,4 @@
+
 # Change Log for Tapis Systems Service
 
 All notable changes to this project will be documented in this file.
@@ -7,6 +8,17 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
+
+---------------------------------------------------------------------------
+## 1.1.2 - 2022-03-18
+
+System history implementation.
+
+### New features:
+- System history end point implementation.
+
+### Bug fixes:
+- None
 
 ---------------------------------------------------------------------------
 ## 1.1.1 - 2022-03-03

@@ -19,8 +19,11 @@ import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisDBConnectionExce
 import edu.utexas.tacc.tapis.shareddb.datasource.TapisDataSource;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedulerProfilesRecord;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemUpdatesRecord;
 import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
+import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
+
 import org.flywaydb.core.Flyway;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -28,6 +31,7 @@ import org.jooq.Field;
 import org.jooq.OrderField;
 import org.jooq.Record;
 import org.jooq.Result;
+import org.jooq.SelectConditionStep;
 import org.jooq.impl.DSL;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -49,6 +53,7 @@ import static edu.utexas.tacc.tapis.shared.threadlocal.OrderBy.DEFAULT_ORDERBY_D
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsRecord;
 import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.*;
 import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.SYSTEMS;
+import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.SYSTEM_UPDATES;
 
 import edu.utexas.tacc.tapis.search.SearchUtils;
 import edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator;
@@ -2298,4 +2303,53 @@ public class SystemsDaoImpl implements SystemsDao
             r.get(SYSTEMS.DELETED), created, updated);
     return system;
   }
+
+  /**
+  * Get systems updates records for given system ID
+  * @param systemId - System name
+  * @return List of SystemHistoryItem objects
+  * @throws TapisException - for Tapis related exceptions
+  */
+  @Override
+  public List<SystemHistoryItem> getSystemHistory(String systemId) throws TapisException {
+	 // Initialize result.
+	List<SystemHistoryItem> resultList = new ArrayList<SystemHistoryItem>();
+
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      
+      SelectConditionStep<SystemUpdatesRecord> results;
+      results = db.selectFrom(SYSTEM_UPDATES).where(SYSTEM_UPDATES.SYSTEM_ID.eq(systemId));
+
+      for (Record r : results) { SystemHistoryItem s = getSystemHistoryFromRecord(r); resultList.add(s); }
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "SystemUpdates", systemId, e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+	return resultList;
+}
+
+  /**
+  * Given an record from a select, create a SystemHistoryItem object
+  *
+  */
+  private SystemHistoryItem getSystemHistoryFromRecord(Record r) {
+	return new SystemHistoryItem(r.get(SYSTEM_UPDATES.USER_TENANT), r.get(SYSTEM_UPDATES.USER_NAME), r.get(SYSTEM_UPDATES.OPERATION),
+	                            r.get(SYSTEM_UPDATES.UPD_JSON), r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
+  }
+ 
 }

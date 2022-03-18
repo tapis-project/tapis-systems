@@ -53,6 +53,7 @@ import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile.SchedulerProfileOperation;
+import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
@@ -2561,5 +2562,26 @@ public class SystemsServiceImpl implements SystemsService
     if (p.getNotes() != null) p1.setNotes(p.getNotes());
     if (p.getImportRefId() != null) p1.setImportRefId(p.getImportRefId());
     return p1;
+  }
+  
+  /**
+  * Get System Updates records for the System ID specified
+   * @throws IllegalStateException 
+   * @throws TapisClientException 
+   * @throws NotAuthorizedException 
+  */
+  @Override
+  public List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
+      throws TapisException, NotAuthorizedException, IllegalStateException, TapisClientException {
+	
+    SystemOperation op = SystemOperation.read;
+
+    // ------------------------- Check service level authorization -------------------------
+    checkAuth(rUser, op, systemId, null, null, null);
+    
+	  List<SystemHistoryItem> systemHistory = dao.getSystemHistory(systemId);
+	  if (systemHistory == null) return null;
+	
+	  return systemHistory;
   }
 }
