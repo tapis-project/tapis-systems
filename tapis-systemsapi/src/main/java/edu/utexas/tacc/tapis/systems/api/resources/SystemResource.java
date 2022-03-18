@@ -60,9 +60,11 @@ import edu.utexas.tacc.tapis.sharedapi.responses.RespResourceUrl;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultResourceUrl;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
+import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPostSystem;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPutSystem;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystem;
+import edu.utexas.tacc.tapis.systems.api.responses.RespSystemHistory;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystems;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
@@ -700,6 +702,53 @@ public class SystemResource
     return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "System", systemId), resp1);
   }
 
+  /**
+   * getHistory
+   * @param systemId - name of the system
+   * @param securityContext - user identity
+   * @return Response with system history object as the result
+   */
+  @GET
+  @Path("{systemId}/history")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getHistory(@PathParam("systemId") String systemId,
+                            @Context SecurityContext securityContext)
+  {
+    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
+    // Utility method returns null if all OK and appropriate error response if there was a problem.
+    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
+    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    if (resp != null) return resp;
+
+    // Create a user that collects together tenant, user and request information needed by the service call
+    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    //RespAbstract resp1;
+    List<SystemHistoryItem> systemHistory;
+    
+    try
+    {
+    	systemHistory = systemsService.getSystemHistory(rUser, systemId);
+    }
+    catch (Exception e)
+    {
+      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
+      _log.error(msg, e);
+      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+    }
+    
+    if (systemHistory == null || systemHistory.size()==0) {
+   	 String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+   	  _log.warn(msg);
+   	  return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+    }
+    
+    RespSystemHistory resp1 = new RespSystemHistory(systemHistory);
+
+    return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "SystemHistory", systemId), resp1);
+  }
+  
   /**
    * isEnabled
    * Check if resource is enabled.

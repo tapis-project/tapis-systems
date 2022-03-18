@@ -18,6 +18,8 @@ import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
+import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
+
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.ServiceLocatorUtilities;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
@@ -30,6 +32,7 @@ import org.testng.annotations.Test;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
+import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
@@ -63,7 +66,7 @@ public class SystemsServiceTest
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
-  int numSystems = 26; // UNUSED SYSTEMS: systems[3]
+  int numSystems = 27; // UNUSED SYSTEMS: systems[3]
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
@@ -1523,5 +1526,30 @@ public class SystemsServiceTest
 
     Assert.assertNotNull(tmpSys.getCreated(), "Fetched created timestamp should not be null");
     Assert.assertNotNull(tmpSys.getUpdated(), "Fetched updated timestamp should not be null");
+  }
+  
+  // Test retrieving a system history
+  @Test
+  public void testGetSystemHistory() throws Exception
+  {
+    TSystem sys0 = systems[26];
+    Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
+        "fakeAccessKey", "fakeAccessSecret", "fakeCert");
+    sys0.setAuthnCredential(cred0);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    
+    // Test retrieval using specified authn method
+    List<SystemHistoryItem> systemHistory = svc.getSystemHistory(rOwner1, sys0.getId());
+    
+    System.out.println("Found item: " + sys0.getId());
+    // Verify system history fields
+    Assert.assertEquals(systemHistory.size(), 1);
+    for (SystemHistoryItem item:systemHistory) {
+      Assert.assertNotNull(item.getUserTenant(), "Fetched User Tenant should not be null");
+      Assert.assertNotNull(item.getUserName(), "Fetched User Name should not be null");
+      Assert.assertEquals(item.getOperation(), SystemOperation.create);
+      Assert.assertNotNull(item.getUpdJson(), "Fetched Json should not be null");
+      Assert.assertNotNull(item.getCreated(), "Fetched created timestamp should not be null");
+    }
   }
 }

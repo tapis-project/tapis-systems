@@ -8,6 +8,8 @@ import edu.utexas.tacc.tapis.systems.IntegrationUtils;
 import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
+import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
+
 import org.jooq.tools.StringUtils;
 import org.testng.Assert;
 import org.testng.annotations.AfterSuite;
@@ -20,6 +22,7 @@ import java.util.HashSet;
 import java.util.List;
 
 import edu.utexas.tacc.tapis.systems.model.TSystem;
+import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemType;
 
 import static edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters.*;
@@ -35,7 +38,7 @@ public class SystemsDaoTest
   private ResourceRequestUser rUser;
 
   // Create test system definitions and scheduler profiles in memory
-  int numSystems = 12;
+  int numSystems = 13;
   int numSchedulerProfiles = 5;
   String testKey = "Dao";
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
@@ -384,4 +387,25 @@ public class SystemsDaoTest
     Assert.assertTrue(profileNameList.contains(schedulerProfiles[4].getName()),
                       "getSchedulerProfiles did not return item with name: " + schedulerProfiles[4].getName());
   }
+  
+ //Test retrieving a system history
+ @Test
+ public void testGetHistory() throws Exception {
+   TSystem sys0 = systems[12];
+   boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
+   Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
+   List<SystemHistoryItem> systemHistory = dao.getSystemHistory(sys0.getId());
+   
+   Assert.assertNotNull(systemHistory, "Failed to create system history for item: " + sys0.getId());
+   System.out.println("Found system history item: " + sys0.getId());
+   
+   Assert.assertEquals(systemHistory.size(), 1);
+   for (SystemHistoryItem item:systemHistory) {
+     Assert.assertNotNull(item.getUserTenant(), "Fetched User Tenant should not be null");
+     Assert.assertNotNull(item.getUserName(), "Fetched User Name should not be null");
+     Assert.assertEquals(item.getOperation(), SystemOperation.create);
+     Assert.assertNotNull(item.getUpdJson(), "Fetched Json should not be null");
+     Assert.assertNotNull(item.getCreated(), "Fetched created timestamp should not be null");
+   }
+ }
 }
