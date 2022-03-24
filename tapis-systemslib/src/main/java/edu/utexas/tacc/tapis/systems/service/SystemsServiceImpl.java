@@ -2566,6 +2566,7 @@ public class SystemsServiceImpl implements SystemsService
   
   /**
   * Get System Updates records for the System ID specified
+   * @throws TapisException
    * @throws IllegalStateException 
    * @throws TapisClientException 
    * @throws NotAuthorizedException 
@@ -2579,9 +2580,11 @@ public class SystemsServiceImpl implements SystemsService
     // ------------------------- Check service level authorization -------------------------
     checkAuth(rUser, op, systemId, null, null, null);
     
+    // ----------------- Retrieve system updates information (system history) --------------------
+    // Changes not in single DB transaction    
 	  List<SystemHistoryItem> systemHistory = dao.getSystemHistory(systemId);
-	  if (systemHistory == null) return null;
 	
 	  return systemHistory;
   }
 }
+

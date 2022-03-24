@@ -729,6 +729,7 @@ public class SystemResource
     
     try
     {
+      // Retrieve system history List
     	systemHistory = systemsService.getSystemHistory(rUser, systemId);
     }
     catch (Exception e)
@@ -738,14 +739,16 @@ public class SystemResource
       return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
     
+    // System not found
     if (systemHistory == null || systemHistory.size()==0) {
    	 String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
    	  _log.warn(msg);
    	  return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
     
+    // ---------------------------- Success -------------------------------
+    // Success means we retrieved the system history information.
     RespSystemHistory resp1 = new RespSystemHistory(systemHistory);
-
     return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "SystemHistory", systemId), resp1);
   }
   
