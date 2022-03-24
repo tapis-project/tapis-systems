@@ -256,7 +256,7 @@ public class SystemsDaoTest
     boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
     System.out.println("Created item with systemId: " + sys0.getId());
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
-    dao.updateSystemOwner(rUser, tenantName, sys0.getId(), "newOwner");
+    dao.updateSystemOwner(rUser, sys0.getId(), apiUser, "newOwner");
     TSystem tmpSystem = dao.getSystem(sys0.getTenant(), sys0.getId());
     Assert.assertEquals(tmpSystem.getOwner(), "newOwner");
   }
@@ -313,7 +313,7 @@ public class SystemsDaoTest
   public void testCreateSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[0];
-    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    dao.createSchedulerProfile(rUser, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
   }
 
@@ -321,7 +321,7 @@ public class SystemsDaoTest
   public void testGetSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[1];
-    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    dao.createSchedulerProfile(rUser, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
     SchedulerProfile tmpProfile = dao.getSchedulerProfile(tenantName, p0.getName());
@@ -352,7 +352,7 @@ public class SystemsDaoTest
   public void testDeleteSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[2];
-    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    dao.createSchedulerProfile(rUser, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
     dao.deleteSchedulerProfile(rUser.getOboTenantId(), p0.getName());
     Assert.assertFalse(dao.checkForSchedulerProfile(tenantName, p0.getName()),
@@ -364,11 +364,11 @@ public class SystemsDaoTest
   public void testGetSchedulerProfiles() throws Exception {
     var profileNameList = new HashSet<String>();
     SchedulerProfile p0 = schedulerProfiles[3];
-    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    dao.createSchedulerProfile(rUser, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
     profileNameList.add(p0.getName());
     p0 = schedulerProfiles[4];
-    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    dao.createSchedulerProfile(rUser, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
     profileNameList.add(p0.getName());
 

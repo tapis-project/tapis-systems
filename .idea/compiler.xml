@@ -6,8 +6,13 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="tapis-systemsapi" />
         <module name="tapis-systemslib" />
+      </profile>
+      <profile name="Annotation profile for TACC Tapis Systems Parent POM" enabled="true">
+        <sourceOutputDir name="../../../../../target/generated-sources/annotations" />
+        <sourceTestOutputDir name="../../../../../target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="tapis-systemsapi" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>

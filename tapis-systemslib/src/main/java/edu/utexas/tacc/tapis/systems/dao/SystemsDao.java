@@ -4,7 +4,6 @@ import edu.utexas.tacc.tapis.search.parser.ASTNode;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
-import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
@@ -25,24 +24,23 @@ public interface SystemsDao
   /*                             Systems                                    */
   /* ********************************************************************** */
 
-  boolean createSystem(ResourceRequestUser rUser, TSystem system, String createJsonStr, String scrubbedText)
+  boolean createSystem(ResourceRequestUser rUser, TSystem system, String changeDescription, String rawData)
           throws TapisException, IllegalStateException;
 
-  void putSystem(ResourceRequestUser rUser, TSystem putSystem, String updateJsonStr, String scrubbedText)
+  void putSystem(ResourceRequestUser rUser, TSystem putSystem, String changeDescription, String rawData)
           throws TapisException, IllegalStateException;
 
-  void patchSystem(ResourceRequestUser rUser, String systemId, TSystem patchedSystem,
-                   String updateJsonStr, String scrubbedText)
+  void patchSystem(ResourceRequestUser rUser, String systemId, TSystem patchedSystem, String changeDescription, String rawData)
           throws TapisException, IllegalStateException;
 
-  void updateSystemOwner(ResourceRequestUser rUser, String tenantId, String id, String newOwnerName) throws TapisException;
+  void updateSystemOwner(ResourceRequestUser rUser, String id, String oldOwner, String newOwner) throws TapisException;
 
   void updateEnabled(ResourceRequestUser rUser, String tenantId, String id, boolean enabled) throws TapisException;
 
   void updateDeleted(ResourceRequestUser rUser, String tenantId, String id, boolean deleted) throws TapisException;
 
-  void addUpdateRecord(ResourceRequestUser rUser, String tenantId, String id, SystemOperation op,
-                       String upd_json, String upd_text) throws TapisException;
+  void addUpdateRecord(ResourceRequestUser rUser, String id, SystemOperation op, String changeDescription, String rawData)
+          throws TapisException;
 
   int hardDeleteSystem(String tenantId, String id) throws TapisException;
 
@@ -76,8 +74,7 @@ public interface SystemsDao
   /*                             Scheduler Profiles                         */
   /* ********************************************************************** */
 
-  void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile profile, String createJsonStr, String scrubbedText)
-          throws TapisException, IllegalStateException;
+  void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile profile) throws TapisException, IllegalStateException;
 
   SchedulerProfile getSchedulerProfile(String tenantId, String name) throws TapisException;
 

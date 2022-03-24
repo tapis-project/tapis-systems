@@ -233,7 +233,7 @@
                     <userType>com.google.gson.JsonElement</userType>
                     <binding>edu.utexas.tacc.tapis.systems.dao.JSONBToJsonElementBinding</binding>
                     <!-- Match only certain columns, no need to filter on type -->
-                    <includeExpression>(systems\.job_env_variables|systems\.job_runtimes|systems\.batch_logical_queues|systems\.job_capabilities|systems\.notes|system_updates\.upd_json)</includeExpression>
+                    <includeExpression>(systems\.job_env_variables|systems\.job_runtimes|systems\.batch_logical_queues|systems\.job_capabilities|systems\.notes|systems_history\.description)</includeExpression>
                     <includeTypes>.*</includeTypes>
                   </forcedType>
                   <!-- ****************************************** -->
@@ -256,7 +256,7 @@
                   <forcedType>
                     <userType>edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation</userType>
                     <enumConverter>true</enumConverter>
-                    <includeExpression>system_updates\.operation</includeExpression>
+                    <includeExpression>systems_history\.operation</includeExpression>
                     <includeTypes>.*</includeTypes>
                   </forcedType>
                   <forcedType>

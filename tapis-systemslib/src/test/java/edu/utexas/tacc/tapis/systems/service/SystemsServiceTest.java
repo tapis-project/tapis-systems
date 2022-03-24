@@ -136,11 +136,11 @@ public class SystemsServiceTest
     List<SchedulerProfile.HiddenOption> hiddenOptions = Arrays.asList(SchedulerProfile.HiddenOption.MEM);
     SchedulerProfile sp = new SchedulerProfile(tenantName, batchSchedulerProfile1, "test profile1",  owner1, "module load1",
                                                null, hiddenOptions, null, null, null);
-    svc.createSchedulerProfile(rOwner1, sp, scrubbedJson);
+    svc.createSchedulerProfile(rOwner1, sp);
     System.out.println("Creating scheduler profile with name: " + batchSchedulerProfile2);
     sp = new SchedulerProfile(tenantName, batchSchedulerProfile2, "test profile2",  owner1, "module load2",
                               null, hiddenOptions, null, null, null);
-    svc.createSchedulerProfile(rOwner1, sp, scrubbedJson);
+    svc.createSchedulerProfile(rOwner1, sp);
   }
 
   @AfterSuite
@@ -1273,7 +1273,7 @@ public class SystemsServiceTest
   public void testCreateSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[0];
-    svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
+    svc.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
   }
 
@@ -1281,7 +1281,7 @@ public class SystemsServiceTest
   public void testGetSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[1];
-    svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
+    svc.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
     SchedulerProfile tmpProfile = svc.getSchedulerProfile(rTestUser2, p0.getName());
@@ -1330,7 +1330,7 @@ public class SystemsServiceTest
   public void testDeleteSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[2];
-    svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
+    svc.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
     svc.deleteSchedulerProfile(rTestUser2, p0.getName());
     Assert.assertFalse(svc.checkForSchedulerProfile(rTestUser2, p0.getName()),
@@ -1341,10 +1341,10 @@ public class SystemsServiceTest
   @Test
   public void testGetSchedulerProfiles() throws Exception {
     SchedulerProfile p0 = schedulerProfiles[3];
-    svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
+    svc.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
     p0 = schedulerProfiles[4];
-    svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
+    svc.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
     List<SchedulerProfile> profiles = svc.getSchedulerProfiles(rTestUser2);
@@ -1370,12 +1370,12 @@ public class SystemsServiceTest
   {
     SchedulerProfile p0 = schedulerProfiles[5];
     SchedulerProfile p1 = schedulerProfiles[6];
-    svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
+    svc.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
     // CREATE - Deny user not owner/admin, deny service
     boolean pass = false;
-    try { svc.createSchedulerProfile(rTestUser1, p1, scrubbedJson); }
+    try { svc.createSchedulerProfile(rTestUser1, p1); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
@@ -1383,7 +1383,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.createSchedulerProfile(rFilesSvcOwner1, p1, scrubbedJson); }
+    try { svc.createSchedulerProfile(rFilesSvcOwner1, p1); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));

@@ -178,7 +178,7 @@ public class SchedulerProfileResource
     String profileName = schedProfile.getName();
     try
     {
-      systemsService.createSchedulerProfile(rUser, schedProfile, rawJson);
+      systemsService.createSchedulerProfile(rUser, schedProfile);
     }
     catch (IllegalStateException e)
     {

@@ -162,36 +162,36 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system - Pre-populated TSystem object (including tenantId and systemId)
    * @param skipCredCheck - Indicates if cred check for LINUX systems should happen
-   * @param scrubbedText - Text used to create the TSystem object - secrets should be scrubbed. Saved in update record.
+   * @param rawData - Json used to create the TSystem object - secrets should be scrubbed. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
    * @throws IllegalStateException - system exists OR TSystem in invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
-  public void createSystem(ResourceRequestUser rUser, TSystem system, boolean skipCredCheck, String scrubbedText)
+  public void createSystem(ResourceRequestUser rUser, TSystem system, boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException, NotAuthorizedException
   {
     SystemOperation op = SystemOperation.create;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (system == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
-    _log.trace(LibUtils.getMsgAuth("SYSLIB_CREATE_TRACE", rUser, scrubbedText));
-    String resourceTenantId = system.getTenant();
-    String resourceId = system.getId();
+    _log.trace(LibUtils.getMsgAuth("SYSLIB_CREATE_TRACE", rUser, rawData));
+    String tenant = system.getTenant();
+    String systemId = system.getId();
 
     // ---------------------------- Check inputs ------------------------------------
     // Required system attributes: tenant, id, type, host, defaultAuthnMethod
-    if (StringUtils.isBlank(resourceTenantId) || StringUtils.isBlank(resourceId) || system.getSystemType() == null ||
+    if (StringUtils.isBlank(tenant) || StringUtils.isBlank(systemId) || system.getSystemType() == null ||
         StringUtils.isBlank(system.getHost()) || system.getDefaultAuthnMethod() == null ||
-        StringUtils.isBlank(scrubbedText))
+        StringUtils.isBlank(rawData))
     {
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ARG", rUser, resourceId));
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ARG", rUser, systemId));
     }
 
     // Check if system already exists
-    if (dao.checkForSystem(resourceTenantId, resourceId, true))
+    if (dao.checkForSystem(tenant, systemId, true))
     {
-      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, resourceId));
+      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, systemId));
     }
 
     // Make sure owner, effectiveUserId, notes and tags are all set
@@ -218,35 +218,36 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Construct Json string representing the TSystem (without credentials) about to be created
+    // This will be used as the description for the change history record
     TSystem scrubbedSystem = new TSystem(system);
     scrubbedSystem.setAuthnCredential(null);
-    String createJsonStr = TapisGsonUtils.getGson().toJson(scrubbedSystem);
+    String changeDescription = TapisGsonUtils.getGson().toJson(scrubbedSystem);
 
     // ----------------- Create all artifacts --------------------
     // Creation of system, perms and creds not in single DB transaction.
     // Use try/catch to rollback any writes in case of failure.
     boolean itemCreated = false;
-    String systemsPermSpecALL = getPermSpecAllStr(resourceTenantId, resourceId);
+    String systemsPermSpecALL = getPermSpecAllStr(tenant, systemId);
     // TODO remove filesPermSpec related code (jira cic-3071)
-    String filesPermSpec = "files:" + resourceTenantId + ":*:" + resourceId;
+    String filesPermSpec = "files:" + tenant + ":*:" + systemId;
 
     // Get SK client now. If we cannot get this rollback not needed.
     var skClient = getSKClient();
     try {
       // ------------------- Make Dao call to persist the system -----------------------------------
-      itemCreated = dao.createSystem(rUser, system, createJsonStr, scrubbedText);
+      itemCreated = dao.createSystem(rUser, system, changeDescription, rawData);
 
       // ------------------- Add permissions -----------------------------
       // Give owner and possibly effectiveUser full access to the system
-      skClient.grantUserPermission(resourceTenantId, system.getOwner(), systemsPermSpecALL);
+      skClient.grantUserPermission(tenant, system.getOwner(), systemsPermSpecALL);
       if (!effectiveUserId.equals(APIUSERID_VAR) && !effectiveUserId.equals(OWNER_VAR)) {
-        skClient.grantUserPermission(resourceTenantId, effectiveUserId, systemsPermSpecALL);
+        skClient.grantUserPermission(tenant, effectiveUserId, systemsPermSpecALL);
       }
       // TODO remove filesPermSpec related code (jira cic-3071)
       // Give owner/effectiveUser files service related permission for root directory
-      skClient.grantUserPermission(resourceTenantId, system.getOwner(), filesPermSpec);
+      skClient.grantUserPermission(tenant, system.getOwner(), filesPermSpec);
       if (!effectiveUserId.equals(APIUSERID_VAR) && !effectiveUserId.equals(OWNER_VAR))
-        skClient.grantUserPermission(resourceTenantId, effectiveUserId, filesPermSpec);
+        skClient.grantUserPermission(tenant, effectiveUserId, filesPermSpec);
 
       // ------------------- Store credentials -----------------------------------
       // Store credentials in Security Kernel if cred provided and effectiveUser is static
@@ -256,37 +257,37 @@ public class SystemsServiceImpl implements SystemsService
         if (effectiveUserId.equals(OWNER_VAR)) accessUser = system.getOwner();
         // Use private internal method instead of public API to skip auth and other checks not needed here.
         // Create credential
-        createCredential(skClient, rUser, system.getAuthnCredential(), resourceId, accessUser);
+        createCredential(skClient, rUser, system.getAuthnCredential(), systemId, accessUser);
       }
     }
     catch (Exception e0)
     {
       // Something went wrong. Attempt to undo all changes and then re-throw the exception
       // Log error
-      String msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ROLLBACK", rUser, resourceId, e0.getMessage());
+      String msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ROLLBACK", rUser, systemId, e0.getMessage());
       _log.error(msg);
 
       // Rollback
       // Remove system from DB
-      if (itemCreated) try {dao.hardDeleteSystem(resourceTenantId, resourceId); }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, resourceId, "hardDelete", e.getMessage()));}
+      if (itemCreated) try {dao.hardDeleteSystem(tenant, systemId); }
+      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "hardDelete", e.getMessage()));}
       // Remove perms
-      try { skClient.revokeUserPermission(resourceTenantId, system.getOwner(), systemsPermSpecALL); }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, resourceId, "revokePermOwner", e.getMessage()));}
-      try { skClient.revokeUserPermission(resourceTenantId, effectiveUserId, systemsPermSpecALL); }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, resourceId, "revokePermEffUsr", e.getMessage()));}
+      try { skClient.revokeUserPermission(tenant, system.getOwner(), systemsPermSpecALL); }
+      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermOwner", e.getMessage()));}
+      try { skClient.revokeUserPermission(tenant, effectiveUserId, systemsPermSpecALL); }
+      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermEffUsr", e.getMessage()));}
       // TODO remove filesPermSpec related code (jira cic-3071)
-      try { skClient.revokeUserPermission(resourceTenantId, system.getOwner(), filesPermSpec);  }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, resourceId, "revokePermF1", e.getMessage()));}
-      try { skClient.revokeUserPermission(resourceTenantId, effectiveUserId, filesPermSpec);  }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, resourceId, "revokePermF2", e.getMessage()));}
+      try { skClient.revokeUserPermission(tenant, system.getOwner(), filesPermSpec);  }
+      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
+      try { skClient.revokeUserPermission(tenant, effectiveUserId, filesPermSpec);  }
+      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF2", e.getMessage()));}
       // Remove creds
       if (system.getAuthnCredential() != null && !effectiveUserId.equals(APIUSERID_VAR)) {
         String accessUser = effectiveUserId;
         if (effectiveUserId.equals(OWNER_VAR)) accessUser = system.getOwner();
         // Use private internal method instead of public API to skip auth and other checks not needed here.
-        try { deleteCredential(skClient, rUser, resourceId, accessUser); }
-        catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, resourceId, "deleteCred", e.getMessage()));}
+        try { deleteCredential(skClient, rUser, systemId, accessUser); }
+        catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "deleteCred", e.getMessage()));}
       }
       throw e0;
     }
@@ -304,7 +305,7 @@ public class SystemsServiceImpl implements SystemsService
    *   tenant, id, systemType, owner, authnCredential, bucketName, rootDir, canExec, isDtn
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param patchSystem - Pre-populated PatchSystem object (including tenantId and systemId)
-   * @param scrubbedText - Text used to create the PatchSystem object - secrets should be scrubbed. Saved in update record.
+   * @param rawData - Text used to create the PatchSystem object - secrets should be scrubbed. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
    * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
@@ -312,7 +313,7 @@ public class SystemsServiceImpl implements SystemsService
    * @throws NotFoundException - Resource not found
    */
   @Override
-  public void patchSystem(ResourceRequestUser rUser, String systemId, PatchSystem patchSystem, String scrubbedText)
+  public void patchSystem(ResourceRequestUser rUser, String systemId, PatchSystem patchSystem, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException
   {
     SystemOperation op = SystemOperation.modify;
@@ -323,7 +324,7 @@ public class SystemsServiceImpl implements SystemsService
     String resourceId = systemId;
 
     // ---------------------------- Check inputs ------------------------------------
-    if (StringUtils.isBlank(resourceId) || StringUtils.isBlank(scrubbedText))
+    if (StringUtils.isBlank(resourceId) || StringUtils.isBlank(rawData))
     {
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ARG", rUser, resourceId));
     }
@@ -343,13 +344,19 @@ public class SystemsServiceImpl implements SystemsService
     patchedTSystem.setDefaults();
     validateTSystem(rUser, patchedTSystem);
 
-    // Construct Json string representing the PatchSystem about to be used to update the system
-    String updateJsonStr = TapisGsonUtils.getGson().toJson(patchSystem);
+    // Get a complete and succinct description of the update.
+    // If nothing has changed, then log a warning and return
+    String changeDescription = getChangeDescriptionSystemUpdate(origTSystem, patchedTSystem);
+    if (StringUtils.isBlank(changeDescription))
+    {
+      _log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, op, resourceId));
+      return;
+    }
 
     // ----------------- Create all artifacts --------------------
     // No distributed transactions so no distributed rollback needed
     // ------------------- Make Dao call to persist the system -----------------------------------
-    dao.patchSystem(rUser, resourceId, patchedTSystem, updateJsonStr, scrubbedText);
+    dao.patchSystem(rUser, resourceId, patchedTSystem, changeDescription, rawData);
   }
 
   /**
@@ -361,7 +368,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param putSystem - Pre-populated TSystem object (including tenantId and systemId)
    * @param skipCredCheck - Indicates if cred check for LINUX systems should happen
-   * @param scrubbedText - Text used to create the System object - secrets should be scrubbed. Saved in update record.
+   * @param rawData - Text used to create the System object - secrets should be scrubbed. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
    * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
@@ -369,7 +376,7 @@ public class SystemsServiceImpl implements SystemsService
    * @throws NotFoundException - Resource not found
    */
   @Override
-  public void putSystem(ResourceRequestUser rUser, TSystem putSystem, boolean skipCredCheck, String scrubbedText)
+  public void putSystem(ResourceRequestUser rUser, TSystem putSystem, boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException
   {
     SystemOperation op = SystemOperation.modify;
@@ -380,7 +387,7 @@ public class SystemsServiceImpl implements SystemsService
     String resourceId = putSystem.getId();
 
     // ---------------------------- Check inputs ------------------------------------
-    if (StringUtils.isBlank(resourceTenantId) || StringUtils.isBlank(resourceId) || StringUtils.isBlank(scrubbedText))
+    if (StringUtils.isBlank(resourceTenantId) || StringUtils.isBlank(resourceId) || StringUtils.isBlank(rawData))
     {
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ARG", rUser, resourceId));
     }
@@ -405,13 +412,19 @@ public class SystemsServiceImpl implements SystemsService
       verifyCredentials(rUser, updatedTSystem, updatedTSystem.getAuthnCredential());
     }
 
-    // Construct Json string representing the PutSystem about to be used to update the system
-    String updateJsonStr = TapisGsonUtils.getGson().toJson(putSystem);
+    // Get a complete and succinct description of the update.
+    // If nothing has changed, then log a warning and return
+    String changeDescription = getChangeDescriptionSystemUpdate(origTSystem, putSystem);
+    if (StringUtils.isBlank(changeDescription))
+    {
+      _log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, op, resourceId));
+      return;
+    }
 
     // ----------------- Create all artifacts --------------------
     // No distributed transactions so no distributed rollback needed
     // ------------------- Make Dao call to update the system -----------------------------------
-    dao.putSystem(rUser, updatedTSystem, updateJsonStr, scrubbedText);
+    dao.putSystem(rUser, updatedTSystem, changeDescription, rawData);
   }
 
   /**
@@ -573,14 +586,14 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(newOwnerName))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    String resourceTenantId = rUser.getOboTenantId();
+    String oboTenant = rUser.getOboTenantId();
 
     // System must already exist and not be deleted
-    if (!dao.checkForSystem(resourceTenantId, systemId, false))
+    if (!dao.checkForSystem(oboTenant, systemId, false))
          throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
     // Retrieve old owner
-    String oldOwnerName = dao.getSystemOwner(resourceTenantId, systemId);
+    String oldOwnerName = dao.getSystemOwner(oboTenant, systemId);
 
     // ------------------------- Check service level authorization -------------------------
     checkAuth(rUser, op, systemId, oldOwnerName, null, null);
@@ -593,33 +606,33 @@ public class SystemsServiceImpl implements SystemsService
     // Use try/catch to rollback any changes in case of failure.
     // Get SK client now. If we cannot get this rollback not needed.
     var skClient = getSKClient();
-    String systemsPermSpec = getPermSpecAllStr(resourceTenantId, systemId);
+    String systemsPermSpec = getPermSpecAllStr(oboTenant, systemId);
     // TODO remove addition of files related permSpec (jira cic-3071)
-    String filesPermSpec = "files:" + resourceTenantId + ":*:" + systemId;
+    String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
     try {
       // ------------------- Make Dao call to update the system owner -----------------------------------
-      dao.updateSystemOwner(rUser, resourceTenantId, systemId, newOwnerName);
+      dao.updateSystemOwner(rUser, systemId, oldOwnerName, newOwnerName);
       // Add permissions for new owner
-      skClient.grantUserPermission(resourceTenantId, newOwnerName, systemsPermSpec);
+      skClient.grantUserPermission(oboTenant, newOwnerName, systemsPermSpec);
       // TODO remove addition of files related permSpec (jira cic-3071)
       // Give owner files service related permission for root directory
-      skClient.grantUserPermission(resourceTenantId, newOwnerName, filesPermSpec);
+      skClient.grantUserPermission(oboTenant, newOwnerName, filesPermSpec);
       // Remove permissions from old owner
-      skClient.revokeUserPermission(resourceTenantId, oldOwnerName, systemsPermSpec);
+      skClient.revokeUserPermission(oboTenant, oldOwnerName, systemsPermSpec);
       // TODO: Notify files service of the change (jira cic-3071)
     }
     catch (Exception e0)
     {
       // Something went wrong. Attempt to undo all changes and then re-throw the exception
-      try { dao.updateSystemOwner(rUser, resourceTenantId, systemId, oldOwnerName); } catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "updateOwner", e.getMessage()));}
+      try { dao.updateSystemOwner(rUser, systemId, newOwnerName, oldOwnerName); } catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "updateOwner", e.getMessage()));}
       // TODO remove filesPermSpec related code (jira cic-3071)
-      try { skClient.revokeUserPermission(resourceTenantId, newOwnerName, filesPermSpec); }
+      try { skClient.revokeUserPermission(oboTenant, newOwnerName, filesPermSpec); }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermNewOwner", e.getMessage()));}
-      try { skClient.revokeUserPermission(resourceTenantId, newOwnerName, filesPermSpec); }
+      try { skClient.revokeUserPermission(oboTenant, newOwnerName, filesPermSpec); }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
-      try { skClient.grantUserPermission(resourceTenantId, oldOwnerName, systemsPermSpec); }
+      try { skClient.grantUserPermission(oboTenant, oldOwnerName, systemsPermSpec); }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPermOldOwner", e.getMessage()));}
-      try { skClient.grantUserPermission(resourceTenantId, oldOwnerName, filesPermSpec); }
+      try { skClient.grantUserPermission(oboTenant, oldOwnerName, filesPermSpec); }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPermF1", e.getMessage()));}
       throw e0;
     }
@@ -1057,13 +1070,13 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - name of system
    * @param userName - Target user for operation
    * @param permissions - list of permissions to be granted
-   * @param updateText - Client provided text used to create the permissions list. Saved in update record.
+   * @param rawData - Client provided text used to create the permissions list. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
-  public void grantUserPermissions(ResourceRequestUser rUser, String systemId,
-                                   String userName, Set<Permission> permissions, String updateText)
+  public void grantUserPermissions(ResourceRequestUser rUser, String systemId, String userName,
+                                   Set<Permission> permissions, String rawData)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
     SystemOperation op = SystemOperation.grantPerms;
@@ -1128,10 +1141,10 @@ public class SystemsServiceImpl implements SystemsService
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_PERM_SK_ERROR", rUser, systemId, op.name()), tce);
     }
 
-    // Construct Json string representing the update
-    String updateJsonStr = TapisGsonUtils.getGson().toJson(permissions);
+    // Get a complete and succinct description of the update.
+    String changeDescription = getChangeDescriptionPermsGrant(systemId, userName, permissions);
     // Create a record of the update
-    dao.addUpdateRecord(rUser, resourceTenantId, systemId, op, updateJsonStr, updateText);
+    dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
   }
 
   /**
@@ -1142,14 +1155,14 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - name of system
    * @param userName - Target user for operation
    * @param permissions - list of permissions to be revoked
-   * @param updateText - Client provided text used to create the permissions list. Saved in update record.
+   * @param rawData - Client provided text used to create the permissions list. Saved in update record.
    * @return Number of items revoked
    * @throws TapisException - for Tapis related exceptions
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
-  public int revokeUserPermissions(ResourceRequestUser rUser, String systemId,
-                                   String userName, Set<Permission> permissions, String updateText)
+  public int revokeUserPermissions(ResourceRequestUser rUser, String systemId, String userName,
+                                   Set<Permission> permissions, String rawData)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
     SystemOperation op = SystemOperation.revokePerms;
@@ -1212,10 +1225,10 @@ public class SystemsServiceImpl implements SystemsService
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_PERM_SK_ERROR", rUser, systemId, op.name()), tce);
     }
 
-    // Construct Json string representing the update
-    String updateJsonStr = TapisGsonUtils.getGson().toJson(permissions);
+    // Get a complete and succinct description of the update.
+    String changeDescription = getChangeDescriptionPermsRevoke(systemId, userName, permissions);
     // Create a record of the update
-    dao.addUpdateRecord(rUser, resourceTenantId, systemId, op, updateJsonStr, updateText);
+    dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
     return changeCount;
   }
 
@@ -1261,14 +1274,14 @@ public class SystemsServiceImpl implements SystemsService
    * @param userName - Target user for operation
    * @param credential - list of permissions to be granted
    * @param skipCredCheck - Indicates if cred check for LINUX systems should happen
-   * @param updateText - Client provided text used to create the credential - secrets should be scrubbed. Saved in update record.
+   * @param rawData - Client provided text used to create the credential - secrets should be scrubbed. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
    * @throws NotAuthorizedException - unauthorized
    * @throws NotFoundException - Resource not found
    */
   @Override
-  public void createUserCredential(ResourceRequestUser rUser, String systemId,
-                                   String userName, Credential credential, boolean skipCredCheck, String updateText)
+  public void createUserCredential(ResourceRequestUser rUser, String systemId, String userName, Credential credential,
+                                   boolean skipCredCheck, String rawData)
           throws TapisException, NotFoundException, NotAuthorizedException, IllegalStateException, TapisClientException
   {
     SystemOperation op = SystemOperation.setCred;
@@ -1318,10 +1331,11 @@ public class SystemsServiceImpl implements SystemsService
 
     // Construct Json string representing the update, with actual secrets masked out
     Credential maskedCredential = Credential.createMaskedCredential(credential);
-    String updateJsonStr = TapisGsonUtils.getGson().toJson(maskedCredential);
-
+    String credJson = TapisGsonUtils.getGson().toJson(maskedCredential);
+    // Get a complete and succinct description of the update.
+    String changeDescription = getChangeDescriptionCredCreate(systemId, userName, skipCredCheck, credJson);
     // Create a record of the update
-    dao.addUpdateRecord(rUser, resourceTenantId, systemId, op, updateJsonStr, updateText);
+    dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
   }
 
   /**
@@ -1333,8 +1347,7 @@ public class SystemsServiceImpl implements SystemsService
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
-  public int deleteUserCredential(ResourceRequestUser rUser, String systemId,
-                                  String userName)
+  public int deleteUserCredential(ResourceRequestUser rUser, String systemId, String userName)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
     SystemOperation op = SystemOperation.removeCred;
@@ -1370,8 +1383,10 @@ public class SystemsServiceImpl implements SystemsService
 
     // Construct Json string representing the update
     String updateJsonStr = TapisGsonUtils.getGson().toJson(userName);
+    // Get a complete and succinct description of the update.
+    String changeDescription = getChangeDescriptionCredDelete(systemId, userName);
     // Create a record of the update
-    dao.addUpdateRecord(rUser, resourceTenantId, systemId, op, updateJsonStr, null);
+    dao.addUpdateRecord(rUser, systemId, op, changeDescription, null);
     return changeCount;
   }
 
@@ -1486,27 +1501,28 @@ public class SystemsServiceImpl implements SystemsService
    * Create a scheduler profile.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param schedulerProfile - Pre-populated SchedulerProfile object (including tenant and name)
-   * @param scrubbedText - Text used to create the profile object - secrets should be scrubbed. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
    * @throws IllegalStateException - resource exists OR is in invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
-  public void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile schedulerProfile, String scrubbedText)
+  public void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile schedulerProfile)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException, NotAuthorizedException
   {
     SchedulerProfileOperation op = SchedulerProfileOperation.create;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (schedulerProfile == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_PROFILE", rUser));
-    _log.trace(LibUtils.getMsgAuth("SYSLIB_CREATE_TRACE", rUser, scrubbedText));
+    // Construct Json string representing the resource about to be created
+    String createJsonStr = TapisGsonUtils.getGson().toJson(schedulerProfile);
+    _log.trace(LibUtils.getMsgAuth("SYSLIB_CREATE_TRACE", rUser, createJsonStr));
     String resourceTenantId = schedulerProfile.getTenant();
     String resourceId = schedulerProfile.getName();
 
     // ---------------------------- Check inputs ------------------------------------
     // Required attributes: tenant, id, moduleLoadCommand
     if (StringUtils.isBlank(resourceTenantId) || StringUtils.isBlank(resourceId) ||
-            StringUtils.isBlank(schedulerProfile.getModuleLoadCommand()) || StringUtils.isBlank(scrubbedText))
+            StringUtils.isBlank(schedulerProfile.getModuleLoadCommand()))
     {
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ARG", rUser, resourceId));
     }
@@ -1529,12 +1545,9 @@ public class SystemsServiceImpl implements SystemsService
     // ---------------- Check constraints on TSystem attributes ------------------------
     validateSchedulerProfile(rUser, schedulerProfile);
 
-    // Construct Json string representing the resource about to be created
-    String createJsonStr = TapisGsonUtils.getGson().toJson(schedulerProfile);
-
     // No distributed transactions so no distributed rollback needed
     // Make Dao call to persist the resource
-    dao.createSchedulerProfile(rUser, schedulerProfile, createJsonStr, scrubbedText);
+    dao.createSchedulerProfile(rUser, schedulerProfile);
   }
 
   /**
@@ -1619,6 +1632,29 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_PROFILE", rUser));
 
     return dao.checkForSchedulerProfile(rUser.getOboTenantId(), name);
+  }
+
+  /**
+   * Get System Updates records for the System ID specified
+   * @throws TapisException
+   * @throws IllegalStateException
+   * @throws TapisClientException
+   * @throws NotAuthorizedException
+   */
+  @Override
+  public List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
+          throws TapisException, NotAuthorizedException, IllegalStateException, TapisClientException {
+
+    SystemOperation op = SystemOperation.read;
+
+    // ------------------------- Check service level authorization -------------------------
+    checkAuth(rUser, op, systemId, null, null, null);
+
+    // ----------------- Retrieve system updates information (system history) --------------------
+    // Changes not in single DB transaction
+    List<SystemHistoryItem> systemHistory = dao.getSystemHistory(systemId);
+
+    return systemHistory;
   }
 
   // ************************************************************************
@@ -2563,28 +2599,55 @@ public class SystemsServiceImpl implements SystemsService
     if (p.getImportRefId() != null) p1.setImportRefId(p.getImportRefId());
     return p1;
   }
-  
-  /**
-  * Get System Updates records for the System ID specified
-   * @throws TapisException
-   * @throws IllegalStateException 
-   * @throws TapisClientException 
-   * @throws NotAuthorizedException 
-  */
-  @Override
-  public List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
-      throws TapisException, NotAuthorizedException, IllegalStateException, TapisClientException {
-	
-    SystemOperation op = SystemOperation.read;
 
-    // ------------------------- Check service level authorization -------------------------
-    checkAuth(rUser, op, systemId, null, null, null);
-    
-    // ----------------- Retrieve system updates information (system history) --------------------
-    // Changes not in single DB transaction    
-	  List<SystemHistoryItem> systemHistory = dao.getSystemHistory(systemId);
-	
-	  return systemHistory;
+  /**
+   * Compare original and modified systems to detect changes and produce a complete and succinct description
+   * of the changes. If no changes then return null.
+   */
+  private String getChangeDescriptionSystemUpdate(TSystem o, TSystem n)
+  {
+    ?
+    // TODO
+    return "TODO";
+  }
+
+  /**
+   * Create a change description for a credential update.
+   */
+  private String getChangeDescriptionCredCreate(String systemId, String user, boolean skipCredCheck, String credJson)
+  {
+    ?
+    // TODO
+    return "TODO";
+  }
+
+  /**
+   * Create a change description for a credential delete.
+   */
+  private String getChangeDescriptionCredDelete(String systemId, String user)
+  {
+    ?
+    // TODO
+    return "TODO";
+  }
+
+  /**
+   * Create a change description for a permissions grant.
+   */
+  private String getChangeDescriptionPermsGrant(String systemId, String userName, Set<Permission> permissions)
+  {
+    ?
+    // TODO
+    return "TODO";
+  }
+
+  /**
+   * Create a change description for a permissions revoke.
+   */
+  private String getChangeDescriptionPermsRevoke(String systemId, String userName, Set<Permission> permissions)
+  {
+    ?
+    // TODO
+    return "TODO";
   }
 }
-

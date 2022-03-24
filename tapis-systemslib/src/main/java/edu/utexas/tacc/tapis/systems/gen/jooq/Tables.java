@@ -6,8 +6,8 @@ package edu.utexas.tacc.tapis.systems.gen.jooq;
 
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.FlywaySchemaHistory;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedulerProfiles;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemUpdates;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.Systems;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsHistory;
 
 
 /**
@@ -27,12 +27,12 @@ public class Tables {
     public static final SchedulerProfiles SCHEDULER_PROFILES = SchedulerProfiles.SCHEDULER_PROFILES;
 
     /**
-     * The table <code>tapis_sys.system_updates</code>.
-     */
-    public static final SystemUpdates SYSTEM_UPDATES = SystemUpdates.SYSTEM_UPDATES;
-
-    /**
      * The table <code>tapis_sys.systems</code>.
      */
     public static final Systems SYSTEMS = Systems.SYSTEMS;
+
+    /**
+     * The table <code>tapis_sys.systems_history</code>.
+     */
+    public static final SystemsHistory SYSTEMS_HISTORY = SystemsHistory.SYSTEMS_HISTORY;
 }
