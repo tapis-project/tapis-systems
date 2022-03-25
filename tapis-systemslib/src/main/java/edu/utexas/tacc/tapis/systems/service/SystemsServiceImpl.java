@@ -1,16 +1,5 @@
 package edu.utexas.tacc.tapis.systems.service;
 
-import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_VAR;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,6 +12,14 @@ import javax.inject.Inject;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 
+import com.google.gson.JsonObject;
+import org.apache.commons.lang3.StringUtils;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.jvnet.hk2.annotations.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
@@ -31,11 +28,6 @@ import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
-import org.apache.commons.lang3.StringUtils;
-import org.jvnet.hk2.annotations.Service;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.search.parser.ASTParser;
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
@@ -59,6 +51,16 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_VAR;
 
 /*
  * Service level methods for Systems.
@@ -1142,7 +1144,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Get a complete and succinct description of the update.
-    String changeDescription = getChangeDescriptionPermsGrant(systemId, userName, permissions);
+    String changeDescription = getChangeDescriptionPermsUpdate(systemId, userName, permissions);
     // Create a record of the update
     dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
   }
@@ -1226,7 +1228,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Get a complete and succinct description of the update.
-    String changeDescription = getChangeDescriptionPermsRevoke(systemId, userName, permissions);
+    String changeDescription = getChangeDescriptionPermsUpdate(systemId, userName, permissions);
     // Create a record of the update
     dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
     return changeCount;
@@ -1331,9 +1333,8 @@ public class SystemsServiceImpl implements SystemsService
 
     // Construct Json string representing the update, with actual secrets masked out
     Credential maskedCredential = Credential.createMaskedCredential(credential);
-    String credJson = TapisGsonUtils.getGson().toJson(maskedCredential);
     // Get a complete and succinct description of the update.
-    String changeDescription = getChangeDescriptionCredCreate(systemId, userName, skipCredCheck, credJson);
+    String changeDescription = getChangeDescriptionCredCreate(systemId, userName, skipCredCheck, maskedCredential);
     // Create a record of the update
     dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
   }
@@ -2614,11 +2615,24 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Create a change description for a credential update.
    */
-  private String getChangeDescriptionCredCreate(String systemId, String user, boolean skipCredCheck, String credJson)
+  private String getChangeDescriptionCredCreate(String systemId, String user, boolean skipCredCheck, Credential cred)
   {
-    ?
-    // TODO
-    return "TODO";
+    var o = new JSONObject();
+    o.put("System", systemId);
+    o.put("TargetUser", user);
+    o.put("SkipCredCheck", skipCredCheck);
+    var oCred = new JSONObject();
+    var cEntry = new JSONObject();
+    cEntry.put("Password", cred.getPassword());
+    cEntry.put("PublicKey", cred.getPublicKey());
+    cEntry.put("PrivateKey", cred.getPrivateKey());
+    cEntry.put("AccessKey", cred.getAccessKey());
+    cEntry.put("AccessSecret", cred.getAccessSecret());
+//    cEntry.put("AccessToken", cred.getAccessToken()); //TODO Globus
+//    cEntry.put("RefreshToken", cred.getRefreshToken());
+    cEntry.put("Certificate", cred.getCertificate());
+    o.put("Credential", oCred);
+    return o.toString();
   }
 
   /**
@@ -2626,28 +2640,23 @@ public class SystemsServiceImpl implements SystemsService
    */
   private String getChangeDescriptionCredDelete(String systemId, String user)
   {
-    ?
-    // TODO
-    return "TODO";
+    JSONObject o = new JSONObject();
+    o.put("System", systemId);
+    o.put("TargetUser", user);
+    return o.toString();
   }
 
   /**
-   * Create a change description for a permissions grant.
+   * Create a change description for a permissions grant or revoke.
    */
-  private String getChangeDescriptionPermsGrant(String systemId, String userName, Set<Permission> permissions)
+  private String getChangeDescriptionPermsUpdate(String systemId, String user, Set<Permission> permissions)
   {
-    ?
-    // TODO
-    return "TODO";
-  }
-
-  /**
-   * Create a change description for a permissions revoke.
-   */
-  private String getChangeDescriptionPermsRevoke(String systemId, String userName, Set<Permission> permissions)
-  {
-    ?
-    // TODO
-    return "TODO";
+    var o = new JSONObject();
+    o.put("System", systemId);
+    o.put("TargetUser", user);
+    var perms = new JSONArray();
+    for (Permission p : permissions) { perms.put(p.toString()); }
+    o.put("Permissions", perms);
+    return o.toString();
   }
 }

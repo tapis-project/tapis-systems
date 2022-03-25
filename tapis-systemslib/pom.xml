@@ -22,6 +22,7 @@
     <db.schema>tapis_sys</db.schema>
     <!-- If necessary set a specific version of the shared code. Parent pom file from tapis-bom has a range. -->
     <!-- <tapis-shared-java.version>1.11.2-SNAPSHOT</tapis-shared-java.version> -->
+    <json-org.version>20220320</json-org.version>
   </properties>
  
   <dependencies>
@@ -100,6 +101,11 @@
     <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.json</groupId>
+      <artifactId>json</artifactId>
+      <version>${json-org.version}</version>
     </dependency>
   </dependencies>
 
