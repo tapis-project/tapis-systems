@@ -36,8 +36,7 @@ import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
  * 
  * @author rcardone
  */
-public final class RuntimeParameters 
- implements EmailClientParameters
+public final class RuntimeParameters implements EmailClientParameters
 {
     /* ********************************************************************** */
     /*                               Constants                                */
@@ -233,11 +232,6 @@ public final class RuntimeParameters
 			throw new TapisRuntimeException(msg);
 		}
 		setTenantsSvcURL(parm);
-
-		parm = inputProperties.getProperty(EnvVar2.TAPIS_SVC_URL_SK.getEnvName());
-		if (!StringUtils.isBlank(parm)) setSkSvcURL(parm);
-
-
 
 	// --------------------- DB Parameters ----------------------------
     // User does not have to provide a pool size.
@@ -791,21 +785,16 @@ public final class RuntimeParameters
         this.logFile = logFile;
     }
 
-
-    // TODO/TBD move this to shared TapisEnv?
-    // TODO/TBD Remove sk url. Always look up from tenants svc
-	private enum EnvVar2 {
-		TAPIS_SVC_URL_SK("tapis.svc.url.sk"),
-		TAPIS_SVC_ADMIN_TENANT("tapis.svc.admin.tenant"),
-        TAPIS_GLOBUS_CLIENT_ID("tapis.globus.client.id");
-
-		private final String _envName;
-
-		EnvVar2(String envName) {
-			_envName = envName;
-		}
-
-		public String getEnvName() {
+    /*
+     * Env variables specific to this service
+     */
+	private enum EnvVar2
+    {
+      TAPIS_SVC_ADMIN_TENANT("tapis.svc.admin.tenant"),
+      TAPIS_GLOBUS_CLIENT_ID("tapis.globus.client.id");
+      private final String _envName;
+      EnvVar2(String envName) { _envName = envName; }
+      public String getEnvName() {
 			return this._envName;
 		}
 	}

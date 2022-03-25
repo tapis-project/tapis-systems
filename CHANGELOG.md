@@ -1,3 +1,4 @@
+
 # Change Log for Tapis Systems Service
 
 All notable changes to this project will be documented in this file.
@@ -9,7 +10,7 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.1.2 - 2022-??-??
+## 1.1.3 - 2022-??-??
 
 Add support for Globus type systems.
 
@@ -18,6 +19,14 @@ Add support for Globus type systems.
 - Add endpoints for Globus:
     - GET  /v3/systems/credential/{systemId}/globus/authUrl
     - POST /v3/systems/credential/{systemId}/globus/{authCode}/tokens/{userName}
+
+---------------------------------------------------------------------------
+## 1.1.2 - 2022-03-18
+
+System history implementation.
+
+### New features:
+- System history end point implementation.
 
 ### Bug fixes:
 - None

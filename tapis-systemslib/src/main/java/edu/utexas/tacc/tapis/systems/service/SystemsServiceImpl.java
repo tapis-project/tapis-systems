@@ -46,6 +46,7 @@ import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile.SchedulerProfileOperation;
+import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
@@ -2722,4 +2723,27 @@ public class SystemsServiceImpl implements SystemsService
     return globusProxyClient;
   }
 
+  /**
+  * Get System Updates records for the System ID specified
+   * @throws TapisException
+   * @throws IllegalStateException 
+   * @throws TapisClientException 
+   * @throws NotAuthorizedException 
+  */
+  @Override
+  public List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
+      throws TapisException, NotAuthorizedException, IllegalStateException, TapisClientException {
+	
+    SystemOperation op = SystemOperation.read;
+
+    // ------------------------- Check service level authorization -------------------------
+    checkAuth(rUser, op, systemId, null, null, null);
+    
+    // ----------------- Retrieve system updates information (system history) --------------------
+    // Changes not in single DB transaction    
+	  List<SystemHistoryItem> systemHistory = dao.getSystemHistory(systemId);
+	
+	  return systemHistory;
+  }
 }
+

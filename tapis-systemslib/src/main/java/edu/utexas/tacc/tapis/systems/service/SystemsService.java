@@ -8,6 +8,7 @@ import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.GlobusAuthInfo;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
+import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
@@ -126,4 +127,7 @@ public interface SystemsService
 
   boolean checkForSchedulerProfile(ResourceRequestUser rUser, String name)
           throws TapisException, TapisClientException, NotAuthorizedException;
+
+List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
+        throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException;
 }
