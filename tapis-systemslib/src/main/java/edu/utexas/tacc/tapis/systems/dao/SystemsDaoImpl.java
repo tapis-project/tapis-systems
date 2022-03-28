@@ -561,10 +561,6 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.OWNER, newOwner)
               .set(SYSTEMS.UPDATED, TapisUtils.getUTCTimeNow())
               .where(SYSTEMS.TENANT.eq(tenant),SYSTEMS.ID.eq(id)).execute();
-      // Persist update record
-      String changeDescription = String.format("{\"oldOwner\":\"%s\", \"newOwner\":\"%s\"}", oldOwner, newOwner);
-      addUpdate(db, rUser, id, INVALID_SEQ_ID, SystemOperation.changeOwner, changeDescription, null,
-                getUUIDUsingDb(db, tenant, id));
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }

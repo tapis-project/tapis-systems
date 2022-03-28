@@ -5,6 +5,10 @@ import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
+import edu.utexas.tacc.tapis.systems.model.Credential;
+import edu.utexas.tacc.tapis.systems.model.TSystem;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,7 +18,39 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.MessageFormat;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.ResourceBundle;
+import java.util.Set;
+
+import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_DEFAULT_LOGICAL_QUEUE_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_SCHEDULER_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_SCHEDULER_PROFILE_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.BUCKET_NAME_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_EXEC_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_RUN_BATCH_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_AUTHN_METHOD_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DELETED_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DESCRIPTION_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_MOUNT_POINT_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_MOUNT_SOURCE_PATH_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_SYSTEM_ID_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFECTIVE_USER_ID_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.ENABLED_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_DTN_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_MAX_JOBS_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_MAX_JOBS_PER_USER_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_WORKING_DIR_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.MPI_CMD_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.NOTES_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.PORT_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.PROXY_HOST_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.PROXY_PORT_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.ROOT_DIR_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.SYSTEM_TYPE_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.TAGS_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.USE_PROXY_FIELD;
 
 /*
    Utility class containing general use static methods.
@@ -230,5 +266,175 @@ public class LibUtils
       String msg = MsgUtils.getMsg("DB_FAILED_CONNECTION_CLOSE");
       _log.error(msg, e);
     }
+  }
+  /**
+   * Compare original and modified systems to detect changes and produce a complete and succinct description
+   * of the changes. If no changes then return null.
+   * NOTE that although some attributes should never change in this code path we include them here in case there is
+   *   a bug or the design changes and this code path does include them.
+   * Attributes that should not change: systemType, isEnabled, owner, bucketName, rootDir, isDtn, canExec, isDeleted
+   */
+  private String getChangeDescriptionSystemUpdate(TSystem o, TSystem n)
+  {
+    boolean noChanges = true;
+    var jo = new JSONObject();
+    if (!Objects.equals(o.getDescription(), n.getDescription()))
+    {noChanges=false;addChange(jo, DESCRIPTION_FIELD, o.getDescription(), n.getDescription());}
+    if (!Objects.equals(o.getSystemType(),n.getSystemType()))
+    {noChanges=false;addChange(jo, SYSTEM_TYPE_FIELD, o.getSystemType().name(), n.getSystemType().name());}
+    if (!Objects.equals(o.getOwner(),n.getOwner()))
+    {noChanges=false;addChange(jo, OWNER_FIELD, o.getOwner(), n.getOwner());}
+    if (!Objects.equals(o.getHost(),n.getHost()))
+    {noChanges=false;addChange(jo, HOST_FIELD, o.getHost(), n.getHost());}
+    if (!(o.isEnabled() == n.isEnabled()))
+    {noChanges=false;addChange(jo, ENABLED_FIELD, o.isEnabled(), n.isEnabled());}
+    if (!Objects.equals(o.getEffectiveUserId(),n.getEffectiveUserId()))
+    {noChanges=false;addChange(jo, EFFECTIVE_USER_ID_FIELD, o.getEffectiveUserId(), n.getEffectiveUserId());}
+    if (!Objects.equals(o.getDefaultAuthnMethod(),n.getDefaultAuthnMethod()))
+    {noChanges=false;addChange(jo, DEFAULT_AUTHN_METHOD_FIELD, o.getDefaultAuthnMethod().name(), n.getDefaultAuthnMethod().name());}
+    if (!Objects.equals(o.getBucketName(),n.getBucketName()))
+    {noChanges=false;addChange(jo, BUCKET_NAME_FIELD, o.getBucketName(), n.getBucketName());}
+    if (!Objects.equals(o.getRootDir(),n.getRootDir()))
+    {noChanges=false;addChange(jo, ROOT_DIR_FIELD, o.getRootDir(), n.getRootDir());}
+    if (!Objects.equals(o.getPort(),n.getPort()))
+    {noChanges=false;addChange(jo, PORT_FIELD, o.getPort(), n.getPort());}
+    if (!Objects.equals(o.isUseProxy(),n.isUseProxy()))
+    {noChanges=false;addChange(jo, USE_PROXY_FIELD, o.isUseProxy(), n.isUseProxy());}
+    if (!Objects.equals(o.getProxyHost(),n.getProxyHost()))
+    {noChanges=false;addChange(jo, PROXY_HOST_FIELD, o.getProxyHost(), n.getProxyHost());}
+    if (!Objects.equals(o.getProxyHost(),n.getProxyHost()))
+    {noChanges=false;addChange(jo, PROXY_PORT_FIELD, o.getProxyPort(), n.getProxyPort());}
+    if (!Objects.equals(o.getProxyPort(),n.getProxyPort()))
+    {noChanges=false;addChange(jo, DTN_MOUNT_POINT_FIELD, o.getDtnMountPoint(), n.getDtnMountPoint());}
+    if (!Objects.equals(o.getDtnMountPoint(),n.getDtnMountPoint()))
+    {noChanges=false;addChange(jo, DTN_MOUNT_SOURCE_PATH_FIELD, o.getDtnMountSourcePath(), n.getDtnMountSourcePath());}
+    if (!Objects.equals(o.getDtnMountSourcePath(),n.getDtnMountSourcePath()))
+    {noChanges=false;addChange(jo, DTN_MOUNT_SOURCE_PATH_FIELD, o.getDtnMountSourcePath(), n.getDtnMountSourcePath());}
+    if (!Objects.equals(o.getDtnSystemId(),n.getDtnSystemId()))
+    {noChanges=false;addChange(jo, DTN_SYSTEM_ID_FIELD, o.getDtnSystemId(), n.getDtnSystemId());}
+    if (!Objects.equals(o.isDtn(),n.isDtn()))
+    {noChanges=false;addChange(jo, IS_DTN_FIELD, o.isDtn(), n.isDtn());}
+    if (!Objects.equals(o.getCanExec(),n.getCanExec()))
+    {noChanges=false;addChange(jo, CAN_EXEC_FIELD, o.getCanExec(), n.getCanExec());}
+    if (!Objects.equals(o.getCanRunBatch(),n.getCanRunBatch()))
+    {noChanges=false;addChange(jo, CAN_RUN_BATCH_FIELD, o.getCanRunBatch(), n.getCanRunBatch());}
+    if (!Objects.equals(o.getMpiCmd(),n.getMpiCmd()))
+    {noChanges=false;addChange(jo, MPI_CMD_FIELD, o.getMpiCmd(), n.getMpiCmd());}
+    // TODO JOB_RUNTIMES
+    if (!Objects.equals(o.getJobWorkingDir(),n.getJobWorkingDir()))
+    {noChanges=false;addChange(jo, JOB_WORKING_DIR_FIELD, o.getJobWorkingDir(), n.getJobWorkingDir());}
+    // TODO JOB_ENV_VARIABLES
+    if (!Objects.equals(o.getJobMaxJobs(),n.getJobMaxJobs()))
+    {noChanges=false;addChange(jo, JOB_MAX_JOBS_FIELD, o.getJobMaxJobs(), n.getJobMaxJobs());}
+    if (!Objects.equals(o.getJobMaxJobsPerUser(),n.getJobMaxJobsPerUser()))
+    {noChanges=false;addChange(jo, JOB_MAX_JOBS_PER_USER_FIELD, o.getJobMaxJobsPerUser(), n.getJobMaxJobsPerUser());}
+    if (!Objects.equals(o.getBatchScheduler(),n.getBatchScheduler()))
+    {noChanges=false;addChange(jo, BATCH_SCHEDULER_FIELD, o.getBatchScheduler().name(), n.getBatchScheduler().name());}
+    // TODO BATCH_LOGICAL_QUEUES
+    if (!Objects.equals(o.getBatchDefaultLogicalQueue(),n.getBatchDefaultLogicalQueue()))
+    {noChanges=false;addChange(jo, BATCH_DEFAULT_LOGICAL_QUEUE_FIELD, o.getBatchDefaultLogicalQueue(), n.getBatchDefaultLogicalQueue());}
+    if (!Objects.equals(o.getBatchSchedulerProfile(),n.getBatchSchedulerProfile()))
+    {noChanges=false;addChange(jo, BATCH_SCHEDULER_PROFILE_FIELD, o.getBatchSchedulerProfile(), n.getBatchSchedulerProfile());}
+    // TODO JOB_CAPABILITIES
+    // TODO TAGS
+    if (!compareTags(o.getTags(), n.getTags()))
+    {noChanges=false;addChange(jo, TAGS_FIELD, o.getNotes(), n.getNotes());}
+    // TODO NOTES
+    if (!compareNotes(o.getNotes(), n.getNotes()))
+    {noChanges=false;addChange(jo, NOTES_FIELD, o.getNotes(), n.getNotes());}
+    if (!(o.isDeleted() == n.isDeleted()))
+    {noChanges=false;addChange(jo, DELETED_FIELD, o.isDeleted(), n.isDeleted());}
+
+    // If nothing has changed we are done.
+    if (noChanges) return null;
+
+    var joFinal = new JSONObject();
+    joFinal.put("SystemId", o.getId());
+    joFinal.put("AttributeChanges", jo);
+    return joFinal.toString();
+  }
+
+  /**
+   * Create a change description for a credential update.
+   */
+  private static String getChangeDescriptionCredCreate(String systemId, String user, boolean skipCredCheck, Credential cred)
+  {
+    var o = new JSONObject();
+    o.put("System", systemId);
+    o.put("TargetUser", user);
+    o.put("SkipCredCheck", skipCredCheck);
+    var oCred = new JSONObject();
+    var cEntry = new JSONObject();
+    cEntry.put("Password", cred.getPassword());
+    cEntry.put("PublicKey", cred.getPublicKey());
+    cEntry.put("PrivateKey", cred.getPrivateKey());
+    cEntry.put("AccessKey", cred.getAccessKey());
+    cEntry.put("AccessSecret", cred.getAccessSecret());
+//    cEntry.put("AccessToken", cred.getAccessToken()); //TODO Globus
+//    cEntry.put("RefreshToken", cred.getRefreshToken());
+    cEntry.put("Certificate", cred.getCertificate());
+    o.put("Credential", oCred);
+    return o.toString();
+  }
+
+  /**
+   * Create a change description for a credential delete.
+   */
+  private static String getChangeDescriptionCredDelete(String systemId, String user)
+  {
+    JSONObject o = new JSONObject();
+    o.put("System", systemId);
+    o.put("TargetUser", user);
+    return o.toString();
+  }
+
+  /**
+   * Create a change description for a permissions grant or revoke.
+   */
+  private static String getChangeDescriptionPermsUpdate(String systemId, String user, Set<TSystem.Permission> permissions)
+  {
+    var o = new JSONObject();
+    o.put("System", systemId);
+    o.put("TargetUser", user);
+    var perms = new JSONArray();
+    for (TSystem.Permission p : permissions) { perms.put(p.toString()); }
+    o.put("Permissions", perms);
+    return o.toString();
+  }
+
+  /**
+   * Create a change description for update of owner.
+   */
+  private static String getChangeDescriptionUpdateOwner(String systemId, String oldOwner, String newOwner)
+  {
+    var o = new JSONObject();
+    o.put("System", systemId);
+    o.put("OldOwner", oldOwner);
+    o.put("NewOwner", newOwner);
+    return o.toString();
+  }
+  /*
+   * Methods to add change entries for TSystem updates.
+   */
+  private static void addChange(JSONObject jo, String field, String o, String n)
+  {
+    var jo1 = new JSONObject();
+    jo1.put("oldValue" + field, o);
+    jo1.put("newValue" + field, n);
+    jo.put(field, jo1);
+  }
+  private static void addChange(JSONObject jo, String field, boolean o, boolean n)
+  {
+    var jo1 = new JSONObject();
+    jo1.put("oldValue" + field, o);
+    jo1.put("newValue" + field, n);
+    jo.put(field, jo1);
+  }
+  private static void addChange(JSONObject jo, String field, int o, int n)
+  {
+    var jo1 = new JSONObject();
+    jo1.put("oldValue" + field, o);
+    jo1.put("newValue" + field, n);
+    jo.put(field, jo1);
   }
 }
