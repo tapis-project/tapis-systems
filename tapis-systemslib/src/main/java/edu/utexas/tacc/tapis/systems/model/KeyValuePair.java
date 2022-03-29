@@ -6,6 +6,10 @@ import org.apache.commons.lang3.StringUtils;
  * Class for KeyValuePair in a System definition.
  * Key should not contain the character "=" because it would change the value
  * TODO/TBD: Make immutable? Check for use of setters
+ * TODO/TBD: Override equals/hashCode so List.equals can work. For change history checking
+ *           Make comparable?
+ *           Use google's autoValue annotation for equals/hashCode?
+ *           Better yet use java's new record keyword? But turns out this breaks gson.
  */
 public final class KeyValuePair
 {

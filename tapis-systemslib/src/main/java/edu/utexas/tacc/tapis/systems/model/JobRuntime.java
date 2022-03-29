@@ -1,16 +1,14 @@
 package edu.utexas.tacc.tapis.systems.model;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /*
- *
+ * TODO/TBD: Override equals/hashCode so List.equals can work. For change history checking
+ *           Make comparable?
+ *           Use google's autoValue annotation for equals/hashCode?
+ *           Better yet use java's new record keyword? But turns out this breaks gson.
  */
 public final class JobRuntime
 {
   public enum RuntimeType {DOCKER, SINGULARITY}
-
-  private static final Logger _log = LoggerFactory.getLogger(JobRuntime.class);
 
   private final RuntimeType runtimeType;
   private final String version;

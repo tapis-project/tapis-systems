@@ -17,6 +17,10 @@ import java.time.Instant;
  *
  * Tenant + system + category + name must be unique.
  *
+ *  * TODO/TBD: Override equals/hashCode so List.equals can work. For change history checking
+ *           Make comparable?
+ *           Use google's autoValue annotation for equals/hashCode?
+ *           Better yet use java's new record keyword? But turns out this breaks gson.
  */
 public final class Capability
 {

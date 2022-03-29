@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -14,8 +13,6 @@ import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 
 import org.apache.commons.lang3.StringUtils;
-import org.json.JSONArray;
-import org.json.JSONObject;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,37 +56,8 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_DEFAULT_LOGICAL_QUEUE_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_SCHEDULER_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_SCHEDULER_PROFILE_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.BUCKET_NAME_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_EXEC_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_RUN_BATCH_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_AUTHN_METHOD_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DELETED_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DESCRIPTION_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_MOUNT_POINT_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_MOUNT_SOURCE_PATH_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_SYSTEM_ID_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFECTIVE_USER_ID_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.ENABLED_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_DTN_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_MAX_JOBS_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_MAX_JOBS_PER_USER_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_WORKING_DIR_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.MPI_CMD_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.NOTES_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_VAR;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.PORT_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.PROXY_HOST_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.PROXY_PORT_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.ROOT_DIR_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.SYSTEM_TYPE_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.TAGS_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.USE_PROXY_FIELD;
 
 /*
  * Service level methods for Systems.
@@ -377,7 +345,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Get a complete and succinct description of the update.
     // If nothing has changed, then log a warning and return
-    String changeDescription = getChangeDescriptionSystemUpdate(origTSystem, patchedTSystem);
+    String changeDescription = LibUtils.getChangeDescriptionSystemUpdate(origTSystem, patchedTSystem, patchSystem);
     if (StringUtils.isBlank(changeDescription))
     {
       _log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, op, resourceId));
@@ -445,7 +413,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Get a complete and succinct description of the update.
     // If nothing has changed, then log a warning and return
-    String changeDescription = getChangeDescriptionSystemUpdate(origTSystem, putSystem);
+    String changeDescription = LibUtils.getChangeDescriptionSystemUpdate(origTSystem, putSystem, null);
     if (StringUtils.isBlank(changeDescription))
     {
       _log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, op, resourceId));
@@ -653,7 +621,7 @@ public class SystemsServiceImpl implements SystemsService
       // TODO: Notify files service of the change (jira cic-3071)
 
       // Get a complete and succinct description of the update.
-      String changeDescription = getChangeDescriptionUpdateOwner(systemId, oldOwnerName, newOwnerName);
+      String changeDescription = LibUtils.getChangeDescriptionUpdateOwner(systemId, oldOwnerName, newOwnerName);
       // Create a record of the update
       dao.addUpdateRecord(rUser, systemId, op, changeDescription, null);
     }
@@ -1178,7 +1146,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Get a complete and succinct description of the update.
-    String changeDescription = getChangeDescriptionPermsUpdate(systemId, userName, permissions);
+    String changeDescription = LibUtils.getChangeDescriptionPermsUpdate(systemId, userName, permissions);
     // Create a record of the update
     dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
   }
@@ -1262,7 +1230,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Get a complete and succinct description of the update.
-    String changeDescription = getChangeDescriptionPermsUpdate(systemId, userName, permissions);
+    String changeDescription = LibUtils.getChangeDescriptionPermsUpdate(systemId, userName, permissions);
     // Create a record of the update
     dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
     return changeCount;
@@ -1368,7 +1336,7 @@ public class SystemsServiceImpl implements SystemsService
     // Construct Json string representing the update, with actual secrets masked out
     Credential maskedCredential = Credential.createMaskedCredential(credential);
     // Get a complete and succinct description of the update.
-    String changeDescription = getChangeDescriptionCredCreate(systemId, userName, skipCredCheck, maskedCredential);
+    String changeDescription = LibUtils.getChangeDescriptionCredCreate(systemId, userName, skipCredCheck, maskedCredential);
     // Create a record of the update
     dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
   }

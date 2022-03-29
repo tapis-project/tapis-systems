@@ -1,28 +1,32 @@
 package edu.utexas.tacc.tapis.systems.utils;
 
-import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
-import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
-import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
-import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
-import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
-import edu.utexas.tacc.tapis.systems.model.Credential;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
-import org.json.JSONArray;
-import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.MessageFormat;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.ResourceBundle;
 import java.util.Set;
 
+import com.google.gson.JsonObject;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
+import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
+import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
+import edu.utexas.tacc.tapis.systems.model.Credential;
+import edu.utexas.tacc.tapis.systems.model.PatchSystem;
+import edu.utexas.tacc.tapis.systems.model.TSystem;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_DEFAULT_LOGICAL_QUEUE_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_LOGICAL_QUEUES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_SCHEDULER_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_SCHEDULER_PROFILE_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BUCKET_NAME_FIELD;
@@ -38,8 +42,11 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFECTIVE_USER_ID_FIEL
 import static edu.utexas.tacc.tapis.systems.model.TSystem.ENABLED_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_DTN_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_CAPABILITIES_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_ENV_VARIABLES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_MAX_JOBS_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_MAX_JOBS_PER_USER_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_RUNTIMES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_WORKING_DIR_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.MPI_CMD_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.NOTES_FIELD;
@@ -73,22 +80,6 @@ public class LibUtils
   /* **************************************************************************** */
   /*                                Public Methods                                */
   /* **************************************************************************** */
-
-  // TODO: always use oboTenant?
-//  /**
-//   * Get tenant name associated with the resources that the service manages.
-//    * For user request use authUser jwtTenant and for service request use oboTenant.
-//   *
-//   * @param authenticatedUser - principal user containing tenant and user info
-//   * @return tenant name for resources
-//   */
-//  public static String getResourceTenantId(AuthenticatedUser authenticatedUser)
-//  {
-//    if (TapisThreadContext.AccountType.service.name().equals(authenticatedUser.getAccountType()))
-//      return authenticatedUser.getOboTenantId();
-//    else
-//      return authenticatedUser.getTenantId();
-//  }
 
   /**
    * Get a localized message using the specified key and parameters. Locale is null.
@@ -267,83 +258,141 @@ public class LibUtils
       _log.error(msg, e);
     }
   }
+
   /**
    * Compare original and modified systems to detect changes and produce a complete and succinct description
    * of the changes. If no changes then return null.
    * NOTE that although some attributes should never change in this code path we include them here in case there is
    *   a bug or the design changes and this code path does include them.
    * Attributes that should not change: systemType, isEnabled, owner, bucketName, rootDir, isDtn, canExec, isDeleted
+   *
+   * @param o - original TSystem
+   * @param n - new TSystem
+   * @param p - incoming PatchSystem if this was a PATCH operation
+   * @return Description of the changes or null if no changes detected.
    */
-  private String getChangeDescriptionSystemUpdate(TSystem o, TSystem n)
+  public static String getChangeDescriptionSystemUpdate(TSystem o, TSystem n, PatchSystem p)
   {
     boolean noChanges = true;
+    boolean isPatch = (p != null);
     var jo = new JSONObject();
     if (!Objects.equals(o.getDescription(), n.getDescription()))
-    {noChanges=false;addChange(jo, DESCRIPTION_FIELD, o.getDescription(), n.getDescription());}
+      {noChanges=false;addChange(jo, DESCRIPTION_FIELD, o.getDescription(), n.getDescription());}
     if (!Objects.equals(o.getSystemType(),n.getSystemType()))
-    {noChanges=false;addChange(jo, SYSTEM_TYPE_FIELD, o.getSystemType().name(), n.getSystemType().name());}
+      {noChanges=false;addChange(jo, SYSTEM_TYPE_FIELD, o.getSystemType().name(), n.getSystemType().name());}
     if (!Objects.equals(o.getOwner(),n.getOwner()))
-    {noChanges=false;addChange(jo, OWNER_FIELD, o.getOwner(), n.getOwner());}
+      {noChanges=false;addChange(jo, OWNER_FIELD, o.getOwner(), n.getOwner());}
     if (!Objects.equals(o.getHost(),n.getHost()))
-    {noChanges=false;addChange(jo, HOST_FIELD, o.getHost(), n.getHost());}
+      {noChanges=false;addChange(jo, HOST_FIELD, o.getHost(), n.getHost());}
     if (!(o.isEnabled() == n.isEnabled()))
-    {noChanges=false;addChange(jo, ENABLED_FIELD, o.isEnabled(), n.isEnabled());}
+      {noChanges=false;addChange(jo, ENABLED_FIELD, o.isEnabled(), n.isEnabled());}
     if (!Objects.equals(o.getEffectiveUserId(),n.getEffectiveUserId()))
-    {noChanges=false;addChange(jo, EFFECTIVE_USER_ID_FIELD, o.getEffectiveUserId(), n.getEffectiveUserId());}
+      {noChanges=false;addChange(jo, EFFECTIVE_USER_ID_FIELD, o.getEffectiveUserId(), n.getEffectiveUserId());}
     if (!Objects.equals(o.getDefaultAuthnMethod(),n.getDefaultAuthnMethod()))
-    {noChanges=false;addChange(jo, DEFAULT_AUTHN_METHOD_FIELD, o.getDefaultAuthnMethod().name(), n.getDefaultAuthnMethod().name());}
+      {noChanges=false;addChange(jo, DEFAULT_AUTHN_METHOD_FIELD, o.getDefaultAuthnMethod().name(), n.getDefaultAuthnMethod().name());}
     if (!Objects.equals(o.getBucketName(),n.getBucketName()))
-    {noChanges=false;addChange(jo, BUCKET_NAME_FIELD, o.getBucketName(), n.getBucketName());}
+      {noChanges=false;addChange(jo, BUCKET_NAME_FIELD, o.getBucketName(), n.getBucketName());}
     if (!Objects.equals(o.getRootDir(),n.getRootDir()))
-    {noChanges=false;addChange(jo, ROOT_DIR_FIELD, o.getRootDir(), n.getRootDir());}
+      {noChanges=false;addChange(jo, ROOT_DIR_FIELD, o.getRootDir(), n.getRootDir());}
     if (!Objects.equals(o.getPort(),n.getPort()))
-    {noChanges=false;addChange(jo, PORT_FIELD, o.getPort(), n.getPort());}
+      {noChanges=false;addChange(jo, PORT_FIELD, o.getPort(), n.getPort());}
     if (!Objects.equals(o.isUseProxy(),n.isUseProxy()))
-    {noChanges=false;addChange(jo, USE_PROXY_FIELD, o.isUseProxy(), n.isUseProxy());}
+      {noChanges=false;addChange(jo, USE_PROXY_FIELD, o.isUseProxy(), n.isUseProxy());}
     if (!Objects.equals(o.getProxyHost(),n.getProxyHost()))
-    {noChanges=false;addChange(jo, PROXY_HOST_FIELD, o.getProxyHost(), n.getProxyHost());}
+      {noChanges=false;addChange(jo, PROXY_HOST_FIELD, o.getProxyHost(), n.getProxyHost());}
     if (!Objects.equals(o.getProxyHost(),n.getProxyHost()))
-    {noChanges=false;addChange(jo, PROXY_PORT_FIELD, o.getProxyPort(), n.getProxyPort());}
+      {noChanges=false;addChange(jo, PROXY_PORT_FIELD, o.getProxyPort(), n.getProxyPort());}
     if (!Objects.equals(o.getProxyPort(),n.getProxyPort()))
-    {noChanges=false;addChange(jo, DTN_MOUNT_POINT_FIELD, o.getDtnMountPoint(), n.getDtnMountPoint());}
+      {noChanges=false;addChange(jo, DTN_MOUNT_POINT_FIELD, o.getDtnMountPoint(), n.getDtnMountPoint());}
     if (!Objects.equals(o.getDtnMountPoint(),n.getDtnMountPoint()))
-    {noChanges=false;addChange(jo, DTN_MOUNT_SOURCE_PATH_FIELD, o.getDtnMountSourcePath(), n.getDtnMountSourcePath());}
+      {noChanges=false;addChange(jo, DTN_MOUNT_SOURCE_PATH_FIELD, o.getDtnMountSourcePath(), n.getDtnMountSourcePath());}
     if (!Objects.equals(o.getDtnMountSourcePath(),n.getDtnMountSourcePath()))
-    {noChanges=false;addChange(jo, DTN_MOUNT_SOURCE_PATH_FIELD, o.getDtnMountSourcePath(), n.getDtnMountSourcePath());}
+      {noChanges=false;addChange(jo, DTN_MOUNT_SOURCE_PATH_FIELD, o.getDtnMountSourcePath(), n.getDtnMountSourcePath());}
     if (!Objects.equals(o.getDtnSystemId(),n.getDtnSystemId()))
-    {noChanges=false;addChange(jo, DTN_SYSTEM_ID_FIELD, o.getDtnSystemId(), n.getDtnSystemId());}
+      {noChanges=false;addChange(jo, DTN_SYSTEM_ID_FIELD, o.getDtnSystemId(), n.getDtnSystemId());}
     if (!Objects.equals(o.isDtn(),n.isDtn()))
-    {noChanges=false;addChange(jo, IS_DTN_FIELD, o.isDtn(), n.isDtn());}
+      {noChanges=false;addChange(jo, IS_DTN_FIELD, o.isDtn(), n.isDtn());}
     if (!Objects.equals(o.getCanExec(),n.getCanExec()))
-    {noChanges=false;addChange(jo, CAN_EXEC_FIELD, o.getCanExec(), n.getCanExec());}
+      {noChanges=false;addChange(jo, CAN_EXEC_FIELD, o.getCanExec(), n.getCanExec());}
     if (!Objects.equals(o.getCanRunBatch(),n.getCanRunBatch()))
-    {noChanges=false;addChange(jo, CAN_RUN_BATCH_FIELD, o.getCanRunBatch(), n.getCanRunBatch());}
+      {noChanges=false;addChange(jo, CAN_RUN_BATCH_FIELD, o.getCanRunBatch(), n.getCanRunBatch());}
     if (!Objects.equals(o.getMpiCmd(),n.getMpiCmd()))
-    {noChanges=false;addChange(jo, MPI_CMD_FIELD, o.getMpiCmd(), n.getMpiCmd());}
-    // TODO JOB_RUNTIMES
+      {noChanges=false;addChange(jo, MPI_CMD_FIELD, o.getMpiCmd(), n.getMpiCmd());}
     if (!Objects.equals(o.getJobWorkingDir(),n.getJobWorkingDir()))
-    {noChanges=false;addChange(jo, JOB_WORKING_DIR_FIELD, o.getJobWorkingDir(), n.getJobWorkingDir());}
-    // TODO JOB_ENV_VARIABLES
+      {noChanges=false;addChange(jo, JOB_WORKING_DIR_FIELD, o.getJobWorkingDir(), n.getJobWorkingDir());}
     if (!Objects.equals(o.getJobMaxJobs(),n.getJobMaxJobs()))
-    {noChanges=false;addChange(jo, JOB_MAX_JOBS_FIELD, o.getJobMaxJobs(), n.getJobMaxJobs());}
+      {noChanges=false;addChange(jo, JOB_MAX_JOBS_FIELD, o.getJobMaxJobs(), n.getJobMaxJobs());}
     if (!Objects.equals(o.getJobMaxJobsPerUser(),n.getJobMaxJobsPerUser()))
-    {noChanges=false;addChange(jo, JOB_MAX_JOBS_PER_USER_FIELD, o.getJobMaxJobsPerUser(), n.getJobMaxJobsPerUser());}
+      {noChanges=false;addChange(jo, JOB_MAX_JOBS_PER_USER_FIELD, o.getJobMaxJobsPerUser(), n.getJobMaxJobsPerUser());}
     if (!Objects.equals(o.getBatchScheduler(),n.getBatchScheduler()))
-    {noChanges=false;addChange(jo, BATCH_SCHEDULER_FIELD, o.getBatchScheduler().name(), n.getBatchScheduler().name());}
-    // TODO BATCH_LOGICAL_QUEUES
+      {noChanges=false;addChange(jo, BATCH_SCHEDULER_FIELD, o.getBatchScheduler().name(), n.getBatchScheduler().name());}
     if (!Objects.equals(o.getBatchDefaultLogicalQueue(),n.getBatchDefaultLogicalQueue()))
-    {noChanges=false;addChange(jo, BATCH_DEFAULT_LOGICAL_QUEUE_FIELD, o.getBatchDefaultLogicalQueue(), n.getBatchDefaultLogicalQueue());}
+      {noChanges=false;addChange(jo, BATCH_DEFAULT_LOGICAL_QUEUE_FIELD, o.getBatchDefaultLogicalQueue(), n.getBatchDefaultLogicalQueue());}
     if (!Objects.equals(o.getBatchSchedulerProfile(),n.getBatchSchedulerProfile()))
-    {noChanges=false;addChange(jo, BATCH_SCHEDULER_PROFILE_FIELD, o.getBatchSchedulerProfile(), n.getBatchSchedulerProfile());}
-    // TODO JOB_CAPABILITIES
-    // TODO TAGS
-    if (!compareTags(o.getTags(), n.getTags()))
-    {noChanges=false;addChange(jo, TAGS_FIELD, o.getNotes(), n.getNotes());}
-    // TODO NOTES
-    if (!compareNotes(o.getNotes(), n.getNotes()))
-    {noChanges=false;addChange(jo, NOTES_FIELD, o.getNotes(), n.getNotes());}
+      {noChanges=false;addChange(jo, BATCH_SCHEDULER_PROFILE_FIELD, o.getBatchSchedulerProfile(), n.getBatchSchedulerProfile());}
     if (!(o.isDeleted() == n.isDeleted()))
-    {noChanges=false;addChange(jo, DELETED_FIELD, o.isDeleted(), n.isDeleted());}
+      {noChanges=false;addChange(jo, DELETED_FIELD, o.isDeleted(), n.isDeleted());}
+
+    // ------------------------------------------------------
+    // Following attributes require more complex handling
+    // ------------------------------------------------------
+    // TODO JOB_RUNTIMES
+    if (!Objects.equals(o.getJobRuntimes(),n.getJobRuntimes()))
+      {noChanges=false;addChange(jo, JOB_RUNTIMES_FIELD, o.getJobRuntimes(), n.getJobRuntimes());}
+//    // JOB_RUNTIMES If it is a patch and the patch value was null then no need to compare
+//    if (!isPatch || p.getJobRuntimes() != null)
+//    {
+//      if (!compareRuntimes(o.getJobRuntimes(), n.getJobRuntimes()))
+//      {
+//        noChanges = false;
+//        addChange(jo, JOB_RUNTIMES_FIELD, o.getJobRuntimes(), n.getJobRuntimes());
+//      }
+//    }
+    // TODO JOB_ENV_VARIABLES
+    if (!Objects.equals(o.getJobEnvVariables(),n.getJobEnvVariables()))
+      {noChanges=false;addChange(jo, JOB_ENV_VARIABLES_FIELD, o.getJobEnvVariables(), n.getJobEnvVariables());}
+// TODO   // JOB_ENV_VARIABLES If it is a patch and the patch value was null then no need to compare
+//    if (!isPatch || p.getJobEnvVariables() != null)
+//    {
+//      if (!compareKeyPairs(o.getJobEnvVariables(), n.getJobEnvVariables()))
+//      {
+//        noChanges = false;
+//        addChange(jo, JOB_ENV_VARIABLES_FIELD, o.getJobEnvVariables(), n.getJobEnvVariables());
+//      }
+//    }
+
+    // TODO BATCH_LOGICAL_QUEUES
+    if (!Objects.equals(o.getBatchLogicalQueues(),n.getBatchLogicalQueues()))
+      {noChanges=false;addChange(jo, BATCH_LOGICAL_QUEUES_FIELD, o.getBatchLogicalQueues(), n.getBatchLogicalQueues());}
+
+    // TODO JOB_CAPABILITIES
+    if (!Objects.equals(o.getJobCapabilities(),n.getJobCapabilities()))
+      {noChanges=false;addChange(jo, JOB_CAPABILITIES_FIELD, o.getJobCapabilities(), n.getJobCapabilities());}
+
+    // TODO TAGS - If it is a patch and the patch value was null then no need to compare
+    if (!isPatch || p.getTags() != null)
+    {
+      // Sort so it does not matter if order is different
+      List<String> oldSortedTags = Arrays.asList(o.getTags());
+      List<String> newSortedTags = Arrays.asList(n.getTags());
+      Collections.sort(oldSortedTags);
+      Collections.sort(newSortedTags);
+      if (!Objects.equals(oldSortedTags, newSortedTags))
+      {
+        noChanges = false;
+        addChange(jo, TAGS_FIELD, oldSortedTags, newSortedTags);
+      }
+    }
+
+    // NOTES - If it is a patch and the patch value was null then no need to compare
+    if (!isPatch || p.getNotes() != null)
+    {
+      if (!compareNotes(o.getNotes(), n.getNotes()))
+      {
+          noChanges=false;
+          addChange(jo, NOTES_FIELD, (JsonObject) o.getNotes(), (JsonObject) n.getNotes());
+      }
+    }
 
     // If nothing has changed we are done.
     if (noChanges) return null;
@@ -357,7 +406,7 @@ public class LibUtils
   /**
    * Create a change description for a credential update.
    */
-  private static String getChangeDescriptionCredCreate(String systemId, String user, boolean skipCredCheck, Credential cred)
+  public static String getChangeDescriptionCredCreate(String systemId, String user, boolean skipCredCheck, Credential cred)
   {
     var o = new JSONObject();
     o.put("System", systemId);
@@ -380,7 +429,7 @@ public class LibUtils
   /**
    * Create a change description for a credential delete.
    */
-  private static String getChangeDescriptionCredDelete(String systemId, String user)
+  public static String getChangeDescriptionCredDelete(String systemId, String user)
   {
     JSONObject o = new JSONObject();
     o.put("System", systemId);
@@ -391,7 +440,7 @@ public class LibUtils
   /**
    * Create a change description for a permissions grant or revoke.
    */
-  private static String getChangeDescriptionPermsUpdate(String systemId, String user, Set<TSystem.Permission> permissions)
+  public static String getChangeDescriptionPermsUpdate(String systemId, String user, Set<TSystem.Permission> permissions)
   {
     var o = new JSONObject();
     o.put("System", systemId);
@@ -405,36 +454,71 @@ public class LibUtils
   /**
    * Create a change description for update of owner.
    */
-  private static String getChangeDescriptionUpdateOwner(String systemId, String oldOwner, String newOwner)
+  public static String getChangeDescriptionUpdateOwner(String systemId, String oldOwner, String newOwner)
   {
     var o = new JSONObject();
     o.put("System", systemId);
-    o.put("OldOwner", oldOwner);
-    o.put("NewOwner", newOwner);
+    addChange(o, OWNER_FIELD, oldOwner, newOwner);
     return o.toString();
   }
   /*
    * Methods to add change entries for TSystem updates.
    */
-  private static void addChange(JSONObject jo, String field, String o, String n)
+  public static void addChange(JSONObject jo, String field, String o, String n)
   {
     var jo1 = new JSONObject();
-    jo1.put("oldValue" + field, o);
-    jo1.put("newValue" + field, n);
+    jo1.put("oldValue", o);
+    jo1.put("newValue", n);
     jo.put(field, jo1);
   }
-  private static void addChange(JSONObject jo, String field, boolean o, boolean n)
+  public static void addChange(JSONObject jo, String field, boolean o, boolean n)
   {
     var jo1 = new JSONObject();
-    jo1.put("oldValue" + field, o);
-    jo1.put("newValue" + field, n);
+    jo1.put("oldValue", o);
+    jo1.put("newValue", n);
     jo.put(field, jo1);
   }
-  private static void addChange(JSONObject jo, String field, int o, int n)
+  public static void addChange(JSONObject jo, String field, int o, int n)
   {
     var jo1 = new JSONObject();
-    jo1.put("oldValue" + field, o);
-    jo1.put("newValue" + field, n);
+    jo1.put("oldValue", o);
+    jo1.put("newValue", n);
     jo.put(field, jo1);
+  }
+  public static void addChange(JSONObject jo, String field, String[] o, String[] n)
+  {
+    var jo1 = new JSONObject();
+    // TODO/TBD how does this look?
+    jo1.put("oldValue", o);
+    jo1.put("newValue", n);
+    jo.put(field, jo1);
+  }
+  public static void addChange(JSONObject jo, String field, JsonObject o, JsonObject n)
+  {
+    var jo1 = new JSONObject();
+    // Convert gson.JsonObject to org.json.JSONObject
+    var oj = new JSONObject(o.toString());
+    var nj = new JSONObject(n.toString());
+    jo1.put("oldValue", oj);
+    jo1.put("newValue", nj);
+    jo.put(field, jo1);
+  }
+  public static void addChange(JSONObject jo, String field, List<?> o, List<?> n)
+  {
+    var jo1 = new JSONObject();
+    // TODO/TBD how does this look?
+    jo1.put("oldValue", o);
+    jo1.put("newValue", n);
+    jo.put(field, jo1);
+  }
+
+  /*
+   * To compare notes cast the Objects to gson's JsonObject and let gson do the compare
+   */
+  private static boolean compareNotes(Object o, Object n)
+  {
+    JsonObject oj = (JsonObject) o;
+    JsonObject nj = (JsonObject) n;
+    return Objects.equals(oj, nj);
   }
 }
