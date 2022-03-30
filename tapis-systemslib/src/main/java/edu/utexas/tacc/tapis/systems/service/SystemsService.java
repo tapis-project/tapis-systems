@@ -105,8 +105,7 @@ public interface SystemsService
   Credential getUserCredential(ResourceRequestUser rUser, String systemId, String userName, AuthnMethod authnMethod)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
-  GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser, String clientId)
-          throws TapisException, TapisClientException;
+  GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser) throws TapisException, TapisClientException;
 
   void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName, String authCode,
                                    String sessionId)

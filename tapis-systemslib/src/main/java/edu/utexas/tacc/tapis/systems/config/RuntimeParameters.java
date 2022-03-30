@@ -111,7 +111,7 @@ public final class RuntimeParameters implements EmailClientParameters
 	private String  logDirectory;
 	private String  logFile;
 
-    // Default Globus client id
+    // Tapis Globus client id
     private String globusClientId;
 
 
