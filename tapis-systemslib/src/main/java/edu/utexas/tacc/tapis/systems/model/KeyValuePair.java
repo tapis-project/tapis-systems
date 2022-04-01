@@ -15,6 +15,7 @@ public final class KeyValuePair
 {
   private String key;
   private String value = "";
+  // Mark keyValueStr as transient so Gson will not include it.
   private transient String keyValueStr;
 
   public KeyValuePair(String key1, String value1)

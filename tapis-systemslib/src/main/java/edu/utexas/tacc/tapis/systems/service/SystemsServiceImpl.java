@@ -108,10 +108,8 @@ public class SystemsServiceImpl implements SystemsService
   // Use HK2 to inject singletons
   @Inject
   private SystemsDao dao;
-
   @Inject
   private ServiceClients serviceClients;
-
   @Inject
   private ServiceContext serviceContext;
 

@@ -23,7 +23,6 @@
     <!-- If necessary set a specific version of the shared code. Parent pom file from tapis-bom has a range. -->
     <!-- <tapis-shared-java.version>1.11.2-SNAPSHOT</tapis-shared-java.version> -->
     <json-org.version>20220320</json-org.version>
-<!--    <auto-value.version>1.9</auto-value.version>-->
   </properties>
  
   <dependencies>
@@ -108,29 +107,11 @@
       <artifactId>json</artifactId>
       <version>${json-org.version}</version>
     </dependency>
-<!--    <dependency>-->
-<!--      <groupId>com.google.auto.value</groupId>-->
-<!--      <artifactId>auto-value-annotations</artifactId>-->
-<!--      <version>${auto-value.version}</version>-->
-<!--    </dependency>-->
   </dependencies>
 
   <build>
     <sourceDirectory>src/main/java</sourceDirectory>
     <plugins>
-<!--      &lt;!&ndash; Run auto-value processing &ndash;&gt;-->
-<!--      <plugin>-->
-<!--        <artifactId>maven-compiler-plugin</artifactId>-->
-<!--        <configuration>-->
-<!--          <annotationProcessorPaths>-->
-<!--            <path>-->
-<!--              <groupId>com.google.auto.value</groupId>-->
-<!--              <artifactId>auto-value</artifactId>-->
-<!--              <version>${auto-value.version}</version>-->
-<!--            </path>-->
-<!--          </annotationProcessorPaths>-->
-<!--        </configuration>-->
-<!--      </plugin>-->
       <!-- Capture the git commit hash and branch identifiers. -->
       <!-- See parent pom for configuration details. -->
       <plugin>
@@ -257,7 +238,7 @@
                     <userType>com.google.gson.JsonElement</userType>
                     <binding>edu.utexas.tacc.tapis.systems.dao.JSONBToJsonElementBinding</binding>
                     <!-- Match only certain columns, no need to filter on type -->
-                    <includeExpression>(systems\.job_env_variables|systems\.job_runtimes|systems\.batch_logical_queues|systems\.job_capabilities|systems\.notes|systems_history\.description)</includeExpression>
+                    <includeExpression>(systems\.job_env_variables|systems\.job_runtimes|systems\.batch_logical_queues|systems\.job_capabilities|systems\.notes|system_updates\.description)</includeExpression>
                     <includeTypes>.*</includeTypes>
                   </forcedType>
                   <!-- ****************************************** -->
@@ -280,7 +261,7 @@
                   <forcedType>
                     <userType>edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation</userType>
                     <enumConverter>true</enumConverter>
-                    <includeExpression>systems_history\.operation</includeExpression>
+                    <includeExpression>system_updates\.operation</includeExpression>
                     <includeTypes>.*</includeTypes>
                   </forcedType>
                   <forcedType>

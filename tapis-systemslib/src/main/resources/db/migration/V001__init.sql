@@ -129,7 +129,7 @@ COMMENT ON COLUMN systems.updated IS 'UTC time for when record was last updated'
 
 -- System updates table
 -- Track changes for systems
-CREATE TABLE systems_history
+CREATE TABLE system_updates
 (
     seq_id SERIAL PRIMARY KEY,
     system_seq_id INTEGER REFERENCES systems(seq_id) ON DELETE CASCADE,
@@ -144,19 +144,19 @@ CREATE TABLE systems_history
     uuid uuid NOT NULL,
     created TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')
 );
-ALTER TABLE systems_history OWNER TO tapis_sys;
-COMMENT ON COLUMN systems_history.seq_id IS 'System update request sequence id';
-COMMENT ON COLUMN systems_history.system_seq_id IS 'Sequence id of system being updated';
-COMMENT ON COLUMN systems_history.obo_tenant IS 'OBO Tenant associated with the change request';
-COMMENT ON COLUMN systems_history.obo_user IS 'OBO User associated with the change request';
-COMMENT ON COLUMN systems_history.api_tenant IS 'Tenant of user who requested the update';
-COMMENT ON COLUMN systems_history.api_user IS 'Name of user who requested the update';
-COMMENT ON COLUMN systems_history.system_id IS 'Id of system being updated';
-COMMENT ON COLUMN systems_history.operation IS 'Type of update operation';
-COMMENT ON COLUMN systems_history.description IS 'JSON describing the change. Secrets scrubbed as needed.';
-COMMENT ON COLUMN systems_history.raw_data IS 'Raw data associated with the request, if available. Secrets scrubbed as needed.';
-COMMENT ON COLUMN systems_history.uuid IS 'UUID of system being updated';
-COMMENT ON COLUMN systems_history.created IS 'UTC time for when record was created';
+ALTER TABLE system_updates OWNER TO tapis_sys;
+COMMENT ON COLUMN system_updates.seq_id IS 'System update request sequence id';
+COMMENT ON COLUMN system_updates.system_seq_id IS 'Sequence id of system being updated';
+COMMENT ON COLUMN system_updates.obo_tenant IS 'OBO Tenant associated with the change request';
+COMMENT ON COLUMN system_updates.obo_user IS 'OBO User associated with the change request';
+COMMENT ON COLUMN system_updates.api_tenant IS 'Tenant of user who requested the update';
+COMMENT ON COLUMN system_updates.api_user IS 'Name of user who requested the update';
+COMMENT ON COLUMN system_updates.system_id IS 'Id of system being updated';
+COMMENT ON COLUMN system_updates.operation IS 'Type of update operation';
+COMMENT ON COLUMN system_updates.description IS 'JSON describing the change. Secrets scrubbed as needed.';
+COMMENT ON COLUMN system_updates.raw_data IS 'Raw data associated with the request, if available. Secrets scrubbed as needed.';
+COMMENT ON COLUMN system_updates.uuid IS 'UUID of system being updated';
+COMMENT ON COLUMN system_updates.created IS 'UTC time for when record was created';
 
 -- ----------------------------------------------------------------------------------------
 --                                     SCHEDULER PROFILES

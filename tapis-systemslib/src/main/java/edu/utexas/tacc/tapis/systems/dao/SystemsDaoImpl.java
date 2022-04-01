@@ -16,7 +16,7 @@ import javax.sql.DataSource;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsHistoryRecord;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemUpdatesRecord;
 import org.flywaydb.core.Flyway;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -54,7 +54,6 @@ import static edu.utexas.tacc.tapis.shared.threadlocal.OrderBy.DEFAULT_ORDERBY_D
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsRecord;
 import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.*;
 import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.SYSTEMS;
-import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.SYSTEMS_HISTORY;
 
 import edu.utexas.tacc.tapis.search.SearchUtils;
 import edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator;
@@ -1709,17 +1708,17 @@ public class SystemsDaoImpl implements SystemsDao
       seqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(rUser.getOboTenantId()),SYSTEMS.ID.eq(id)).fetchOne(SYSTEMS.SEQ_ID);
     }
     // Persist update record
-    db.insertInto(SYSTEMS_HISTORY)
-            .set(SYSTEMS_HISTORY.SYSTEM_SEQ_ID, seqId)
-            .set(SYSTEMS_HISTORY.API_TENANT, rUser.getJwtTenantId())
-            .set(SYSTEMS_HISTORY.API_USER, rUser.getJwtUserId())
-            .set(SYSTEMS_HISTORY.OBO_TENANT, rUser.getOboTenantId())
-            .set(SYSTEMS_HISTORY.OBO_USER, rUser.getOboUserId())
-            .set(SYSTEMS_HISTORY.SYSTEM_ID, id)
-            .set(SYSTEMS_HISTORY.OPERATION, op)
-            .set(SYSTEMS_HISTORY.DESCRIPTION, TapisGsonUtils.getGson().fromJson(updJsonStr, JsonElement.class))
-            .set(SYSTEMS_HISTORY.RAW_DATA, rawData)
-            .set(SYSTEMS_HISTORY.UUID, uuid)
+    db.insertInto(SYSTEM_UPDATES)
+            .set(SYSTEM_UPDATES.SYSTEM_SEQ_ID, seqId)
+            .set(SYSTEM_UPDATES.API_TENANT, rUser.getJwtTenantId())
+            .set(SYSTEM_UPDATES.API_USER, rUser.getJwtUserId())
+            .set(SYSTEM_UPDATES.OBO_TENANT, rUser.getOboTenantId())
+            .set(SYSTEM_UPDATES.OBO_USER, rUser.getOboUserId())
+            .set(SYSTEM_UPDATES.SYSTEM_ID, id)
+            .set(SYSTEM_UPDATES.OPERATION, op)
+            .set(SYSTEM_UPDATES.DESCRIPTION, TapisGsonUtils.getGson().fromJson(updJsonStr, JsonElement.class))
+            .set(SYSTEM_UPDATES.RAW_DATA, rawData)
+            .set(SYSTEM_UPDATES.UUID, uuid)
             .execute();
   }
 
@@ -2313,8 +2312,8 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
       
-      SelectConditionStep<SystemsHistoryRecord> results;
-      results = db.selectFrom(SYSTEMS_HISTORY).where(SYSTEMS_HISTORY.SYSTEM_ID.eq(systemId));
+      SelectConditionStep<SystemUpdatesRecord> results;
+      results = db.selectFrom(SYSTEM_UPDATES).where(SYSTEM_UPDATES.SYSTEM_ID.eq(systemId));
 
       for (Record r : results) { SystemHistoryItem s = getSystemHistoryFromRecord(r); resultList.add(s); }
       // Close out and commit
@@ -2339,7 +2338,7 @@ public class SystemsDaoImpl implements SystemsDao
   */
   private SystemHistoryItem getSystemHistoryFromRecord(Record r)
   {
-	return new SystemHistoryItem(r.get(SYSTEMS_HISTORY.OBO_TENANT), r.get(SYSTEMS_HISTORY.OBO_USER), r.get(SYSTEMS_HISTORY.OPERATION),
-	                             r.get(SYSTEMS_HISTORY.DESCRIPTION), r.get(SYSTEMS_HISTORY.CREATED).toInstant(ZoneOffset.UTC));
+	return new SystemHistoryItem(r.get(SYSTEM_UPDATES.OBO_TENANT), r.get(SYSTEM_UPDATES.OBO_USER), r.get(SYSTEM_UPDATES.OPERATION),
+	                             r.get(SYSTEM_UPDATES.DESCRIPTION), r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
   }
 }

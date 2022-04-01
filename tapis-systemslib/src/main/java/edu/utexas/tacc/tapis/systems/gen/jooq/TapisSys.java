@@ -6,8 +6,8 @@ package edu.utexas.tacc.tapis.systems.gen.jooq;
 
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.FlywaySchemaHistory;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedulerProfiles;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemUpdates;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.Systems;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsHistory;
 
 import java.util.Arrays;
 import java.util.List;
@@ -42,14 +42,14 @@ public class TapisSys extends SchemaImpl {
     public final SchedulerProfiles SCHEDULER_PROFILES = SchedulerProfiles.SCHEDULER_PROFILES;
 
     /**
+     * The table <code>tapis_sys.system_updates</code>.
+     */
+    public final SystemUpdates SYSTEM_UPDATES = SystemUpdates.SYSTEM_UPDATES;
+
+    /**
      * The table <code>tapis_sys.systems</code>.
      */
     public final Systems SYSTEMS = Systems.SYSTEMS;
-
-    /**
-     * The table <code>tapis_sys.systems_history</code>.
-     */
-    public final SystemsHistory SYSTEMS_HISTORY = SystemsHistory.SYSTEMS_HISTORY;
 
     /**
      * No further instances allowed
@@ -67,7 +67,7 @@ public class TapisSys extends SchemaImpl {
     @Override
     public final List<Sequence<?>> getSequences() {
         return Arrays.<Sequence<?>>asList(
-            Sequences.SYSTEMS_HISTORY_SEQ_ID_SEQ,
+            Sequences.SYSTEM_UPDATES_SEQ_ID_SEQ,
             Sequences.SYSTEMS_SEQ_ID_SEQ);
     }
 
@@ -76,7 +76,7 @@ public class TapisSys extends SchemaImpl {
         return Arrays.<Table<?>>asList(
             FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY,
             SchedulerProfiles.SCHEDULER_PROFILES,
-            Systems.SYSTEMS,
-            SystemsHistory.SYSTEMS_HISTORY);
+            SystemUpdates.SYSTEM_UPDATES,
+            Systems.SYSTEMS);
     }
 }
