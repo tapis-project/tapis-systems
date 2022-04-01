@@ -336,7 +336,8 @@ public class LibUtils
     // ------------------------------------------------------
     // Following attributes require more complex handling
     // ------------------------------------------------------
-    // TODO JOB_RUNTIMES
+    // TODO JOB_RUNTIMES - JobRuntime supports equals so Objects.equals should do something sensible,
+    //  but order will be important.
     if (!Objects.equals(o.getJobRuntimes(),n.getJobRuntimes()))
       {noChanges=false;addChange(jo, JOB_RUNTIMES_FIELD, o.getJobRuntimes(), n.getJobRuntimes());}
 //    // JOB_RUNTIMES If it is a patch and the patch value was null then no need to compare
@@ -369,7 +370,9 @@ public class LibUtils
     if (!Objects.equals(o.getJobCapabilities(),n.getJobCapabilities()))
       {noChanges=false;addChange(jo, JOB_CAPABILITIES_FIELD, o.getJobCapabilities(), n.getJobCapabilities());}
 
-    // TODO TAGS - If it is a patch and the patch value was null then no need to compare
+    // TAGS - If it is a patch and the patch value was null then no need to compare
+    //   i.e. if not a patch or patch value was not null then do need to compare.
+    // Since TAGS are just strings we can use Objects.equals()
     if (!isPatch || p.getTags() != null)
     {
       // Sort so it does not matter if order is different
