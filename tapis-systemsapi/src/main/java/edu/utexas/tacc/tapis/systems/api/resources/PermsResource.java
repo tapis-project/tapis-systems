@@ -84,7 +84,7 @@ public class PermsResource
 
   // **************** Inject Services using HK2 ****************
   @Inject
-  private SystemsService systemsService;
+  private SystemsService service;
 
   private final String className = getClass().getSimpleName();
 
@@ -122,7 +122,7 @@ public class PermsResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, "grantUserPerms");
+    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, "grantUserPerms");
     if (resp != null) return resp;
 
     // Read the payload into a string.
@@ -145,7 +145,7 @@ public class PermsResource
     // Make the service call to assign the permissions
     try
     {
-      systemsService.grantUserPermissions(rUser, systemId, userName, permsList, json);
+      service.grantUserPermissions(rUser, systemId, userName, permsList, json);
     }
     catch (Exception e)
     {
@@ -192,14 +192,14 @@ public class PermsResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, "getUserPerms");
+    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, "getUserPerms");
     if (resp != null) return resp;
 
     // ------------------------- Perform the operation -------------------------
     // Make the service call to get the permissions
     Set<Permission> perms;
     String msg;
-    try { perms = systemsService.getUserPermissions(rUser, systemId, userName); }
+    try { perms = service.getUserPermissions(rUser, systemId, userName); }
     catch (NotFoundException e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
@@ -253,7 +253,7 @@ public class PermsResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, "revokeUserPerm");
+    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, "revokeUserPerm");
     if (resp != null) return resp;
 
     // ------------------------- Perform the operation -------------------------
@@ -264,7 +264,7 @@ public class PermsResource
     {
       Permission perm = Permission.valueOf(permissionStr);
       permsList.add(perm);
-      systemsService.revokeUserPermissions(rUser, systemId, userName, permsList, null);
+      service.revokeUserPermissions(rUser, systemId, userName, permsList, null);
     }
     catch (IllegalArgumentException e)
     {
@@ -319,7 +319,7 @@ public class PermsResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, "revokeUserPerms");
+    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, "revokeUserPerms");
     if (resp != null) return resp;
 
     // Read the payload into a string.
@@ -342,7 +342,7 @@ public class PermsResource
     // Make the service call to revoke the permissions
     try
     {
-      systemsService.revokeUserPermissions(rUser, systemId, userName, permsList, json);
+      service.revokeUserPermissions(rUser, systemId, userName, permsList, json);
     }
     catch (Exception e)
     {

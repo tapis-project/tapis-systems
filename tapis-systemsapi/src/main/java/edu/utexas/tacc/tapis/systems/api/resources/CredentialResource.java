@@ -29,7 +29,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
-import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidator;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidatorSpec;
 import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
@@ -96,7 +95,7 @@ public class CredentialResource
 
   // **************** Inject Services using HK2 ****************
   @Inject
-  private SystemsService systemsService;
+  private SystemsService service;
 
   private final String className = getClass().getSimpleName();
 
@@ -136,7 +135,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, "createUserCredential");
+    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, "createUserCredential");
     if (resp != null) return resp;
 
     // ------------------------- Extract and validate payload -------------------------
@@ -183,13 +182,13 @@ public class CredentialResource
 
     // Create json with secrets masked out. This is recorded by the service as part of the update record.
     Credential maskedCredential = Credential.createMaskedCredential(credential);
-    String updateJsonStr = TapisGsonUtils.getGson().toJson(maskedCredential);
+    String scrubbedJson = TapisGsonUtils.getGson().toJson(maskedCredential);
 
     // ------------------------- Perform the operation -------------------------
     // Make the service call to create or update the credential
     try
     {
-      systemsService.createUserCredential(rUser, systemId, userName, credential, skipCredCheck, updateJsonStr);
+      service.createUserCredential(rUser, systemId, userName, credential, skipCredCheck, scrubbedJson);
     }
     catch (Exception e)
     {
@@ -236,7 +235,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, "getUserCredential");
+    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, "getUserCredential");
     if (resp != null) return resp;
 
     // Check that authnMethodStr is valid if it is passed in
@@ -253,7 +252,7 @@ public class CredentialResource
     // ------------------------- Perform the operation -------------------------
     // Make the service call to get the credentials
     Credential credential;
-    try { credential = systemsService.getUserCredential(rUser, systemId, userName, authnMethod); }
+    try { credential = service.getUserCredential(rUser, systemId, userName, authnMethod); }
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemId, userName, e.getMessage());
@@ -304,14 +303,14 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(systemsService, rUser, systemId, PRETTY, "removeUserCredential");
+    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, "removeUserCredential");
     if (resp != null) return resp;
 
     // ------------------------- Perform the operation -------------------------
     // Make the service call to remove the credential
     try
     {
-      systemsService.deleteUserCredential(rUser, systemId, userName);
+      service.deleteUserCredential(rUser, systemId, userName);
     }
     catch (Exception e)
     {

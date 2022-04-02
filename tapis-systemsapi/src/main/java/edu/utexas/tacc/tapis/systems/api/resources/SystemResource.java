@@ -155,7 +155,7 @@ public class SystemResource
 
   // **************** Inject Services using HK2 ****************
   @Inject
-  private SystemsService systemsService;
+  private SystemsService service;
 
   private final String className = getClass().getSimpleName();
 
@@ -251,7 +251,7 @@ public class SystemResource
     String systemId = tSystem.getId();
     try
     {
-      systemsService.createSystem(rUser, tSystem, skipCredCheck, scrubbedJson);
+      service.createSystem(rUser, tSystem, skipCredCheck, scrubbedJson);
     }
     catch (IllegalStateException e)
     {
@@ -371,7 +371,7 @@ public class SystemResource
     // ---------------------------- Make service call to update the system -------------------------------
     try
     {
-      systemsService.patchSystem(rUser, systemId, patchSystem, rawJson);
+      service.patchSystem(rUser, systemId, patchSystem, rawJson);
     }
     catch (NotFoundException e)
     {
@@ -503,7 +503,7 @@ public class SystemResource
     // ---------------------------- Make service call to update the system -------------------------------
     try
     {
-      systemsService.putSystem(rUser, putSystem, skipCredCheck, scrubbedJson);
+      service.putSystem(rUser, putSystem, skipCredCheck, scrubbedJson);
     }
     catch (NotFoundException e)
     {
@@ -680,7 +680,7 @@ public class SystemResource
     TSystem tSystem;
     try
     {
-      tSystem = systemsService.getSystem(rUser, systemId, getCreds, authnMethod, requireExecPerm);
+      tSystem = service.getSystem(rUser, systemId, getCreds, authnMethod, requireExecPerm);
     }
     catch (Exception e)
     {
@@ -729,7 +729,8 @@ public class SystemResource
     
     try
     {
-    	systemHistory = systemsService.getSystemHistory(rUser, systemId);
+      // Retrieve system history List
+      systemHistory = service.getSystemHistory(rUser, systemId);
     }
     catch (Exception e)
     {
@@ -738,14 +739,16 @@ public class SystemResource
       return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
     
+    // System not found
     if (systemHistory == null || systemHistory.size()==0) {
    	 String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
    	  _log.warn(msg);
    	  return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
     
+    // ---------------------------- Success -------------------------------
+    // Success means we retrieved the system history information.
     RespSystemHistory resp1 = new RespSystemHistory(systemHistory);
-
     return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "SystemHistory", systemId), resp1);
   }
   
@@ -779,7 +782,7 @@ public class SystemResource
     boolean isEnabled;
     try
     {
-      isEnabled = systemsService.isEnabled(rUser, systemId);
+      isEnabled = service.isEnabled(rUser, systemId);
     }
     catch (NotFoundException e)
     {
@@ -1123,15 +1126,15 @@ public class SystemResource
     try
     {
       if (OP_ENABLE.equals(opName))
-        changeCount = systemsService.enableSystem(rUser, systemId);
+        changeCount = service.enableSystem(rUser, systemId);
       else if (OP_DISABLE.equals(opName))
-        changeCount = systemsService.disableSystem(rUser, systemId);
+        changeCount = service.disableSystem(rUser, systemId);
       else if (OP_DELETE.equals(opName))
-        changeCount = systemsService.deleteSystem(rUser, systemId);
+        changeCount = service.deleteSystem(rUser, systemId);
       else if (OP_UNDELETE.equals(opName))
-        changeCount = systemsService.undeleteSystem(rUser, systemId);
+        changeCount = service.undeleteSystem(rUser, systemId);
       else
-        changeCount = systemsService.changeSystemOwner(rUser, systemId, userName);
+        changeCount = service.changeSystemOwner(rUser, systemId, userName);
     }
     catch (NotFoundException e)
     {
@@ -1251,7 +1254,7 @@ public class SystemResource
       TSystem dtnSystem = null;
       try
       {
-        dtnSystem = systemsService.getSystem(rUser, tSystem1.getDtnSystemId(), false, null, false);
+        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), false, null, false);
       }
       catch (NotAuthorizedException e)
       {
@@ -1366,10 +1369,10 @@ public class SystemResource
     List<OrderBy> orderByList = srchParms.getOrderByList();
 
     if (StringUtils.isBlank(sqlSearchStr))
-      systems = systemsService.getSystems(rUser, searchList, limit, orderByList, skip,
+      systems = service.getSystems(rUser, searchList, limit, orderByList, skip,
                                           startAfter, showDeleted);
     else
-      systems = systemsService.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit,
+      systems = service.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit,
                                                            orderByList, skip, startAfter, showDeleted);
     if (systems == null) systems = Collections.emptyList();
     itemCountStr = String.format(SYS_CNT_STR, systems.size());
@@ -1378,7 +1381,7 @@ public class SystemResource
     // If we need the count and there was a limit then we need to make a call
     if (computeTotal && limit > 0)
     {
-      totalCount = systemsService.getSystemsTotalCount(rUser, searchList, orderByList,
+      totalCount = service.getSystemsTotalCount(rUser, searchList, orderByList,
                                                        startAfter, showDeleted);
     }
 

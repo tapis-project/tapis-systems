@@ -21,7 +21,7 @@ import org.jooq.ForeignKey;
 import org.jooq.Identity;
 import org.jooq.Name;
 import org.jooq.Record;
-import org.jooq.Row11;
+import org.jooq.Row12;
 import org.jooq.Schema;
 import org.jooq.Table;
 import org.jooq.TableField;
@@ -65,9 +65,24 @@ public class SystemUpdates extends TableImpl<SystemUpdatesRecord> {
     public final TableField<SystemUpdatesRecord, Integer> SYSTEM_SEQ_ID = createField(DSL.name("system_seq_id"), SQLDataType.INTEGER, this, "Sequence id of system being updated");
 
     /**
-     * The column <code>tapis_sys.system_updates.system_tenant</code>. Tenant of system being updated
+     * The column <code>tapis_sys.system_updates.obo_tenant</code>. OBO Tenant associated with the change request
      */
-    public final TableField<SystemUpdatesRecord, String> SYSTEM_TENANT = createField(DSL.name("system_tenant"), SQLDataType.CLOB.nullable(false), this, "Tenant of system being updated");
+    public final TableField<SystemUpdatesRecord, String> OBO_TENANT = createField(DSL.name("obo_tenant"), SQLDataType.CLOB.nullable(false), this, "OBO Tenant associated with the change request");
+
+    /**
+     * The column <code>tapis_sys.system_updates.obo_user</code>. OBO User associated with the change request
+     */
+    public final TableField<SystemUpdatesRecord, String> OBO_USER = createField(DSL.name("obo_user"), SQLDataType.CLOB.nullable(false), this, "OBO User associated with the change request");
+
+    /**
+     * The column <code>tapis_sys.system_updates.api_tenant</code>. Tenant of user who requested the update
+     */
+    public final TableField<SystemUpdatesRecord, String> API_TENANT = createField(DSL.name("api_tenant"), SQLDataType.CLOB.nullable(false), this, "Tenant of user who requested the update");
+
+    /**
+     * The column <code>tapis_sys.system_updates.api_user</code>. Name of user who requested the update
+     */
+    public final TableField<SystemUpdatesRecord, String> API_USER = createField(DSL.name("api_user"), SQLDataType.CLOB.nullable(false), this, "Name of user who requested the update");
 
     /**
      * The column <code>tapis_sys.system_updates.system_id</code>. Id of system being updated
@@ -75,34 +90,24 @@ public class SystemUpdates extends TableImpl<SystemUpdatesRecord> {
     public final TableField<SystemUpdatesRecord, String> SYSTEM_ID = createField(DSL.name("system_id"), SQLDataType.CLOB.nullable(false), this, "Id of system being updated");
 
     /**
-     * The column <code>tapis_sys.system_updates.user_tenant</code>. Tenant of user who requested the update
-     */
-    public final TableField<SystemUpdatesRecord, String> USER_TENANT = createField(DSL.name("user_tenant"), SQLDataType.CLOB.nullable(false), this, "Tenant of user who requested the update");
-
-    /**
-     * The column <code>tapis_sys.system_updates.user_name</code>. Name of user who requested the update
-     */
-    public final TableField<SystemUpdatesRecord, String> USER_NAME = createField(DSL.name("user_name"), SQLDataType.CLOB.nullable(false), this, "Name of user who requested the update");
-
-    /**
      * The column <code>tapis_sys.system_updates.operation</code>. Type of update operation
      */
     public final TableField<SystemUpdatesRecord, SystemOperation> OPERATION = createField(DSL.name("operation"), SQLDataType.CLOB.nullable(false), this, "Type of update operation", new EnumConverter<String, SystemOperation>(String.class, SystemOperation.class));
 
     /**
-     * The column <code>tapis_sys.system_updates.upd_json</code>. JSON representing the update - with secrets scrubbed
+     * The column <code>tapis_sys.system_updates.description</code>. JSON describing the change. Secrets scrubbed as needed.
      */
-    public final TableField<SystemUpdatesRecord, JsonElement> UPD_JSON = createField(DSL.name("upd_json"), SQLDataType.JSONB.nullable(false), this, "JSON representing the update - with secrets scrubbed", new JSONBToJsonElementBinding());
+    public final TableField<SystemUpdatesRecord, JsonElement> DESCRIPTION = createField(DSL.name("description"), SQLDataType.JSONB.nullable(false), this, "JSON describing the change. Secrets scrubbed as needed.", new JSONBToJsonElementBinding());
 
     /**
-     * The column <code>tapis_sys.system_updates.upd_text</code>. Text data supplied by client - secrets should be scrubbed
+     * The column <code>tapis_sys.system_updates.raw_data</code>. Raw data associated with the request, if available. Secrets scrubbed as needed.
      */
-    public final TableField<SystemUpdatesRecord, String> UPD_TEXT = createField(DSL.name("upd_text"), SQLDataType.CLOB, this, "Text data supplied by client - secrets should be scrubbed");
+    public final TableField<SystemUpdatesRecord, String> RAW_DATA = createField(DSL.name("raw_data"), SQLDataType.CLOB, this, "Raw data associated with the request, if available. Secrets scrubbed as needed.");
 
     /**
-     * The column <code>tapis_sys.system_updates.uuid</code>.
+     * The column <code>tapis_sys.system_updates.uuid</code>. UUID of system being updated
      */
-    public final TableField<SystemUpdatesRecord, java.util.UUID> UUID = createField(DSL.name("uuid"), SQLDataType.UUID.nullable(false), this, "");
+    public final TableField<SystemUpdatesRecord, java.util.UUID> UUID = createField(DSL.name("uuid"), SQLDataType.UUID.nullable(false), this, "UUID of system being updated");
 
     /**
      * The column <code>tapis_sys.system_updates.created</code>. UTC time for when record was created
@@ -203,11 +208,11 @@ public class SystemUpdates extends TableImpl<SystemUpdatesRecord> {
     }
 
     // -------------------------------------------------------------------------
-    // Row11 type methods
+    // Row12 type methods
     // -------------------------------------------------------------------------
 
     @Override
-    public Row11<Integer, Integer, String, String, String, String, SystemOperation, JsonElement, String, java.util.UUID, LocalDateTime> fieldsRow() {
-        return (Row11) super.fieldsRow();
+    public Row12<Integer, Integer, String, String, String, String, String, SystemOperation, JsonElement, String, java.util.UUID, LocalDateTime> fieldsRow() {
+        return (Row12) super.fieldsRow();
     }
 }

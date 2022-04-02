@@ -27,13 +27,13 @@ public interface SystemsService
 {
   // ------------------------- Systems -------------------------------------
   // -----------------------------------------------------------------------
-  void createSystem(ResourceRequestUser rUser, TSystem system, boolean skipCredCheck, String scrubbedText)
+  void createSystem(ResourceRequestUser rUser, TSystem system, boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException, IllegalArgumentException;
 
-  void patchSystem(ResourceRequestUser rUser, String systemId, PatchSystem patchSystem, String scrubbedText)
+  void patchSystem(ResourceRequestUser rUser, String systemId, PatchSystem patchSystem, String rawData)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException, IllegalArgumentException, NotFoundException;
 
-  void putSystem(ResourceRequestUser rUser, TSystem putSystem, boolean skipCredCheck, String scrubbedText)
+  void putSystem(ResourceRequestUser rUser, TSystem putSystem, boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException, IllegalArgumentException, NotFoundException;
 
   int enableSystem(ResourceRequestUser rUser, String systemId)
@@ -95,7 +95,7 @@ public interface SystemsService
   // ---------------------------- Credentials ------------------------------
   // -----------------------------------------------------------------------
   void createUserCredential(ResourceRequestUser rUser, String systemId, String userName, Credential credential,
-                            boolean skipCredCheck, String scrubbedText)
+                            boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException;
 
   int deleteUserCredential(ResourceRequestUser rUser, String systemId, String userName)
@@ -106,7 +106,7 @@ public interface SystemsService
 
   // ------------------- Scheduler Profiles---------------------------------
   // -----------------------------------------------------------------------
-  void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile schedulerProfile, String scrubbedText)
+  void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile schedulerProfile)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException, IllegalArgumentException;
 
   SchedulerProfile getSchedulerProfile(ResourceRequestUser rUser, String name)

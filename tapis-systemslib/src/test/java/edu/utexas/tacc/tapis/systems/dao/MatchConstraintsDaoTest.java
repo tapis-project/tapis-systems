@@ -24,7 +24,7 @@ import static edu.utexas.tacc.tapis.systems.IntegrationUtils.apiUser;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.getSysName;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.gson;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.logicalQueueList2;
-import static edu.utexas.tacc.tapis.systems.IntegrationUtils.scrubbedJson;
+import static edu.utexas.tacc.tapis.systems.IntegrationUtils.rawDataEmtpyJson;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.tenantName;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.capList2;
 import static org.testng.Assert.assertEquals;
@@ -89,12 +89,12 @@ public class MatchConstraintsDaoTest
     // Create all the systems in the dB using the in-memory objects, recording start and end times
     createBegin = TapisUtils.getUTCTimeNow();
     Thread.sleep(500);
-    boolean itemCreated = dao.createSystem(rUser, dtnSystem1, gson.toJson(dtnSystem1), scrubbedJson);
+    boolean itemCreated = dao.createSystem(rUser, dtnSystem1, gson.toJson(dtnSystem1), rawDataEmtpyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + dtnSystem1.getId());
     allowedIDs.add(dtnSystem1.getId());
     for (TSystem sys : systems)
     {
-      itemCreated = dao.createSystem(rUser, sys, gson.toJson(sys), scrubbedJson);
+      itemCreated = dao.createSystem(rUser, sys, gson.toJson(sys), rawDataEmtpyJson);
       Assert.assertTrue(itemCreated, "Item not created, id: " + sys.getId());
       allowedIDs.add(sys.getId());
     }

@@ -66,7 +66,7 @@ public class SystemsServiceTest
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
-  int numSystems = 27; // UNUSED SYSTEMS: systems[3]
+  int numSystems = 28; // UNUSED SYSTEMS: systems[3]
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
@@ -128,19 +128,19 @@ public class SystemsServiceTest
     tearDown();
 
     // Create DTN systems for other systems to reference. Otherwise some system definitions are not valid.
-    svc.createSystem(rOwner1, dtnSystem1, skipCredCheckTrue, scrubbedJson);
-    svc.createSystem(rOwner1, dtnSystem2, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, dtnSystem1, skipCredCheckTrue, rawDataEmtpyJson);
+    svc.createSystem(rOwner1, dtnSystem2, skipCredCheckTrue, rawDataEmtpyJson);
 
     // Create a scheduler profile for systems to reference
     System.out.println("Creating scheduler profile with name: " + batchSchedulerProfile1);
     List<SchedulerProfile.HiddenOption> hiddenOptions = Arrays.asList(SchedulerProfile.HiddenOption.MEM);
     SchedulerProfile sp = new SchedulerProfile(tenantName, batchSchedulerProfile1, "test profile1",  owner1, "module load1",
                                                null, hiddenOptions, null, null, null);
-    svc.createSchedulerProfile(rOwner1, sp, scrubbedJson);
+    svc.createSchedulerProfile(rOwner1, sp);
     System.out.println("Creating scheduler profile with name: " + batchSchedulerProfile2);
     sp = new SchedulerProfile(tenantName, batchSchedulerProfile2, "test profile2",  owner1, "module load2",
                               null, hiddenOptions, null, null, null);
-    svc.createSchedulerProfile(rOwner1, sp, scrubbedJson);
+    svc.createSchedulerProfile(rOwner1, sp);
   }
 
   @AfterSuite
@@ -148,15 +148,15 @@ public class SystemsServiceTest
   {
     System.out.println("Executing AfterSuite teardown for " + SystemsServiceTest.class.getSimpleName());
     // Remove non-owner permissions granted during the tests
-    try { svc.revokeUserPermissions(rOwner1, systems[9].getId(), testUser3, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.revokeUserPermissions(rOwner1, systems[9].getId(), testUser3, testPermsREADMODIFY, rawDataEmtpyJson); }
     catch (Exception e) { }
-    try { svc.revokeUserPermissions(rOwner1, systems[12].getId(), testUser3, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.revokeUserPermissions(rOwner1, systems[12].getId(), testUser3, testPermsREADMODIFY, rawDataEmtpyJson); }
     catch (Exception e) { }
-    try { svc.revokeUserPermissions(rOwner1, systems[12].getId(), testUser2, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.revokeUserPermissions(rOwner1, systems[12].getId(), testUser2, testPermsREADMODIFY, rawDataEmtpyJson); }
     catch (Exception e) { }
-    try { svc.revokeUserPermissions(rOwner1, systems[14].getId(), testUser3, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.revokeUserPermissions(rOwner1, systems[14].getId(), testUser3, testPermsREADMODIFY, rawDataEmtpyJson); }
     catch (Exception e) { }
-    try { svc.revokeUserPermissions(rOwner1, systems[14].getId(), testUser2, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.revokeUserPermissions(rOwner1, systems[14].getId(), testUser2, testPermsREADMODIFY, rawDataEmtpyJson); }
     catch (Exception e) { }
 
     // Remove all objects created by tests
@@ -184,7 +184,7 @@ public class SystemsServiceTest
   public void testCreateSystem() throws Exception
   {
     TSystem sys0 = systems[0];
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
   }
 
   // Create a system using minimal attributes:
@@ -193,7 +193,7 @@ public class SystemsServiceTest
   public void testCreateSystemMinimal() throws Exception
   {
     TSystem sys0 = makeMinimalSystem(systems[11], null);
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
   }
 
   // TODO: cred check fails when it should not when run from laptop
@@ -235,7 +235,7 @@ public class SystemsServiceTest
     Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
             "fakeAccessKey", "fakeAccessSecret", "fakeCert");
     sys0.setAuthnCredential(cred0);
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     // Retrieve system as owner, without and with requireExecPerm
     TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), false, null, false);
     checkCommonSysAttrs(sys0, tmpSys);
@@ -281,8 +281,8 @@ public class SystemsServiceTest
     sys0.setJobRuntimes(jobRuntimes1);
     sys0.setBatchLogicalQueues(logicalQueueList1);
     sys0.setJobCapabilities(capList1);
-    String createText = "{\"testPut\": \"0-create1\"}";
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, createText);
+    String rawDataCreate = "{\"testPut\": \"0-create1\"}";
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataCreate);
     TSystem tmpSys = svc.getSystem(rOwner1, systemId, false, null, false);
     // Get last updated timestamp
     LocalDateTime updated = LocalDateTime.ofInstant(tmpSys.getUpdated(), ZoneOffset.UTC);
@@ -290,11 +290,11 @@ public class SystemsServiceTest
     Thread.sleep(300);
 
     // Create putSystem where all updatable attributes are changed
-    String put1Text = "{\"testPut\": \"1-put1\"}";
+    String rawDataPut = "{\"testPut\": \"1-put1\"}";
     TSystem putSystem = IntegrationUtils.makePutSystemFull(testKey, tmpSys);
 
     // Update using PUT
-    svc.putSystem(rOwner1, putSystem, skipCredCheckTrue, put1Text);
+    svc.putSystem(rOwner1, putSystem, skipCredCheckTrue, rawDataPut);
     tmpSys = svc.getSystem(rOwner1, sys0.getId(), false, null, false);
 
     // Get last updated timestamp
@@ -344,20 +344,21 @@ public class SystemsServiceTest
     sys0.setJobRuntimes(jobRuntimes1);
     sys0.setBatchLogicalQueues(logicalQueueList1);
     sys0.setJobCapabilities(capList1);
-    String createText = "{\"testUpdate\": \"0-create1\"}";
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, createText);
+    String rawDataCreate = "{\"testUpdate\": \"0-create1\"}";
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataCreate);
     TSystem tmpSys = svc.getSystem(rOwner1, systemId, false, null, false);
     // Get last updated timestamp
     LocalDateTime updated = LocalDateTime.ofInstant(tmpSys.getUpdated(), ZoneOffset.UTC);
     String updatedStr1 = TapisUtils.getSQLStringFromUTCTime(updated);
+    // Pause briefly to make sure updated timestamp changes for patch
     Thread.sleep(300);
 
     // Create patchSystem where all updatable attributes are changed
-    String patch1Text = "{\"testUpdate\": \"1-patch1\"}";
+    String rawDataPatch = "{\"testUpdate\": \"1-patch1\"}";
     PatchSystem patchSystemFull = IntegrationUtils.makePatchSystemFull(testKey, systemId);
 
     // Update using patchSys
-    svc.patchSystem(rOwner1, systemId, patchSystemFull, patch1Text);
+    svc.patchSystem(rOwner1, systemId, patchSystemFull, rawDataPatch);
     TSystem tmpSysFull = svc.getSystem(rOwner1, systemId, false, null, false);
 
     // Get last updated timestamp
@@ -402,15 +403,15 @@ public class SystemsServiceTest
     sys0.setJobRuntimes(jobRuntimes1);
     sys0.setBatchLogicalQueues(logicalQueueList1);
     sys0.setJobCapabilities(capList1);
-    createText = "{\"testUpdate\": \"0-create2\"}";
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, createText);
+    rawDataCreate = "{\"testUpdate\": \"0-create2\"}";
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataCreate);
     // Create patchSystem where some attributes are changed
     //   * Some attributes are to be updated: description, authnMethod, dtnMountPoint, runtimeList, jobMaxJobsPerUser
-    String patch2Text = "{\"testUpdate\": \"1-patch2\"}";
+    String rawDataPatch2 = "{\"testUpdate\": \"1-patch2\"}";
     PatchSystem patchSystemPartial = IntegrationUtils.makePatchSystemPartial(testKey, systemId);
 
     // Update using patchSys
-    svc.patchSystem(rOwner1, systemId, patchSystemPartial, patch2Text);
+    svc.patchSystem(rOwner1, systemId, patchSystemPartial, rawDataPatch2);
     TSystem tmpSysPartial = svc.getSystem(rOwner1, systemId, false, null, false);
 
     // Update original definition with patched values so we can use the checkCommon method.
@@ -430,9 +431,9 @@ public class SystemsServiceTest
   {
     TSystem sys0 = systems[15];
     sys0.setJobCapabilities(capList1);
-    String createText = "{\"testChangeOwner\": \"0-create\"}";
+    String rawDataCreate = "{\"testChangeOwner\": \"0-create\"}";
     String newOwnerName = testUser2;
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, createText);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataCreate);
     // Change owner using api
     svc.changeSystemOwner(rOwner1, sys0.getId(), newOwnerName);
     TSystem tmpSys = svc.getSystem(rTestUser2, sys0.getId(), false, null, false);
@@ -481,7 +482,7 @@ public class SystemsServiceTest
     sys0.setBucketName("bucket8-${tenant}-${apiUserId}");
     sys0.setRootDir("/root8/${tenant}");
     sys0.setJobWorkingDir("jobWorkDir8/${owner}/${tenant}/${apiUserId}");
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), false, null, false);
     Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
     System.out.println("Found item: " + sys0.getId());
@@ -510,7 +511,7 @@ public class SystemsServiceTest
   public void testGetSystems() throws Exception
   {
     TSystem sys0 = systems[4];
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     List<TSystem> systems = svc.getSystems(rOwner1, searchListNull, limitNone, orderByListNull, skipZero,
                                            startAferEmpty, showDeletedFalse);
     Assert.assertNotNull(systems, "getSystems returned null");
@@ -529,13 +530,13 @@ public class SystemsServiceTest
     TSystem sys0 = systems[16];
     String sys1Name = sys0.getId();
     sys0.setOwner(rTestUser4.getOboUserId());
-    svc.createSystem(rTestUser4, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rTestUser4, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     sys0 = systems[17];
     String sys2Name = sys0.getId();
     sys0.setOwner(rTestUser4.getOboUserId());
-    svc.createSystem(rTestUser4, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rTestUser4, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     sys0 = systems[18];
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     // When retrieving systems as testUser4 only 2 should be returned
     List<TSystem> systems = svc.getSystems(rTestUser4, searchListNull, limitNone, orderByListNull, skipZero,
                                            startAferEmpty, showDeletedFalse);
@@ -571,7 +572,7 @@ public class SystemsServiceTest
     // Create the resource
     TSystem sys0 = systems[21];
     String sysId = sys0.getId();
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     // Enabled should start off true, then become false and finally true again.
     TSystem tmpSys = svc.getSystem(rOwner1, sysId, false, null, false);
     Assert.assertTrue(tmpSys.isEnabled());
@@ -615,7 +616,7 @@ public class SystemsServiceTest
   {
     // Create a system with no credentials
     TSystem sys0 = systems[5];
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     // Delete the system
     int changeCount = svc.deleteSystem(rOwner1, sys0.getId());
     Assert.assertEquals(changeCount, 1, "Change count incorrect when deleting a system.");
@@ -626,7 +627,7 @@ public class SystemsServiceTest
     sys0 = systems[23];
     Credential cred0 = new Credential(null, null, "fakePrivateKey", "fakePublicKey", null, null, null);
     sys0.setAuthnCredential(cred0);
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
 
     // Delete the system
     changeCount = svc.deleteSystem(rOwner1, sys0.getId());
@@ -642,7 +643,7 @@ public class SystemsServiceTest
     Assert.assertFalse(svc.checkForSystem(rOwner1, systems[6].getId()));
     // After creating system we should get true
     TSystem sys0 = systems[6];
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     Assert.assertTrue(svc.checkForSystem(rOwner1, systems[6].getId()));
   }
 
@@ -652,10 +653,10 @@ public class SystemsServiceTest
   {
     // Create the system
     TSystem sys0 = systems[8];
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     Assert.assertTrue(svc.checkForSystem(rOwner1, sys0.getId()));
     // Now attempt to create again, should get IllegalStateException with msg SYSLIB_SYS_EXISTS
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
   }
 
   // Check that reserved names are honored.
@@ -671,7 +672,7 @@ public class SystemsServiceTest
       System.out.println("  - Created in-memory system object with ID: " + tmpSys.getId());
       try
       {
-        svc.createSystem(rOwner1, tmpSys, skipCredCheckTrue, scrubbedJson);
+        svc.createSystem(rOwner1, tmpSys, skipCredCheckTrue, rawDataEmtpyJson);
         Assert.fail("System create call should have thrown an exception when using a reserved ID. Id: " + id);
       } catch (IllegalStateException e)
       {
@@ -688,7 +689,7 @@ public class SystemsServiceTest
     sys0.setAuthnCredential(credInvalidPrivateSshKey);
     // Test system create
     try {
-      svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+      svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
       Assert.fail("System create call should have thrown an exception when private ssh key is invalid");
     } catch (Exception e) {
       Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1"));
@@ -696,9 +697,9 @@ public class SystemsServiceTest
 
     // Test credential update
     sys0.setAuthnCredential(null);
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     try {
-      svc.createUserCredential(rOwner1, sys0.getId(), sys0.getOwner(), credInvalidPrivateSshKey, skipCredCheckTrue, scrubbedJson);
+      svc.createUserCredential(rOwner1, sys0.getId(), sys0.getOwner(), credInvalidPrivateSshKey, skipCredCheckTrue, rawDataEmtpyJson);
       Assert.fail("Credential update call should have thrown an exception when private ssh key is invalid");
     } catch (Exception e) {
       Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2"));
@@ -732,7 +733,7 @@ public class SystemsServiceTest
     String tmpJobWorkingDir = sys0.getJobWorkingDir();
     sys0.setJobWorkingDir(null);
     boolean pass = false;
-    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson); }
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (Exception e)
     {
       Assert.assertTrue(e.getMessage().contains("SYSLIB_CANEXEC_NO_JOBWORKINGDIR_INPUT"));
@@ -742,7 +743,7 @@ public class SystemsServiceTest
     sys0.setJobWorkingDir(tmpJobWorkingDir);
     pass = false;
     sys0.setJobRuntimes(null);
-    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson); }
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (Exception e)
     {
       Assert.assertTrue(e.getMessage().contains("SYSLIB_CANEXEC_NO_JOBRUNTIME_INPUT"));
@@ -755,7 +756,7 @@ public class SystemsServiceTest
     //     batchScheduler must be specified
     pass = false;
     sys0.setBatchScheduler(null);
-    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson); }
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (Exception e)
     {
       Assert.assertTrue(e.getMessage().contains("SYSLIB_ISBATCH_NOSCHED"));
@@ -767,7 +768,7 @@ public class SystemsServiceTest
     // If systemType is LINUX then rootDir is required.
     pass = false;
     sys0.setRootDir(null);
-    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson); }
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (Exception e)
     {
       Assert.assertTrue(e.getMessage().contains("SYSLIB_NOROOTDIR"));
@@ -779,7 +780,7 @@ public class SystemsServiceTest
     // SchedulerProfile must exist.
     pass = false;
     sys0.setBatchSchedulerProfile(noSuchSchedulerProfile);
-    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson); }
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (Exception e)
     {
       Assert.assertTrue(e.getMessage().contains("SYSLIB_PRF_NO_PROFILE"));
@@ -795,16 +796,16 @@ public class SystemsServiceTest
   {
     // Create a system
     TSystem sys0 = systems[9];
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     // Create user perms for the system
-    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADMODIFY, scrubbedJson);
+    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADMODIFY, rawDataEmtpyJson);
     // Get the system perms for the user and make sure permissions are there
     Set<Permission> userPerms = svc.getUserPermissions(rOwner1, sys0.getId(), testUser3);
     Assert.assertNotNull(userPerms, "Null returned when retrieving perms.");
     Assert.assertEquals(userPerms.size(), testPermsREADMODIFY.size(), "Incorrect number of perms returned.");
     for (Permission perm: testPermsREADMODIFY) { if (!userPerms.contains(perm)) Assert.fail("User perms should contain permission: " + perm.name()); }
     // Remove perms for the user. Should return a change count of 2
-    int changeCount = svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADMODIFY, scrubbedJson);
+    int changeCount = svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADMODIFY, rawDataEmtpyJson);
     Assert.assertEquals(changeCount, 2, "Change count incorrect when revoking permissions.");
     // Get the system perms for the user and make sure permissions are gone.
     userPerms = svc.getUserPermissions(rOwner1, sys0.getId(), testUser3);
@@ -812,32 +813,32 @@ public class SystemsServiceTest
 
     // Owner should not be able to update perms. It would be confusing since owner always authorized. Perms not checked.
     try {
-      svc.grantUserPermissions(rOwner1, sys0.getId(), sys0.getOwner(), testPermsREAD, scrubbedJson);
+      svc.grantUserPermissions(rOwner1, sys0.getId(), sys0.getOwner(), testPermsREAD, rawDataEmtpyJson);
       Assert.fail("Update of perms by owner for owner should have thrown an exception");
     } catch (Exception e) {
       Assert.assertTrue(e.getMessage().contains("SYSLIB_PERM_OWNER_UPDATE"));
     }
     try {
-      svc.revokeUserPermissions(rOwner1, sys0.getId(), sys0.getOwner(), testPermsREAD, scrubbedJson);
+      svc.revokeUserPermissions(rOwner1, sys0.getId(), sys0.getOwner(), testPermsREAD, rawDataEmtpyJson);
       Assert.fail("Update of perms by owner for owner should have thrown an exception");
     } catch (Exception e) {
       Assert.assertTrue(e.getMessage().contains("SYSLIB_PERM_OWNER_UPDATE"));
     }
 
     // Give testuser3 back some perms so we can test revokePerms auth when user is not the owner and is target user
-    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADMODIFY, scrubbedJson);
+    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADMODIFY, rawDataEmtpyJson);
 
     // Have testuser3 remove their own perms. Should return a change count of 2
-    changeCount = svc.revokeUserPermissions(rTestUser3, sys0.getId(), testUser3, testPermsREADMODIFY, scrubbedJson);
+    changeCount = svc.revokeUserPermissions(rTestUser3, sys0.getId(), testUser3, testPermsREADMODIFY, rawDataEmtpyJson);
     Assert.assertEquals(changeCount, 2, "Change count incorrect when revoking permissions as user - not owner.");
     // Get the system perms for the user and make sure permissions are gone.
     userPerms = svc.getUserPermissions(rOwner1, sys0.getId(), testUser3);
     for (Permission perm: testPermsREADMODIFY) { if (userPerms.contains(perm)) Assert.fail("User perms should not contain permission: " + perm.name()); }
 
     // Give testuser3 back some perms so we can test revokePerms auth when user is not the owner and is not target user
-    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADMODIFY, scrubbedJson);
+    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADMODIFY, rawDataEmtpyJson);
     try {
-      svc.revokeUserPermissions(rTestUser2, sys0.getId(), testUser3, testPermsREADMODIFY, scrubbedJson);
+      svc.revokeUserPermissions(rTestUser2, sys0.getId(), testUser3, testPermsREADMODIFY, rawDataEmtpyJson);
       Assert.fail("Update of perms by non-owner user who is not target user should have thrown an exception");
     } catch (Exception e) {
       Assert.assertTrue(e.getMessage().contains("SYSLIB_UNAUTH"));
@@ -852,7 +853,7 @@ public class SystemsServiceTest
     // Create a system with effUsr = apiUserId
     TSystem sys0 = systems[10];
     sys0.setEffectiveUserId("${apiUserId}");
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     Credential cred1 = new Credential(null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
             "fakeAccessKey1", "fakeAccessSecret1", "fakeCert1");
     Credential cred3 = new Credential(null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
@@ -861,8 +862,8 @@ public class SystemsServiceTest
 
     // Make the separate calls required to store credentials for each user.
     // In this case for owner1 and testUser3
-    svc.createUserCredential(rOwner1, sys0.getId(), owner1, cred1, skipCredCheckTrue, scrubbedJson);
-    svc.createUserCredential(rOwner1, sys0.getId(), testUser3, cred3, skipCredCheckTrue, scrubbedJson);
+    svc.createUserCredential(rOwner1, sys0.getId(), owner1, cred1, skipCredCheckTrue, rawDataEmtpyJson);
+    svc.createUserCredential(rOwner1, sys0.getId(), testUser3, cred3, skipCredCheckTrue, rawDataEmtpyJson);
     // Get system as owner1 using files service and should get cred for owner1
     TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), true, AuthnMethod.PASSWORD, false);
     Credential cred0 = tmpSys.getAuthnCredential();
@@ -912,7 +913,7 @@ public class SystemsServiceTest
     Assert.assertEquals(changeCount, 0, "Change count incorrect when removing a credential already removed.");
 
     // Set just ACCESS_KEY only and test
-    svc.createUserCredential(rOwner1, sys0.getId(), testUser3, cred3a, skipCredCheckTrue, scrubbedJson);
+    svc.createUserCredential(rOwner1, sys0.getId(), testUser3, cred3a, skipCredCheckTrue, rawDataEmtpyJson);
     cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), testUser3, AuthnMethod.ACCESS_KEY);
     Assert.assertEquals(cred0.getAccessKey(), cred3a.getAccessKey());
     Assert.assertEquals(cred0.getAccessSecret(), cred3a.getAccessSecret());
@@ -977,12 +978,12 @@ public class SystemsServiceTest
     Assert.assertNull(perms, "Perms list was not null for non-existent system");
 
     // Revoke perm with no system should return 0 changes
-    changeCount = svc.revokeUserPermissions(rOwner1, fakeSystemName, fakeUserName, testPermsREADMODIFY, scrubbedJson);
+    changeCount = svc.revokeUserPermissions(rOwner1, fakeSystemName, fakeUserName, testPermsREADMODIFY, rawDataEmtpyJson);
     Assert.assertEquals(changeCount, 0, "Change count incorrect when revoking perms for non-existent system.");
 
     // Grant perm with no system should throw an exception
     pass = false;
-    try { svc.grantUserPermissions(rOwner1, fakeSystemName, fakeUserName, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.grantUserPermissions(rOwner1, fakeSystemName, fakeUserName, testPermsREADMODIFY, rawDataEmtpyJson); }
     catch (NotFoundException nfe)
     {
       pass = true;
@@ -996,7 +997,7 @@ public class SystemsServiceTest
     // Create credential with no system should throw an exception
     pass = false;
     cred = new Credential(null, null, null, null, null,"fakeAccessKey2", "fakeAccessSecret2");
-    try { svc.createUserCredential(rOwner1, fakeSystemName, fakeUserName, cred, skipCredCheckTrue, scrubbedJson); }
+    try { svc.createUserCredential(rOwner1, fakeSystemName, fakeUserName, cred, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (NotFoundException nfe)
     {
       pass = true;
@@ -1026,7 +1027,7 @@ public class SystemsServiceTest
             batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2, importRefId2);
     // CREATE - Deny user not owner/admin, deny service
     boolean pass = false;
-    try { svc.createSystem(rTestUser0, sys0, skipCredCheckTrue, scrubbedJson); }
+    try { svc.createSystem(rTestUser0, sys0, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1034,7 +1035,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.createSystem(rFilesSvcOwner1, sys0, skipCredCheckTrue, scrubbedJson); }
+    try { svc.createSystem(rFilesSvcOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1046,10 +1047,10 @@ public class SystemsServiceTest
     Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
             "fakeAccessKey", "fakeAccessSecret", "fakeCert");
     sys0.setAuthnCredential(cred0);
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     // Grant testUesr3 - READ and testUser2 - MODIFY
-    svc.grantUserPermissions(rOwner1, systemId, testUser3, testPermsREAD, scrubbedJson);
-    svc.grantUserPermissions(rOwner1, systemId, testUser2, testPermsMODIFY, scrubbedJson);
+    svc.grantUserPermissions(rOwner1, systemId, testUser3, testPermsREAD, rawDataEmtpyJson);
+    svc.grantUserPermissions(rOwner1, systemId, testUser2, testPermsMODIFY, rawDataEmtpyJson);
 
     // READ - deny user not owner/admin and no READ or MODIFY access
     pass = false;
@@ -1073,7 +1074,7 @@ public class SystemsServiceTest
 
     // MODIFY Deny user with no READ or MODIFY, deny user with only READ, deny service
     pass = false;
-    try { svc.patchSystem(rTestUser0, systemId, patchSys, scrubbedJson); }
+    try { svc.patchSystem(rTestUser0, systemId, patchSys, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1081,7 +1082,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.patchSystem(rTestUser3, systemId, patchSys, scrubbedJson); }
+    try { svc.patchSystem(rTestUser3, systemId, patchSys, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1089,7 +1090,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.patchSystem(rFilesSvcOwner1, systemId, patchSys, scrubbedJson); }
+    try { svc.patchSystem(rFilesSvcOwner1, systemId, patchSys, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1145,7 +1146,7 @@ public class SystemsServiceTest
 
     // GRANT_PERMS - deny user not owner/admin, deny service
     pass = false;
-    try { svc.grantUserPermissions(rTestUser3, systemId, testUser0, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.grantUserPermissions(rTestUser3, systemId, testUser0, testPermsREADMODIFY, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1153,7 +1154,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.grantUserPermissions(rFilesSvcOwner1, systemId, testUser0, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.grantUserPermissions(rFilesSvcOwner1, systemId, testUser0, testPermsREADMODIFY, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1163,7 +1164,7 @@ public class SystemsServiceTest
 
     // REVOKE_PERMS - deny user not owner/admin, deny service
     pass = false;
-    try { svc.revokeUserPermissions(rTestUser3, systemId, owner1, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.revokeUserPermissions(rTestUser3, systemId, owner1, testPermsREADMODIFY, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1171,7 +1172,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.revokeUserPermissions(rFilesSvcOwner1, systemId, owner1, testPermsREADMODIFY, scrubbedJson); }
+    try { svc.revokeUserPermissions(rFilesSvcOwner1, systemId, owner1, testPermsREADMODIFY, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1181,7 +1182,7 @@ public class SystemsServiceTest
 
     // SET_CRED - deny user not owner/admin and not target user, deny service
     pass = false;
-    try { svc.createUserCredential(rTestUser3, systemId, owner1, cred0, skipCredCheckTrue, scrubbedJson); }
+    try { svc.createUserCredential(rTestUser3, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1189,7 +1190,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.createUserCredential(rFilesSvcOwner1, systemId, owner1, cred0, skipCredCheckTrue, scrubbedJson); }
+    try { svc.createUserCredential(rFilesSvcOwner1, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1251,10 +1252,10 @@ public class SystemsServiceTest
     Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
             "fakeAccessKey", "fakeAccessSecret", "fakeCert");
     sys0.setAuthnCredential(cred0);
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     // Grant User1 - READ and User2 - MODIFY
-    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADEXECUTE, scrubbedJson);
-    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser2, testPermsMODIFY, scrubbedJson);
+    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADEXECUTE, rawDataEmtpyJson);
+    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser2, testPermsMODIFY, rawDataEmtpyJson);
 
     // READ - allow owner, service, with READ only, with MODIFY only
     svc.getSystem(rOwner1, sys0.getId(), false, null, false);
@@ -1273,7 +1274,7 @@ public class SystemsServiceTest
   public void testCreateSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[0];
-    svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
+    svc.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
   }
 
@@ -1281,7 +1282,7 @@ public class SystemsServiceTest
   public void testGetSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[1];
-    svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
+    svc.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
     SchedulerProfile tmpProfile = svc.getSchedulerProfile(rTestUser2, p0.getName());
@@ -1330,7 +1331,7 @@ public class SystemsServiceTest
   public void testDeleteSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[2];
-    svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
+    svc.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
     svc.deleteSchedulerProfile(rTestUser2, p0.getName());
     Assert.assertFalse(svc.checkForSchedulerProfile(rTestUser2, p0.getName()),
@@ -1341,10 +1342,10 @@ public class SystemsServiceTest
   @Test
   public void testGetSchedulerProfiles() throws Exception {
     SchedulerProfile p0 = schedulerProfiles[3];
-    svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
+    svc.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
     p0 = schedulerProfiles[4];
-    svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
+    svc.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
     List<SchedulerProfile> profiles = svc.getSchedulerProfiles(rTestUser2);
@@ -1370,12 +1371,12 @@ public class SystemsServiceTest
   {
     SchedulerProfile p0 = schedulerProfiles[5];
     SchedulerProfile p1 = schedulerProfiles[6];
-    svc.createSchedulerProfile(rTestUser2, p0, scrubbedJson);
+    svc.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
     // CREATE - Deny user not owner/admin, deny service
     boolean pass = false;
-    try { svc.createSchedulerProfile(rTestUser1, p1, scrubbedJson); }
+    try { svc.createSchedulerProfile(rTestUser1, p1); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
@@ -1383,7 +1384,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.createSchedulerProfile(rFilesSvcOwner1, p1, scrubbedJson); }
+    try { svc.createSchedulerProfile(rFilesSvcOwner1, p1); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
@@ -1536,7 +1537,7 @@ public class SystemsServiceTest
     Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
         "fakeAccessKey", "fakeAccessSecret", "fakeCert");
     sys0.setAuthnCredential(cred0);
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, scrubbedJson);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     
     // Test retrieval using specified authn method
     List<SystemHistoryItem> systemHistory = svc.getSystemHistory(rOwner1, sys0.getId());
@@ -1544,12 +1545,80 @@ public class SystemsServiceTest
     System.out.println("Found item: " + sys0.getId());
     // Verify system history fields
     Assert.assertEquals(systemHistory.size(), 1);
-    for (SystemHistoryItem item:systemHistory) {
-      Assert.assertNotNull(item.getUserTenant(), "Fetched User Tenant should not be null");
-      Assert.assertNotNull(item.getUserName(), "Fetched User Name should not be null");
+    for (SystemHistoryItem item:systemHistory)
+    {
+      Assert.assertNotNull(item.getApiTenant(), "Fetched API Tenant should not be null");
+      Assert.assertNotNull(item.getApiTenant(), "Fetched API User should not be null");
+      Assert.assertNotNull(item.getOboTenant(), "Fetched OBO Tenant should not be null");
+      Assert.assertNotNull(item.getOboUser(), "Fetched OBO User should not be null");
       Assert.assertEquals(item.getOperation(), SystemOperation.create);
-      Assert.assertNotNull(item.getUpdJson(), "Fetched Json should not be null");
+      Assert.assertNotNull(item.getDescription(), "Fetched Json should not be null");
       Assert.assertNotNull(item.getCreated(), "Fetched created timestamp should not be null");
     }
+  }
+  // Test system history when there are multiple updates
+  @Test
+  public void testGetSystemHistoryMultipleUpdates() throws Exception
+  {
+    TSystem sys0 = systems[27];
+    String sysId = sys0.getId();
+    ResourceRequestUser ownerUser = rTestUser2;
+    Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
+            "fakeAccessKey", "fakeAccessSecret", "fakeCert");
+    sys0.setAuthnCredential(cred0);
+    sys0.setOwner(testUser2);
+    sys0.setJobRuntimes(jobRuntimes1);
+    sys0.setBatchLogicalQueues(logicalQueueList1);
+    sys0.setJobCapabilities(capList1);
+    // Create systems - history record 1
+    svc.createSystem(ownerUser, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+    TSystem tmpSys = svc.getSystem(ownerUser, sysId, false, null, false);
+    // Get last updated timestamp
+    LocalDateTime updated = LocalDateTime.ofInstant(tmpSys.getUpdated(), ZoneOffset.UTC);
+    String updatedStr1 = TapisUtils.getSQLStringFromUTCTime(updated);
+    // Pause briefly to make sure updated timestamp changes for patch
+    Thread.sleep(300);
+    // Disable - record 2
+    svc.disableSystem(ownerUser, sysId);
+    // Enable - record 3
+    svc.enableSystem(ownerUser, sysId);
+
+    // Patch - record 4
+    // Create patchSystem where all updatable attributes are changed
+    String rawDataPatch = "{\"testUpdate\": \"1-patch1\"}";
+    PatchSystem patchSystemFull = IntegrationUtils.makePatchSystemFull(testKey, sysId);
+    svc.patchSystem(ownerUser, sysId, patchSystemFull, rawDataPatch);
+
+    // Put - record 5
+    String rawDataPut = "{\"testPut\": \"1-put1\"}";
+    TSystem putSystem = IntegrationUtils.makePutSystemFull(testKey, tmpSys);
+    svc.putSystem(ownerUser, putSystem, skipCredCheckTrue, rawDataPut);
+
+    // Delete - record 6
+    svc.deleteSystem(ownerUser, sysId);
+
+    // Test retrieval of history
+    List<SystemHistoryItem> systemHistory = svc.getSystemHistory(ownerUser, sysId);
+    Assert.assertNotNull(systemHistory);
+
+    System.out.println("Found item: " + sysId);
+    // Verify system history fields
+    System.out.printf("History system: %s Number of history records: %d%n", sysId, systemHistory.size());
+    for (int i=0; i < systemHistory.size(); i++)
+    {
+      System.out.println("-------------------------------------------");
+      System.out.printf("Record # %d%n", i+1);
+      System.out.println("-------------------------------------------");
+      SystemHistoryItem item = systemHistory.get(i);
+      System.out.printf("apiTenant: %s%n", item.getApiTenant());
+      System.out.printf("apiUser: %s%n", item.getApiUser());
+      System.out.printf("oboTenant: %s%n", item.getOboTenant());
+      System.out.printf("oboUser: %s%n", item.getOboUser());
+      System.out.printf("operation: %s%n", item.getOperation());
+      System.out.printf("created: %s%n", item.getCreated());
+      System.out.printf("Description:%n%s%n", item.getDescription());
+    }
+    svc.undeleteSystem(ownerUser, sysId);
+    Assert.assertEquals(systemHistory.size(), 6);
   }
 }

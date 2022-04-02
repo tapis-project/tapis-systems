@@ -19,7 +19,7 @@ import static edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters.DEFAULT_
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.apiUser;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.gson;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.orderByListNull;
-import static edu.utexas.tacc.tapis.systems.IntegrationUtils.scrubbedJson;
+import static edu.utexas.tacc.tapis.systems.IntegrationUtils.rawDataEmtpyJson;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.searchASTNull;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.setOfIDsNull;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.showDeletedFalse;
@@ -60,7 +60,7 @@ public class ShowDeletedDaoTest
 
     for (TSystem sys : systems)
     {
-      boolean itemCreated = dao.createSystem(rUser, sys, gson.toJson(sys), scrubbedJson);
+      boolean itemCreated = dao.createSystem(rUser, sys, gson.toJson(sys), rawDataEmtpyJson);
       Assert.assertTrue(itemCreated, "Item not created, id: " + sys.getId());
     }
   }

@@ -106,7 +106,7 @@ public class SearchDaoTest
     Thread.sleep(500);
     for (TSystem sys : systems)
     {
-      boolean itemCreated = dao.createSystem(rUser, sys, gson.toJson(sys), scrubbedJson);
+      boolean itemCreated = dao.createSystem(rUser, sys, gson.toJson(sys), rawDataEmtpyJson);
       Assert.assertTrue(itemCreated, "Item not created, id: " + sys.getId());
     }
     Thread.sleep(500);

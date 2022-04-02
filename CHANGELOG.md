@@ -10,6 +10,17 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.1.3 - 2022-03-18
+
+Additional information for System history.
+
+### New features:
+- Additional information for System history.
+
+### Bug fixes:
+- None
+
+---------------------------------------------------------------------------
 ## 1.1.2 - 2022-03-18
 
 System history implementation.

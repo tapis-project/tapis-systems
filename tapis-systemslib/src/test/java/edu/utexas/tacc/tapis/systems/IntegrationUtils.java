@@ -146,7 +146,7 @@ public final class IntegrationUtils
 
   public static final Protocol prot1 = new Protocol(AuthnMethod.PKI_KEYS, 22, false, "", 0);
   public static final Protocol prot2 = new Protocol(AuthnMethod.PASSWORD, 0, true, "localhost",2222);
-  public static final String scrubbedJson = "{}";
+  public static final String rawDataEmtpyJson = "{}";
 
   // Job Runtimes
   public static final JobRuntime runtimeA1 = new JobRuntime(JobRuntime.RuntimeType.DOCKER, "0.0.1A1");

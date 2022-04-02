@@ -84,7 +84,7 @@ public class SystemsDaoTest
   public void testCreateSystem() throws Exception
   {
     TSystem sys0 = systems[0];
-    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
+    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
   }
 
@@ -97,7 +97,7 @@ public class SystemsDaoTest
   public void testGetSystem() throws Exception
   {
     TSystem sys0 = systems[1];
-    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
+    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     TSystem tmpSys = dao.getSystem(sys0.getTenant(), sys0.getId());
     Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
@@ -186,7 +186,7 @@ public class SystemsDaoTest
   @Test
   public void testGetSystems() throws Exception {
     TSystem sys0 = systems[4];
-    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
+    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     List<TSystem> systems = dao.getSystems(tenantName, null, null, null, DEFAULT_LIMIT, orderByListNull,
                                             DEFAULT_SKIP, startAfterNull, showDeletedFalse);
@@ -202,11 +202,11 @@ public class SystemsDaoTest
     var sysIdList = new HashSet<String>();
     // Create 2 systems
     TSystem sys0 = systems[5];
-    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
+    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     sysIdList.add(sys0.getId());
     sys0 = systems[6];
-    itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
+    itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     sysIdList.add(sys0.getId());
     // Get all systems in list of seqIDs
@@ -224,7 +224,7 @@ public class SystemsDaoTest
   public void testEnableDisableDeleteUndeleteSystem() throws Exception
   {
     TSystem sys0 = systems[11];
-    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
+    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     System.out.println("Created item, id: " + sys0.getId() + " enabled: " + sys0.isEnabled());
     // Enabled should start off true, then become false and finally true again.
@@ -253,10 +253,10 @@ public class SystemsDaoTest
   public void testChangeSystemOwner() throws Exception
   {
     TSystem sys0 = systems[7];
-    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
+    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     System.out.println("Created item with systemId: " + sys0.getId());
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
-    dao.updateSystemOwner(rUser, tenantName, sys0.getId(), "newOwner");
+    dao.updateSystemOwner(rUser, sys0.getId(), apiUser, "newOwner");
     TSystem tmpSystem = dao.getSystem(sys0.getTenant(), sys0.getId());
     Assert.assertEquals(tmpSystem.getOwner(), "newOwner");
   }
@@ -266,7 +266,7 @@ public class SystemsDaoTest
   public void testHardDeleteSystem() throws Exception
   {
     TSystem sys0 = systems[9];
-    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
+    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     System.out.println("Created item with systemId: " + sys0.getId());
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     dao.hardDeleteSystem(sys0.getTenant(), sys0.getId());
@@ -294,7 +294,7 @@ public class SystemsDaoTest
     Assert.assertFalse(dao.checkForSystem(tenantName, fakeSystemName, false));
     // update should throw not found exception
     boolean pass = false;
-    try { dao.patchSystem(rUser, fakeSystemName, patchedSystem, scrubbedJson, null); }
+    try { dao.patchSystem(rUser, fakeSystemName, patchedSystem, rawDataEmtpyJson, null); }
     catch (IllegalStateException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_NOT_FOUND"));
@@ -313,7 +313,7 @@ public class SystemsDaoTest
   public void testCreateSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[0];
-    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    dao.createSchedulerProfile(rUser, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
   }
 
@@ -321,7 +321,7 @@ public class SystemsDaoTest
   public void testGetSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[1];
-    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    dao.createSchedulerProfile(rUser, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
     SchedulerProfile tmpProfile = dao.getSchedulerProfile(tenantName, p0.getName());
@@ -352,7 +352,7 @@ public class SystemsDaoTest
   public void testDeleteSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[2];
-    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    dao.createSchedulerProfile(rUser, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
     dao.deleteSchedulerProfile(rUser.getOboTenantId(), p0.getName());
     Assert.assertFalse(dao.checkForSchedulerProfile(tenantName, p0.getName()),
@@ -364,11 +364,11 @@ public class SystemsDaoTest
   public void testGetSchedulerProfiles() throws Exception {
     var profileNameList = new HashSet<String>();
     SchedulerProfile p0 = schedulerProfiles[3];
-    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    dao.createSchedulerProfile(rUser, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
     profileNameList.add(p0.getName());
     p0 = schedulerProfiles[4];
-    dao.createSchedulerProfile(rUser, p0, gson.toJson(p0), scrubbedJson);
+    dao.createSchedulerProfile(rUser, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
     profileNameList.add(p0.getName());
 
@@ -392,7 +392,7 @@ public class SystemsDaoTest
  @Test
  public void testGetHistory() throws Exception {
    TSystem sys0 = systems[12];
-   boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), scrubbedJson);
+   boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
    Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
    List<SystemHistoryItem> systemHistory = dao.getSystemHistory(sys0.getId());
    
@@ -401,10 +401,12 @@ public class SystemsDaoTest
    
    Assert.assertEquals(systemHistory.size(), 1);
    for (SystemHistoryItem item:systemHistory) {
-     Assert.assertNotNull(item.getUserTenant(), "Fetched User Tenant should not be null");
-     Assert.assertNotNull(item.getUserName(), "Fetched User Name should not be null");
+     Assert.assertNotNull(item.getApiTenant(), "Fetched API Tenant should not be null");
+     Assert.assertNotNull(item.getApiTenant(), "Fetched API User should not be null");
+     Assert.assertNotNull(item.getOboTenant(), "Fetched OBO Tenant should not be null");
+     Assert.assertNotNull(item.getOboUser(), "Fetched OBO User should not be null");
      Assert.assertEquals(item.getOperation(), SystemOperation.create);
-     Assert.assertNotNull(item.getUpdJson(), "Fetched Json should not be null");
+     Assert.assertNotNull(item.getDescription(), "Fetched Json should not be null");
      Assert.assertNotNull(item.getCreated(), "Fetched created timestamp should not be null");
    }
  }
