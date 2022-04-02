@@ -2338,7 +2338,8 @@ public class SystemsDaoImpl implements SystemsDao
   */
   private SystemHistoryItem getSystemHistoryFromRecord(Record r)
   {
-	return new SystemHistoryItem(r.get(SYSTEM_UPDATES.OBO_TENANT), r.get(SYSTEM_UPDATES.OBO_USER), r.get(SYSTEM_UPDATES.OPERATION),
+	return new SystemHistoryItem(r.get(SYSTEM_UPDATES.API_TENANT), r.get(SYSTEM_UPDATES.API_USER),
+                                 r.get(SYSTEM_UPDATES.OBO_TENANT), r.get(SYSTEM_UPDATES.OBO_USER), r.get(SYSTEM_UPDATES.OPERATION),
 	                             r.get(SYSTEM_UPDATES.DESCRIPTION), r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
   }
 }
