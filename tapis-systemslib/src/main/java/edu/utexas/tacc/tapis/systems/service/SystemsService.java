@@ -60,8 +60,8 @@ public interface SystemsService
   boolean isEnabled(ResourceRequestUser rUser, String systemId)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
-  TSystem getSystem(ResourceRequestUser rUser, String systemId, boolean getCreds, AuthnMethod authnMethod,
-                    boolean requireExecPerm)
+  TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod authnMethod, boolean requireExecPerm,
+                    boolean getCreds, boolean skipTapisAuth)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
   int getSystemsTotalCount(ResourceRequestUser rUser, List<String> searchList, List<OrderBy> orderByList,
