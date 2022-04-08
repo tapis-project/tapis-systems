@@ -637,7 +637,7 @@ public class SystemResource
    * @param systemId - name of the system
    * @param authnMethodStr - authn method to use instead of default
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
-   * @param skipTapisAuth - skip normal tapis auth, check share service instead
+   * @param skipTapisAuth - skip tapis perms auth, calling service has checked.
    * @param securityContext - user identity
    * @return Response with system object as the result
    */
