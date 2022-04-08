@@ -635,9 +635,9 @@ public class SystemResource
   /**
    * getSystem
    * @param systemId - name of the system
-   * @param getCreds - should credentials of effectiveUser be included
    * @param authnMethodStr - authn method to use instead of default
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
+   * @param skipTapisAuth - skip tapis perms auth, calling service has checked.
    * @param securityContext - user identity
    * @return Response with system object as the result
    */
@@ -646,9 +646,10 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getSystem(@PathParam("systemId") String systemId,
-                            @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
                             @QueryParam("authnMethod") @DefaultValue("") String authnMethodStr,
                             @QueryParam("requireExecPerm") @DefaultValue("false") boolean requireExecPerm,
+                            @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
+                            @QueryParam("skipTapisAuthorization") @DefaultValue("false") boolean skipTapisAuth,
                             @Context SecurityContext securityContext)
   {
     String opName = "getSystem";
@@ -662,8 +663,11 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId, "returnCredentials="+getCreds,
-                                          "authnMethod="+authnMethodStr, "requireExecPerm="+requireExecPerm);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+                                                   "systemId="+systemId, "authnMethod="+authnMethodStr,
+                                                   "requireExecPerm="+requireExecPerm,
+                                                   "returnCredentials="+getCreds,
+                                                   "skipTapisAuthorization="+skipTapisAuth);
 
     // Check that authnMethodStr is valid if is passed in
     AuthnMethod authnMethod = null;
@@ -680,7 +684,7 @@ public class SystemResource
     TSystem tSystem;
     try
     {
-      tSystem = service.getSystem(rUser, systemId, getCreds, authnMethod, requireExecPerm);
+      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, skipTapisAuth);
     }
     catch (Exception e)
     {
@@ -1254,7 +1258,7 @@ public class SystemResource
       TSystem dtnSystem = null;
       try
       {
-        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), false, null, false);
+        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, false);
       }
       catch (NotAuthorizedException e)
       {
