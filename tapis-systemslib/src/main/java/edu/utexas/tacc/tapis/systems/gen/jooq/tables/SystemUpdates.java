@@ -75,14 +75,14 @@ public class SystemUpdates extends TableImpl<SystemUpdatesRecord> {
     public final TableField<SystemUpdatesRecord, String> OBO_USER = createField(DSL.name("obo_user"), SQLDataType.CLOB.nullable(false), this, "OBO User associated with the change request");
 
     /**
-     * The column <code>tapis_sys.system_updates.api_tenant</code>. Tenant of user who requested the update
+     * The column <code>tapis_sys.system_updates.jwt_tenant</code>. Tenant of user who requested the update
      */
-    public final TableField<SystemUpdatesRecord, String> API_TENANT = createField(DSL.name("api_tenant"), SQLDataType.CLOB.nullable(false), this, "Tenant of user who requested the update");
+    public final TableField<SystemUpdatesRecord, String> JWT_TENANT = createField(DSL.name("jwt_tenant"), SQLDataType.CLOB.nullable(false), this, "Tenant of user who requested the update");
 
     /**
-     * The column <code>tapis_sys.system_updates.api_user</code>. Name of user who requested the update
+     * The column <code>tapis_sys.system_updates.jwt_user</code>. Name of user who requested the update
      */
-    public final TableField<SystemUpdatesRecord, String> API_USER = createField(DSL.name("api_user"), SQLDataType.CLOB.nullable(false), this, "Name of user who requested the update");
+    public final TableField<SystemUpdatesRecord, String> JWT_USER = createField(DSL.name("jwt_user"), SQLDataType.CLOB.nullable(false), this, "Name of user who requested the update");
 
     /**
      * The column <code>tapis_sys.system_updates.system_id</code>. Id of system being updated

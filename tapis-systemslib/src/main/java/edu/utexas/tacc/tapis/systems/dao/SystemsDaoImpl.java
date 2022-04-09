@@ -1710,8 +1710,8 @@ public class SystemsDaoImpl implements SystemsDao
     // Persist update record
     db.insertInto(SYSTEM_UPDATES)
             .set(SYSTEM_UPDATES.SYSTEM_SEQ_ID, seqId)
-            .set(SYSTEM_UPDATES.API_TENANT, rUser.getJwtTenantId())
-            .set(SYSTEM_UPDATES.API_USER, rUser.getJwtUserId())
+            .set(SYSTEM_UPDATES.JWT_TENANT, rUser.getJwtTenantId())
+            .set(SYSTEM_UPDATES.JWT_USER, rUser.getJwtUserId())
             .set(SYSTEM_UPDATES.OBO_TENANT, rUser.getOboTenantId())
             .set(SYSTEM_UPDATES.OBO_USER, rUser.getOboUserId())
             .set(SYSTEM_UPDATES.SYSTEM_ID, id)
@@ -2338,7 +2338,7 @@ public class SystemsDaoImpl implements SystemsDao
   */
   private SystemHistoryItem getSystemHistoryFromRecord(Record r)
   {
-	return new SystemHistoryItem(r.get(SYSTEM_UPDATES.API_TENANT), r.get(SYSTEM_UPDATES.API_USER),
+	return new SystemHistoryItem(r.get(SYSTEM_UPDATES.JWT_TENANT), r.get(SYSTEM_UPDATES.JWT_USER),
                                  r.get(SYSTEM_UPDATES.OBO_TENANT), r.get(SYSTEM_UPDATES.OBO_USER), r.get(SYSTEM_UPDATES.OPERATION),
 	                             r.get(SYSTEM_UPDATES.DESCRIPTION), r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
   }

@@ -84,30 +84,30 @@ public class SystemUpdatesRecord extends UpdatableRecordImpl<SystemUpdatesRecord
     }
 
     /**
-     * Setter for <code>tapis_sys.system_updates.api_tenant</code>. Tenant of user who requested the update
+     * Setter for <code>tapis_sys.system_updates.jwt_tenant</code>. Tenant of user who requested the update
      */
-    public void setApiTenant(String value) {
+    public void setJwtTenant(String value) {
         set(4, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.api_tenant</code>. Tenant of user who requested the update
+     * Getter for <code>tapis_sys.system_updates.jwt_tenant</code>. Tenant of user who requested the update
      */
-    public String getApiTenant() {
+    public String getJwtTenant() {
         return (String) get(4);
     }
 
     /**
-     * Setter for <code>tapis_sys.system_updates.api_user</code>. Name of user who requested the update
+     * Setter for <code>tapis_sys.system_updates.jwt_user</code>. Name of user who requested the update
      */
-    public void setApiUser(String value) {
+    public void setJwtUser(String value) {
         set(5, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.api_user</code>. Name of user who requested the update
+     * Getter for <code>tapis_sys.system_updates.jwt_user</code>. Name of user who requested the update
      */
-    public String getApiUser() {
+    public String getJwtUser() {
         return (String) get(5);
     }
 
@@ -240,12 +240,12 @@ public class SystemUpdatesRecord extends UpdatableRecordImpl<SystemUpdatesRecord
 
     @Override
     public Field<String> field5() {
-        return SystemUpdates.SYSTEM_UPDATES.API_TENANT;
+        return SystemUpdates.SYSTEM_UPDATES.JWT_TENANT;
     }
 
     @Override
     public Field<String> field6() {
-        return SystemUpdates.SYSTEM_UPDATES.API_USER;
+        return SystemUpdates.SYSTEM_UPDATES.JWT_USER;
     }
 
     @Override
@@ -300,12 +300,12 @@ public class SystemUpdatesRecord extends UpdatableRecordImpl<SystemUpdatesRecord
 
     @Override
     public String component5() {
-        return getApiTenant();
+        return getJwtTenant();
     }
 
     @Override
     public String component6() {
-        return getApiUser();
+        return getJwtUser();
     }
 
     @Override
@@ -360,12 +360,12 @@ public class SystemUpdatesRecord extends UpdatableRecordImpl<SystemUpdatesRecord
 
     @Override
     public String value5() {
-        return getApiTenant();
+        return getJwtTenant();
     }
 
     @Override
     public String value6() {
-        return getApiUser();
+        return getJwtUser();
     }
 
     @Override
@@ -424,13 +424,13 @@ public class SystemUpdatesRecord extends UpdatableRecordImpl<SystemUpdatesRecord
 
     @Override
     public SystemUpdatesRecord value5(String value) {
-        setApiTenant(value);
+        setJwtTenant(value);
         return this;
     }
 
     @Override
     public SystemUpdatesRecord value6(String value) {
-        setApiUser(value);
+        setJwtUser(value);
         return this;
     }
 
@@ -501,15 +501,15 @@ public class SystemUpdatesRecord extends UpdatableRecordImpl<SystemUpdatesRecord
     /**
      * Create a detached, initialised SystemUpdatesRecord
      */
-    public SystemUpdatesRecord(Integer seqId, Integer systemSeqId, String oboTenant, String oboUser, String apiTenant, String apiUser, String systemId, SystemOperation operation, JsonElement description, String rawData, UUID uuid, LocalDateTime created) {
+    public SystemUpdatesRecord(Integer seqId, Integer systemSeqId, String oboTenant, String oboUser, String jwtTenant, String jwtUser, String systemId, SystemOperation operation, JsonElement description, String rawData, UUID uuid, LocalDateTime created) {
         super(SystemUpdates.SYSTEM_UPDATES);
 
         setSeqId(seqId);
         setSystemSeqId(systemSeqId);
         setOboTenant(oboTenant);
         setOboUser(oboUser);
-        setApiTenant(apiTenant);
-        setApiUser(apiUser);
+        setJwtTenant(jwtTenant);
+        setJwtUser(jwtUser);
         setSystemId(systemId);
         setOperation(operation);
         setDescription(description);

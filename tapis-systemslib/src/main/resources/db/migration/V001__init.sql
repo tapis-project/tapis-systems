@@ -135,8 +135,8 @@ CREATE TABLE system_updates
     system_seq_id INTEGER REFERENCES systems(seq_id) ON DELETE CASCADE,
     obo_tenant TEXT NOT NULL,
     obo_user TEXT NOT NULL,
-    api_tenant TEXT NOT NULL,
-    api_user TEXT NOT NULL,
+    jwt_tenant TEXT NOT NULL,
+    jwt_user TEXT NOT NULL,
     system_id TEXT NOT NULL,
     operation TEXT NOT NULL,
     description JSONB NOT NULL,
@@ -149,8 +149,8 @@ COMMENT ON COLUMN system_updates.seq_id IS 'System update request sequence id';
 COMMENT ON COLUMN system_updates.system_seq_id IS 'Sequence id of system being updated';
 COMMENT ON COLUMN system_updates.obo_tenant IS 'OBO Tenant associated with the change request';
 COMMENT ON COLUMN system_updates.obo_user IS 'OBO User associated with the change request';
-COMMENT ON COLUMN system_updates.api_tenant IS 'Tenant of user who requested the update';
-COMMENT ON COLUMN system_updates.api_user IS 'Name of user who requested the update';
+COMMENT ON COLUMN system_updates.jwt_tenant IS 'Tenant of user who requested the update';
+COMMENT ON COLUMN system_updates.jwt_user IS 'Name of user who requested the update';
 COMMENT ON COLUMN system_updates.system_id IS 'Id of system being updated';
 COMMENT ON COLUMN system_updates.operation IS 'Type of update operation';
 COMMENT ON COLUMN system_updates.description IS 'JSON describing the change. Secrets scrubbed as needed.';
