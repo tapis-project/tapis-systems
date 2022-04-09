@@ -401,8 +401,8 @@ public class SystemsDaoTest
    
    Assert.assertEquals(systemHistory.size(), 1);
    for (SystemHistoryItem item:systemHistory) {
-     Assert.assertNotNull(item.getApiTenant(), "Fetched API Tenant should not be null");
-     Assert.assertNotNull(item.getApiTenant(), "Fetched API User should not be null");
+     Assert.assertNotNull(item.getJwtTenant(), "Fetched API Tenant should not be null");
+     Assert.assertNotNull(item.getJwtTenant(), "Fetched API User should not be null");
      Assert.assertNotNull(item.getOboTenant(), "Fetched OBO Tenant should not be null");
      Assert.assertNotNull(item.getOboUser(), "Fetched OBO User should not be null");
      Assert.assertEquals(item.getOperation(), SystemOperation.create);

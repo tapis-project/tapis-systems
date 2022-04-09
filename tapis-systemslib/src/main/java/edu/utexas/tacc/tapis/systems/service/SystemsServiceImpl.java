@@ -1475,7 +1475,7 @@ public class SystemsServiceImpl implements SystemsService
       // These values are used to build the vault path to the secret.
       sParms.setTenant(rUser.getOboTenantId()).setSysId(systemId).setSysUser(targetUserId);
 
-      // NOTE: This is needed for the SK call. Not clear if it should be targetUserId, serviceUserId, apiUserId.
+      // NOTE: This is needed for the SK call. Not clear if it should be targetUserId, serviceUserId, oboUser.
       //       If not set then the first getAuthnCred in SystemsServiceTest.testUserCredentials
       //          fails. But it appears the value does not matter. Even an invalid userId appears to be OK.
       sParms.setUser(rUser.getOboUserId());
@@ -1550,7 +1550,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // ----------------- Resolve variables for any attributes that might contain them --------------------
     // For schedulerProfile this is only the owner which may be set to $apiUserId
-    // Resolve owner if necessary. If empty or "${apiUserId}" then fill in with apiUser.
+    // Resolve owner if necessary. If empty or "${apiUserId}" then fill in with oboUser.
     String owner = schedulerProfile.getOwner();
     if (StringUtils.isBlank(owner) || owner.equalsIgnoreCase(APIUSERID_VAR)) schedulerProfile.setOwner(rUser.getOboUserId());
 
@@ -1957,7 +1957,7 @@ public class SystemsServiceImpl implements SystemsService
    */
   private static String resolveEffectiveUserId(String userId, String owner, ResourceRequestUser rUser)
   {
-    // NOTE: Use oboUser as the effective apiUserId because for a User request oboUser and apiUser are the same
+    // NOTE: Use oboUser as the effective apiUserId because for a User request oboUser and jwtUser are the same
     //       and for a Service request it is the oboUser and not the service user who is effectively the user
     //       making the request
     if (StringUtils.isBlank(userId)) return userId;
@@ -2077,7 +2077,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param owner - system owner
    * @param userIdToCheck - optional name of the user to check. Default is to use rUser.getJwtUserId().
    * @param perms - List of permissions for the revokePerm case
-   * @throws NotAuthorizedException - apiUserId not authorized to perform operation
+   * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
                          String userIdToCheck, Set<Permission> perms)
@@ -2128,7 +2128,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param op - operation name
    * @param systemId - name of the system
-   * @throws NotAuthorizedException - apiUserId not authorized to perform operation
+   * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkSkipTapisAuth(ResourceRequestUser rUser, SystemOperation op, String systemId) throws NotAuthorizedException
   {
@@ -2167,7 +2167,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - name of the system
    * @param owner - system owner
    * @param perms - List of permissions for the revokePerm case
-   * @throws NotAuthorizedException - apiUserId not authorized to perform operation
+   * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkAuthUser(ResourceRequestUser rUser, SystemOperation op,
                              String tenantIdToCheck, String userIdToCheck,
@@ -2263,7 +2263,7 @@ public class SystemsServiceImpl implements SystemsService
 //   * @param oboTenant - name of the tenant to check.
 //   * @param oboUser - name of the user to check.
 //   * @param systemId - name of the system
-//   * @throws NotAuthorizedException - apiUserId not authorized to perform operation
+//   * @throws NotAuthorizedException - user not authorized to perform operation
 //   */
 //  private void checkShareAccess(ResourceRequestUser rUser, SystemOperation op, String oboTenant, String oboUser,
 //                                String systemId)
@@ -2297,7 +2297,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param op - operation name
    * @param name - name of the profile
    * @param owner - owner
-   * @throws NotAuthorizedException - apiUserId not authorized to perform operation
+   * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkPrfAuth(ResourceRequestUser rUser, SchedulerProfileOperation op, String name, String owner)
           throws TapisException, TapisClientException, NotAuthorizedException
@@ -2524,12 +2524,12 @@ public class SystemsServiceImpl implements SystemsService
   private static int deleteCredential(SKClient skClient, ResourceRequestUser rUser, String systemId, String userName)
           throws TapisClientException
   {
-    String apiTenantId = rUser.getOboTenantId();
-    String apiUserId = rUser.getOboUserId();
+    String oboTenant = rUser.getOboTenantId();
+    String oboUser = rUser.getOboUserId();
 
     // Return 0 if credential does not exist
     var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
-    sMetaParms.setTenant(apiTenantId).setUser(apiUserId);
+    sMetaParms.setTenant(oboTenant).setUser(oboUser);
     sMetaParms.setSysId(systemId).setSysUser(userName);
     // NOTE: To be sure we know that the secret does not exist we need to check each key type
     //       By default keyType is sshkey which may not exist

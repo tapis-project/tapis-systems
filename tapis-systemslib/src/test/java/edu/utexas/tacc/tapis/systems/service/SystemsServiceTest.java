@@ -1547,8 +1547,8 @@ public class SystemsServiceTest
     Assert.assertEquals(systemHistory.size(), 1);
     for (SystemHistoryItem item:systemHistory)
     {
-      Assert.assertNotNull(item.getApiTenant(), "Fetched API Tenant should not be null");
-      Assert.assertNotNull(item.getApiTenant(), "Fetched API User should not be null");
+      Assert.assertNotNull(item.getJwtTenant(), "Fetched API Tenant should not be null");
+      Assert.assertNotNull(item.getJwtTenant(), "Fetched API User should not be null");
       Assert.assertNotNull(item.getOboTenant(), "Fetched OBO Tenant should not be null");
       Assert.assertNotNull(item.getOboUser(), "Fetched OBO User should not be null");
       Assert.assertEquals(item.getOperation(), SystemOperation.create);
@@ -1610,8 +1610,8 @@ public class SystemsServiceTest
       System.out.printf("Record # %d%n", i+1);
       System.out.println("-------------------------------------------");
       SystemHistoryItem item = systemHistory.get(i);
-      System.out.printf("apiTenant: %s%n", item.getApiTenant());
-      System.out.printf("apiUser: %s%n", item.getApiUser());
+      System.out.printf("apiTenant: %s%n", item.getJwtTenant());
+      System.out.printf("apiUser: %s%n", item.getJwtUser());
       System.out.printf("oboTenant: %s%n", item.getOboTenant());
       System.out.printf("oboUser: %s%n", item.getOboUser());
       System.out.printf("operation: %s%n", item.getOperation());

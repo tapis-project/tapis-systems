@@ -121,7 +121,7 @@ public class CredentialResource
     String opName = "createUserCredential";
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
-    // Check that we have all we need from the context, tenant name and apiUserId
+    // Check that we have all we need from the context
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     Response resp = ApiUtils.checkContext(threadContext, PRETTY);
     if (resp != null) return resp;
@@ -221,7 +221,7 @@ public class CredentialResource
   {
     String opName = "getUserCredential";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
-    // Check that we have all we need from the context, the tenant name and apiUserId
+    // Check that we have all we need from the context
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     Response resp = ApiUtils.checkContext(threadContext, PRETTY);
     if (resp != null) return resp;
@@ -289,7 +289,7 @@ public class CredentialResource
   {
     String opName = "removeUserCredential";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
-    // Check that we have all we need from the context, tenant name and apiUserId
+    // Check that we have all we need from the context
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     Response resp = ApiUtils.checkContext(threadContext, PRETTY);
     if (resp != null) return resp;
