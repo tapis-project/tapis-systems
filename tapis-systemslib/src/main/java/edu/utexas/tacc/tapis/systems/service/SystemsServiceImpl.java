@@ -1666,7 +1666,7 @@ public class SystemsServiceImpl implements SystemsService
     checkAuth(rUser, op, systemId, null, null, null);
 
     // ----------------- Retrieve system updates information (system history) --------------------
-    List<SystemHistoryItem> systemHistory = dao.getSystemHistory(systemId);
+    List<SystemHistoryItem> systemHistory = dao.getSystemHistory(rUser.getOboTenantId(), systemId);
 
     return systemHistory;
   }

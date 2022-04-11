@@ -4,6 +4,8 @@ import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Objects;
+
 /*
  * A queue that maps to a single HPC queue. Provides a uniform front end abstraction for an HPC queue.
  *   Also provides more features and flexibility than is typically provided by an HPC scheduler.
@@ -92,4 +94,37 @@ public final class LogicalQueue
 
   @Override
   public String toString() {return TapisUtils.toString(this);}
+
+  @Override
+  public boolean equals(Object o)
+  {
+    if (o == this) return true;
+    // Note: no need to check for o==null since instanceof will handle that case
+    if (!(o instanceof LogicalQueue)) return false;
+    var that = (LogicalQueue) o;
+    return (Objects.equals(this.name, that.name) && Objects.equals(this.hpcQueueName, that.hpcQueueName) &&
+            this.maxJobs==that.maxJobs && this.maxJobsPerUser==that.maxJobsPerUser &&
+            this.minNodeCount==that.minNodeCount && this.maxNodeCount==that.maxNodeCount &&
+            this.minCoresPerNode==that.minCoresPerNode && this.maxCoresPerNode==that.maxCoresPerNode &&
+            this.minMemoryMB==that.minMemoryMB && this.maxMemoryMB==that.maxMemoryMB &&
+            this.minMinutes==that.minMinutes && this.maxMinutes==that.maxMinutes);
+  }
+
+  @Override
+  public int hashCode()
+  {
+    int retVal = (name == null ? 1 : name.hashCode());
+    retVal = 31 * retVal + (hpcQueueName == null ? 0 : hpcQueueName.hashCode());
+    retVal = 31 * retVal + Integer.hashCode(maxJobs);
+    retVal = 31 * retVal + Integer.hashCode(maxJobsPerUser);
+    retVal = 31 * retVal + Integer.hashCode(minNodeCount);
+    retVal = 31 * retVal + Integer.hashCode(maxNodeCount);
+    retVal = 31 * retVal + Integer.hashCode(minCoresPerNode);
+    retVal = 31 * retVal + Integer.hashCode(maxCoresPerNode);
+    retVal = 31 * retVal + Integer.hashCode(minMemoryMB);
+    retVal = 31 * retVal + Integer.hashCode(maxMemoryMB);
+    retVal = 31 * retVal + Integer.hashCode(minMinutes);
+    retVal = 31 * retVal + Integer.hashCode(maxMinutes);
+    return retVal;
+  }
 }

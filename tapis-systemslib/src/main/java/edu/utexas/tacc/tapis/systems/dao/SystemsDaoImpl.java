@@ -2300,10 +2300,12 @@ public class SystemsDaoImpl implements SystemsDao
   * @throws TapisException - for Tapis related exceptions
   */
   @Override
-  public List<SystemHistoryItem> getSystemHistory(String systemId) throws TapisException {
+  public List<SystemHistoryItem> getSystemHistory(String oboTenant, String systemId) throws TapisException {
 	 // Initialize result.
 	List<SystemHistoryItem> resultList = new ArrayList<SystemHistoryItem>();
 
+    // Begin where condition for the query
+    Condition whereCondition = SYSTEM_UPDATES.OBO_TENANT.eq(oboTenant).and(SYSTEM_UPDATES.SYSTEM_ID.eq(systemId));
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
     try
@@ -2313,7 +2315,7 @@ public class SystemsDaoImpl implements SystemsDao
       DSLContext db = DSL.using(conn);
       
       SelectConditionStep<SystemUpdatesRecord> results;
-      results = db.selectFrom(SYSTEM_UPDATES).where(SYSTEM_UPDATES.SYSTEM_ID.eq(systemId));
+      results = db.selectFrom(SYSTEM_UPDATES).where(whereCondition);
 
       for (Record r : results) { SystemHistoryItem s = getSystemHistoryFromRecord(r); resultList.add(s); }
       // Close out and commit

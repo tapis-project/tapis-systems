@@ -83,10 +83,10 @@ public interface SystemsService
 
   // --------------------------- Permissions -------------------------------
   // -----------------------------------------------------------------------
-  void grantUserPermissions(ResourceRequestUser rUser, String systemId, String userName, Set<Permission> permissions, String updateText)
+  void grantUserPermissions(ResourceRequestUser rUser, String systemId, String userName, Set<Permission> permissions, String rawData)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
-  int revokeUserPermissions(ResourceRequestUser rUser, String systemId, String userName, Set<Permission> permissions, String updateText)
+  int revokeUserPermissions(ResourceRequestUser rUser, String systemId, String userName, Set<Permission> permissions, String rawData)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
   Set<Permission> getUserPermissions(ResourceRequestUser rUser, String systemId, String userName)

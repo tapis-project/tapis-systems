@@ -1563,8 +1563,8 @@ public class SystemsServiceTest
     TSystem sys0 = systems[27];
     String sysId = sys0.getId();
     ResourceRequestUser ownerUser = rTestUser2;
-    Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-            "fakeAccessKey", "fakeAccessSecret", "fakeCert");
+    Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey", "fakeAccessKey",
+                                      "fakeAccessSecret", "fakeCert");
     sys0.setAuthnCredential(cred0);
     sys0.setOwner(testUser2);
     sys0.setJobRuntimes(jobRuntimes1);
@@ -1582,18 +1582,20 @@ public class SystemsServiceTest
     svc.disableSystem(ownerUser, sysId);
     // Enable - record 3
     svc.enableSystem(ownerUser, sysId);
-
     // Patch - record 4
     // Create patchSystem where all updatable attributes are changed
     String rawDataPatch = "{\"testUpdate\": \"1-patch1\"}";
     PatchSystem patchSystemFull = IntegrationUtils.makePatchSystemFull(testKey, sysId);
     svc.patchSystem(ownerUser, sysId, patchSystemFull, rawDataPatch);
-
     // Put - record 5
     String rawDataPut = "{\"testPut\": \"1-put1\"}";
     TSystem putSystem = IntegrationUtils.makePutSystemFull(testKey, tmpSys);
+    // Update a few values to make sure we have changes
+    putSystem.setDescription(description3);
+    putSystem.setJobMaxJobs(jobMaxJobs3);
+    putSystem.setTags(tags3);
+    putSystem.setJobEnvVariables(jobEnvVariables3);
     svc.putSystem(ownerUser, putSystem, skipCredCheckTrue, rawDataPut);
-
     // Delete - record 6
     svc.deleteSystem(ownerUser, sysId);
 
