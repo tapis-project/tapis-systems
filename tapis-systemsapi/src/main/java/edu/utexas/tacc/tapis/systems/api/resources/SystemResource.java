@@ -45,7 +45,6 @@ import edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespBoolean;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultBoolean;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
-
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
@@ -70,7 +69,6 @@ import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
-
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_EXEC_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_AUTHN_METHOD_FIELD;
