@@ -94,14 +94,14 @@ public interface SystemsService
 
   // ---------------------------- Credentials ------------------------------
   // -----------------------------------------------------------------------
-  void createUserCredential(ResourceRequestUser rUser, String systemId, String userName, Credential credential,
-                            boolean skipCredCheck, String rawData)
+  void createCredential(ResourceRequestUser rUser, String systemId, String userName, Credential credential,
+                        boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException;
 
-  int deleteUserCredential(ResourceRequestUser rUser, String systemId, String userName)
+  int deleteCredential(ResourceRequestUser rUser, String systemId, String userName)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException;
 
-  Credential getUserCredential(ResourceRequestUser rUser, String systemId, String userName, AuthnMethod authnMethod)
+  Credential getCredential(ResourceRequestUser rUser, String systemId, String tapisUserName, AuthnMethod authnMethod)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
   // ------------------- Scheduler Profiles---------------------------------

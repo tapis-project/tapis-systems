@@ -5,6 +5,7 @@ package edu.utexas.tacc.tapis.systems.api.requests;
  */
 public final class ReqPostCredential
 {
+  public String loginUser;
   public String password; // Password for when authnMethod is PASSWORD
   public String privateKey; // Private key for when authnMethod is PKI_KEYS or CERT
   public String publicKey; // Public key for when authnMethod is PKI_KEYS or CERT

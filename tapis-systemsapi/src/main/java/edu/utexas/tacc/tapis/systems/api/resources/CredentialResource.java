@@ -104,7 +104,18 @@ public class CredentialResource
   // ************************************************************************
 
   /**
-   * Store or update credential for given system and user.
+   * Store or update credentials for given system and Tapis userName.
+   * The Systems service does not store the secrets, they are persisted in the Security Kernel.
+   * The secrets are stored in the Security Kernel under the Tapis userName.
+   * TODO/TBD
+   *   Note that in addition to secrets the request body may contain a Tapis user and a login user.
+   *   The Tapis user in the request body is ignored. The userName in the path parameter is always used as the Tapis user.
+   *   If the login user is not provided then it defaults to Tapis userName.
+   *   If the System has a static effectiveUserId then the Tapis userName provided must be the owner of the System.
+   *   For the given System a mapping between the Tapis userName and the login user is recorded.
+   *
+   * @param systemId - System associated with the credentials
+   * @param userName - Tapis user associated with the credentials
    * @param payloadStream - request body
    * @return basic response
    */
@@ -131,7 +142,8 @@ public class CredentialResource
 
     // Trace this request.
     if (_log.isTraceEnabled())
-      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,"userName="+userName,"skipCredentialCheck="+skipCredCheck);
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,
+                          "userName="+userName,"skipCredentialCheck="+skipCredCheck);
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
@@ -161,8 +173,12 @@ public class CredentialResource
 
     // Populate credential from payload
     ReqPostCredential req = TapisGsonUtils.getGson().fromJson(json, ReqPostCredential.class);
-    Credential credential = new Credential(null, req.password, req.privateKey, req.publicKey, req.accessKey,
-                                           req.accessSecret, req.certificate);
+    // If no loginUser provided default to userName
+    String loginUser = (StringUtils.isBlank(req.loginUser)) ? userName : req.loginUser;
+    // We do not care about authnMethod here so set to null
+    AuthnMethod authnMethod = null;
+    Credential credential = new Credential(authnMethod, userName, loginUser, req.password, req.privateKey,
+                                           req.publicKey, req.accessKey, req.accessSecret, req.certificate);
 
     // If one of PKI keys is missing then reject
     resp = ApiUtils.checkSecrets(rUser, systemId, userName, PRETTY, AuthnMethod.PKI_KEYS.name(), PRIVATE_KEY_FIELD, PUBLIC_KEY_FIELD,
@@ -188,7 +204,7 @@ public class CredentialResource
     // Make the service call to create or update the credential
     try
     {
-      service.createUserCredential(rUser, systemId, userName, credential, skipCredCheck, scrubbedJson);
+      service.createCredential(rUser, systemId, userName, credential, skipCredCheck, scrubbedJson);
     }
     catch (Exception e)
     {
@@ -231,7 +247,8 @@ public class CredentialResource
 
     // Trace this request.
     if (_log.isTraceEnabled())
-      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,"userName="+userName,"authnMethod="+authnMethodStr);
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,
+                          "userName="+userName,"authnMethod="+authnMethodStr);
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
@@ -252,7 +269,7 @@ public class CredentialResource
     // ------------------------- Perform the operation -------------------------
     // Make the service call to get the credentials
     Credential credential;
-    try { credential = service.getUserCredential(rUser, systemId, userName, authnMethod); }
+    try { credential = service.getCredential(rUser, systemId, userName, authnMethod); }
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemId, userName, e.getMessage());
@@ -310,7 +327,7 @@ public class CredentialResource
     // Make the service call to remove the credential
     try
     {
-      service.deleteUserCredential(rUser, systemId, userName);
+      service.deleteCredential(rUser, systemId, userName);
     }
     catch (Exception e)
     {

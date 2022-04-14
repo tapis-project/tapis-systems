@@ -179,7 +179,7 @@ public class ApiUtils
    * Check that both or neither of the secrets are blank.
    * This is for PKI_KEYS and ACCESS_KEY where if one part of the secret is supplied the other must also be supplied
    * @param systemName - name of the system, for constructing response msg
-   * @param userName - name of user associated with the perms request, for constructing response msg
+   * @param userName - name of user associated with the secrets request, for constructing response msg
    * @param prettyPrint - print flag used to construct response
    * @param secretType - secret type (PKI_KEYS, API_KEY), for constructing response msg
    * @param secretName1 - secret name, for constructing response msg

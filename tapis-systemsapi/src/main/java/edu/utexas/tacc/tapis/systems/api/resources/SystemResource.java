@@ -165,6 +165,34 @@ public class SystemResource
 
   /**
    * Create a system
+   * Create a system using a request body. System name must be unique within a tenant and can be composed of
+   * alphanumeric characters and the following special characters [-._~].
+   * Name must begin with an alphabetic character and can be no more than 80 characters in length.
+   * Description is optional with a maximum length of 2048 characters.
+   *
+   * Credentials may be optionally provided in the authnCredential attribute of the request body.
+   * The Systems service does not store the secrets, they are persisted in the Security Kernel.
+   * The secrets are stored in the Security Kernel under a Tapis user name.
+   * TODO/TBD
+   *    Note that in addition to secrets the authnCredential attribute may contain a Tapis user and a login user.
+   *    The Tapis user is used to associate the credentials with a login user.
+   *    If the System has a static effectiveUserId then the System owner will always be the Tapis user.
+   *    If the Tapis user is not provided then it defaults to the System owner.
+   *    If the login user is not provided then it defaults to the Tapis user.
+   *    A mapping between the Tapis user and the login user is recorded.
+   *
+   * By default any credentials provided for LINUX type systems are verified. Use query parameter
+   * skipCredentialCheck=true to bypass initial verification of credentials.
+   *
+   * Note that certain attributes in the request body (such as tenant) are allowed but ignored so that the JSON
+   * result returned by a GET may be modified and used when making a POST request to create a system.
+   * The attributes that are allowed but ignored are
+   *
+   *   - tenant
+   *   - uuid
+   *   - deleted
+   *   - created
+   *   - updated
    * @param payloadStream - request body
    * @param securityContext - user identity
    * @return response containing reference to created object
@@ -177,9 +205,9 @@ public class SystemResource
                                @Context SecurityContext securityContext)
   {
     String opName = "createSystem";
-    // Note that although the following approximately 30 line block of code is very similar for many endpoints the slight
-    //   variations and use of fetched data makes it difficult to refactor into common routines. Common routines
-    //   might make the code even more complex and difficult to follow.
+    // Note that although the following approximately 30 line block of code is very similar for many endpoints the
+    //   slight variations and use of fetched data makes it difficult to refactor into common routines.
+    // Common routines might make the code even more complex and difficult to follow.
 
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
