@@ -12,7 +12,6 @@ import javax.inject.Inject;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 
-import edu.utexas.tacc.tapis.security.client.model.SKShareHasPrivilegeParms;
 import org.apache.commons.lang3.StringUtils;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
@@ -202,7 +201,7 @@ public class SystemsServiceImpl implements SystemsService
     // ----------------- Resolve variables for any attributes that might contain them --------------------
     system.resolveVariablesAtCreate(rUser.getOboUserId());
 
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, system.getId(), system.getOwner());
 
     // ---------------- Check for reserved names ------------------------
@@ -337,7 +336,7 @@ public class SystemsServiceImpl implements SystemsService
     TSystem origTSystem = dao.getSystem(resourceTenantId, resourceId);
     TSystem patchedTSystem = createPatchedTSystem(origTSystem, patchSystem);
 
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, resourceId, origTSystem.getOwner());
 
     // ---------------- Check constraints on TSystem attributes ------------------------
@@ -400,7 +399,7 @@ public class SystemsServiceImpl implements SystemsService
     TSystem origTSystem = dao.getSystem(resourceTenantId, resourceId);
     TSystem updatedTSystem = createUpdatedTSystem(origTSystem, putSystem);
 
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, resourceId, origTSystem.getOwner());
 
     // ---------------- Check constraints on TSystem attributes ------------------------
@@ -496,7 +495,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!dao.checkForSystem(resourceTenantId, systemId, true))
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, systemId);
 
     // Remove effectiveUser credentials associated with the system
@@ -544,7 +543,7 @@ public class SystemsServiceImpl implements SystemsService
       _log.error(msg);
       throw new IllegalStateException(msg);
     }
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, systemId, owner);
 
     // Add permissions for owner
@@ -595,7 +594,7 @@ public class SystemsServiceImpl implements SystemsService
     // Retrieve old owner
     String oldOwnerName = dao.getSystemOwner(oboTenant, systemId);
 
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, systemId, oldOwnerName);
 
     // If new owner same as old owner then this is a no-op
@@ -668,7 +667,7 @@ public class SystemsServiceImpl implements SystemsService
     // If system does not exist then 0 changes
     if (!dao.checkForSystem(resourceTenantId, systemId, true)) return 0;
 
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, systemId);
 
     // Remove SK artifacts
@@ -737,7 +736,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // We need owner to check auth and if system not there cannot find owner, so cannot do auth check if no system
     if (dao.checkForSystem(rUser.getOboTenantId(), systemId, includeDeleted)) {
-      // ------------------------- Check service level authorization -------------------------
+      // ------------------------- Check authorization -------------------------
       checkAuth(rUser, op, systemId);
       return true;
     }
@@ -768,7 +767,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!dao.checkForSystem(resourceTenantId, systemId, false))
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, systemId);
     return dao.isEnabled(resourceTenantId, systemId);
   }
@@ -800,7 +799,7 @@ public class SystemsServiceImpl implements SystemsService
     // We need owner to check auth and if system not there cannot find owner, so return null if no system.
     if (!dao.checkForSystem(resourceTenantId, systemId, false)) return null;
 
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     // If skipTapisAuth=true make a special check to confirm that auth can be bypassed
     //   To bypoass must be a service request from an allowed service.
     // else do normal auth check
@@ -814,7 +813,10 @@ public class SystemsServiceImpl implements SystemsService
       // If flag is set to also require EXECUTE perm then make a special auth call to make sure oboUser has exec perm
       if (requireExecPerm)
       {
-        checkAuthForExec(rUser, systemId);
+        String nullOwner = null;
+        String nullTargetUser = null;
+        Set<Permission> nullPerms = null;
+        checkAuthOboUser(rUser, SystemOperation.execute, systemId, nullOwner, nullTargetUser, nullPerms);
       }
     }
 
@@ -1068,7 +1070,7 @@ public class SystemsServiceImpl implements SystemsService
     // if system does not exist then return null
     if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false)) return null;
 
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, systemId);
 
     return dao.getSystemOwner(rUser.getOboTenantId(), systemId);
@@ -1084,20 +1086,20 @@ public class SystemsServiceImpl implements SystemsService
    * NOTE: Permissions only impact the default user role
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param userName - Target user for operation
+   * @param targetUser - Target user for operation
    * @param permissions - list of permissions to be granted
    * @param rawData - Client provided text used to create the permissions list. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
-  public void grantUserPermissions(ResourceRequestUser rUser, String systemId, String userName,
+  public void grantUserPermissions(ResourceRequestUser rUser, String systemId, String targetUser,
                                    Set<Permission> permissions, String rawData)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
     SystemOperation op = SystemOperation.grantPerms;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
     String resourceTenantId = rUser.getOboTenantId();
@@ -1109,9 +1111,9 @@ public class SystemsServiceImpl implements SystemsService
     // Check to see if owner is trying to update permissions for themselves.
     // If so throw an exception because this would be confusing since owner always has full permissions.
     // For an owner permissions are never checked directly.
-    String owner = checkForOwnerPermUpdate(rUser, systemId, userName, op.name());
+    String owner = checkForOwnerPermUpdate(rUser, systemId, targetUser, op.name());
 
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, systemId, owner);
 
     // Check inputs. If anything null or empty throw an exception
@@ -1136,7 +1138,7 @@ public class SystemsServiceImpl implements SystemsService
       // Assign perms to user. SK creates a default role for the user
       for (String permSpec : permSpecSet)
       {
-        skClient.grantUserPermission(resourceTenantId, userName, permSpec);
+        skClient.grantUserPermission(resourceTenantId, targetUser, permSpec);
       }
     }
     catch (TapisClientException tce)
@@ -1149,7 +1151,7 @@ public class SystemsServiceImpl implements SystemsService
       // Revoke permissions that may have been granted.
       for (String permSpec : permSpecSet)
       {
-        try { skClient.revokeUserPermission(resourceTenantId, userName, permSpec); }
+        try { skClient.revokeUserPermission(resourceTenantId, targetUser, permSpec); }
         catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePerm", e.getMessage()));}
       }
 
@@ -1158,7 +1160,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Get a complete and succinct description of the update.
-    String changeDescription = LibUtils.getChangeDescriptionPermsUpdate(systemId, userName, permissions);
+    String changeDescription = LibUtils.getChangeDescriptionPermsUpdate(systemId, targetUser, permissions);
     // Create a record of the update
     dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
   }
@@ -1169,7 +1171,7 @@ public class SystemsServiceImpl implements SystemsService
    * NOTE: Permissions only impact the default user role
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param userName - Target user for operation
+   * @param targetUser - Target user for operation
    * @param permissions - list of permissions to be revoked
    * @param rawData - Client provided text used to create the permissions list. Saved in update record.
    * @return Number of items revoked
@@ -1177,13 +1179,13 @@ public class SystemsServiceImpl implements SystemsService
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
-  public int revokeUserPermissions(ResourceRequestUser rUser, String systemId, String userName,
+  public int revokeUserPermissions(ResourceRequestUser rUser, String systemId, String targetUser,
                                    Set<Permission> permissions, String rawData)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
     SystemOperation op = SystemOperation.revokePerms;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
     String resourceTenantId = rUser.getOboTenantId();
@@ -1195,10 +1197,10 @@ public class SystemsServiceImpl implements SystemsService
     // Check to see if owner is trying to update permissions for themselves.
     // If so throw an exception because this would be confusing since owner always has full permissions.
     // For an owner permissions are never checked directly.
-    String owner = checkForOwnerPermUpdate(rUser, systemId, userName, op.name());
+    String owner = checkForOwnerPermUpdate(rUser, systemId, targetUser, op.name());
 
-    // ------------------------- Check service level authorization -------------------------
-    checkAuth(rUser, op, systemId, owner, userName, permissions);
+    // ------------------------- Check authorization -------------------------
+    checkAuth(rUser, op, systemId, owner, targetUser, permissions);
 
     // Check inputs. If anything null or empty throw an exception
     if (permissions == null || permissions.isEmpty())
@@ -1212,12 +1214,12 @@ public class SystemsServiceImpl implements SystemsService
     var skClient = getSKClient();
     int changeCount;
     // Determine current set of user permissions
-    var userPermSet = getUserPermSet(skClient, userName, resourceTenantId, systemId);
+    var userPermSet = getUserPermSet(skClient, targetUser, resourceTenantId, systemId);
 
     try
     {
       // Revoke perms
-      changeCount = revokePermissions(skClient, resourceTenantId, systemId, userName, permissions);
+      changeCount = revokePermissions(skClient, resourceTenantId, systemId, targetUser, permissions);
     }
     catch (TapisClientException tce)
     {
@@ -1232,7 +1234,7 @@ public class SystemsServiceImpl implements SystemsService
         if (userPermSet.contains(perm))
         {
           String permSpec = getPermSpecStr(resourceTenantId, systemId, perm);
-          try { skClient.grantUserPermission(resourceTenantId, userName, permSpec); }
+          try { skClient.grantUserPermission(resourceTenantId, targetUser, permSpec); }
           catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPerm", e.getMessage()));}
         }
       }
@@ -1242,7 +1244,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Get a complete and succinct description of the update.
-    String changeDescription = LibUtils.getChangeDescriptionPermsUpdate(systemId, userName, permissions);
+    String changeDescription = LibUtils.getChangeDescriptionPermsUpdate(systemId, targetUser, permissions);
     // Create a record of the update
     dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
     return changeCount;
@@ -1253,30 +1255,31 @@ public class SystemsServiceImpl implements SystemsService
    * NOTE: This retrieves permissions from all roles.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param userName - Target user for operation
+   * @param targetUser - Target user for operation
    * @return List of permissions
    * @throws TapisException - for Tapis related exceptions
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
-  public Set<Permission> getUserPermissions(ResourceRequestUser rUser,
-                                            String systemId, String userName)
+  public Set<Permission> getUserPermissions(ResourceRequestUser rUser, String systemId, String targetUser)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
     SystemOperation op = SystemOperation.getPerms;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
     // If system does not exist or has been deleted then return null
     if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false)) return null;
 
-    // ------------------------- Check service level authorization -------------------------
-    checkAuth(rUser, op, systemId, null, userName);
+    // ------------------------- Check authorization -------------------------
+    String nullOwner = null;
+    Set<Permission> nullPerms = null;
+    checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPerms);
 
     // Use Security Kernel client to check for each permission in the enum list
     var skClient = getSKClient();
-    return getUserPermSet(skClient, userName, rUser.getOboTenantId(), systemId);
+    return getUserPermSet(skClient, targetUser, rUser.getOboTenantId(), systemId);
   }
 
   // -----------------------------------------------------------------------
@@ -1287,7 +1290,7 @@ public class SystemsServiceImpl implements SystemsService
    * Store or update credential for given system and user.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param userName - Target user for operation
+   * @param targetUser - Target user for operation
    * @param credential - list of permissions to be granted
    * @param skipCredCheck - Indicates if cred check for LINUX systems should happen
    * @param rawData - Client provided text used to create the credential - secrets should be scrubbed. Saved in update record.
@@ -1296,14 +1299,14 @@ public class SystemsServiceImpl implements SystemsService
    * @throws NotFoundException - Resource not found
    */
   @Override
-  public void createUserCredential(ResourceRequestUser rUser, String systemId, String userName, Credential credential,
+  public void createUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, Credential credential,
                                    boolean skipCredCheck, String rawData)
           throws TapisException, NotFoundException, NotAuthorizedException, IllegalStateException, TapisClientException
   {
     SystemOperation op = SystemOperation.setCred;
     // Check inputs. If anything null or empty throw an exception
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
     String resourceTenantId = rUser.getOboTenantId();
@@ -1312,13 +1315,15 @@ public class SystemsServiceImpl implements SystemsService
     if (!dao.checkForSystem(resourceTenantId, systemId, false))
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
-    // ------------------------- Check service level authorization -------------------------
-    checkAuth(rUser, op, systemId, null, userName);
+    // ------------------------- Check authorization -------------------------
+    String nullOwner = null;
+    Set<Permission> nullPerms = null;
+    checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPerms);
 
     // If private SSH key is set check that we have a compatible key.
     if (!StringUtils.isBlank(credential.getPrivateKey()) && !credential.isValidPrivateSshKey())
     {
-      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2", rUser, systemId, userName);
+      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2", rUser, systemId, targetUser);
       throw new IllegalArgumentException(msg);
     }
 
@@ -1336,7 +1341,7 @@ public class SystemsServiceImpl implements SystemsService
     var skClient = getSKClient();
     try
     {
-      createCredential(skClient, rUser, credential, systemId, userName);
+      createCredential(skClient, rUser, credential, systemId, targetUser);
     }
     // If tapis client exception then log error and convert to TapisException
     catch (TapisClientException tce)
@@ -1348,7 +1353,7 @@ public class SystemsServiceImpl implements SystemsService
     // Construct Json string representing the update, with actual secrets masked out
     Credential maskedCredential = Credential.createMaskedCredential(credential);
     // Get a complete and succinct description of the update.
-    String changeDescription = LibUtils.getChangeDescriptionCredCreate(systemId, userName, skipCredCheck, maskedCredential);
+    String changeDescription = LibUtils.getChangeDescriptionCredCreate(systemId, targetUser, skipCredCheck, maskedCredential);
     // Create a record of the update
     dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
   }
@@ -1357,18 +1362,18 @@ public class SystemsServiceImpl implements SystemsService
    * Delete credential for given system and user
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param userName - Target user for operation
+   * @param targetUser - Target user for operation
    * @throws TapisException - for Tapis related exceptions
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
-  public int deleteUserCredential(ResourceRequestUser rUser, String systemId, String userName)
+  public int deleteUserCredential(ResourceRequestUser rUser, String systemId, String targetUser)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
     SystemOperation op = SystemOperation.removeCred;
     // Check inputs. If anything null or empty throw an exception
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName))
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
     String resourceTenantId = rUser.getOboTenantId();
@@ -1377,8 +1382,10 @@ public class SystemsServiceImpl implements SystemsService
     // If system does not exist or has been deleted then return 0 changes
     if (!dao.checkForSystem(resourceTenantId, systemId, false)) return changeCount;
 
-    // ------------------------- Check service level authorization -------------------------
-    checkAuth(rUser, op, systemId, null, userName);
+    // ------------------------- Check authorization -------------------------
+    String nullOwner = null;
+    Set<Permission> nullPerms = null;
+    checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPerms);
 
     // Get the Security Kernel client
     var skClient = getSKClient();
@@ -1387,7 +1394,7 @@ public class SystemsServiceImpl implements SystemsService
     // If this throws an exception we do not try to rollback. Attempting to track which secrets
     //   have been changed and reverting seems fraught with peril and not a good ROI.
     try {
-      changeCount = deleteCredential(skClient, rUser, systemId, userName);
+      changeCount = deleteCredential(skClient, rUser, systemId, targetUser);
     }
     // If tapis client exception then log error and convert to TapisException
     catch (TapisClientException tce)
@@ -1397,9 +1404,9 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Construct Json string representing the update
-    String updateJsonStr = TapisGsonUtils.getGson().toJson(userName);
+    String updateJsonStr = TapisGsonUtils.getGson().toJson(targetUser);
     // Get a complete and succinct description of the update.
-    String changeDescription = LibUtils.getChangeDescriptionCredDelete(systemId, userName);
+    String changeDescription = LibUtils.getChangeDescriptionCredDelete(systemId, targetUser);
     // Create a record of the update
     dao.addUpdateRecord(rUser, systemId, op, changeDescription, null);
     return changeCount;
@@ -1433,7 +1440,7 @@ public class SystemsServiceImpl implements SystemsService
     // If system does not exist or has been deleted then return null
     if (!dao.checkForSystem(resourceTenantId, systemId, false)) return null;
 
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, systemId);
 
     // If authnMethod not passed in fill in with default from system
@@ -1661,7 +1668,7 @@ public class SystemsServiceImpl implements SystemsService
 
     SystemOperation op = SystemOperation.read;
 
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, systemId);
 
     // ----------------- Retrieve system updates information (system history) --------------------
@@ -1701,7 +1708,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!dao.checkForSystem(resourceTenantId, systemId, false))
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
-    // ------------------------- Check service level authorization -------------------------
+    // ------------------------- Check authorization -------------------------
     checkAuth(rUser, sysOp, systemId);
 
     // ----------------- Make update --------------------
@@ -2038,12 +2045,11 @@ public class SystemsServiceImpl implements SystemsService
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId System id
-   * @param userName user for whom perms are being updated
+   * @param targetOboUser user for whom perms are being updated
    * @param opStr Operation in progress, for logging
    * @return name of owner
    */
-  private String checkForOwnerPermUpdate(ResourceRequestUser rUser, String systemId,
-                                         String userName, String opStr)
+  private String checkForOwnerPermUpdate(ResourceRequestUser rUser, String systemId, String targetOboUser, String opStr)
           throws TapisException, NotAuthorizedException
   {
     // Look up owner. If not found then consider not authorized. Very unlikely at this point.
@@ -2051,7 +2057,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(owner))
         throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, opStr), NO_CHALLENGE);
     // If owner making the request and owner is the target user for the perm update then reject.
-    if (owner.equals(rUser.getOboUserId()) && owner.equals(userName))
+    if (owner.equals(rUser.getOboUserId()) && owner.equals(targetOboUser))
     {
       // If it is a svc making request reject with no auth, if user making request reject with special message.
       // Need this check since svc not allowed to update perms but checkAuth happens after checkForOwnerPermUpdate.
@@ -2065,323 +2071,15 @@ public class SystemsServiceImpl implements SystemsService
     return owner;
   }
 
-  /*
-   * TODO Refactor checkAuth - temporary methods
-   *  CheckAuth overloads
-   */
-  private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
-  {
-    checkAuth(rUser, op, systemId, null, null, null);
-  }
-  private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
-  {
-    checkAuth(rUser, op, systemId, owner, null, null);
-  }
-  private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner, String userIdToCheck)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
-  {
-    checkAuth(rUser, op, systemId, owner, userIdToCheck, null);
-  }
-
-  /**
-   * Check that the user or service has EXEC permission on the system.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param systemId - name of the system
-   * @throws NotAuthorizedException - user not authorized to perform operation
-   */
-  private void checkAuthForExec(ResourceRequestUser rUser, String systemId)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
-  {
-    checkAuthUser(rUser, SystemOperation.execute, systemId, null, null, null);
-  }
-
-  /**
-   * Authorization check.
-   * Check is different for service and user requests.
-   * A check should be made for system existence before calling this method.
-   * If no owner is passed in and one cannot be found then an error is logged and authorization is denied.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param op - operation name
-   * @param systemId - name of the system
-   * @param owner - system owner
-   * @param userIdToCheck - optional name of the user to check. Default is to use rUser.getJwtUserId().
-   * @param perms - List of permissions for the revokePerm case
-   * @throws NotAuthorizedException - user not authorized to perform operation
-   */
-  private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
-                         String userIdToCheck, Set<Permission> perms)
-      throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
-  {
-    // Check service and user requests separately to avoid confusing a service name with a username
-    if (rUser.isServiceRequest())
-    {
-      checkAuthSvc(rUser, op, systemId);
-    }
-    else
-    {
-      // This is a user check
-      checkAuthUser(rUser, op, systemId, owner, userIdToCheck, perms);
-    }
-  }
-
-  /**
-   * Service authorization check.
-   * ONLY CALL this method when it is a service request
-   * A check should be made for system existence before calling this method.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param op - operation name
-   * @param systemId - name of the system
-   * @throws NotAuthorizedException - user not authorized to perform operation
-   */
-  private void checkAuthSvc(ResourceRequestUser rUser, SystemOperation op, String systemId)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
-  {
-    // This is a service request. The username will be the service name. E.g. files, jobs, streams, etc
-    String svcName = rUser.getJwtUserId();
-
-    // For getCred,  only certain services are allowed. Everyone else denied with a special message
-    // Do this check first to reduce chance a request will be allowed that should not be allowed.
-    if (op == SystemOperation.getCred)
-    {
-      if (SVCLIST_GETCRED.contains(svcName)) return;
-      // Not authorized, throw an exception
-      throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_AUTH_GETCRED", rUser,
-              systemId, op.name()), NO_CHALLENGE);
-    }
-
-    // For read, only certain services allowed.
-    // TODO Say why we always let svc requests from JOBS, FILES and APPS read and never check auth for oboUser
-    // TODO
-    //  Do services (Jobs, Apps, Files) really always need READ auth regardless of oboUser?
-    //  If so, why? describe here.
-    //  If Jobs is getting an execSystem it is ok, because it will pass in requireExecPerm and oboUser check will happen
-    //  But what if Jobs is getting a storage system (e.g. archiveSystem) and the oboUser does not have access
-    //     (perm/share) to the System?
-    if (op == SystemOperation.read && SVCLIST_READ.contains(svcName)) return;
-    // Not authorized, throw an exception
-    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
-  }
-
-  /**
-   * User based authorization check.
-   * Can be used for OBOUser type checks.
-   * By default, use tenant and user from rUser, allow for optional tenant or user.
-   * A check should be made for system existence before calling this method.
-   * If no owner is passed in and one cannot be found then an error is logged and
-   *   authorization is denied.
-   * Operations:
-   *  Create -      must be owner or have admin role
-   *  Delete -      must be owner or have admin role
-   *  ChangeOwner - must be owner or have admin role
-   *  GrantPerm -   must be owner or have admin role
-   *  Read -     must be owner or have admin role or have READ or MODIFY permission or be in list of allowed services
-   *  getPerms - must be owner or have admin role or have READ or MODIFY permission or be in list of allowed services
-   *  Modify - must be owner or have admin role or have MODIFY permission
-   *  Execute - must be owner or have admin role or have EXECUTE permission
-   *  RevokePerm -  must be owner or have admin role or apiUserId=targetUser and meet certain criteria (allowUserRevokePerm)
-   *  SetCred -     must be owner or have admin role or apiUserId=targetUser and meet certain criteria (allowUserCredOp)
-   *  RemoveCred -  must be owner or have admin role or apiUserId=targetUser and meet certain criteria (allowUserCredOp)
-   *  GetCred -     Deny. Only authorized services may get credentials. Set specific message.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param op - operation name
-   * @param systemId - name of the system
-   * @param owner - system owner
-   * @param targetUser TODO - describe
-   * @param perms - List of permissions for the revokePerm case
-   * @throws NotAuthorizedException - user not authorized to perform operation
-   */
-  private void checkAuthUser(ResourceRequestUser rUser, SystemOperation op, String systemId,
-                             String owner, String targetUser, Set<Permission> perms)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
-  {
-    // Use JWT tenant and user from resourceRequestUser or optional provided values
-    String oboTenant = rUser.getOboTenantId();
-    String oboUser = rUser.getOboUserId();
-
-    // Some checks do not require owner
-    switch(op) {
-      case hardDelete:
-        if (hasAdminRole(rUser)) return;
-        break;
-      case getCred:
-        // Only some services allowed to get credentials. Never a user.
-        throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_AUTH_GETCRED", rUser,
-                                                             systemId, op.name()), NO_CHALLENGE);
-    }
-
-    // Most checks require owner. If no owner specified and owner cannot be determined then log an error and deny.
-    if (StringUtils.isBlank(owner)) owner = dao.getSystemOwner(oboTenant, systemId);
-    if (StringUtils.isBlank(owner)) {
-      String msg = LibUtils.getMsgAuth("SYSLIB_AUTH_NO_OWNER", rUser, systemId, op.name());
-      _log.error(msg);
-      throw new NotAuthorizedException(msg, NO_CHALLENGE);
-    }
-    switch(op) {
-      case create:
-      case enable:
-      case disable:
-      case delete:
-      case undelete:
-      case changeOwner:
-      case grantPerms:
-        if (owner.equals(oboUser) || hasAdminRole(rUser)) return;
-        break;
-      case read:
-      case getPerms:
-        if (owner.equals(oboUser) || hasAdminRole(rUser) ||
-              isPermittedAny(rUser, oboTenant, oboUser, systemId, READMODIFY_PERMS))
-          return;
-        break;
-      case modify:
-        if (owner.equals(oboUser) || hasAdminRole(rUser) ||
-                isPermitted(rUser, oboTenant, oboUser, systemId, Permission.MODIFY))
-          return;
-        break;
-      case execute:
-        if (owner.equals(oboUser) || hasAdminRole(rUser) ||
-                isPermitted(rUser, oboTenant, oboUser, systemId, Permission.EXECUTE))
-          return;
-        break;
-      case revokePerms:
-        if (owner.equals(oboUser) || hasAdminRole(rUser) ||
-                (oboUser.equals(targetUser) &&
-                        allowUserRevokePerm(rUser, oboTenant, oboUser, systemId, perms)))
-          return;
-        break;
-      case setCred:
-      case removeCred:
-        if (owner.equals(oboUser) || hasAdminRole(rUser) ||
-                (oboUser.equals(targetUser) && allowUserCredOp(rUser, systemId, op)))
-          return;
-        break;
-    }
-    // Not authorized, throw an exception
-    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
-  }
-
-  /**
-   * Confirm that caller is allowed to skip normal tapis auth check.
-   * Must be a service request from a service allowed to bypass the check.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param op - operation name
-   * @param systemId - name of the system
-   * @throws NotAuthorizedException - user not authorized to perform operation
-   */
-  private void checkSkipTapisAuth(ResourceRequestUser rUser, SystemOperation op, String systemId) throws NotAuthorizedException
-  {
-    // If a service request the username will be the service name. E.g. files, jobs, streams, etc
-    String svcName = rUser.getJwtUserId();
-    if (rUser.isServiceRequest() && SVCLIST_SKIPAUTH.contains(svcName)) return;
-
-    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_AUTH_SKIPAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
-  }
-
-//TODO  /**
-//   * Check to see if the System has been shared with the oboUser.
-//   * A check should be made for system existence before calling this method.
-//   * TODO Operations:
-//   *  Create -      must be owner or have admin role
-//   *  Delete -      must be owner or have admin role
-//   *  ChangeOwner - must be owner or have admin role
-//   *  GrantPerm -   must be owner or have admin role
-//   *  Read -     must be owner or have admin role or have READ or MODIFY permission or be in list of allowed services
-//   *  getPerms - must be owner or have admin role or have READ or MODIFY permission or be in list of allowed services
-//   *  Modify - must be owner or have admin role or have MODIFY permission
-//   *  Execute - must be owner or have admin role or have EXECUTE permission
-//   *  RevokePerm -  must be owner or have admin role or apiUserId=targetUser and meet certain criteria (allowUserRevokePerm)
-//   *  SetCred -     must be owner or have admin role or apiUserId=targetUser and meet certain criteria (allowUserCredOp)
-//   *  RemoveCred -  must be owner or have admin role or apiUserId=targetUser and meet certain criteria (allowUserCredOp)
-//   *  GetCred -     Deny. Only authorized services may get credentials. Set specific message.
-//   *
-//   * @param rUser - ResourceRequestUser containing tenant, user and request info
-//   * @param op - operation name
-//   * @param oboTenant - name of the tenant to check.
-//   * @param oboUser - name of the user to check.
-//   * @param systemId - name of the system
-//   * @throws NotAuthorizedException - user not authorized to perform operation
-//   */
-//  private void checkShareAccess(ResourceRequestUser rUser, SystemOperation op, String oboTenant, String oboUser,
-//                                String systemId)
-//          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
-//  {
-//    // Use SK to check for share access
-//    // TODO/TBD: But this client always calls SK as the itself (i.e. jwt and obo user are service SYSTEMS)
-//    //           do we need client that calls SK with oboTenant/User set?
-//    var skClient = getSKClient();
-//    var skShareParms = new SKShareHasPrivilegeParms();
-//    skShareParms.setResourceType(TapisConstants.SERVICE_NAME_SYSTEMS);
-//    skShareParms.setGrantee(oboTenant);
-//    skShareParms.setResourceId1(systemId);
-//    skShareParms.setPrivilege(Permission.READ.name());
-//    if (skClient.hasPrivilege(skShareParms)) return;
-//    // Not authorized, throw an exception
-//    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
-//  }
-//
-  /**
-   * Authorization check for Scheduler Profile operations.
-   * A check should be made for existence before calling this method.
-   * If no owner is passed in and one cannot be found then an error is logged and authorization is denied.
-   * NOTE: SK only used to check for admin role. Anyone can read and only owner/admin can create/delete
-   * Operations:
-   *  Create -  must be owner or have admin role
-   *  Delete -  must be owner or have admin role
-   *  Read -    everyone is authorized
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param op - operation name
-   * @param name - name of the profile
-   * @param owner - owner
-   * @throws NotAuthorizedException - user not authorized to perform operation
-   */
-  private void checkPrfAuth(ResourceRequestUser rUser, SchedulerProfileOperation op, String name, String owner)
-          throws TapisException, TapisClientException, NotAuthorizedException
-  {
-    // Anyone can read, including all services
-    if (op == SchedulerProfileOperation.read) return;
-
-    String tenantName = rUser.getOboTenantId();
-    String userName = rUser.getOboUserId();
-
-    // Check requires owner. If no owner specified and owner cannot be determined then log an error and deny.
-    if (StringUtils.isBlank(owner)) owner = dao.getSchedulerProfileOwner(tenantName, name);
-    if (StringUtils.isBlank(owner))
-    {
-      String msg = LibUtils.getMsgAuth("SYSLIB_PRF_AUTH_NO_OWNER", rUser, name, op.name());
-      _log.error(msg);
-      throw new NotAuthorizedException(msg, NO_CHALLENGE);
-    }
-
-    // Owner and Admin can create, delete
-    switch(op) {
-      case create:
-      case delete:
-        if (owner.equals(userName) || hasAdminRole(rUser)) return;
-        break;
-    }
-
-    // Not authorized, throw an exception
-    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_PRF_UNAUTH", rUser, name, op.name()), NO_CHALLENGE);
-  }
-
   /**
    * Determine all systems that a user is allowed to see.
    * If all systems return null else return list of system IDs
    * An empty list indicates no systems allowed.
    */
-  private Set<String> getAllowedSysIDs(ResourceRequestUser rUser)
-          throws TapisException, TapisClientException
+  private Set<String> getAllowedSysIDs(ResourceRequestUser rUser) throws TapisException, TapisClientException
   {
     // If requester is a service calling as itself or an admin then all systems allowed
-    if (rUser.isServiceRequest() && rUser.getJwtUserId().equals(rUser.getOboUserId()) ||
-            hasAdminRole(rUser))
+    if ((rUser.isServiceRequest() && rUser.getJwtUserId().equals(rUser.getOboUserId())) || hasAdminRole(rUser))
     {
       return null;
     }
@@ -2404,15 +2102,6 @@ public class SystemsServiceImpl implements SystemsService
       }
     }
     return sysIDs;
-  }
-
-  /**
-   * Check to see if a user has the service admin role
-   * The OBO tenant and user are used when checking with SK
-   */
-  private boolean hasAdminRole(ResourceRequestUser rUser) throws TapisException, TapisClientException
-  {
-    return getSKClient().isAdmin(rUser.getOboTenantId(), rUser.getOboUserId());
   }
 
   /**
@@ -2451,38 +2140,19 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Check to see if a user who is not owner or admin is authorized to revoke permissions
-   * By default use JWT tenant and user from rUser, allow for optional tenant or user.
-   */
-  private boolean allowUserRevokePerm(ResourceRequestUser rUser, String tenantToCheck, String userToCheck,
-                                      String systemId, Set<Permission> perms)
-          throws TapisException, TapisClientException
-  {
-    // Perms should never be null. Fall back to deny as best security practice.
-    if (perms == null) return false;
-    // Use tenant and user from authenticatedUsr or optional provided values
-    String tenantName = (StringUtils.isBlank(tenantToCheck) ? rUser.getJwtTenantId() : tenantToCheck);
-    String userName = (StringUtils.isBlank(userToCheck) ? rUser.getJwtUserId() : userToCheck);
-    if (perms.contains(Permission.MODIFY)) return isPermitted(rUser, tenantName, userName, systemId, Permission.MODIFY);
-    if (perms.contains(Permission.READ)) return isPermittedAny(rUser, tenantName, userName, systemId, READMODIFY_PERMS);
-    return false;
-  }
-
-  /**
-   * Check to see if apiUserId who is not owner or admin is authorized to operate on a credential
+   * Check to see if oboUser who is not owner or admin is authorized to operate on a credential
    * No checks are done for incoming arguments and the system must exist
    */
   private boolean allowUserCredOp(ResourceRequestUser rUser, String systemId, SystemOperation op)
           throws TapisException, IllegalStateException
   {
-    // Get the effectiveUserId. If not ${apiUserId} then considered an error since credential would never be used.
+    // Get the effectiveUserId. If not oboUser then considered an error since credential would never be used.
     String effectiveUserId = dao.getSystemEffectiveUserId(rUser.getOboTenantId(), systemId);
     if (StringUtils.isBlank(effectiveUserId) || !effectiveUserId.equals(APIUSERID_VAR))
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOTAPIUSER", rUser, systemId, op.name());
       _log.error(msg);
       throw new IllegalStateException(msg);
-
     }
     return true;
   }
@@ -2689,10 +2359,13 @@ public class SystemsServiceImpl implements SystemsService
     TSystem p1 = new TSystem(o);
     if (p.getDescription() != null) p1.setDescription(p.getDescription());
     if (p.getHost() != null) p1.setHost(p.getHost());
-    if (p.getEffectiveUserId() != null) {
-      if (StringUtils.isBlank(p.getEffectiveUserId())) {
+    if (p.getEffectiveUserId() != null)
+    {
+      if (StringUtils.isBlank(p.getEffectiveUserId()))
+      {
         p1.setEffectiveUserId(DEFAULT_EFFECTIVEUSERID);
-      } else {
+      } else
+      {
         p1.setEffectiveUserId(p.getEffectiveUserId());
       }
     }
@@ -2720,5 +2393,283 @@ public class SystemsServiceImpl implements SystemsService
     if (p.getNotes() != null) p1.setNotes(p.getNotes());
     if (p.getImportRefId() != null) p1.setImportRefId(p.getImportRefId());
     return p1;
+  }
+
+  // ************************************************************************
+  // **************************  Auth checking ******************************
+  // ************************************************************************
+
+  /*
+   * Check for case when owner is not known
+   *   and no need for targetUser or perms
+   */
+  private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId)
+          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+  {
+    checkAuth(rUser, op, systemId, null, null, null);
+  }
+
+  /*
+   * Check for case when owner is known
+   *   and no need for targetUser or perms
+   */
+  private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner)
+          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+  {
+    checkAuth(rUser, op, systemId, owner, null, null);
+  }
+
+  /**
+   * Standard authorization check using all arguments.
+   * Check is different for service and user requests.
+   * A check should be made for system existence before calling this method.
+   * If no owner is passed in and one cannot be found then an error is logged and authorization is denied.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param op - operation name
+   * @param systemId - name of the system
+   * @param owner - app owner
+   * @param targetUser - Target user for operation
+   * @param perms - List of permissions for the revokePerm case
+   * @throws NotAuthorizedException - user not authorized to perform operation
+   */
+  private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
+                         String targetUser, Set<Permission> perms)
+          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+  {
+    // Check service and user requests separately to avoid confusing a service name with a user name
+    if (rUser.isServiceRequest())
+    {
+      checkAuthSvc(rUser, op, systemId);
+    }
+    else
+    {
+      // This is an OboUser check
+      checkAuthOboUser(rUser, op, systemId, owner, targetUser, perms);
+    }
+  }
+
+  /**
+   * Service authorization check.
+   * ONLY CALL this method when it is a service request
+   * A check should be made for system existence before calling this method.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param op - operation name
+   * @param systemId - name of the system
+   * @throws NotAuthorizedException - user not authorized to perform operation
+   */
+  private void checkAuthSvc(ResourceRequestUser rUser, SystemOperation op, String systemId)
+          throws NotAuthorizedException, IllegalStateException
+  {
+    // If ever called and not a svc request then fall back to denied
+    if (!rUser.isServiceRequest())
+      throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_AUTH_GETCRED", rUser, systemId, op.name()), NO_CHALLENGE);
+
+    // This is a service request. The username will be the service name. E.g. files, jobs, streams, etc
+    String svcName = rUser.getJwtUserId();
+
+    // For getCred, only certain services are allowed. Everyone else denied with a special message
+    // Do this check first to reduce chance a request will be allowed that should not be allowed.
+    if (op == SystemOperation.getCred)
+    {
+      if (SVCLIST_GETCRED.contains(svcName)) return;
+      // Not authorized, throw an exception
+      throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_AUTH_GETCRED", rUser,
+              systemId, op.name()), NO_CHALLENGE);
+    }
+
+    // For read, only certain services allowed.
+    // TODO Say why we always let svc requests from JOBS, FILES and APPS read and never check auth for oboUser
+    // TODO
+    //  Do services (Jobs, Apps, Files) really always need READ auth regardless of oboUser?
+    //  If so, why? describe here.
+    //  If Jobs is getting an execSystem it is ok, because it will pass in requireExecPerm and oboUser check will happen
+    //  But what if Jobs is getting a storage system (e.g. archiveSystem) and the oboUser does not have access
+    //     (perm/share) to the System?
+    if (op == SystemOperation.read && SVCLIST_READ.contains(svcName)) return;
+    // Not authorized, throw an exception
+    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
+  }
+
+  /**
+   * OboUser based authorization check.
+   * A check should be made for system existence before calling this method.
+   * If no owner is passed in and one cannot be found then an error is logged and authorization is denied.
+   * Operations:
+   *  Create -      must be owner or have admin role
+   *  Delete -      must be owner or have admin role
+   *  ChangeOwner - must be owner or have admin role
+   *  GrantPerm -   must be owner or have admin role
+   *  Read -     must be owner or have admin role or have READ or MODIFY permission or be in list of allowed services
+   *  getPerms - must be owner or have admin role or have READ or MODIFY permission or be in list of allowed services
+   *  Modify - must be owner or have admin role or have MODIFY permission
+   *  Execute - must be owner or have admin role or have EXECUTE permission
+   *  RevokePerm -  must be owner or have admin role or apiUserId=targetUser and meet certain criteria (allowUserRevokePerm)
+   *  SetCred -     must be owner or have admin role or apiUserId=targetUser and meet certain criteria (allowUserCredOp)
+   *  RemoveCred -  must be owner or have admin role or apiUserId=targetUser and meet certain criteria (allowUserCredOp)
+   *  GetCred -     Deny. Only authorized services may get credentials. Set specific message.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param op - operation name
+   * @param systemId - name of the system
+   * @param owner - system owner
+   * @param targetUser Target user for operation
+   * @param perms - List of permissions for the revokePerm case
+   * @throws NotAuthorizedException - user not authorized to perform operation
+   */
+  private void checkAuthOboUser(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
+                                String targetUser, Set<Permission> perms)
+          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+  {
+    String oboTenant = rUser.getOboTenantId();
+    String oboUser = rUser.getOboUserId();
+
+    // Some checks do not require owner
+    switch(op) {
+      case hardDelete:
+        if (hasAdminRole(rUser)) return;
+        break;
+      case getCred:
+        // Only some services allowed to get credentials. Never a user.
+        throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_AUTH_GETCRED", rUser,
+                systemId, op.name()), NO_CHALLENGE);
+    }
+
+    // Remaining checks require owner. If no owner specified and owner cannot be determined then log an error and deny.
+    if (StringUtils.isBlank(owner)) owner = dao.getSystemOwner(oboTenant, systemId);
+    if (StringUtils.isBlank(owner)) {
+      String msg = LibUtils.getMsgAuth("SYSLIB_AUTH_NO_OWNER", rUser, systemId, op.name());
+      _log.error(msg);
+      throw new NotAuthorizedException(msg, NO_CHALLENGE);
+    }
+    switch(op) {
+      case create:
+      case enable:
+      case disable:
+      case delete:
+      case undelete:
+      case changeOwner:
+      case grantPerms:
+        if (owner.equals(oboUser) || hasAdminRole(rUser)) return;
+        break;
+      case read:
+      case getPerms:
+        if (owner.equals(oboUser) || hasAdminRole(rUser) ||
+                isPermittedAny(rUser, oboTenant, oboUser, systemId, READMODIFY_PERMS))
+          return;
+        break;
+      case modify:
+        if (owner.equals(oboUser) || hasAdminRole(rUser) ||
+                isPermitted(rUser, oboTenant, oboUser, systemId, Permission.MODIFY))
+          return;
+        break;
+      case execute:
+        if (owner.equals(oboUser) || hasAdminRole(rUser) ||
+                isPermitted(rUser, oboTenant, oboUser, systemId, Permission.EXECUTE))
+          return;
+        break;
+      case revokePerms:
+        if (owner.equals(oboUser) || hasAdminRole(rUser) ||
+                (oboUser.equals(targetUser) &&
+                        allowUserRevokePerm(rUser, systemId, perms)))
+          return;
+        break;
+      case setCred:
+      case removeCred:
+        if (owner.equals(oboUser) || hasAdminRole(rUser) ||
+                (oboUser.equals(targetUser) && allowUserCredOp(rUser, systemId, op)))
+          return;
+        break;
+    }
+    // Not authorized, throw an exception
+    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
+  }
+
+  /**
+   * Confirm that caller is allowed to skip normal tapis auth check.
+   * Must be a service request from a service allowed to bypass the check.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param op - operation name
+   * @param systemId - name of the system
+   * @throws NotAuthorizedException - user not authorized to perform operation
+   */
+  private void checkSkipTapisAuth(ResourceRequestUser rUser, SystemOperation op, String systemId) throws NotAuthorizedException
+  {
+    // If a service request the username will be the service name. E.g. files, jobs, streams, etc
+    String svcName = rUser.getJwtUserId();
+    if (rUser.isServiceRequest() && SVCLIST_SKIPAUTH.contains(svcName)) return;
+
+    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_AUTH_SKIPAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
+  }
+
+  /**
+   * Authorization check for Scheduler Profile operations.
+   * A check should be made for existence before calling this method.
+   * If no owner is passed in and one cannot be found then an error is logged and authorization is denied.
+   * NOTE: SK only used to check for admin role. Anyone can read and only owner/admin can create/delete
+   * Operations:
+   *  Create -  must be owner or have admin role
+   *  Delete -  must be owner or have admin role
+   *  Read -    everyone is authorized
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param op - operation name
+   * @param name - name of the profile
+   * @param owner - owner
+   * @throws NotAuthorizedException - user not authorized to perform operation
+   */
+  private void checkPrfAuth(ResourceRequestUser rUser, SchedulerProfileOperation op, String name, String owner)
+          throws TapisException, TapisClientException, NotAuthorizedException
+  {
+    // Anyone can read, including all services
+    if (op == SchedulerProfileOperation.read) return;
+
+    String oboTenant = rUser.getOboTenantId();
+    String oboUser = rUser.getOboUserId();
+
+    // Check requires owner. If no owner specified and owner cannot be determined then log an error and deny.
+    if (StringUtils.isBlank(owner)) owner = dao.getSchedulerProfileOwner(oboTenant, name);
+    if (StringUtils.isBlank(owner))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_PRF_AUTH_NO_OWNER", rUser, name, op.name());
+      _log.error(msg);
+      throw new NotAuthorizedException(msg, NO_CHALLENGE);
+    }
+
+    // Owner and Admin can create, delete
+    switch(op) {
+      case create:
+      case delete:
+        if (owner.equals(oboUser) || hasAdminRole(rUser)) return;
+        break;
+    }
+    // Not authorized, throw an exception
+    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_PRF_UNAUTH", rUser, name, op.name()), NO_CHALLENGE);
+  }
+
+  /**
+   * Check to see if the oboUser has the admin role in the obo tenant
+   */
+  private boolean hasAdminRole(ResourceRequestUser rUser) throws TapisException, TapisClientException
+  {
+    return getSKClient().isAdmin(rUser.getOboTenantId(), rUser.getOboUserId());
+  }
+
+  /**
+   * Check to see if a user who is not owner or admin is authorized to revoke permissions
+   * If oboUser is revoking only READ then only need READ, otherwise also need MODIFY
+   */
+  private boolean allowUserRevokePerm(ResourceRequestUser rUser, String systemId, Set<Permission> perms)
+          throws TapisException, TapisClientException
+  {
+    // Perms should never be null. Fall back to deny as best security practice.
+    if (perms == null) return false;
+    String oboTenant = rUser.getOboTenantId();
+    String oboUser = rUser.getOboUserId();
+    if (perms.contains(Permission.MODIFY)) return isPermitted(rUser, oboTenant, oboUser, systemId, Permission.MODIFY);
+    if (perms.contains(Permission.READ)) return isPermittedAny(rUser, oboTenant, oboUser, systemId, READMODIFY_PERMS);
+    return false;
   }
 }
