@@ -1455,7 +1455,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(loginUser))
     {
       loginUser = targetUser;
-      dao.persistLoginUser(oboTenant, systemId, targetUser, loginUser);
+      dao.createLoginUserMapping(oboTenant, systemId, targetUser, loginUser);
     }
 
     /*

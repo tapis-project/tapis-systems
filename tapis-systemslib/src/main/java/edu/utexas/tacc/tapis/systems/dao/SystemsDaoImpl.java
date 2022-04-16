@@ -1338,6 +1338,124 @@ public class SystemsDaoImpl implements SystemsDao
     }
   }
 
+  /**
+   * getLoginUser
+   * Given a System Id and a tapisUser get the mapping to the loginUser if the map table has an entry.
+   * If there is no mapping return null
+   * @param id - system name
+   * @param tapisUser - Tapis username
+   * @return loginUser or null if no mapping
+   * @throws TapisException - on error
+   */
+  @Override
+  public String getLoginUser(String tenantId, String id, String tapisUser) throws TapisException
+  {
+    // Initialize result.
+    String loginUser = null;
+
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      // Run the sql
+      loginUser = db.selectFrom(SYSTEMS_LOGIN_USER)
+              .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(id),SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
+              .fetchOne(SYSTEMS_LOGIN_USER.LOGIN_USER);
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "System_login_user", tenantId, id, e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return loginUser;
+  }
+
+  /**
+   * Create a new mapping for tapisUser to loginUser
+   */
+  @Override
+  public void createLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser) throws TapisException
+  {
+    // TODO If anything missing simply return
+    //   might want to throw exception if any of first three args missing since they make up the primary key
+    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(id) || StringUtils.isBlank(tapisUser) ||
+        StringUtils.isBlank(loginUser))
+    {
+      return;
+    }
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      db.insertInto(SYSTEMS_LOGIN_USER)
+              .set(SYSTEMS_LOGIN_USER.TENANT, tenantId)
+              .set(SYSTEMS_LOGIN_USER.SYSTEM_ID, id)
+              .set(SYSTEMS_LOGIN_USER.TAPIS_USER, tapisUser)
+              .set(SYSTEMS_LOGIN_USER.LOGIN_USER, loginUser)
+              .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "scheduler_profiles");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * Delete a mapping entry for tapisUser to loginUser
+   */
+  @Override
+  public void deleteLoginUserMapping(String tenantId, String id, String tapisUser) throws TapisException
+  {
+    // TODO If anything missing simply return
+    //   might want to throw exception if any of first three args missing since they make up the primary key
+    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(id) || StringUtils.isBlank(tapisUser))
+    {
+      return;
+    }
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      db.deleteFrom(SYSTEMS_LOGIN_USER)
+              .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(id),SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
+              .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "scheduler_profiles");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
   /* ********************************************************************** */
   /*                         Scheduler Profile Methods                      */
   /* ********************************************************************** */

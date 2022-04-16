@@ -8,6 +8,7 @@ import edu.utexas.tacc.tapis.systems.gen.jooq.tables.FlywaySchemaHistory;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemUpdates;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.Systems;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsLoginUser;
 
 
 /**
@@ -35,4 +36,9 @@ public class Tables {
      * The table <code>tapis_sys.systems</code>.
      */
     public static final Systems SYSTEMS = Systems.SYSTEMS;
+
+    /**
+     * The table <code>tapis_sys.systems_login_user</code>.
+     */
+    public static final SystemsLoginUser SYSTEMS_LOGIN_USER = SystemsLoginUser.SYSTEMS_LOGIN_USER;
 }
