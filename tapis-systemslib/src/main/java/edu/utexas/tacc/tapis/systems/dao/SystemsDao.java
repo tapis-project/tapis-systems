@@ -69,6 +69,9 @@ public interface SystemsDao
 
   AuthnMethod getSystemDefaultAuthnMethod(String tenantId, String id) throws TapisException;
 
+  String getLoginUser(String tenantId, String id, String targetUser) throws TapisException;
+
+  void persistLoginUser(String tenantId, String id, String targetUser, String loginUser) throws TapisException;
 
   /* ********************************************************************** */
   /*                             Scheduler Profiles                         */

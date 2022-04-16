@@ -204,7 +204,7 @@ public class CredentialResource
     // Make the service call to create or update the credential
     try
     {
-      service.createCredential(rUser, systemId, userName, credential, skipCredCheck, scrubbedJson);
+      service.createUserCredential(rUser, systemId, userName, credential, skipCredCheck, scrubbedJson);
     }
     catch (Exception e)
     {
@@ -269,7 +269,7 @@ public class CredentialResource
     // ------------------------- Perform the operation -------------------------
     // Make the service call to get the credentials
     Credential credential;
-    try { credential = service.getCredential(rUser, systemId, userName, authnMethod); }
+    try { credential = service.getUserCredential(rUser, systemId, userName, authnMethod); }
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_CRED_ERROR", rUser, systemId, userName, e.getMessage());
@@ -327,7 +327,7 @@ public class CredentialResource
     // Make the service call to remove the credential
     try
     {
-      service.deleteCredential(rUser, systemId, userName);
+      service.deleteUserCredential(rUser, systemId, userName);
     }
     catch (Exception e)
     {
