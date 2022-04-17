@@ -4,8 +4,6 @@ import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.List;
-
 /*
  * Credential class representing an authn credential stored in the Security Kernel.
  * Also includes tapis user and login user associated with the credential.
@@ -14,7 +12,7 @@ import java.util.List;
  * The secret information will depend on the system type and authn method.
  *
  * Systems does store a mapping of tapis user to login user.
- * If a System has a static effectiveUserId then the tapis user will be the System owner.
+ * If a System has a static effectiveUserId then the there will be no mapping.
  *
  * Immutable
  * This class is intended to represent an immutable object.

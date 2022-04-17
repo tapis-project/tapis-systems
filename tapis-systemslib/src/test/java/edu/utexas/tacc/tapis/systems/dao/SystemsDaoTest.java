@@ -38,7 +38,7 @@ public class SystemsDaoTest
   private ResourceRequestUser rUser;
 
   // Create test system definitions and scheduler profiles in memory
-  int numSystems = 13;
+  int numSystems = 14;
   int numSchedulerProfiles = 5;
   String testKey = "Dao";
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
@@ -305,6 +305,50 @@ public class SystemsDaoTest
     Assert.assertNull(dao.getSystemOwner(tenantName, fakeSystemName));
   }
 
+  //Test retrieving a system history
+  @Test
+  public void testGetSystemHistory() throws Exception {
+    TSystem sys0 = systems[12];
+    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
+    List<SystemHistoryItem> systemHistory = dao.getSystemHistory(tenantName, sys0.getId());
+
+    Assert.assertNotNull(systemHistory, "Failed to create system history for item: " + sys0.getId());
+    System.out.println("Found system history item: " + sys0.getId());
+
+    Assert.assertEquals(systemHistory.size(), 1);
+    for (SystemHistoryItem item:systemHistory) {
+      Assert.assertNotNull(item.getJwtTenant(), "Fetched API Tenant should not be null");
+      Assert.assertNotNull(item.getJwtTenant(), "Fetched API User should not be null");
+      Assert.assertNotNull(item.getOboTenant(), "Fetched OBO Tenant should not be null");
+      Assert.assertNotNull(item.getOboUser(), "Fetched OBO User should not be null");
+      Assert.assertEquals(item.getOperation(), SystemOperation.create);
+      Assert.assertNotNull(item.getDescription(), "Fetched Json should not be null");
+      Assert.assertNotNull(item.getCreated(), "Fetched created timestamp should not be null");
+    }
+  }
+  // ******************************************************************
+  //   TapisUser to LoginUser mapping
+  // ******************************************************************
+
+  @Test
+  public void testCreateGetDeleteLoginMapping() throws Exception
+  {
+    // Create a new system - we need id as foreign key
+    TSystem sys0 = systems[13];
+    String sysId = sys0.getId();
+    String tapisUser = owner1;
+    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    Assert.assertTrue(itemCreated, "Item not created, id: " + sysId);
+    dao.createLoginUserMapping(tenantName, sysId, tapisUser, loginUser1);
+    System.out.println("Login map entry created");
+    String loginUser = dao.getLoginUser(tenantName, sysId, tapisUser);
+    Assert.assertEquals(loginUser, loginUser1);
+    dao.deleteLoginUserMapping(tenantName, sysId, tapisUser);
+    loginUser = dao.getLoginUser(tenantName, sysId, tapisUser);
+    Assert.assertNull(loginUser);
+  }
+
   // ******************************************************************
   //   Scheduler Profiles
   // ******************************************************************
@@ -387,27 +431,4 @@ public class SystemsDaoTest
     Assert.assertTrue(profileNameList.contains(schedulerProfiles[4].getName()),
                       "getSchedulerProfiles did not return item with name: " + schedulerProfiles[4].getName());
   }
-  
- //Test retrieving a system history
- @Test
- public void testGetHistory() throws Exception {
-   TSystem sys0 = systems[12];
-   boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
-   Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
-   List<SystemHistoryItem> systemHistory = dao.getSystemHistory(tenantName, sys0.getId());
-   
-   Assert.assertNotNull(systemHistory, "Failed to create system history for item: " + sys0.getId());
-   System.out.println("Found system history item: " + sys0.getId());
-   
-   Assert.assertEquals(systemHistory.size(), 1);
-   for (SystemHistoryItem item:systemHistory) {
-     Assert.assertNotNull(item.getJwtTenant(), "Fetched API Tenant should not be null");
-     Assert.assertNotNull(item.getJwtTenant(), "Fetched API User should not be null");
-     Assert.assertNotNull(item.getOboTenant(), "Fetched OBO Tenant should not be null");
-     Assert.assertNotNull(item.getOboUser(), "Fetched OBO User should not be null");
-     Assert.assertEquals(item.getOperation(), SystemOperation.create);
-     Assert.assertNotNull(item.getDescription(), "Fetched Json should not be null");
-     Assert.assertNotNull(item.getCreated(), "Fetched created timestamp should not be null");
-   }
- }
 }

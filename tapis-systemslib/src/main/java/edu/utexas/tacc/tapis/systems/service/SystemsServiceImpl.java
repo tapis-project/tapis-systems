@@ -197,6 +197,8 @@ public class SystemsServiceImpl implements SystemsService
     // Note that this is done before auth so owner can get resolved and used during auth check.
     system.setDefaults();
     String effectiveUserId = system.getEffectiveUserId();
+    boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+    Credential credential = system.getAuthnCredential();
 
     // ----------------- Resolve variables for any attributes that might contain them --------------------
     system.resolveVariablesAtCreate(rUser.getOboUserId());
@@ -210,10 +212,33 @@ public class SystemsServiceImpl implements SystemsService
     // ---------------- Check constraints on TSystem attributes ------------------------
     validateTSystem(rUser, system);
 
-    // ---------------- Verify credentials ------------------------
-    if (!skipCredCheck && system.getAuthnCredential() != null)
+    // If credentials provided validate constraints and verify credentials
+    if (credential != null)
     {
-      verifyCredentials(rUser, system, system.getAuthnCredential());
+      // Validate cred constraints if effectiveUserId is dynamic
+      if (!isStaticEffectiveUser)
+      {
+        // Note: Currently Systems does not allow the inclusion of credentials when dynamic, so we
+        // should never get here. The validateTSystem check disallows providing credential for dynamic user case.
+        // Leave this check in place in case we do allow it in the future.
+        validateCredentialConstraints(rUser, credential, systemId);
+      }
+      else
+      {
+        // static effectiveUser case. Credential must not contain tapisUser or loginUser
+        if (!StringUtils.isBlank(credential.getLoginUser()))
+        {
+          String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, systemId);
+          throw new IllegalArgumentException(msg);
+        }
+        if (!StringUtils.isBlank(credential.getTapisUser()))
+        {
+          String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_TAPISUSER", rUser, systemId);
+          throw new IllegalArgumentException(msg);
+        }
+      }
+      // ---------------- Verify credentials if not skipped
+      if (!skipCredCheck) verifyCredentials(rUser, system, credential);
     }
 
     // Construct Json string representing the TSystem (without credentials) about to be created
@@ -232,31 +257,34 @@ public class SystemsServiceImpl implements SystemsService
 
     // Get SK client now. If we cannot get this rollback not needed.
     var skClient = getSKClient();
-    try {
+    try
+    {
       // ------------------- Make Dao call to persist the system -----------------------------------
       itemCreated = dao.createSystem(rUser, system, changeDescription, rawData);
 
       // ------------------- Add permissions -----------------------------
       // Give owner and possibly effectiveUser full access to the system
       skClient.grantUserPermission(tenant, system.getOwner(), systemsPermSpecALL);
-      if (!effectiveUserId.equals(APIUSERID_VAR) && !effectiveUserId.equals(OWNER_VAR)) {
+      if (isStaticEffectiveUser && !effectiveUserId.equals(OWNER_VAR))
+      {
         skClient.grantUserPermission(tenant, effectiveUserId, systemsPermSpecALL);
       }
       // TODO remove filesPermSpec related code (jira cic-3071)
       // Give owner/effectiveUser files service related permission for root directory
       skClient.grantUserPermission(tenant, system.getOwner(), filesPermSpec);
-      if (!effectiveUserId.equals(APIUSERID_VAR) && !effectiveUserId.equals(OWNER_VAR))
+      if (isStaticEffectiveUser && !effectiveUserId.equals(OWNER_VAR))
         skClient.grantUserPermission(tenant, effectiveUserId, filesPermSpec);
 
       // ------------------- Store credentials -----------------------------------
       // Store credentials in Security Kernel if cred provided and effectiveUser is static
-      if (system.getAuthnCredential() != null && !effectiveUserId.equals(APIUSERID_VAR)) {
+      if (credential != null && isStaticEffectiveUser)
+      {
         String accessUser = effectiveUserId;
         // If effectiveUser is owner resolve to static string.
         if (effectiveUserId.equals(OWNER_VAR)) accessUser = system.getOwner();
         // Use private internal method instead of public API to skip auth and other checks not needed here.
         // Create credential
-        createCredential(skClient, rUser, system.getAuthnCredential(), systemId, accessUser);
+        createCredential(skClient, rUser, credential, systemId, accessUser);
       }
     }
     catch (Exception e0)
@@ -281,7 +309,8 @@ public class SystemsServiceImpl implements SystemsService
       try { skClient.revokeUserPermission(tenant, effectiveUserId, filesPermSpec);  }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF2", e.getMessage()));}
       // Remove creds
-      if (system.getAuthnCredential() != null && !effectiveUserId.equals(APIUSERID_VAR)) {
+      if (credential != null && isStaticEffectiveUser)
+      {
         String accessUser = effectiveUserId;
         if (effectiveUserId.equals(OWNER_VAR)) accessUser = system.getOwner();
         // Use private internal method instead of public API to skip auth and other checks not needed here.
@@ -820,29 +849,29 @@ public class SystemsServiceImpl implements SystemsService
     }
 
 
-    TSystem result = dao.getSystem(oboTenant, systemId);
-    if (result == null) return null;
+    TSystem system = dao.getSystem(oboTenant, systemId);
+    if (system == null) return null;
 
     // If flag is set to also require EXECUTE perm then system must support execute
-    if (requireExecPerm && !result.getCanExec())
+    if (requireExecPerm && !system.getCanExec())
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_NOTEXEC", rUser, systemId, op.name());
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
 
     // Resolve effectiveUserId
-    String resolvedEffectiveUserId = resolveEffectiveUserId(result.getEffectiveUserId(), result.getOwner(), rUser);
-    result.setEffectiveUserId(resolvedEffectiveUserId);
+    String resolvedEffectiveUserId = resolveEffectiveUserId(system, rUser);
+    system.setEffectiveUserId(resolvedEffectiveUserId);
     // If requested retrieve credentials from Security Kernel
     if (getCreds)
     {
-      AuthnMethod tmpAccMethod = result.getDefaultAuthnMethod();
+      AuthnMethod tmpAccMethod = system.getDefaultAuthnMethod();
       // If authnMethod specified then use it instead of default authn method defined for the system.
       if (accMethod != null) tmpAccMethod = accMethod;
       Credential cred = getUserCredential(rUser, systemId, resolvedEffectiveUserId, tmpAccMethod);
-      result.setAuthnCredential(cred);
+      system.setAuthnCredential(cred);
     }
-    return result;
+    return system;
   }
 
   /**
@@ -945,7 +974,7 @@ public class SystemsServiceImpl implements SystemsService
 
     for (TSystem system : systems)
     {
-      system.setEffectiveUserId(resolveEffectiveUserId(system.getEffectiveUserId(), system.getOwner(), rUser));
+      system.setEffectiveUserId(resolveEffectiveUserId(system, rUser));
     }
     return systems;
   }
@@ -1004,7 +1033,7 @@ public class SystemsServiceImpl implements SystemsService
 
     for (TSystem system : systems)
     {
-      system.setEffectiveUserId(resolveEffectiveUserId(system.getEffectiveUserId(), system.getOwner(), rUser));
+      system.setEffectiveUserId(resolveEffectiveUserId(system, rUser));
     }
     return systems;
   }
@@ -1043,7 +1072,7 @@ public class SystemsServiceImpl implements SystemsService
 
     for (TSystem system : systems)
     {
-      system.setEffectiveUserId(resolveEffectiveUserId(system.getEffectiveUserId(), system.getOwner(), rUser));
+      system.setEffectiveUserId(resolveEffectiveUserId(system, rUser));
     }
     return systems;
   }
@@ -1305,19 +1334,37 @@ public class SystemsServiceImpl implements SystemsService
     SystemOperation op = SystemOperation.setCred;
     // Check inputs. If anything null or empty throw an exception
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser) || credential == null)
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
     String oboTenant = rUser.getOboTenantId();
+    TSystem system = dao.getSystem(oboTenant, systemId);
+    String tapisUser = credential.getTapisUser();
+    String loginUser = credential.getLoginUser();
 
     // If system does not exist or has been deleted then throw an exception
-    if (!dao.checkForSystem(oboTenant, systemId, false))
+    if (system == null)
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
     // ------------------------- Check authorization -------------------------
-    String nullOwner = null;
     Set<Permission> nullPerms = null;
-    checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPerms);
+    checkAuth(rUser, op, systemId, system.getOwner(), targetUser, nullPerms);
+
+    // Whether static or dynamic we should not have tapisUser
+    if (!StringUtils.isBlank(tapisUser))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_TAPISUSER", rUser, systemId);
+      throw new IllegalArgumentException(msg);
+    }
+
+    boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+
+    // If static we should not have loginUser
+    if (isStaticEffectiveUser && !StringUtils.isBlank(loginUser))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, systemId);
+      throw new IllegalArgumentException(msg);
+    }
 
     // If private SSH key is set check that we have a compatible key.
     if (!StringUtils.isBlank(credential.getPrivateKey()) && !credential.isValidPrivateSshKey())
@@ -1327,11 +1374,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // ---------------- Verify credentials ------------------------
-    if (!skipCredCheck)
-    {
-      TSystem system = dao.getSystem(oboTenant, systemId);
-      verifyCredentials(rUser, system, credential);
-    }
+    if (!skipCredCheck) { verifyCredentials(rUser, system, credential); }
 
     // Create credential
     // If this throws an exception we do not try to rollback. Attempting to track which secrets
@@ -1348,6 +1391,11 @@ public class SystemsServiceImpl implements SystemsService
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
     }
 
+    // If dynamic and an alternate loginUser has been provided then record the mapping
+    if (!isStaticEffectiveUser && (!targetUser.equals(loginUser)))
+    {
+      dao.createLoginUserMapping(rUser.getOboTenantId(), systemId, targetUser, loginUser);
+    }
     // Construct Json string representing the update, with actual secrets masked out
     Credential maskedCredential = Credential.createMaskedCredential(credential);
     // Get a complete and succinct description of the update.
@@ -1448,15 +1496,10 @@ public class SystemsServiceImpl implements SystemsService
       authnMethod = defaultAuthnMethod;
     }
 
-    // TODO/TBD
     //  Get the loginUser associated with the credential
-    //  If it is not there then set it to tapisUserName and persist it
+    //  If no alternate mapping of tapisUser to loginUser then use tapisUser
     String loginUser = dao.getLoginUser(oboTenant, systemId, targetUser);
-    if (StringUtils.isBlank(loginUser))
-    {
-      loginUser = targetUser;
-      dao.createLoginUserMapping(oboTenant, systemId, targetUser, loginUser);
-    }
+    if (StringUtils.isBlank(loginUser)) loginUser = targetUser;
 
     /*
      * When the Systems services calls SK to read secrets it calls with a JWT as itself,
@@ -1856,6 +1899,24 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
+   * Check constraints on Credential when it is provided as part of a POST or PUT
+   * - tapisUser must be provided
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param cred - the credential provided with the TSystem definition
+   * @param sysId - the system id (for logging)
+   * @throws IllegalStateException - if any constraints are violated
+   */
+  private void validateCredentialConstraints(ResourceRequestUser rUser, Credential cred, String sysId) throws IllegalStateException
+  {
+    if (cred == null) return;
+    if (StringUtils.isBlank(cred.getTapisUser()))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NO_TAPISUSER", rUser, sysId);
+      throw new IllegalStateException(msg);
+    }
+  }
+
+  /**
    * Check constraints on SchedulerProfile attributes.
    * Collect and report as many errors as possible so they can all be fixed before next attempt
    * @param rUser - ResourceRequestUser containing tenant, user and request info
@@ -1901,8 +1962,8 @@ public class SystemsServiceImpl implements SystemsService
     if (!tSystem1.getSystemType().equals(TSystem.SystemType.LINUX)) return;
 
     // Determine user to check
-    String userName = tSystem1.getEffectiveUserId();
-    if (userName.equals(APIUSERID_VAR)) userName = rUser.getOboUserId();
+    String effectiveUser = tSystem1.getEffectiveUserId();
+    if (effectiveUser.equals(APIUSERID_VAR)) effectiveUser = rUser.getOboUserId();
 
     // Determine authnMethod to check, either password or ssh keys
     // if neither provided then skip check
@@ -1913,7 +1974,7 @@ public class SystemsServiceImpl implements SystemsService
 
     String host = tSystem1.getHost();
     int port = tSystem1.getPort();
-    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), userName, host, port));
+    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), effectiveUser, host, port));
 
     // Attempt to connect to the system using each type of credential provided
     // Log error for each one that fails
@@ -1925,12 +1986,12 @@ public class SystemsServiceImpl implements SystemsService
     {
       try
       {
-        _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY", rUser, tSystem1.getId(), userName, host, port, AuthnMethod.PASSWORD.name()));
-        sshConnection = new SSHConnection(host, port, userName, credential.getPassword());
+        _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY", rUser, tSystem1.getId(), effectiveUser, host, port, AuthnMethod.PASSWORD.name()));
+        sshConnection = new SSHConnection(host, port, effectiveUser, credential.getPassword());
       }
       catch(TapisException e)
       {
-        msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, userName, AuthnMethod.PASSWORD.name(),
+        msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, effectiveUser, AuthnMethod.PASSWORD.name(),
                                   e.getMessage());
         _log.error(msg, e);
       }
@@ -1942,19 +2003,19 @@ public class SystemsServiceImpl implements SystemsService
     {
       try
       {
-        _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY", rUser, tSystem1.getId(), userName, host, port, AuthnMethod.PKI_KEYS.name()));
-        sshConnection = new SSHConnection(host, port, userName, credential.getPublicKey(), credential.getPrivateKey());
+        _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY", rUser, tSystem1.getId(), effectiveUser, host, port, AuthnMethod.PKI_KEYS.name()));
+        sshConnection = new SSHConnection(host, port, effectiveUser, credential.getPublicKey(), credential.getPrivateKey());
       }
       catch(TapisException e)
       {
-        msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, userName, AuthnMethod.PKI_KEYS.name(),
+        msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, effectiveUser, AuthnMethod.PKI_KEYS.name(),
                                   e.getMessage());
         _log.error(msg, e);
       }
       finally { if (sshConnection != null) sshConnection.close(); }
     }
 
-    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), userName, host, port));
+    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), effectiveUser, host, port));
 
     // If there was an error then throw IllegalStateException
     if (msg != null)
@@ -1965,18 +2026,19 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * If effectiveUserId is dynamic then resolve it
-   * @param userId - effectiveUserId string, static or dynamic
    * @return Resolved value for effective user.
    */
-  private static String resolveEffectiveUserId(String userId, String owner, ResourceRequestUser rUser)
+  private static String resolveEffectiveUserId(TSystem system, ResourceRequestUser rUser)
   {
+    String effUser = system.getEffectiveUserId();
+    String owner = system.getOwner();
     // NOTE: Use oboUser as the effective apiUserId because for a User request oboUser and jwtUser are the same
     //       and for a Service request it is the oboUser and not the service user who is effectively the user
     //       making the request
-    if (StringUtils.isBlank(userId)) return userId;
-    else if (userId.equals(OWNER_VAR) && !StringUtils.isBlank(owner)) return owner;
-    else if (userId.equals(APIUSERID_VAR) && rUser != null) return rUser.getOboUserId();
-    else return userId;
+    if (StringUtils.isBlank(effUser)) return effUser;
+    else if (effUser.equals(OWNER_VAR) && !StringUtils.isBlank(owner)) return owner;
+    else if (effUser.equals(APIUSERID_VAR) && rUser != null) return rUser.getOboUserId();
+    else return effUser;
   }
 
 
@@ -2301,7 +2363,7 @@ public class SystemsServiceImpl implements SystemsService
     if (system == null) return;
     // Resolve effectiveUserId if necessary
     String effectiveUserId = system.getEffectiveUserId();
-    String resolvedEffectiveUserId = resolveEffectiveUserId(effectiveUserId, system.getOwner(), rUser);
+    String resolvedEffectiveUserId = resolveEffectiveUserId(system, rUser);
 
     // TODO remove filesPermSpec related code (jira cic-3071)
     // Remove files perm for owner and possibly effectiveUser

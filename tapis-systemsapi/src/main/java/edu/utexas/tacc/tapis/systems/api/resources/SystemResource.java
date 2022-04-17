@@ -241,9 +241,8 @@ public class SystemResource
       _log.error(msg, e);
       return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
-
-    ReqPostSystem req;
     // ------------------------- Create a TSystem from the json and validate constraints -------------------------
+    ReqPostSystem req;
     try { req = TapisGsonUtils.getGson().fromJson(rawJson, ReqPostSystem.class); }
     catch (JsonSyntaxException e)
     {

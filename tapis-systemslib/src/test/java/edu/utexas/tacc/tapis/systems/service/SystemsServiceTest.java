@@ -681,29 +681,67 @@ public class SystemsServiceTest
     }
   }
 
-  // Check that if credential contains invalid private key then create/update fails.
+  // Test various cases where create/update should get rejected due to invalid credential input
+  //   - credential contains invalid private key - create sys
+  //   - credential contains invalid private key - create cred
+  //   - credential contains invalid private key - update sys
+  //   - system has dynamic effectiveUserId and tapisUser not provided - create sys
+  //   - system has dynamic effectiveUserId and tapisUser not provided - update sys
   @Test
-  public void testInvalidPrivateSshKey() throws Exception
+  public void testSystemCreateUpdateBadCred() throws Exception
   {
     TSystem sys0 = systems[19];
+    // Update effectiveUserId to be dynamic since some of the cases require it and others are not invalidated by it
+    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
+
+    // Test create cases first since we will need to ceate a system to test the update cases
     sys0.setAuthnCredential(credInvalidPrivateSshKey);
-    // Test system create
-    try {
+    // Test system create with invalid private key
+    try
+    {
       svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
       Assert.fail("System create call should have thrown an exception when private ssh key is invalid");
-    } catch (Exception e) {
-      Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1"));
     }
+    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1")); }
+    // Test system create with no TapisUser
+    sys0.setAuthnCredential(credNoTapisUser);
+    try
+    {
+      svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+      Assert.fail("System create call should have thrown an exception when no tapisUser provided");
+    }
+    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_NO_TAPISUSER")); }
 
-    // Test credential update
+    // Now create a system so we can test update cases
     sys0.setAuthnCredential(null);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
-    try {
+    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, false);
+
+    // Test credential update with invalid private key
+    try
+    {
       svc.createUserCredential(rOwner1, sys0.getId(), sys0.getOwner(), credInvalidPrivateSshKey, skipCredCheckTrue, rawDataEmtpyJson);
       Assert.fail("Credential update call should have thrown an exception when private ssh key is invalid");
-    } catch (Exception e) {
-      Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2"));
     }
+    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2")); }
+
+    // Test system update with invalid private key
+    tmpSys.setAuthnCredential(credInvalidPrivateSshKey);
+    try
+    {
+      svc.putSystem(rOwner1, tmpSys, skipCredCheckTrue, rawDataEmtpyJson);
+      Assert.fail("Credential update call should have thrown an exception when private ssh key is invalid");
+    }
+    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2")); }
+
+    // Test system update with no TapisUser
+    tmpSys.setAuthnCredential(credNoTapisUser);
+    try
+    {
+      svc.putSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+      Assert.fail("System create call should have thrown an exception when no tapisUser provided");
+    }
+    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_NO_TAPISUSER")); }
   }
 
   // Test that attempting to create a system with invalid attribute combinations fails
