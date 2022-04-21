@@ -104,18 +104,16 @@ public class CredentialResource
   // ************************************************************************
 
   /**
-   * Store or update credentials for given system and Tapis userName.
+   * Store or update credentials for given system and userName.
    * The Systems service does not store the secrets, they are persisted in the Security Kernel.
-   * The secrets are stored in the Security Kernel under the Tapis userName.
-   * TODO/TBD
-   *   Note that in addition to secrets the request body may contain a Tapis user and a login user.
-   *   The Tapis user in the request body is ignored. The userName in the path parameter is always used as the Tapis user.
-   *   If the login user is not provided then it defaults to Tapis userName.
-   *   If the System has a static effectiveUserId then the Tapis userName provided must be the owner of the System.
-   *   For the given System a mapping between the Tapis userName and the login user is recorded.
+   * The secrets are stored in the Security Kernel under userName.
+   * For a System with a dynamic effectiveUserId (i.e. equal to $apiUserId):
+   *   In addition to secrets the request body may contain a login user.
+   *   If the login user is not provided then it defaults to requesting Tapis user.
+   *   If loginUser != tapisUser then a mapping between the Tapis userName and the login user is recorded.
    *
    * @param systemId - System associated with the credentials
-   * @param userName - Tapis user associated with the credentials
+   * @param userName - User associated with the credentials
    * @param payloadStream - request body
    * @return basic response
    */
@@ -177,7 +175,7 @@ public class CredentialResource
     String loginUser = (StringUtils.isBlank(req.loginUser)) ? userName : req.loginUser;
     // We do not care about authnMethod here so set to null
     AuthnMethod authnMethod = null;
-    Credential credential = new Credential(authnMethod, userName, loginUser, req.password, req.privateKey,
+    Credential credential = new Credential(authnMethod, loginUser, req.password, req.privateKey,
                                            req.publicKey, req.accessKey, req.accessSecret, req.certificate);
 
     // If one of PKI keys is missing then reject

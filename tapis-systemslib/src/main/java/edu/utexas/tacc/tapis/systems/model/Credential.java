@@ -43,7 +43,6 @@ public final class Credential
   /* ********************************************************************** */
 
   private final AuthnMethod authnMethod; // Authentication method associated with a retrieved credential
-  private final String tapisUser;
   private final String loginUser;
   private final String password; // Password for when authnMethod is PASSWORD
   private final String privateKey; // Private key for when authnMethod is PKI_KEYS or CERT
@@ -59,11 +58,10 @@ public final class Credential
   /**
    * Simple constructor to populate all attributes
    */
-  public Credential(AuthnMethod authnMethod1, String tapisUser1, String loginUser1, String password1,
-                    String privateKey1, String publicKey1, String accessKey1, String accessSecret1, String cert1)
+  public Credential(AuthnMethod authnMethod1, String loginUser1, String password1, String privateKey1,
+                    String publicKey1, String accessKey1, String accessSecret1, String cert1)
   {
     authnMethod = authnMethod1;
-    tapisUser = tapisUser1;
     loginUser = loginUser1;
     password = password1;
     privateKey = privateKey1;
@@ -89,7 +87,7 @@ public final class Credential
     privateKey = (!StringUtils.isBlank(credential.getPrivateKey())) ? SECRETS_MASK : credential.getPrivateKey();
     publicKey = (!StringUtils.isBlank(credential.getPublicKey())) ? SECRETS_MASK : credential.getPublicKey();
     cert = (!StringUtils.isBlank(credential.getCertificate())) ? SECRETS_MASK : credential.getCertificate();
-    return new Credential(credential.getAuthnMethod(), credential.getTapisUser(), credential.getLoginUser(),
+    return new Credential(credential.getAuthnMethod(), credential.getLoginUser(),
                           password, privateKey, publicKey, accessKey, accessSecret, cert);
   }
 
@@ -115,7 +113,6 @@ public final class Credential
   /*                               Accessors                                */
   /* ********************************************************************** */
   public AuthnMethod getAuthnMethod() { return authnMethod; }
-  public String getTapisUser() { return tapisUser; }
   public String getLoginUser() { return loginUser; }
   public String getPassword() { return password; }
   public String getPrivateKey() { return privateKey; }

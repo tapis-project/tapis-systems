@@ -82,7 +82,6 @@
     "type": ["object", "null"],
     "additionalProperties": false,
     "properties": {
-      "tapisUser": { "type":  "string" },
       "loginUser": { "type":  "string" },
       "password": { "type":  "string" },
       "privateKey": { "type":  "string" },

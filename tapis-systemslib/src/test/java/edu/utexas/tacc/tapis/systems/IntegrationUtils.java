@@ -55,7 +55,6 @@ public final class IntegrationUtils
   public static final String testUser3 = "testuser3";
   public static final String testUser4 = "testuser4";
   public static final String apiUser = "testApiUser";
-  public static final String tapisUser1 = testUser1;
   public static final String sysNamePrefix = "TestSys";
   public static final String schedProfileNamePrefix = "TestSchedProfile";
   public static final String description1 = "System description 1";
@@ -235,9 +234,9 @@ public final class IntegrationUtils
   public static final String invalidPublicSshKey = "testPubSshKey";
 
   public static final Credential credInvalidPrivateSshKey =
-          new Credential(null, tapisUser1, null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null);
+          new Credential(null, null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null);
   public static final Credential credNoTapisUser =
-          new Credential(null, null, null, "fakePassword", null, null, null, null, null);
+          new Credential(null, null, "fakePassword", null, null, null, null, null);
 
   // Permissions
   public static final Set<TSystem.Permission> testPermsREADMODIFY = new HashSet<>(Set.of(TSystem.Permission.READ, TSystem.Permission.MODIFY));
