@@ -1,6 +1,8 @@
 package edu.utexas.tacc.tapis.systems.service;
 
 import com.google.gson.JsonObject;
+import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
+import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
 import edu.utexas.tacc.tapis.shared.security.TenantManager;
@@ -332,6 +334,8 @@ public class SystemsServiceTest
     sys0.setJobCapabilities(capList2);
     // Check common system attributes:
     checkCommonSysAttrs(sys0, tmpSys);
+    // Retrieve and display history for manual checking of system history records
+    displaySystemHistory(rOwner1, sys0.getId());
   }
 
   // Test updating a system using patch
@@ -397,6 +401,9 @@ public class SystemsServiceTest
     // Check common system attributes:
     checkCommonSysAttrs(sys0, tmpSysFull);
 
+    // Retrieve and display history for manual checking of system history records
+    displaySystemHistory(rOwner1, systemId);
+
     // Test updating just a few attributes
     sys0 = systems[22];
     systemId = sys0.getId();
@@ -423,6 +430,8 @@ public class SystemsServiceTest
     sys0.setJobRuntimes(jobRuntimes2);
     // Check common system attributes:
     checkCommonSysAttrs(sys0, tmpSysPartial);
+    // Retrieve and display history for manual checking of system history records
+    displaySystemHistory(rOwner1, systemId);
   }
 
   // Test changing system owner
@@ -1604,8 +1613,21 @@ public class SystemsServiceTest
     Assert.assertNotNull(systemHistory);
 
     System.out.println("Found item: " + sysId);
-    // Verify system history fields
-    System.out.printf("History system: %s Number of history records: %d%n", sysId, systemHistory.size());
+    // Retrieve and display history for manual checking of system history records
+    displaySystemHistory(ownerUser, sysId);
+
+    svc.undeleteSystem(ownerUser, sysId);
+    Assert.assertEquals(systemHistory.size(), 6);
+  }
+
+  // Retrieve and display history for manual checking of system history records
+  private void displaySystemHistory(ResourceRequestUser rUser, String systemId) throws TapisException, TapisClientException
+  {
+    // Retrieve and display history for manual checking of display
+    List<SystemHistoryItem> systemHistory = svc.getSystemHistory(rUser, systemId);
+    Assert.assertNotNull(systemHistory);
+    System.out.println("===============================================================================");
+    System.out.printf("History for system: %s Number of history records: %d%n", systemId, systemHistory.size());
     for (int i=0; i < systemHistory.size(); i++)
     {
       System.out.println("-------------------------------------------");
@@ -1620,7 +1642,5 @@ public class SystemsServiceTest
       System.out.printf("created: %s%n", item.getCreated());
       System.out.printf("Description:%n%s%n", item.getDescription());
     }
-    svc.undeleteSystem(ownerUser, sysId);
-    Assert.assertEquals(systemHistory.size(), 6);
   }
 }

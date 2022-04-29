@@ -347,7 +347,7 @@ public class SystemsServiceImpl implements SystemsService
     String changeDescription = LibUtils.getChangeDescriptionSystemUpdate(origTSystem, patchedTSystem, patchSystem);
     if (StringUtils.isBlank(changeDescription))
     {
-      _log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, op, systemId));
+      _log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, "PATCH", systemId));
       return;
     }
 
@@ -415,7 +415,7 @@ public class SystemsServiceImpl implements SystemsService
     String changeDescription = LibUtils.getChangeDescriptionSystemUpdate(origTSystem, putSystem, null);
     if (StringUtils.isBlank(changeDescription))
     {
-      _log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, op, systemId));
+      _log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, "PUT", systemId));
       return;
     }
 

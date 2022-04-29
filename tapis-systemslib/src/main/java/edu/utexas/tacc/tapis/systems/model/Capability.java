@@ -2,7 +2,6 @@ package edu.utexas.tacc.tapis.systems.model;
 
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 
-import java.time.Instant;
 import java.util.Objects;
 
 /*
@@ -17,11 +16,6 @@ import java.util.Objects;
  * Please keep it immutable.
  *
  * Tenant + system + category + name must be unique.
- *
- *  * TODO/TBD: Override equals/hashCode so List.equals can work. For change history checking
- *           Make comparable?
- *           Use google's autoValue annotation for equals/hashCode?
- *           Better yet use java's new record keyword? But turns out this breaks gson.
  */
 public final class Capability
 {
