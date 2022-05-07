@@ -1034,6 +1034,7 @@ public class SystemsServiceTest
             dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, jobRuntimes1, jobWorkingDir1, jobEnvVariables1, jobMaxJobs1,
             jobMaxJobsPerUser1, canRunBatchTrue, mpiCmd1, batchScheduler1, logicalQueueList1,
             batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2, importRefId2);
+
     // CREATE - Deny user not owner/admin, deny service
     boolean pass = false;
     try { svc.createSystem(rTestUser0, sys0, skipCredCheckTrue, rawDataEmtpyJson); }
@@ -1052,13 +1053,14 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
 
-    // Create system for remaining auth access tests
+    // In prep for following tests create a system and grant permissions
     Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
             "fakeAccessKey", "fakeAccessSecret", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
-    // Grant testUesr3 - READ and testUser2 - MODIFY
+    // Grant testUesr3 - READ
     svc.grantUserPermissions(rOwner1, systemId, testUser3, testPermsREAD, rawDataEmtpyJson);
+    // Grant testUser2 - MODIFY
     svc.grantUserPermissions(rOwner1, systemId, testUser2, testPermsMODIFY, rawDataEmtpyJson);
 
     // READ - deny user not owner/admin and no READ or MODIFY access

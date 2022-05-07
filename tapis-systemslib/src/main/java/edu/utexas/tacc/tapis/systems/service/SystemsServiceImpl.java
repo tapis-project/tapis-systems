@@ -87,7 +87,7 @@ public class SystemsServiceImpl implements SystemsService
   private static final Set<String> SVCLIST_GETCRED = new HashSet<>(Set.of(FILES_SERVICE, JOBS_SERVICE));
   // NOTE that although next 2 sets are identical, they are used for different purposes and may change in the future.
   private static final Set<String> SVCLIST_READ = new HashSet<>(Set.of(FILES_SERVICE, APPS_SERVICE, JOBS_SERVICE));
-  private static final Set<String> SVCLIST_SKIPAUTH = new HashSet<>(Set.of(FILES_SERVICE, APPS_SERVICE, JOBS_SERVICE));
+  private static final Set<String> SVCLIST_IMPERSONATE = new HashSet<>(Set.of(FILES_SERVICE, APPS_SERVICE, JOBS_SERVICE));
 
   // Message keys
   private static final String ERROR_ROLLBACK = "SYSLIB_ERROR_ROLLBACK";
@@ -2463,7 +2463,7 @@ public class SystemsServiceImpl implements SystemsService
   {
     // If ever called and not a svc request then fall back to denied
     if (!rUser.isServiceRequest())
-      throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_GETCRED", rUser, systemId, op.name()), NO_CHALLENGE);
+      throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
 
     // This is a service request. The username will be the service name. E.g. files, jobs, streams, etc
     String svcName = rUser.getJwtUserId();
@@ -2526,6 +2526,7 @@ public class SystemsServiceImpl implements SystemsService
     String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
 
     // Some checks do not require owner
+    // Only an admin can hard delete
     switch(op) {
       case hardDelete:
         if (hasAdminRole(rUser)) return;
@@ -2600,7 +2601,7 @@ public class SystemsServiceImpl implements SystemsService
   {
     // If a service request the username will be the service name. E.g. files, jobs, streams, etc
     String svcName = rUser.getJwtUserId();
-    if (rUser.isServiceRequest() && SVCLIST_SKIPAUTH.contains(svcName))
+    if (rUser.isServiceRequest() && SVCLIST_IMPERSONATE.contains(svcName))
     {
       _log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_IMPERSONATE", rUser, systemId, op.name(), impersonationId));
       return;

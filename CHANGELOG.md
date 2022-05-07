@@ -12,15 +12,14 @@ https://tapis-project.github.io/live-docs
 ---------------------------------------------------------------------------
 ## 1.1.4 - 2022-??-??
 
-TBD Preview of new features.
-TBD Incremental improvements and bug fixes.
+Incremental improvements and preview of new features.
 
 ### New features:
-- TBD
-- TBD
+- Refactor authorization checks for maintainability.
+- Replace skipTapisAuthorization with impersonationId for requests from Jobs, Files and Apps services.
 
 ### Bug fixes:
-- TBD None
+- None
 
 ---------------------------------------------------------------------------
 ## 1.1.3 - 2022-04-08
