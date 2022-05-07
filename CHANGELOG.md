@@ -10,6 +10,18 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.1.4 - 2022-05-07
+
+Incremental improvements and preview of new features.
+
+### New features:
+- Refactor authorization checks for maintainability.
+- Replace skipTapisAuthorization with impersonationId for requests from Jobs, Files and Apps services.
+
+### Bug fixes:
+- None
+
+---------------------------------------------------------------------------
 ## 1.1.3 - 2022-04-08
 
 Preview of new features.

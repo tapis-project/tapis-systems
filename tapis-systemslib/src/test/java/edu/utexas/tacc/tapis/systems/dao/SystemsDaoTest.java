@@ -394,7 +394,7 @@ public class SystemsDaoTest
    TSystem sys0 = systems[12];
    boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
    Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
-   List<SystemHistoryItem> systemHistory = dao.getSystemHistory(sys0.getId());
+   List<SystemHistoryItem> systemHistory = dao.getSystemHistory(tenantName, sys0.getId());
    
    Assert.assertNotNull(systemHistory, "Failed to create system history for item: " + sys0.getId());
    System.out.println("Found system history item: " + sys0.getId());

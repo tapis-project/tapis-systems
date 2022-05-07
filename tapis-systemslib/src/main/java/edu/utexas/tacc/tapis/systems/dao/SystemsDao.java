@@ -86,6 +86,6 @@ public interface SystemsDao
 
   String getSchedulerProfileOwner(String tenant, String name) throws TapisException;
 
-  List<SystemHistoryItem> getSystemHistory(String systemId) throws TapisException;
+  List<SystemHistoryItem> getSystemHistory(String oboTenant, String systemId) throws TapisException;
 
 }

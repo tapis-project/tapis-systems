@@ -45,7 +45,6 @@ import edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespBoolean;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultBoolean;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
-
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
@@ -70,7 +69,6 @@ import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
-
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_EXEC_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_AUTHN_METHOD_FIELD;
@@ -637,7 +635,8 @@ public class SystemResource
    * @param systemId - name of the system
    * @param authnMethodStr - authn method to use instead of default
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
-   * @param skipTapisAuth - skip tapis perms auth, calling service has checked.
+   * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
+   *                          resolving effectiveUserId
    * @param securityContext - user identity
    * @return Response with system object as the result
    */
@@ -649,7 +648,7 @@ public class SystemResource
                             @QueryParam("authnMethod") @DefaultValue("") String authnMethodStr,
                             @QueryParam("requireExecPerm") @DefaultValue("false") boolean requireExecPerm,
                             @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
-                            @QueryParam("skipTapisAuthorization") @DefaultValue("false") boolean skipTapisAuth,
+                            @QueryParam("impersonationId") @DefaultValue("false") String impersonationId,
                             @Context SecurityContext securityContext)
   {
     String opName = "getSystem";
@@ -667,7 +666,7 @@ public class SystemResource
                                                    "systemId="+systemId, "authnMethod="+authnMethodStr,
                                                    "requireExecPerm="+requireExecPerm,
                                                    "returnCredentials="+getCreds,
-                                                   "skipTapisAuthorization="+skipTapisAuth);
+                                                   "impersonationId="+impersonationId);
 
     // Check that authnMethodStr is valid if is passed in
     AuthnMethod authnMethod = null;
@@ -684,7 +683,7 @@ public class SystemResource
     TSystem tSystem;
     try
     {
-      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, skipTapisAuth);
+      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId);
     }
     catch (Exception e)
     {
@@ -1258,7 +1257,7 @@ public class SystemResource
       TSystem dtnSystem = null;
       try
       {
-        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, false);
+        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null);
       }
       catch (NotAuthorizedException e)
       {

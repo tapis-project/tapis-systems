@@ -61,7 +61,7 @@ public interface SystemsService
           throws TapisException, TapisClientException, NotAuthorizedException;
 
   TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod authnMethod, boolean requireExecPerm,
-                    boolean getCreds, boolean skipTapisAuth)
+                    boolean getCreds, String impersonationId)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
   int getSystemsTotalCount(ResourceRequestUser rUser, List<String> searchList, List<OrderBy> orderByList,
@@ -83,25 +83,25 @@ public interface SystemsService
 
   // --------------------------- Permissions -------------------------------
   // -----------------------------------------------------------------------
-  void grantUserPermissions(ResourceRequestUser rUser, String systemId, String userName, Set<Permission> permissions, String updateText)
+  void grantUserPermissions(ResourceRequestUser rUser, String systemId, String targetUser, Set<Permission> permissions, String rawData)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
-  int revokeUserPermissions(ResourceRequestUser rUser, String systemId, String userName, Set<Permission> permissions, String updateText)
+  int revokeUserPermissions(ResourceRequestUser rUser, String systemId, String targetUser, Set<Permission> permissions, String rawData)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
-  Set<Permission> getUserPermissions(ResourceRequestUser rUser, String systemId, String userName)
+  Set<Permission> getUserPermissions(ResourceRequestUser rUser, String systemId, String targetUser)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
   // ---------------------------- Credentials ------------------------------
   // -----------------------------------------------------------------------
-  void createUserCredential(ResourceRequestUser rUser, String systemId, String userName, Credential credential,
+  void createUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, Credential credential,
                             boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException;
 
-  int deleteUserCredential(ResourceRequestUser rUser, String systemId, String userName)
+  int deleteUserCredential(ResourceRequestUser rUser, String systemId, String targetUser)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException;
 
-  Credential getUserCredential(ResourceRequestUser rUser, String systemId, String userName, AuthnMethod authnMethod)
+  Credential getUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
   // ------------------- Scheduler Profiles---------------------------------

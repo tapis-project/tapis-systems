@@ -53,11 +53,13 @@ public final class IntegrationUtils
   public static final String testUser2 = "testuser2";
   public static final String testUser3 = "testuser3";
   public static final String testUser4 = "testuser4";
+  public static final String impersonationIdTestUser9 = "testuser9";
   public static final String apiUser = "testApiUser";
   public static final String sysNamePrefix = "TestSys";
   public static final String schedProfileNamePrefix = "TestSchedProfile";
   public static final String description1 = "System description 1";
   public static final String description2 = "System description 2";
+  public static final String description3 = "System description 3";
   public static final String hostname2 = "my.system2.org";
   public static final String hostnameNull = null;
   public static final String effectiveUserId1 = "effUsr1";
@@ -114,6 +116,11 @@ public final class IntegrationUtils
           new ArrayList<>(List.of(new KeyValuePair("a2","b2"),
                                   new KeyValuePair("HOME","/home/testuser2"),
                                  new KeyValuePair("TMP","/tmp2")));
+  public static final List<KeyValuePair> jobEnvVariables3 =
+          new ArrayList<>(List.of(new KeyValuePair("a3","b3"),
+                  new KeyValuePair("HOME","/home/testuser3"),
+                  new KeyValuePair("TMP","/tmp3"),
+                  new KeyValuePair("TMP2","/tmp3a")));
   public static final List<KeyValuePair> jobEnvVariablesNull = null;
 //  public static final String[] jobEnvVariables1 = {"a1=b1", "HOME=/home/testuser1", "TMP=/tmp1"};
 //  public static final String[] jobEnvVariables2 = {"a2=b2", "HOME=/home/testuser2", "TMP=/tmp2"};
@@ -128,12 +135,14 @@ public final class IntegrationUtils
   public static final String mpiCmdNull = null;
   public static final int jobMaxJobs1 = 1;
   public static final int jobMaxJobs2 = 2;
+  public static final int jobMaxJobs3 = 3;
   public static final Integer jobMaxJobsNull = null;
   public static final int jobMaxJobsPerUser1 = 1;
   public static final int jobMaxJobsPerUser2 = 2;
   public static final String[] tags1 = {"value1", "value2", "a",
     "Long tag (1 3 2) special chars [_ $ - & * % @ + = ! ^ ? < > , . ( ) { } / \\ | ]. Backslashes must be escaped."};
   public static final String[] tags2 = {"value3", "value4"};
+  public static final String[] tags3 = {"value1"};
   public static final String[] tagsNull = null;
   public static final Object notes1 = TapisGsonUtils.getGson().fromJson("{\"project\": \"myproj1\", \"testdata\": \"abc1\"}", JsonObject.class);
   public static final Object notes2 = TapisGsonUtils.getGson().fromJson("{\"project\": \"myproj2\", \"testdata\": \"abc2\"}", JsonObject.class);

@@ -2,7 +2,7 @@ package edu.utexas.tacc.tapis.systems.model;
 
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 
-import java.time.Instant;
+import java.util.Objects;
 
 /*
  * Capability class representing a capability supported by a TSystem, such as what job schedulers the system supports,
@@ -16,11 +16,6 @@ import java.time.Instant;
  * Please keep it immutable.
  *
  * Tenant + system + category + name must be unique.
- *
- *  * TODO/TBD: Override equals/hashCode so List.equals can work. For change history checking
- *           Make comparable?
- *           Use google's autoValue annotation for equals/hashCode?
- *           Better yet use java's new record keyword? But turns out this breaks gson.
  */
 public final class Capability
 {
@@ -66,4 +61,27 @@ public final class Capability
 
   @Override
   public String toString() {return TapisUtils.toString(this);}
+
+  @Override
+  public boolean equals(Object o)
+  {
+    if (o == this) return true;
+    // Note: no need to check for o==null since instanceof will handle that case
+    if (!(o instanceof Capability)) return false;
+    var that = (Capability) o;
+    return (Objects.equals(this.category, that.category) && Objects.equals(this.name, that.name) &&
+            Objects.equals(this.datatype, that.datatype) && this.precedence==that.precedence &&
+            Objects.equals(this.value, that.value));
+  }
+
+  @Override
+  public int hashCode()
+  {
+    int retVal = (name == null ? 1 : name.hashCode());
+    retVal = 31 * retVal + (category == null ? 0 : category.hashCode());
+    retVal = 31 * retVal + (datatype == null ? 0 : datatype.hashCode());
+    retVal = 31 * retVal + Integer.hashCode(precedence);
+    retVal = 31 * retVal + (value == null ? 0 : value.hashCode());
+    return retVal;
+  }
 }

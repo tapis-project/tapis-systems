@@ -18,7 +18,6 @@ public final class SystemHistoryItem
   // ************************************************************************
   // *********************** Fields *****************************************
   // ************************************************************************
-
   private final String jwtTenant;
   private final String jwtUser;
   private final String oboTenant;

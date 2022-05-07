@@ -39,6 +39,7 @@ test-output
 
 # Intellij metadata files
 .idea/*
+.run/*
 *.iml
 *.ids
 *.eml

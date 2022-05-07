@@ -261,7 +261,7 @@ public class LibUtils
 
   /**
    * Compare original and modified systems to detect changes and produce a complete and succinct description
-   * of the changes. If no changes then return null.
+   *   of the changes. If no changes then return null.
    * NOTE that although some attributes should never change in this code path we include them here in case there is
    *   a bug or the design changes and this code path does include them.
    * Attributes that should not change: systemType, isEnabled, owner, bucketName, rootDir, isDtn, canExec, isDeleted
@@ -274,7 +274,7 @@ public class LibUtils
   public static String getChangeDescriptionSystemUpdate(TSystem o, TSystem n, PatchSystem p)
   {
     boolean noChanges = true;
-    boolean isPatch = (p != null);
+    boolean notPatch = (p == null);
     var jo = new JSONObject();
     if (!Objects.equals(o.getDescription(), n.getDescription()))
       {noChanges=false;addChange(jo, DESCRIPTION_FIELD, o.getDescription(), n.getDescription());}
@@ -300,12 +300,10 @@ public class LibUtils
       {noChanges=false;addChange(jo, USE_PROXY_FIELD, o.isUseProxy(), n.isUseProxy());}
     if (!Objects.equals(o.getProxyHost(),n.getProxyHost()))
       {noChanges=false;addChange(jo, PROXY_HOST_FIELD, o.getProxyHost(), n.getProxyHost());}
-    if (!Objects.equals(o.getProxyHost(),n.getProxyHost()))
-      {noChanges=false;addChange(jo, PROXY_PORT_FIELD, o.getProxyPort(), n.getProxyPort());}
     if (!Objects.equals(o.getProxyPort(),n.getProxyPort()))
-      {noChanges=false;addChange(jo, DTN_MOUNT_POINT_FIELD, o.getDtnMountPoint(), n.getDtnMountPoint());}
+      {noChanges=false;addChange(jo, PROXY_PORT_FIELD, o.getProxyPort(), n.getProxyPort());}
     if (!Objects.equals(o.getDtnMountPoint(),n.getDtnMountPoint()))
-      {noChanges=false;addChange(jo, DTN_MOUNT_SOURCE_PATH_FIELD, o.getDtnMountSourcePath(), n.getDtnMountSourcePath());}
+      {noChanges=false;addChange(jo, DTN_MOUNT_POINT_FIELD, o.getDtnMountPoint(), n.getDtnMountPoint());}
     if (!Objects.equals(o.getDtnMountSourcePath(),n.getDtnMountSourcePath()))
       {noChanges=false;addChange(jo, DTN_MOUNT_SOURCE_PATH_FIELD, o.getDtnMountSourcePath(), n.getDtnMountSourcePath());}
     if (!Objects.equals(o.getDtnSystemId(),n.getDtnSystemId()))
@@ -335,45 +333,50 @@ public class LibUtils
 
     // ------------------------------------------------------
     // Following attributes require more complex handling
+    // NOTE that the "if (notPatch ... )" below just means we avoid the compare if it is a patch and
+    //   the patch did not update the attribute.
     // ------------------------------------------------------
-    // TODO JOB_RUNTIMES - JobRuntime supports equals so Objects.equals should do something sensible,
-    //  but order will be important.
-    if (!Objects.equals(o.getJobRuntimes(),n.getJobRuntimes()))
-      {noChanges=false;addChange(jo, JOB_RUNTIMES_FIELD, o.getJobRuntimes(), n.getJobRuntimes());}
-//    // JOB_RUNTIMES If it is a patch and the patch value was null then no need to compare
-//    if (!isPatch || p.getJobRuntimes() != null)
-//    {
-//      if (!compareRuntimes(o.getJobRuntimes(), n.getJobRuntimes()))
-//      {
-//        noChanges = false;
-//        addChange(jo, JOB_RUNTIMES_FIELD, o.getJobRuntimes(), n.getJobRuntimes());
-//      }
-//    }
-    // TODO JOB_ENV_VARIABLES
-    if (!Objects.equals(o.getJobEnvVariables(),n.getJobEnvVariables()))
-      {noChanges=false;addChange(jo, JOB_ENV_VARIABLES_FIELD, o.getJobEnvVariables(), n.getJobEnvVariables());}
-// TODO   // JOB_ENV_VARIABLES If it is a patch and the patch value was null then no need to compare
-//    if (!isPatch || p.getJobEnvVariables() != null)
-//    {
-//      if (!compareKeyPairs(o.getJobEnvVariables(), n.getJobEnvVariables()))
-//      {
-//        noChanges = false;
-//        addChange(jo, JOB_ENV_VARIABLES_FIELD, o.getJobEnvVariables(), n.getJobEnvVariables());
-//      }
-//    }
-
-    // TODO BATCH_LOGICAL_QUEUES
-    if (!Objects.equals(o.getBatchLogicalQueues(),n.getBatchLogicalQueues()))
-      {noChanges=false;addChange(jo, BATCH_LOGICAL_QUEUES_FIELD, o.getBatchLogicalQueues(), n.getBatchLogicalQueues());}
-
-    // TODO JOB_CAPABILITIES
-    if (!Objects.equals(o.getJobCapabilities(),n.getJobCapabilities()))
-      {noChanges=false;addChange(jo, JOB_CAPABILITIES_FIELD, o.getJobCapabilities(), n.getJobCapabilities());}
-
+    // JOB_RUNTIMES - If not a patch or patch value not null then need to compare
+    if (notPatch || (p!=null && p.getJobRuntimes() != null))
+    {
+      // We can use Objects.equals() because JobRuntime supports equals, but order will be important.
+      if (!Objects.equals(o.getJobRuntimes(), n.getJobRuntimes()))
+        { noChanges = false; addChange(jo, JOB_RUNTIMES_FIELD, o.getJobRuntimes(), n.getJobRuntimes()); }
+    }
+    // JOB_ENV_VARIABLES
+    // If not a patch or patch value not null then need to compare
+    if (notPatch || (p!=null && p.getJobEnvVariables() != null))
+    {
+      // We can use Objects.equals() because KeyValuePair supports equals, but order will be important.
+      if (!Objects.equals(o.getJobEnvVariables(), n.getJobEnvVariables()))
+      {
+        noChanges = false; addChange(jo, JOB_ENV_VARIABLES_FIELD, o.getJobEnvVariables(), n.getJobEnvVariables());
+      }
+    }
+    // BATCH_LOGICAL_QUEUES
+    // If not a patch or patch value not null then need to compare
+    if (notPatch || (p!=null && p.getBatchLogicalQueues() != null))
+    {
+      // We can use Objects.equals() because LogicalQueue supports equals, but order will be important.
+      if (!Objects.equals(o.getBatchLogicalQueues(),n.getBatchLogicalQueues()))
+      {
+        noChanges=false; addChange(jo, BATCH_LOGICAL_QUEUES_FIELD, o.getBatchLogicalQueues(), n.getBatchLogicalQueues());
+      }
+    }
+    // JOB_CAPABILITIES
+    // If not a patch or patch value not null then need to compare
+    if (notPatch || (p!=null && p.getJobCapabilities() != null))
+    {
+      // We can use Objects.equals() because Capability supports equals, but order will be important.
+      if (!Objects.equals(o.getJobCapabilities(), n.getJobCapabilities()))
+      {
+        noChanges = false; addChange(jo, JOB_CAPABILITIES_FIELD, o.getJobCapabilities(), n.getJobCapabilities());
+      }
+    }
     // TAGS - If it is a patch and the patch value was null then no need to compare
     //   i.e. if not a patch or patch value was not null then do need to compare.
     // Since TAGS are just strings we can use Objects.equals()
-    if (!isPatch || p.getTags() != null)
+    if (notPatch || (p!=null && p.getTags() != null))
     {
       // Sort so it does not matter if order is different
       List<String> oldSortedTags = Arrays.asList(o.getTags());
@@ -386,9 +389,8 @@ public class LibUtils
         addChange(jo, TAGS_FIELD, oldSortedTags, newSortedTags);
       }
     }
-
-    // NOTES - If it is a patch and the patch value was null then no need to compare
-    if (!isPatch || p.getNotes() != null)
+    // NOTES - If not a patch or patch value not null then need to compare
+    if (notPatch || (p!=null && p.getNotes() != null))
     {
       if (!compareNotes(o.getNotes(), n.getNotes()))
       {
