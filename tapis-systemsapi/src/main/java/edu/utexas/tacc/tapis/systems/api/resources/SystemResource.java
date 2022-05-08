@@ -648,7 +648,7 @@ public class SystemResource
                             @QueryParam("authnMethod") @DefaultValue("") String authnMethodStr,
                             @QueryParam("requireExecPerm") @DefaultValue("false") boolean requireExecPerm,
                             @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
-                            @QueryParam("impersonationId") @DefaultValue("false") String impersonationId,
+                            @QueryParam("impersonationId") String impersonationId,
                             @Context SecurityContext securityContext)
   {
     String opName = "getSystem";
