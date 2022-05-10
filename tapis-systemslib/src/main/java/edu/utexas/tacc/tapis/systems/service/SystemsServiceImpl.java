@@ -418,7 +418,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Get a complete and succinct description of the update.
     // If nothing has changed, then log a warning and return
-    String changeDescription = LibUtils.getChangeDescriptionSystemUpdate(origTSystem, putSystem, null);
+    String changeDescription = LibUtils.getChangeDescriptionSystemUpdate(origTSystem, updatedTSystem, null);
     if (StringUtils.isBlank(changeDescription))
     {
       _log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, "PUT", systemId));
