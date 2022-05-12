@@ -168,16 +168,9 @@ public class SystemResource
    * Name must begin with an alphabetic character and can be no more than 80 characters in length.
    * Description is optional with a maximum length of 2048 characters.
    *
-   * Credentials may be optionally provided in the authnCredential attribute of the request body.
+   * If effectiveUserId is static then credentials may be optionally provided in the authnCredential attribute of the
+   * request body. If effective user is dynamic (i.e. ${apiUserId}) then credentials may not be provided.
    * The Systems service does not store the secrets, they are persisted in the Security Kernel.
-   * The secrets are stored in the Security Kernel under a Tapis user name.
-   * TODO/TBD
-   *    Note that in addition to secrets the authnCredential attribute may contain a Tapis user and a login user.
-   *    The Tapis user is used to associate the credentials with a login user.
-   *    If the System has a static effectiveUserId then the System owner will always be the Tapis user.
-   *    If the Tapis user is not provided then it defaults to the System owner.
-   *    If the login user is not provided then it defaults to the Tapis user.
-   *    A mapping between the Tapis user and the login user is recorded.
    *
    * By default any credentials provided for LINUX type systems are verified. Use query parameter
    * skipCredentialCheck=true to bypass initial verification of credentials.
@@ -444,7 +437,30 @@ public class SystemResource
   }
 
   /**
-   * Update all updatable attributes of a system
+   * Update all updatable attributes of a system using a request body identical to POST. System must exist.
+   *
+   * Note that although the attribute authnCredential is allowed, it is ignored as discussed in the next paragraph.
+   * Certain attributes in the request body (such as tenant) are allowed but ignored so that the JSON result returned
+   *   by a GET may be modified and used when making a PUT request to update a system.
+   *
+   *   The attributes that are allowed but ignored for both PUT and POST are
+   *      tenant
+   *      uuid
+   *      deleted
+   *      created
+   *      updated
+   *  In addition for a PUT operation the following attributes are allowed but ignored
+   *      id
+   *      systemType
+   *      owner
+   *      enabled
+   *      authnCredential
+   *      bucketName
+   *      rootDir
+   *      isDtn
+   *      canExec
+   *  Note that the attributes owner, enabled and authnCredential may be modified using other endpoints.
+   *
    * @param systemId - name of the system
    * @param payloadStream - request body
    * @param securityContext - user identity

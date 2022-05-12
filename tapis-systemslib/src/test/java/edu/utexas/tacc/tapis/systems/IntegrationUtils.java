@@ -47,8 +47,8 @@ public final class IntegrationUtils
   //       Although it should not be a problem because credentials are stored for each system it is best to be safe.
   public static final String owner1 = "owner1";
   public static final String owner2 = "owner2";
-  public static final String loginUser1 = "loginUser1";
   public static final String ownerNull = null;
+  public static final String loginUser1 = "loginUser1";
   public static final String testUser0 = "testuser0";
   public static final String testUser1 = "testuser1";
   public static final String testUser2 = "testuser2";
@@ -236,7 +236,7 @@ public final class IntegrationUtils
 
   public static final Credential credInvalidPrivateSshKey =
           new Credential(null, null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null);
-  public static final Credential credNoTapisUser =
+  public static final Credential credNoLoginUser =
           new Credential(null, null, "fakePassword", null, null, null, null, null);
 
   // Permissions

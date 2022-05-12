@@ -208,7 +208,7 @@ public class SystemsServiceImpl implements SystemsService
     Credential credential = system.getAuthnCredential();
 
     // Set flag indicating if effectiveUserId is static
-    boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+    boolean isStaticEffectiveUser = !effectiveUserId.equals(APIUSERID_VAR);
 
 
     // Set flag indicating if we will deal with credentials.
@@ -228,11 +228,12 @@ public class SystemsServiceImpl implements SystemsService
     validateTSystem(rUser, system);
 
     // If credentials provided validate constraints and verify credentials
-    // NOTE: If effectiveUserId is dynamic then request has already been rejected above during
-    //       call to validateTSystem(). See method TSystem.checkAttrMisc().
     if (credential != null)
     {
       // static effectiveUser case. Credential must not contain loginUser
+      // NOTE: If effectiveUserId is dynamic then request has already been rejected above during
+      //       call to validateTSystem(). See method TSystem.checkAttrMisc().
+      //       But we include isStaticEffectiveUser here anyway in case that ever changes.
       if (isStaticEffectiveUser && !StringUtils.isBlank(credential.getLoginUser()))
       {
         String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, systemId);
@@ -281,7 +282,7 @@ public class SystemsServiceImpl implements SystemsService
       // Store credentials in Security Kernel if cred provided and effectiveUser is static
       if (manageCredentials)
       {
-        // TODO review - will probably change when secrets stored under diff paths for dynamic/static
+        // TODO review - will change when secrets stored under diff paths for dynamic/static
         String accessUser = effectiveUserId;
         // If effectiveUser is owner resolve to static string.
         if (effectiveUserId.equals(OWNER_VAR)) accessUser = system.getOwner();
@@ -314,6 +315,7 @@ public class SystemsServiceImpl implements SystemsService
       // Remove creds
       if (manageCredentials)
       {
+        // TODO review - will change when secrets stored under diff paths for dynamic/static
         String accessUser = effectiveUserId;
         if (effectiveUserId.equals(OWNER_VAR)) accessUser = system.getOwner();
         // Use private internal method instead of public API to skip auth and other checks not needed here.
@@ -426,9 +428,22 @@ public class SystemsServiceImpl implements SystemsService
     if (!dao.checkForSystem(oboTenant, systemId, false))
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
+    // Extract some system attributes for code clarity
+    String effectiveUserId = putSystem.getEffectiveUserId();
+    Credential credential = putSystem.getAuthnCredential();
+
+    // Set flag indicating if effectiveUserId is static
+    boolean isStaticEffectiveUser = !effectiveUserId.equals(APIUSERID_VAR);
+
+
+    // Set flag indicating if we will deal with credentials.
+    // We only do that when credentials provided and effectiveUser is static
+    boolean manageCredentials = (credential != null && isStaticEffectiveUser);
+
     // Retrieve the system being updated and create fully populated TSystem with updated attributes
     TSystem origTSystem = dao.getSystem(oboTenant, systemId);
     TSystem updatedTSystem = createUpdatedTSystem(origTSystem, putSystem);
+    updatedTSystem.setAuthnCredential(credential);
 
     // ------------------------- Check authorization -------------------------
     checkAuthOwnerKnown(rUser, op, systemId, origTSystem.getOwner());
@@ -436,14 +451,35 @@ public class SystemsServiceImpl implements SystemsService
     // ---------------- Check constraints on TSystem attributes ------------------------
     validateTSystem(rUser, updatedTSystem);
 
-    // TODO/TBD: What if PUT contains credentials and effectiveUserId is static?
-    //           We should update credentials, yes?
-    //    OR should we simplify things and simply ignore credentials just like we ignore owner?
-    //    Should we also ignore effectiveUserId?
-    // ---------------- Verify credentials ------------------------
-    if (!skipCredCheck && updatedTSystem.getAuthnCredential() != null)
+    // If credentials provided validate constraints and verify credentials
+    if (credential != null)
     {
-      verifyCredentials(rUser, updatedTSystem, updatedTSystem.getAuthnCredential());
+      // static effectiveUser case. Credential must not contain loginUser
+      // NOTE: If effectiveUserId is dynamic then request has already been rejected above during
+      //       call to validateTSystem(). See method TSystem.checkAttrMisc().
+      //       But we include isStaticEffectiveUser here anyway in case that ever changes.
+      if (isStaticEffectiveUser && !StringUtils.isBlank(credential.getLoginUser()))
+      {
+        String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, systemId);
+        throw new IllegalArgumentException(msg);
+      }
+
+      // ---------------- Verify credentials if not skipped
+      if (!skipCredCheck) verifyCredentials(rUser, putSystem, credential);
+    }
+
+    // ------------------- Store credentials -----------------------------------
+    // Store credentials in Security Kernel if cred provided and effectiveUser is static
+    if (manageCredentials)
+    {
+      var skClient = getSKClient();
+      // TODO review - will change when secrets stored under diff paths for dynamic/static
+      String accessUser = effectiveUserId;
+      // If effectiveUser is owner resolve to static string.
+      if (effectiveUserId.equals(OWNER_VAR)) accessUser = putSystem.getOwner();
+      // Use private internal method instead of public API to skip auth and other checks not needed here.
+      // Create credential
+      createCredential(skClient, rUser, credential, systemId, accessUser);
     }
 
     // Get a complete and succinct description of the update.
@@ -1315,6 +1351,8 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Store or update credential for given system and user.
+   *   rUser, systemId, targetUser and credential are required.
+   *   System must exist and not be deleted.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @param targetUser - Target user for operation
@@ -1438,10 +1476,7 @@ public class SystemsServiceImpl implements SystemsService
     // If dynamic then remove any mapping from loginUser to tapisUser
     if (!isStaticEffectiveUser)
     {
-      if (!StringUtils.isBlank(dao.getLoginUser(rUser.getOboTenantId(), systemId, targetUser)))
-      {
-        dao.deleteLoginUserMapping(rUser.getOboTenantId(), systemId, targetUser);
-      }
+      dao.deleteLoginUserMapping(rUser.getOboTenantId(), systemId, targetUser);
     }
 
     // Construct Json string representing the update
@@ -1893,25 +1928,6 @@ public class SystemsServiceImpl implements SystemsService
     }
   }
 
-//TODO/TBD
-//  /**
-//   * Check constraints on Credential when it is provided as part of a POST or PUT
-//   * - tapisUser must be provided
-//   * @param rUser - ResourceRequestUser containing tenant, user and request info
-//   * @param cred - the credential provided with the TSystem definition
-//   * @param sysId - the system id (for logging)
-//   * @throws IllegalStateException - if any constraints are violated
-//   */
-//  private void validateCredentialConstraints(ResourceRequestUser rUser, Credential cred, String sysId) throws IllegalStateException
-//  {
-//    if (cred == null) return;
-//    if (StringUtils.isBlank(cred.getTapisUser()))
-//    {
-//      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NO_TAPISUSER", rUser, sysId);
-//      throw new IllegalStateException(msg);
-//    }
-//  }
-//
   /**
    * Check constraints on SchedulerProfile attributes.
    * Collect and report as many errors as possible so they can all be fixed before next attempt

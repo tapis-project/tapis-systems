@@ -6,12 +6,12 @@ import org.apache.commons.lang3.StringUtils;
 
 /*
  * Credential class representing an authn credential stored in the Security Kernel.
- * Also includes tapis user and login user associated with the credential.
+ * Also includes login user associated with the credential.
  *
  * Secrets are not persisted by the Systems Service. Actual secrets are managed by the Security Kernel.
  * The secret information will depend on the system type and authn method.
  *
- * Systems does store a mapping of tapis user to login user.
+ * Systems does store a mapping of tapis user to login user if they are different.
  * If a System has a static effectiveUserId then the there will be no mapping.
  *
  * Immutable

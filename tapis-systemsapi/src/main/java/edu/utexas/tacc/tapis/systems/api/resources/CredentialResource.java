@@ -174,8 +174,8 @@ public class CredentialResource
     // If no loginUser provided default to userName
     String loginUser = (StringUtils.isBlank(req.loginUser)) ? userName : req.loginUser;
     // We do not care about authnMethod here so set to null
-    AuthnMethod authnMethod = null;
-    Credential credential = new Credential(authnMethod, loginUser, req.password, req.privateKey,
+    AuthnMethod nullAuthnMethod = null;
+    Credential credential = new Credential(nullAuthnMethod, loginUser, req.password, req.privateKey,
                                            req.publicKey, req.accessKey, req.accessSecret, req.certificate);
 
     // If one of PKI keys is missing then reject
