@@ -19,11 +19,6 @@ import java.util.Objects;
  * NOTE: In the database a logical queue also includes system_id, created and updated.
  *       Currently system_id should be known in the context in which this class is used
  *         and the created, updated timestamps are not being used.
- *
- * TODO/TBD: Override equals/hashCode so List.equals can work. For change history checking
- *           Make comparable?
- *           Use google's autoValue annotation for equals/hashCode?
- *           Better yet use java's new record keyword? But turns out this breaks gson.
  */
 public final class LogicalQueue
 {

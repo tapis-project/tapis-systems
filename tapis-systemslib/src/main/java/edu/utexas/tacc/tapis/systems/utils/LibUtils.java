@@ -300,12 +300,10 @@ public class LibUtils
       {noChanges=false;addChange(jo, USE_PROXY_FIELD, o.isUseProxy(), n.isUseProxy());}
     if (!Objects.equals(o.getProxyHost(),n.getProxyHost()))
       {noChanges=false;addChange(jo, PROXY_HOST_FIELD, o.getProxyHost(), n.getProxyHost());}
-    if (!Objects.equals(o.getProxyHost(),n.getProxyHost()))
-      {noChanges=false;addChange(jo, PROXY_PORT_FIELD, o.getProxyPort(), n.getProxyPort());}
     if (!Objects.equals(o.getProxyPort(),n.getProxyPort()))
-      {noChanges=false;addChange(jo, DTN_MOUNT_POINT_FIELD, o.getDtnMountPoint(), n.getDtnMountPoint());}
+      {noChanges=false;addChange(jo, PROXY_PORT_FIELD, o.getProxyPort(), n.getProxyPort());}
     if (!Objects.equals(o.getDtnMountPoint(),n.getDtnMountPoint()))
-      {noChanges=false;addChange(jo, DTN_MOUNT_SOURCE_PATH_FIELD, o.getDtnMountSourcePath(), n.getDtnMountSourcePath());}
+      {noChanges=false;addChange(jo, DTN_MOUNT_POINT_FIELD, o.getDtnMountPoint(), n.getDtnMountPoint());}
     if (!Objects.equals(o.getDtnMountSourcePath(),n.getDtnMountSourcePath()))
       {noChanges=false;addChange(jo, DTN_MOUNT_SOURCE_PATH_FIELD, o.getDtnMountSourcePath(), n.getDtnMountSourcePath());}
     if (!Objects.equals(o.getDtnSystemId(),n.getDtnSystemId()))
@@ -335,6 +333,8 @@ public class LibUtils
 
     // ------------------------------------------------------
     // Following attributes require more complex handling
+    // NOTE that the "if (notPatch ... )" below just means we avoid the compare if it is a patch and
+    //   the patch did not update the attribute.
     // ------------------------------------------------------
     // JOB_RUNTIMES - If not a patch or patch value not null then need to compare
     if (notPatch || (p!=null && p.getJobRuntimes() != null))

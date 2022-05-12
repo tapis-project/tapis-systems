@@ -54,6 +54,7 @@ public final class IntegrationUtils
   public static final String testUser2 = "testuser2";
   public static final String testUser3 = "testuser3";
   public static final String testUser4 = "testuser4";
+  public static final String impersonationIdTestUser9 = "testuser9";
   public static final String apiUser = "testApiUser";
   public static final String sysNamePrefix = "TestSys";
   public static final String schedProfileNamePrefix = "TestSchedProfile";
