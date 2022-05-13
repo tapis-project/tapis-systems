@@ -893,8 +893,8 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Resolve effectiveUserId
-    String resolvedEffectiveUserId = resolveEffectiveUserId(system.getEffectiveUserId(), system.getOwner(),
-                                                            rUser.getOboUserId(), impersonationId);
+    String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system.getEffectiveUserId(), systemId,
+                                                            system.getOwner(), impersonationId);
     system.setEffectiveUserId(resolvedEffectiveUserId);
     // If requested retrieve credentials from Security Kernel
     if (getCreds)
@@ -1008,8 +1008,8 @@ public class SystemsServiceImpl implements SystemsService
 
     for (TSystem system : systems)
     {
-      system.setEffectiveUserId(resolveEffectiveUserId(system.getEffectiveUserId(), system.getOwner(),
-                                                       rUser.getOboUserId(), nullImpersonationId));
+      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system.getEffectiveUserId(), system.getId(),
+                                                       system.getOwner(), nullImpersonationId));
     }
     return systems;
   }
@@ -1068,8 +1068,8 @@ public class SystemsServiceImpl implements SystemsService
 
     for (TSystem system : systems)
     {
-      system.setEffectiveUserId(resolveEffectiveUserId(system.getEffectiveUserId(), system.getOwner(),
-                                                       rUser.getOboUserId(), nullImpersonationId));
+      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system.getEffectiveUserId(), system.getId(),
+                                                       system.getOwner(), nullImpersonationId));
     }
     return systems;
   }
@@ -1108,8 +1108,8 @@ public class SystemsServiceImpl implements SystemsService
 
     for (TSystem system : systems)
     {
-      system.setEffectiveUserId(resolveEffectiveUserId(system.getEffectiveUserId(), system.getOwner(),
-                                                       rUser.getOboUserId(), nullImpersonationId));
+      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system.getEffectiveUserId(), system.getId(),
+                                                       system.getOwner(), nullImpersonationId));
     }
     return systems;
   }
@@ -1412,10 +1412,11 @@ public class SystemsServiceImpl implements SystemsService
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
     }
 
-    // If dynamic and an alternate loginUser has been provided then record the mapping
-    if (!isStaticEffectiveUser && (!targetUser.equals(loginUser)))
+    // If dynamic and an alternate loginUser has been provided that is not the same as the Tapis user
+    //   then record the mapping
+    if (!isStaticEffectiveUser && !StringUtils.isBlank(loginUser) && !targetUser.equals(loginUser))
     {
-      dao.createLoginUserMapping(rUser.getOboTenantId(), systemId, targetUser, loginUser);
+      dao.createOrUpdateLoginUserMapping(rUser.getOboTenantId(), systemId, targetUser, loginUser);
     }
 
     // Construct Json string representing the update, with actual secrets masked out
@@ -1479,8 +1480,6 @@ public class SystemsServiceImpl implements SystemsService
       dao.deleteLoginUserMapping(rUser.getOboTenantId(), systemId, targetUser);
     }
 
-    // Construct Json string representing the update
-    String updateJsonStr = TapisGsonUtils.getGson().toJson(targetUser);
     // Get a complete and succinct description of the update.
     String changeDescription = LibUtils.getChangeDescriptionCredDelete(systemId, targetUser);
     // Create a record of the update
@@ -1494,7 +1493,7 @@ public class SystemsServiceImpl implements SystemsService
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param targetUser - Target user for operation
+   * @param targetUser - Target Tapis user for operation
    * @param authnMethod - (optional) return credentials for specified authn method instead of default authn method
    * @return Credential - populated instance or null if not found.
    * @throws TapisException - for Tapis related exceptions
@@ -1526,11 +1525,13 @@ public class SystemsServiceImpl implements SystemsService
       authnMethod = defaultAuthnMethod;
     }
 
-    //  Get the loginUser associated with the credential
-    //  If no alternate mapping of tapisUser to loginUser then use tapisUser
+    // Determine the loginUser associated with the credential
+    // First see if there is a mapping from targetUser to a user on the host
     String loginUser = dao.getLoginUser(oboTenant, systemId, targetUser);
+    // If no mapping then use targetUser.
     if (StringUtils.isBlank(loginUser)) loginUser = targetUser;
 
+    // TODO Update for loginUser mapping
     /*
      * When the Systems services calls SK to read secrets it calls with a JWT as itself,
      *   jwtTenantId = admin tenant (Site Tenant Admin)
@@ -2037,25 +2038,37 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
+   * Determine the user to be used to access the system.
+   * Determine effectiveUserId for static and dynamic (i.e. ${apiUserId}) cases.
    * If effectiveUserId is dynamic then resolve it
-   * @param userId - effectiveUserId string, static or dynamic
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param effUser - effectiveUserId string from system
    * @param owner - owner of the system
-   * @param oboUser - oboUser from the request
    * @param impersonationId - use provided Tapis username instead of oboUser when resolving effectiveUserId
    * @return Resolved value for effective user.
    */
-  private static String resolveEffectiveUserId(String userId, String owner, String oboUser, String impersonationId)
+  private String resolveEffectiveUserId(ResourceRequestUser rUser, String effUser, String systemId, String owner,
+                                        String impersonationId) throws TapisException
   {
-    // NOTE: Use oboUser as the effective apiUserId because for a User request oboUser and jwtUser are the same
-    //       and for a Service request it is the oboUser and not the service user who is effectively the user
-    //       making the request
-    if (StringUtils.isBlank(userId)) return userId;
-    else if (userId.equals(OWNER_VAR) && !StringUtils.isBlank(owner)) return owner;
-    else if (userId.equals(APIUSERID_VAR))
-    {
-      return StringUtils.isBlank(impersonationId) ? oboUser : impersonationId;
-    }
-    else return userId;
+    // Incoming effectiveUserId should never be blank but for robustness handle that case.
+    if (StringUtils.isBlank(effUser)) return effUser;
+
+    // If we happen to be called on system create before all system variables are resolved then effUserId might be ${owner}
+    if (effUser.equals(OWNER_VAR) && !StringUtils.isBlank(owner)) return owner;
+
+    // If a static string (i.e. not ${apiUserId} then simply return the string
+    if (!effUser.equals(APIUSERID_VAR)) return effUser;
+
+    // At this point we have a dynamic effectiveUserId. Figure it out.
+    // Determine the loginUser associated with the credential
+    // First determine whether to use oboUser or impersonationId
+    String oboTenant = rUser.getOboTenantId();
+    String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
+    // Now see if there is a mapping from that that Tapis user to a different login user on the host
+    String loginUser = dao.getLoginUser(rUser.getOboTenantId(), systemId, oboOrImpersonatedUser);
+
+    // If a mapping then return it, else return oboUser or impersonationId
+    return (!StringUtils.isBlank(loginUser)) ? loginUser : oboOrImpersonatedUser;
   }
 
 
@@ -2381,7 +2394,7 @@ public class SystemsServiceImpl implements SystemsService
     if (system == null) return;
     // Resolve effectiveUserId if necessary
     String effectiveUserId = system.getEffectiveUserId();
-    String resolvedEffectiveUserId = resolveEffectiveUserId(effectiveUserId, system.getOwner(), rUser.getOboUserId(),
+    String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, effectiveUserId, systemId, system.getOwner(),
                                                             nullImpersonationId);
 
     // TODO remove filesPermSpec related code (jira cic-3071)

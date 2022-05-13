@@ -54,7 +54,9 @@ public final class IntegrationUtils
   public static final String testUser2 = "testuser2";
   public static final String testUser3 = "testuser3";
   public static final String testUser4 = "testuser4";
+  public static final String testUser4LinuxUser = "testuser4LinuxUser";
   public static final String impersonationIdTestUser9 = "testuser9";
+  public static final String impersonationIdNull = null;
   public static final String apiUser = "testApiUser";
   public static final String sysNamePrefix = "TestSys";
   public static final String schedProfileNamePrefix = "TestSchedProfile";
@@ -77,6 +79,8 @@ public final class IntegrationUtils
   public static final boolean canExecFalse = false;
   public static final boolean skipCredCheckTrue = true;
   public static final boolean skipCredCheckFalse = false;
+  public static final boolean getCredsTrue = true;
+  public static final boolean requireExecPermFalse = false;
   public static final String hostPatchedId = "patched.system.org";
   public static final String hostMinimalId = "minimal.system.org";
   public static final String rootDir1 = "/root/dir1";

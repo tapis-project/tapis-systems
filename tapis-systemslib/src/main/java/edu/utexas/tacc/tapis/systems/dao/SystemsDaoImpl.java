@@ -1384,11 +1384,9 @@ public class SystemsDaoImpl implements SystemsDao
    * Create a new mapping for tapisUser to loginUser
    */
   @Override
-  public void createLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser) throws TapisException
+  public void createOrUpdateLoginUserMapping(String tenantId, String systemId, String tapisUser, String loginUser) throws TapisException
   {
-    // TODO If anything missing simply return
-    //   might want to throw exception if any of first three args missing since they make up the primary key
-    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(id) || StringUtils.isBlank(tapisUser) ||
+    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(systemId) || StringUtils.isBlank(tapisUser) ||
         StringUtils.isBlank(loginUser))
     {
       return;
@@ -1399,19 +1397,37 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      db.insertInto(SYSTEMS_LOGIN_USER)
-              .set(SYSTEMS_LOGIN_USER.TENANT, tenantId)
-              .set(SYSTEMS_LOGIN_USER.SYSTEM_ID, id)
-              .set(SYSTEMS_LOGIN_USER.TAPIS_USER, tapisUser)
-              .set(SYSTEMS_LOGIN_USER.LOGIN_USER, loginUser)
-              .execute();
+      boolean recordExists = db.fetchExists(SYSTEMS_LOGIN_USER,SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),
+                                            SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(systemId),
+                                            SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser));
+      // If record not there insert it, else update it
+      if (!recordExists)
+      {
+        int sysSeqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId)).fetchOne(SYSTEMS.SEQ_ID);
+        db.insertInto(SYSTEMS_LOGIN_USER)
+                .set(SYSTEMS_LOGIN_USER.SYSTEM_SEQ_ID, sysSeqId)
+                .set(SYSTEMS_LOGIN_USER.TENANT, tenantId)
+                .set(SYSTEMS_LOGIN_USER.SYSTEM_ID, systemId)
+                .set(SYSTEMS_LOGIN_USER.TAPIS_USER, tapisUser)
+                .set(SYSTEMS_LOGIN_USER.LOGIN_USER, loginUser)
+                .execute();
+      }
+      else
+      {
+        db.update(SYSTEMS_LOGIN_USER)
+                .set(SYSTEMS_LOGIN_USER.TENANT, tenantId)
+                .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),
+                       SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(systemId),
+                       SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
+                .execute();
+      }
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
     catch (Exception e)
     {
       // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "scheduler_profiles");
+      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "systems_login_user");
     }
     finally
     {

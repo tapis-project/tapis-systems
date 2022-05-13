@@ -340,7 +340,7 @@ public class SystemsDaoTest
     String tapisUser = owner1;
     boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sysId);
-    dao.createLoginUserMapping(tenantName, sysId, tapisUser, loginUser1);
+    dao.createOrUpdateLoginUserMapping(tenantName, sysId, tapisUser, loginUser1);
     System.out.println("Login map entry created");
     String loginUser = dao.getLoginUser(tenantName, sysId, tapisUser);
     Assert.assertEquals(loginUser, loginUser1);

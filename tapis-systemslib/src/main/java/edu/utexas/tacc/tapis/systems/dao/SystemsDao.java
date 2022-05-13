@@ -71,7 +71,7 @@ public interface SystemsDao
 
   String getLoginUser(String tenantId, String id, String tapisUser) throws TapisException;
 
-  void createLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser) throws TapisException;
+  void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser) throws TapisException;
 
   void deleteLoginUserMapping(String tenantId, String id, String tapisUser) throws TapisException;
 

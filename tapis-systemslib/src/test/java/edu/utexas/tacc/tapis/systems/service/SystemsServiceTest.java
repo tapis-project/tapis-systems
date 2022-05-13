@@ -912,7 +912,7 @@ public class SystemsServiceTest
     // In this case for owner1 and testUser3
     svc.createUserCredential(rOwner1, sys0.getId(), owner1, cred1, skipCredCheckTrue, rawDataEmtpyJson);
     svc.createUserCredential(rOwner1, sys0.getId(), testUser3, cred3, skipCredCheckTrue, rawDataEmtpyJson);
-    // Get system as owner1 using files service and should get cred for owner1
+    // Get system as owner using files service and should get cred for owner
     TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), AuthnMethod.PASSWORD, false, true, null);
     Credential cred0 = tmpSys.getAuthnCredential();
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + owner1);
@@ -973,6 +973,40 @@ public class SystemsServiceTest
     Assert.assertEquals(changeCount, 1, "Change count incorrect when removing a credential.");
     cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), testUser3, AuthnMethod.ACCESS_KEY);
     Assert.assertNull(cred0, "Credential not deleted. System name: " + sys0.getId() + " User name: " + testUser3);
+
+    // ============================================
+    // Test tapis user to loginUser mapping.
+    // ============================================
+    // Create a credential with a loginUser so that a mapping should be created.
+    // testUser2 should be permitted to update their own credential
+    Credential cred4 = new Credential(null, testUser4LinuxUser, "fakePassword4", null, null, null, null, null);
+    svc.createUserCredential(rOwner1, sys0.getId(), testUser4, cred4, skipCredCheckTrue, rawDataEmtpyJson);
+
+    // Give testUser4 READ access to the system. Normally this would be done through sharing and call would
+    // be made with impersonationId set to the system owner but here we are testing loginUser mapping, not impersonation.
+    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser4, testPermsREAD, rawDataEmtpyJson);
+
+    // Now when fetching System as Files with oboUser=testUser4 and impersonationId=null
+    //   we should find effectiveUserId=testUser4LinuxUser and password=fakePassword4
+    tmpSys = svc.getSystem(rFilesSvcTestUser4, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
+                           impersonationIdNull);
+    cred0 = tmpSys.getAuthnCredential();
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser4);
+    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD, "Retrieved authnMethod incorrect");
+    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null for user: " + testUser4);
+    Assert.assertEquals(cred0.getPassword(), cred4.getPassword(), "Retrieved password incorrect");
+    Assert.assertEquals(tmpSys.getEffectiveUserId(), testUser4LinuxUser, "Mapping of Tapis user to loginUser incorrect");
+
+    // when fetching System as Files with oboUser=testUser3 and impersonationId=testUser4
+    //   we should also find effectiveUserId=testUser4LinuxUser and password=fakePassword4
+    tmpSys = svc.getSystem(rFilesSvcTestUser3, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
+                           testUser4);
+    cred0 = tmpSys.getAuthnCredential();
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null for impersonated user: " + testUser4);
+    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD, "Retrieved authnMethod incorrect for impersonation");
+    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null for impersonated user: " + testUser4);
+    Assert.assertEquals(cred0.getPassword(), cred4.getPassword(), "Retrieved password incorrect for impersonated user");
+    Assert.assertEquals(tmpSys.getEffectiveUserId(), testUser4LinuxUser, "Mapping of Tapis user to loginUser incorrect");
   }
 
   // Test various cases when system is missing
