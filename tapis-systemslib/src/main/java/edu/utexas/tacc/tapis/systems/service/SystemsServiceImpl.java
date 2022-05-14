@@ -99,7 +99,7 @@ public class SystemsServiceImpl implements SystemsService
   // Compiled regex for splitting around ":"
   private static final Pattern COLON_SPLIT = Pattern.compile(":");
 
-  // Named null values to make it clear what is being passed in to a method
+  // Named and typed null values to make it clear what is being passed in to a method
   private static final String nullOwner = null;
   private static final String nullImpersonationId = null;
   private static final String nullTargetUser = null;
@@ -563,7 +563,8 @@ public class SystemsServiceImpl implements SystemsService
     String oboTenant = rUser.getOboTenantId();
 
     // System must exist
-    if (!dao.checkForSystem(oboTenant, systemId, true))
+    TSystem system = dao.getSystem(oboTenant, systemId, true);
+    if (system == null)
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
     // ------------------------- Check authorization -------------------------
@@ -571,7 +572,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Remove effectiveUser credentials associated with the system
     // Remove permissions associated with the system
-    removeSKArtifacts(rUser, oboTenant, systemId);
+    removeSKArtifacts(rUser, system);
 
     // Update deleted attribute
     return updateDeleted(rUser, systemId, op);
@@ -736,13 +737,14 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
     // If system does not exist then 0 changes
-    if (!dao.checkForSystem(oboTenant, systemId, true)) return 0;
+    TSystem system = dao.getSystem(oboTenant, systemId, true);
+    if (system == null) return 0;
 
     // ------------------------- Check authorization -------------------------
     checkAuthOwnerUnkown(rUser, op, systemId);
 
     // Remove SK artifacts
-    removeSKArtifacts(rUser, oboTenant, systemId);
+    removeSKArtifacts(rUser, system);
 
     // Delete the system
     return dao.hardDeleteSystem(oboTenant, systemId);
@@ -874,12 +876,12 @@ public class SystemsServiceImpl implements SystemsService
     // If impersonationId supplied confirm that it is allowed
     if (!StringUtils.isBlank(impersonationId)) checkImpersonationAllowed(rUser, op, systemId, impersonationId);
 
-    checkAuth(rUser, op, systemId, nullOwner, impersonationId, nullTargetUser, nullPermSet);
+    checkAuth(rUser, op, systemId, nullOwner, nullTargetUser, nullPermSet, impersonationId);
 
     // If flag is set to also require EXECUTE perm then make a special auth call to make sure user has exec perm
     if (requireExecPerm)
     {
-      checkAuthOboUser(rUser, SystemOperation.execute, systemId, nullOwner, impersonationId, nullTargetUser, nullPermSet);
+      checkAuthOboUser(rUser, SystemOperation.execute, systemId, nullOwner, nullTargetUser, nullPermSet, impersonationId);
     }
 
     TSystem system = dao.getSystem(oboTenant, systemId);
@@ -893,8 +895,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Resolve effectiveUserId
-    String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system.getEffectiveUserId(), systemId,
-                                                            system.getOwner(), impersonationId);
+    String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, impersonationId);
     system.setEffectiveUserId(resolvedEffectiveUserId);
     // If requested retrieve credentials from Security Kernel
     if (getCreds)
@@ -1008,8 +1009,7 @@ public class SystemsServiceImpl implements SystemsService
 
     for (TSystem system : systems)
     {
-      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system.getEffectiveUserId(), system.getId(),
-                                                       system.getOwner(), nullImpersonationId));
+      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system));
     }
     return systems;
   }
@@ -1068,8 +1068,7 @@ public class SystemsServiceImpl implements SystemsService
 
     for (TSystem system : systems)
     {
-      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system.getEffectiveUserId(), system.getId(),
-                                                       system.getOwner(), nullImpersonationId));
+      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system));
     }
     return systems;
   }
@@ -1108,8 +1107,7 @@ public class SystemsServiceImpl implements SystemsService
 
     for (TSystem system : systems)
     {
-      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system.getEffectiveUserId(), system.getId(),
-                                                       system.getOwner(), nullImpersonationId));
+      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system));
     }
     return systems;
   }
@@ -1265,7 +1263,7 @@ public class SystemsServiceImpl implements SystemsService
     String owner = checkForOwnerPermUpdate(rUser, systemId, targetUser, op.name());
 
     // ------------------------- Check authorization -------------------------
-    checkAuth(rUser, op, systemId, owner, nullImpersonationId, targetUser, permissions);
+    checkAuth(rUser, op, systemId, owner, targetUser, permissions);
 
     // Check inputs. If anything null or empty throw an exception
     if (permissions == null || permissions.isEmpty())
@@ -1338,7 +1336,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false)) return null;
 
     // ------------------------- Check authorization -------------------------
-    checkAuth(rUser, op, systemId, nullOwner, nullImpersonationId, targetUser, nullPermSet);
+    checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
 
     // Use Security Kernel client to check for each permission in the enum list
     var skClient = getSKClient();
@@ -1375,17 +1373,20 @@ public class SystemsServiceImpl implements SystemsService
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
     String oboTenant = rUser.getOboTenantId();
-    TSystem system = dao.getSystem(oboTenant, systemId);
     String loginUser = credential.getLoginUser();
 
+    // We will need some info from the system, so fetch it now.
+    TSystem system = dao.getSystem(oboTenant, systemId);
     // If system does not exist or has been deleted then throw an exception
     if (system == null)
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
+    // Determine the effectiveUser type, either static or dynamic
+    // Secrets get stored on different paths based on this
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
     // ------------------------- Check authorization -------------------------
-    checkAuth(rUser, op, systemId, nullOwner, nullImpersonationId, targetUser, nullPermSet);
+    checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
 
     // If private SSH key is set check that we have a compatible key.
     if (!StringUtils.isBlank(credential.getPrivateKey()) && !credential.isValidPrivateSshKey())
@@ -1455,7 +1456,7 @@ public class SystemsServiceImpl implements SystemsService
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
     // ------------------------- Check authorization -------------------------
-    checkAuth(rUser, op, systemId, nullOwner, nullImpersonationId, targetUser, nullPermSet);
+    checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
 
     // Get the Security Kernel client
     var skClient = getSKClient();
@@ -1967,7 +1968,8 @@ public class SystemsServiceImpl implements SystemsService
    * @param credential - credentials to check
    * @throws IllegalStateException - if credentials not verified
    */
-  private void verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential credential) throws IllegalStateException
+  private void verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential credential)
+          throws TapisException, IllegalStateException
   {
     // We must have the system and a set of credentials to check.
     if (tSystem1 == null || credential == null) return;
@@ -1975,8 +1977,8 @@ public class SystemsServiceImpl implements SystemsService
     if (!tSystem1.getSystemType().equals(TSystem.SystemType.LINUX)) return;
 
     // Determine user to check
-    String effectiveUser = tSystem1.getEffectiveUserId();
-    if (effectiveUser.equals(APIUSERID_VAR)) effectiveUser = rUser.getOboUserId();
+    // None of the public methods that call this support impersonation so use null for impersonationId
+    String effectiveUser = resolveEffectiveUserId(rUser, tSystem1);
 
     // Determine authnMethod to check, either password or ssh keys
     // if neither provided then skip check
@@ -2042,19 +2044,17 @@ public class SystemsServiceImpl implements SystemsService
    * Determine effectiveUserId for static and dynamic (i.e. ${apiUserId}) cases.
    * If effectiveUserId is dynamic then resolve it
    * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param effUser - effectiveUserId string from system
-   * @param owner - owner of the system
+   * @param system - the system in question
    * @param impersonationId - use provided Tapis username instead of oboUser when resolving effectiveUserId
    * @return Resolved value for effective user.
    */
-  private String resolveEffectiveUserId(ResourceRequestUser rUser, String effUser, String systemId, String owner,
-                                        String impersonationId) throws TapisException
+  private String resolveEffectiveUserId(ResourceRequestUser rUser, TSystem system, String impersonationId)
+          throws TapisException
   {
+    String systemId = system.getId();
+    String effUser = system.getEffectiveUserId();
     // Incoming effectiveUserId should never be blank but for robustness handle that case.
     if (StringUtils.isBlank(effUser)) return effUser;
-
-    // If we happen to be called on system create before all system variables are resolved then effUserId might be ${owner}
-    if (effUser.equals(OWNER_VAR) && !StringUtils.isBlank(owner)) return owner;
 
     // If a static string (i.e. not ${apiUserId} then simply return the string
     if (!effUser.equals(APIUSERID_VAR)) return effUser;
@@ -2062,7 +2062,6 @@ public class SystemsServiceImpl implements SystemsService
     // At this point we have a dynamic effectiveUserId. Figure it out.
     // Determine the loginUser associated with the credential
     // First determine whether to use oboUser or impersonationId
-    String oboTenant = rUser.getOboTenantId();
     String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
     // Now see if there is a mapping from that that Tapis user to a different login user on the host
     String loginUser = dao.getLoginUser(rUser.getOboTenantId(), systemId, oboOrImpersonatedUser);
@@ -2071,6 +2070,17 @@ public class SystemsServiceImpl implements SystemsService
     return (!StringUtils.isBlank(loginUser)) ? loginUser : oboOrImpersonatedUser;
   }
 
+  /**
+   * Overloaded method for callers that do not support impersonation
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param system - the system in question
+   * @return Resolved value for effective user.
+   * @throws TapisException on error
+   */
+  private String resolveEffectiveUserId(ResourceRequestUser rUser, TSystem system) throws TapisException
+  {
+    return resolveEffectiveUserId(rUser, system, nullImpersonationId);
+  }
 
   /**
    * Retrieve set of user permissions given sk client, user, tenant, id
@@ -2374,10 +2384,13 @@ public class SystemsServiceImpl implements SystemsService
    * Remove all SK artifacts associated with a System: user credentials, user permissions
    * No checks are done for incoming arguments and the system must exist
    */
-  private void removeSKArtifacts(ResourceRequestUser rUser, String oboTenant, String systemId)
+  private void removeSKArtifacts(ResourceRequestUser rUser, TSystem system)
           throws TapisException, TapisClientException
   {
     var skClient = getSKClient();
+    String systemId = system.getId();
+    String oboTenant = system.getTenant();
+    String effectiveUserId = system.getEffectiveUserId();
 
     // Use Security Kernel client to find all users with perms associated with the system.
     String permSpec = String.format(PERM_SPEC_TEMPLATE, oboTenant, "%", systemId);
@@ -2389,13 +2402,8 @@ public class SystemsServiceImpl implements SystemsService
       skClient.revokeUserPermission(oboTenant, userName, getPermSpecAllStr(oboTenant, systemId));
     }
 
-    // Fetch the system. If system not found then return
-    TSystem system = dao.getSystem(oboTenant, systemId, true);
-    if (system == null) return;
     // Resolve effectiveUserId if necessary
-    String effectiveUserId = system.getEffectiveUserId();
-    String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, effectiveUserId, systemId, system.getOwner(),
-                                                            nullImpersonationId);
+    String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system);
 
     // TODO remove filesPermSpec related code (jira cic-3071)
     // Remove files perm for owner and possibly effectiveUser
@@ -2510,7 +2518,7 @@ public class SystemsServiceImpl implements SystemsService
   private void checkAuthOwnerUnkown(ResourceRequestUser rUser, SystemOperation op, String systemId)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
   {
-    checkAuth(rUser, op, systemId, nullOwner, nullImpersonationId, nullTargetUser, nullPermSet);
+    checkAuth(rUser, op, systemId, nullOwner, nullTargetUser, nullPermSet, nullImpersonationId);
   }
 
   /*
@@ -2519,7 +2527,25 @@ public class SystemsServiceImpl implements SystemsService
   private void checkAuthOwnerKnown(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
   {
-    checkAuth(rUser, op, systemId, owner, nullImpersonationId, nullTargetUser, nullPermSet);
+    checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, nullImpersonationId);
+  }
+
+
+  /**
+   * Overloaded method for callers that do not support impersonation
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param op - operation name
+   * @param systemId - name of the system
+   * @param owner - app owner
+   * @param targetUser - Target user for operation
+   * @param perms - List of permissions for the revokePerm case
+   * @throws NotAuthorizedException - user not authorized to perform operation
+   */
+  private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
+                         String targetUser, Set<Permission> perms)
+          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+  {
+    checkAuth(rUser, op, systemId, owner, targetUser, perms, nullImpersonationId);
   }
 
   /**
@@ -2528,17 +2554,20 @@ public class SystemsServiceImpl implements SystemsService
    * A check should be made for system existence before calling this method.
    * If no owner is passed in and one cannot be found then an error is logged and authorization is denied.
    *
+   * Most callers do not support impersonation so make impersonationId the final argument and provide
+   *   and overloaded method for simplicity.
+   *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param op - operation name
    * @param systemId - name of the system
    * @param owner - app owner
-   * @param impersonationId - for auth check use this Id in place of oboUser
    * @param targetUser - Target user for operation
    * @param perms - List of permissions for the revokePerm case
+   * @param impersonationId - for auth check use this Id in place of oboUser
    * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
-                         String impersonationId, String targetUser, Set<Permission> perms)
+                         String targetUser, Set<Permission> perms, String impersonationId)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
   {
     // Check service and user requests separately to avoid confusing a service name with a username
@@ -2550,7 +2579,7 @@ public class SystemsServiceImpl implements SystemsService
     else
     {
       // This is an OboUser check
-      checkAuthOboUser(rUser, op, systemId, owner, impersonationId, targetUser, perms);
+      checkAuthOboUser(rUser, op, systemId, owner, targetUser, perms, impersonationId);
     }
   }
 
@@ -2619,13 +2648,13 @@ public class SystemsServiceImpl implements SystemsService
    * @param op - operation name
    * @param systemId - name of the system
    * @param owner - system owner
-   * @param impersonationId - for auth check use this Id in place of oboUser
    * @param targetUser Target user for operation
    * @param perms - List of permissions for the revokePerm case
+   * @param impersonationId - for auth check use this Id in place of oboUser
    * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkAuthOboUser(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
-                                String impersonationId, String targetUser, Set<Permission> perms)
+                                String targetUser, Set<Permission> perms, String impersonationId)
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
   {
     String oboTenant = rUser.getOboTenantId();

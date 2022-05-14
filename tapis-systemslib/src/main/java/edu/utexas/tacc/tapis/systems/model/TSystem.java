@@ -389,8 +389,12 @@ public final class TSystem
     // Resolve owner if necessary. If empty or "${apiUserId}" then fill in with oboUser.
     if (StringUtils.isBlank(owner) || owner.equalsIgnoreCase(APIUSERID_VAR)) setOwner(oboUser);
 
+    // Handle case where effectiveUserId is "${owner}". Only at create time does this need resolving.
+    // When this method is done effectiveUserId should be either "${apiUserId} or a static string with no
+    //   Tapis Systems variables to resolve.
+    if (OWNER_VAR.equals(effectiveUserId)) setEffectiveUserId(owner);
+
     // Perform variable substitutions that happen at create time: bucketName, rootDir, jobWorkingDir
-    // NOTE: effectiveUserId is not processed. Var reference is retained and substitution done as needed when system is retrieved.
     //    ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
     String[] allVarSubstitutions = {oboUser, owner, tenant};
     setBucketName(StringUtils.replaceEach(bucketName, ALL_VARS, allVarSubstitutions));
