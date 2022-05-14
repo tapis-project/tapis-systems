@@ -57,7 +57,6 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_VAR;
 
 /*
  * Service level methods for Systems.
@@ -181,8 +180,12 @@ public class SystemsServiceImpl implements SystemsService
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (system == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
     _log.trace(LibUtils.getMsgAuth("SYSLIB_CREATE_TRACE", rUser, rawData));
+
+    // Extract some attributes for convenience and clarity.
+    // NOTE: do not do this for effectiveUserId since it may be ${owner} and get resolved below.
     String tenant = system.getTenant();
     String systemId = system.getId();
+    Credential credential = system.getAuthnCredential();
 
     // ---------------------------- Check inputs ------------------------------------
     // Required system attributes: tenant, id, type, host, defaultAuthnMethod
@@ -203,26 +206,23 @@ public class SystemsServiceImpl implements SystemsService
     // Note that this is done before auth so owner can get resolved and used during auth check.
     system.setDefaults();
 
-    // Extract some system attributes for code clarity
-    String effectiveUserId = system.getEffectiveUserId();
-    Credential credential = system.getAuthnCredential();
-
     // Set flag indicating if effectiveUserId is static
-    boolean isStaticEffectiveUser = !effectiveUserId.equals(APIUSERID_VAR);
-
+    boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
     // Set flag indicating if we will deal with credentials.
     // We only do that when credentials provided and effectiveUser is static
     boolean manageCredentials = (credential != null && isStaticEffectiveUser);
 
     // ----------------- Resolve variables for any attributes that might contain them --------------------
+    // NOTE: That this also handles case where effectiveUserId is ${owner},
+    //       so after this effUser is either a resolved static string or ${apiUserId}
     system.resolveVariablesAtCreate(rUser.getOboUserId());
 
     // ------------------------- Check authorization -------------------------
-    checkAuthOwnerKnown(rUser, op, system.getId(), system.getOwner());
+    checkAuthOwnerKnown(rUser, op, systemId, system.getOwner());
 
     // ---------------- Check for reserved names ------------------------
-    checkReservedIds(rUser, system.getId());
+    checkReservedIds(rUser, systemId);
 
     // ---------------- Check constraints on TSystem attributes ------------------------
     validateTSystem(rUser, system);
@@ -266,29 +266,20 @@ public class SystemsServiceImpl implements SystemsService
       itemCreated = dao.createSystem(rUser, system, changeDescription, rawData);
 
       // ------------------- Add permissions -----------------------------
-      // Give owner and possibly effectiveUser full access to the system
+      // Give owner full access to the system
       skClient.grantUserPermission(tenant, system.getOwner(), systemsPermSpecALL);
-      if (isStaticEffectiveUser && !effectiveUserId.equals(OWNER_VAR))
-      {
-        skClient.grantUserPermission(tenant, effectiveUserId, systemsPermSpecALL);
-      }
       // TODO remove filesPermSpec related code (jira cic-3071)
-      // Give owner/effectiveUser files service related permission for root directory
+      // Give owner files service related permission for root directory
       skClient.grantUserPermission(tenant, system.getOwner(), filesPermSpec);
-      if (isStaticEffectiveUser && !effectiveUserId.equals(OWNER_VAR))
-        skClient.grantUserPermission(tenant, effectiveUserId, filesPermSpec);
 
       // ------------------- Store credentials -----------------------------------
       // Store credentials in Security Kernel if cred provided and effectiveUser is static
       if (manageCredentials)
       {
-        // TODO review - will change when secrets stored under diff paths for dynamic/static
-        String accessUser = effectiveUserId;
-        // If effectiveUser is owner resolve to static string.
-        if (effectiveUserId.equals(OWNER_VAR)) accessUser = system.getOwner();
         // Use private internal method instead of public API to skip auth and other checks not needed here.
         // Create credential
-        createCredential(skClient, rUser, credential, systemId, accessUser);
+        // Note that we only manageCredentials for the static case and for the static case targetUser=effectiveUserId
+        createCredential(skClient, rUser, credential, systemId, system.getEffectiveUserId(), isStaticEffectiveUser);
       }
     }
     catch (Exception e0)
@@ -305,21 +296,15 @@ public class SystemsServiceImpl implements SystemsService
       // Remove perms
       try { skClient.revokeUserPermission(tenant, system.getOwner(), systemsPermSpecALL); }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermOwner", e.getMessage()));}
-      try { skClient.revokeUserPermission(tenant, effectiveUserId, systemsPermSpecALL); }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermEffUsr", e.getMessage()));}
       // TODO remove filesPermSpec related code (jira cic-3071)
       try { skClient.revokeUserPermission(tenant, system.getOwner(), filesPermSpec);  }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
-      try { skClient.revokeUserPermission(tenant, effectiveUserId, filesPermSpec);  }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF2", e.getMessage()));}
       // Remove creds
       if (manageCredentials)
       {
-        // TODO review - will change when secrets stored under diff paths for dynamic/static
-        String accessUser = effectiveUserId;
-        if (effectiveUserId.equals(OWNER_VAR)) accessUser = system.getOwner();
         // Use private internal method instead of public API to skip auth and other checks not needed here.
-        try { deleteCredential(skClient, rUser, systemId, accessUser); }
+        // Note that we only manageCredentials for the static case and for the static case targetUser=effectiveUserId
+        try { deleteCredential(skClient, rUser, systemId, system.getEffectiveUserId(), isStaticEffectiveUser); }
         catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "deleteCred", e.getMessage()));}
       }
       throw e0;
@@ -414,9 +399,11 @@ public class SystemsServiceImpl implements SystemsService
     SystemOperation op = SystemOperation.modify;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (putSystem == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
-    // Extract various names for convenience
+    // Extract some attributes for convenience and clarity
     String oboTenant = rUser.getOboTenantId();
     String systemId = putSystem.getId();
+    String effectiveUserId = putSystem.getEffectiveUserId();
+    Credential credential = putSystem.getAuthnCredential();
 
     // ---------------------------- Check inputs ------------------------------------
     if (StringUtils.isBlank(oboTenant) || StringUtils.isBlank(systemId) || StringUtils.isBlank(rawData))
@@ -428,9 +415,6 @@ public class SystemsServiceImpl implements SystemsService
     if (!dao.checkForSystem(oboTenant, systemId, false))
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
-    // Extract some system attributes for code clarity
-    String effectiveUserId = putSystem.getEffectiveUserId();
-    Credential credential = putSystem.getAuthnCredential();
 
     // Set flag indicating if effectiveUserId is static
     boolean isStaticEffectiveUser = !effectiveUserId.equals(APIUSERID_VAR);
@@ -473,13 +457,10 @@ public class SystemsServiceImpl implements SystemsService
     if (manageCredentials)
     {
       var skClient = getSKClient();
-      // TODO review - will change when secrets stored under diff paths for dynamic/static
-      String accessUser = effectiveUserId;
-      // If effectiveUser is owner resolve to static string.
-      if (effectiveUserId.equals(OWNER_VAR)) accessUser = putSystem.getOwner();
       // Use private internal method instead of public API to skip auth and other checks not needed here.
       // Create credential
-      createCredential(skClient, rUser, credential, systemId, accessUser);
+      // Note that we only manageCredentials for the static case and for the static case targetUser=effectiveUserId
+      createCredential(skClient, rUser, credential, systemId, effectiveUserId, isStaticEffectiveUser);
     }
 
     // Get a complete and succinct description of the update.
@@ -869,8 +850,14 @@ public class SystemsServiceImpl implements SystemsService
 
     String oboTenant = rUser.getOboTenantId();
 
+    // We will need info from system, so fetch it now
+    TSystem system = dao.getSystem(oboTenant, systemId);
     // We need owner to check auth and if system not there cannot find owner, so return null if no system.
-    if (!dao.checkForSystem(oboTenant, systemId, false)) return null;
+    if (system == null) return null;
+
+    // Determine the effectiveUser type, either static or dynamic
+    // Secrets get stored on different paths based on this
+    boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
     // ------------------------- Check authorization -------------------------
     // If impersonationId supplied confirm that it is allowed
@@ -884,9 +871,6 @@ public class SystemsServiceImpl implements SystemsService
       checkAuthOboUser(rUser, SystemOperation.execute, systemId, nullOwner, nullTargetUser, nullPermSet, impersonationId);
     }
 
-    TSystem system = dao.getSystem(oboTenant, systemId);
-    if (system == null) return null;
-
     // If flag is set to also require EXECUTE perm then system must support execute
     if (requireExecPerm && !system.getCanExec())
     {
@@ -894,16 +878,25 @@ public class SystemsServiceImpl implements SystemsService
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
 
-    // Resolve effectiveUserId
+    // Resolve and updat effectiveUserId
     String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, impersonationId);
     system.setEffectiveUserId(resolvedEffectiveUserId);
+
     // If requested retrieve credentials from Security Kernel
     if (getCreds)
     {
       AuthnMethod tmpAccMethod = system.getDefaultAuthnMethod();
       // If authnMethod specified then use it instead of default authn method defined for the system.
       if (accMethod != null) tmpAccMethod = accMethod;
-      Credential cred = getUserCredential(rUser, systemId, resolvedEffectiveUserId, tmpAccMethod);
+      // Determine targetUser for fetching credential.
+      //   If static use effectiveUserId, else use oboOrImpersonatedUser
+      String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
+      String credTargetUser;
+      if (isStaticEffectiveUser)
+        credTargetUser = system.getEffectiveUserId();
+      else
+        credTargetUser = oboOrImpersonatedUser;
+      Credential cred = getUserCredential(rUser, systemId, credTargetUser, tmpAccMethod);
       system.setAuthnCredential(cred);
     }
     return system;
@@ -1348,9 +1341,11 @@ public class SystemsServiceImpl implements SystemsService
   // -----------------------------------------------------------------------
 
   /**
-   * Store or update credential for given system and user.
-   *   rUser, systemId, targetUser and credential are required.
-   *   System must exist and not be deleted.
+   * Store or update credential for given system and and target user.
+   *
+   * rUser, systemId, targetUser and credential are required.
+   * Secret path depends on whether effUser type is dynamic or static
+   * System must exist and not be deleted.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @param targetUser - Target user for operation
@@ -1372,6 +1367,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser) || credential == null)
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
+    // Extract some attributes for convenience and clarity
     String oboTenant = rUser.getOboTenantId();
     String loginUser = credential.getLoginUser();
 
@@ -1381,12 +1377,12 @@ public class SystemsServiceImpl implements SystemsService
     if (system == null)
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
+    // ------------------------- Check authorization -------------------------
+    checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
+
     // Determine the effectiveUser type, either static or dynamic
     // Secrets get stored on different paths based on this
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
-
-    // ------------------------- Check authorization -------------------------
-    checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
 
     // If private SSH key is set check that we have a compatible key.
     if (!StringUtils.isBlank(credential.getPrivateKey()) && !credential.isValidPrivateSshKey())
@@ -1404,7 +1400,7 @@ public class SystemsServiceImpl implements SystemsService
     var skClient = getSKClient();
     try
     {
-      createCredential(skClient, rUser, credential, systemId, targetUser);
+      createCredential(skClient, rUser, credential, systemId, targetUser, isStaticEffectiveUser);
     }
     // If tapis client exception then log error and convert to TapisException
     catch (TapisClientException tce)
@@ -1466,7 +1462,7 @@ public class SystemsServiceImpl implements SystemsService
     //   have been changed and reverting seems fraught with peril and not a good ROI.
     try
     {
-      changeCount = deleteCredential(skClient, rUser, systemId, targetUser);
+      changeCount = deleteCredential(skClient, rUser, systemId, targetUser, isStaticEffectiveUser);
     }
     // If tapis client exception then log error and convert to TapisException
     catch (TapisClientException tce)
@@ -1489,12 +1485,12 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Get credential for given system, user and authn method
+   * Get credential for given system, target user and authn method
    * Only certain services are authorized.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param targetUser - Target Tapis user for operation
+   * @param targetUser - Target user for operation. May be Tapis user or host user
    * @param authnMethod - (optional) return credentials for specified authn method instead of default authn method
    * @return Credential - populated instance or null if not found.
    * @throws TapisException - for Tapis related exceptions
@@ -1502,7 +1498,8 @@ public class SystemsServiceImpl implements SystemsService
    * @throws NotFoundException - Resource not found
    */
   @Override
-  public Credential getUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
+  public Credential getUserCredential(ResourceRequestUser rUser, String systemId, String targetUser,
+                                      AuthnMethod authnMethod)
           throws TapisException, TapisClientException, NotAuthorizedException, NotFoundException
   {
     SystemOperation op = SystemOperation.getCred;
@@ -1512,11 +1509,16 @@ public class SystemsServiceImpl implements SystemsService
 
     String oboTenant = rUser.getOboTenantId();
 
+    // We will need some info from the system, so fetch it.
+    TSystem system = dao.getSystem(oboTenant, systemId);
     // If system does not exist or has been deleted then return null
-    if (!dao.checkForSystem(oboTenant, systemId, false)) return null;
+    if (system == null) return null;
 
     // ------------------------- Check authorization -------------------------
     checkAuthOwnerUnkown(rUser, op, systemId);
+
+    // Set flag indicating if effectiveUserId is static
+    boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
     // If authnMethod not passed in fill in with default from system
     if (authnMethod == null)
@@ -1526,13 +1528,6 @@ public class SystemsServiceImpl implements SystemsService
       authnMethod = defaultAuthnMethod;
     }
 
-    // Determine the loginUser associated with the credential
-    // First see if there is a mapping from targetUser to a user on the host
-    String loginUser = dao.getLoginUser(oboTenant, systemId, targetUser);
-    // If no mapping then use targetUser.
-    if (StringUtils.isBlank(loginUser)) loginUser = targetUser;
-
-    // TODO Update for loginUser mapping
     /*
      * When the Systems services calls SK to read secrets it calls with a JWT as itself,
      *   jwtTenantId = admin tenant (Site Tenant Admin)
@@ -1540,14 +1535,20 @@ public class SystemsServiceImpl implements SystemsService
      *   and AccountType = TapisThreadContext.AccountType.service
      *
      * For Systems the secret needs to be scoped by the tenant associated with the system,
-     *   the system id and the target user (i.e. the user associated with the secret).
+     *   the system id, the target user (i.e. the user associated with the secret) and
+     *   whether the effectiveUserId is static or dynamic.
+     *   This provides for separate namespaces for the two cases, so there will be no conflict if a static
+     *      user and dynamic (i.e. ${apiUserId}) user happen to have the same value.
+     * The target user may be a Tapis user or login user associated with the host.
      * Secrets for a system follow the format
-     *   secret/tapis/tenant/tenant_id/system_id/user/user_id/key_type/S1
-     * where tenant_id, system_id, user_id and key_type are filled in at runtime.
-     *   key_type is sshkey, password, accesskey or cert and S1 is the reserved SecretName associated with the Systems.
+     *   secret/tapis/tenant/<tenant_id>/<system_id>/user/<static|dynamic>/<target_user>/<key_type>/S1
+     * where tenant_id, system_id, user_id, key_type and <static|dynamic> are filled in at runtime.
+     *   key_type is sshkey, password, accesskey or cert
+     *   and S1 is the reserved SecretName associated with the Systems.
+     *
      * Hence the following code
      *     new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME)
-     *     sParms.setTenant(rUser.getOboTenantId()).setSysId(systemId).setSysUser(targetUser);
+     *     sParms.setTenant(rUser.getOboTenantId()).setSysId(systemId).setSysUser(targetUserPath);
      *
      */
     Credential credential = null;
@@ -1559,11 +1560,14 @@ public class SystemsServiceImpl implements SystemsService
       // Establish secret type ("system") and secret name ("S1")
       var sParms = new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
 
+      // Fill in systemId and targetUserPath for the path to the secret.
+      String targetUserPath = getTargetUserSecretPath(targetUser, isStaticEffectiveUser);
+
       // Set tenant, system and user associated with the secret.
       // These values are used to build the vault path to the secret.
-      sParms.setTenant(rUser.getOboTenantId()).setSysId(systemId).setSysUser(targetUser);
+      sParms.setTenant(rUser.getOboTenantId()).setSysId(systemId).setSysUser(targetUserPath);
 
-      // NOTE: This is needed for the SK call. Not clear if it should be targetUser, serviceUserId, oboUser.
+      // NOTE: Next line is needed for the SK call. Not clear if it should be targetUser, serviceUserId, oboUser.
       //       If not set then the first getAuthnCred in SystemsServiceTest.testUserCredentials
       //          fails. But it appears the value does not matter. Even an invalid userId appears to be OK.
       sParms.setUser(rUser.getOboUserId());
@@ -1578,6 +1582,26 @@ public class SystemsServiceImpl implements SystemsService
       if (skSecret == null) return null;
       var dataMap = skSecret.getSecretMap();
       if (dataMap == null) return null;
+
+      // Determine the loginUser associated with the credential.
+      // If static or dynamic and there is no mapping then it is targetUser
+      //   else look up mapping
+      String loginUser;
+      if (isStaticEffectiveUser)
+      {
+        loginUser = targetUser;
+      }
+      else
+      {
+        // This is the dynamic case, so targetUser must be a Tapis user.
+        // See if that Tapis user has a mapping to a host login user.
+        String mappedLoginUser = dao.getLoginUser(rUser.getOboTenantId(), systemId, targetUser);
+        // If so then the mapped value becomes loginUser, else loginUser=targetUser
+        if (!StringUtils.isBlank(mappedLoginUser))
+          loginUser = mappedLoginUser;
+        else
+          loginUser = targetUser;
+      }
 
       // Create a credential
       credential = new Credential(authnMethod, loginUser,
@@ -2266,7 +2290,6 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /*
-  TODO: This method will need to change to store secrets under separate paths for dynamic/static cases of effectiveUser
    * Create or update a credential
    * No checks are done for incoming arguments and the system must exist
    *
@@ -2276,22 +2299,26 @@ public class SystemsServiceImpl implements SystemsService
    *   and AccountType = TapisThreadContext.AccountType.service
    *
    * For Systems the secret needs to be scoped by the tenant associated with the system,
-   *   the system id and the target Tapis user (i.e. the user associated with the secret).
+   *   the system id, the target user (i.e. the user associated with the secret) and
+   *   whether the effectiveUserId is static or dynamic.
+   *   This provides for separate namespaces for the two cases, so there will be no conflict if a static
+   *      user and dynamic (i.e. ${apiUserId}) user happen to have the same value.
+   * The target user may be a Tapis user or login user associated with the host.
    * Secrets for a system follow the format
-   *   secret/tapis/tenant/tenant_id/system_id/user/user_id/key_type/S1
-   * where tenant_id, system_id, user_id and key_type are filled in at runtime.
+   *   secret/tapis/tenant/<tenant_id>/<system_id>/user/<static|dynamic>/<target_user>/<key_type>/S1
+   * where tenant_id, system_id, user_id, key_type and <static|dynamic> are filled in at runtime.
    *   key_type is sshkey, password, accesskey or cert
    *   and S1 is the reserved SecretName associated with the Systems.
    * Hence, the following code
    *     new SKSecretWriteParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME)
-   *     sParms.setSysId(systemId).setSysUser(userName)
+   *     sParms.setSysId(systemId).setSysUser(targetUserPath)
    *     skClient.writeSecret(reqPayloadTenant, getServiceUserId(), sParms);
    * In the SKClient code the tenant value in SKSecretWriteParms is ignored.
    * See method writeSecret(String tenant, String user, SKSecretWriteParms parms) in SKClient.java
    * SK uses tenant from payload when constructing the full path for the secret. User from payload not used.
    */
   private static void createCredential(SKClient skClient, ResourceRequestUser rUser, Credential credential,
-                                       String systemId, String userName)
+                                       String systemId, String targetUser, boolean isStatic)
           throws TapisClientException
   {
     String oboTenant = rUser.getOboTenantId();
@@ -2299,8 +2326,9 @@ public class SystemsServiceImpl implements SystemsService
     // Construct basic SK secret parameters including tenant, system and Tapis user for credential
     // Establish secret type ("system") and secret name ("S1")
     var sParms = new SKSecretWriteParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
-    // Fill in systemId and userId for the path to the secret.
-    sParms.setSysId(systemId).setSysUser(userName);
+    // Fill in systemId and targetUserPath for the path to the secret.
+    String targetUserPath = getTargetUserSecretPath(targetUser, isStatic);
+    sParms.setSysId(systemId).setSysUser(targetUserPath);
     Map<String, String> dataMap;
     // Check for each secret type and write values if they are present
     // Note that multiple secrets may be present.
@@ -2342,16 +2370,20 @@ public class SystemsServiceImpl implements SystemsService
    * Delete a credential
    * No checks are done for incoming arguments and the system must exist
    */
-  private static int deleteCredential(SKClient skClient, ResourceRequestUser rUser, String systemId, String userName)
+  private static int deleteCredential(SKClient skClient, ResourceRequestUser rUser, String systemId,
+                                      String targetUser, boolean isStatic)
           throws TapisClientException
   {
     String oboTenant = rUser.getOboTenantId();
     String oboUser = rUser.getOboUserId();
 
+    // Determine targetUserPath for the path to the secret.
+    String targetUserPath = getTargetUserSecretPath(targetUser, isStatic);
+
     // Return 0 if credential does not exist
     var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
     sMetaParms.setTenant(oboTenant).setUser(oboUser);
-    sMetaParms.setSysId(systemId).setSysUser(userName);
+    sMetaParms.setSysId(systemId).setSysUser(targetUserPath);
     // NOTE: To be sure we know that the secret does not exist we need to check each key type
     //       By default keyType is sshkey which may not exist
     boolean secretNotFound = true;
@@ -2402,7 +2434,7 @@ public class SystemsServiceImpl implements SystemsService
       skClient.revokeUserPermission(oboTenant, userName, getPermSpecAllStr(oboTenant, systemId));
     }
 
-    // Resolve effectiveUserId if necessary
+    // Resolve effectiveUserId if necessary. This becomes the target user for perm and cred
     String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system);
 
     // TODO remove filesPermSpec related code (jira cic-3071)
@@ -2418,7 +2450,7 @@ public class SystemsServiceImpl implements SystemsService
     // Remove credentials in Security Kernel if effectiveUser is static
     if (!effectiveUserId.equals(APIUSERID_VAR)) {
       // Use private internal method instead of public API to skip auth and other checks not needed here.
-      deleteCredential(skClient, rUser, system.getId(), resolvedEffectiveUserId);
+      deleteCredential(skClient, rUser, system.getId(), resolvedEffectiveUserId, true);
     }
   }
 
@@ -2810,5 +2842,13 @@ public class SystemsServiceImpl implements SystemsService
     if (perms.contains(Permission.MODIFY)) return isPermitted(rUser, oboTenant, oboUser, systemId, Permission.MODIFY);
     if (perms.contains(Permission.READ)) return isPermittedAny(rUser, oboTenant, oboUser, systemId, READMODIFY_PERMS);
     return false;
+  }
+
+  /*
+   * Return segment of secret path for target user, including static or dynamic scope
+   */
+  static private String getTargetUserSecretPath(String targetUser, boolean isStatic)
+  {
+    return String.format("%s/%s", isStatic ? "static" : "dynamic", targetUser);
   }
 }

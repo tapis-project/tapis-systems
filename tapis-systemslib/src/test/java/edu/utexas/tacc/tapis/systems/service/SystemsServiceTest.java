@@ -912,7 +912,7 @@ public class SystemsServiceTest
     // In this case for owner1 and testUser3
     svc.createUserCredential(rOwner1, sys0.getId(), owner1, cred1, skipCredCheckTrue, rawDataEmtpyJson);
     svc.createUserCredential(rOwner1, sys0.getId(), testUser3, cred3, skipCredCheckTrue, rawDataEmtpyJson);
-    // Get system as owner using files service and should get cred for owner
+    // Get system as owner using files service, should get cred for owner
     TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), AuthnMethod.PASSWORD, false, true, null);
     Credential cred0 = tmpSys.getAuthnCredential();
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + owner1);
