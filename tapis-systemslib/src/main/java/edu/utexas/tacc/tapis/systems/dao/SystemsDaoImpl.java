@@ -908,9 +908,9 @@ public class SystemsDaoImpl implements SystemsDao
 
   /**
    * getSystemIDs
-   * Fetch all resource IDs in a tenant
+   * Fetch all system IDs in a tenant
    * @param tenant - tenant name
-   * @param showDeleted - whether to included resources that have been marked as deleted.
+   * @param showDeleted - whether to included systems that have been marked as deleted.
    * @return - List of app names
    * @throws TapisException - on error
    */

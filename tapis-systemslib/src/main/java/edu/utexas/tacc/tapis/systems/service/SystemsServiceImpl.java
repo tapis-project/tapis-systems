@@ -17,6 +17,8 @@ import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import edu.utexas.tacc.tapis.shared.security.TenantManager;
+import edu.utexas.tacc.tapis.tenants.client.gen.model.Tenant;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
@@ -145,6 +147,8 @@ public class SystemsServiceImpl implements SystemsService
     serviceContext.initServiceJWT(siteId, SYSTEMS_SERVICE, svcPassword);
     // Make sure DB is present and updated to latest version using flyway
     dao.migrateDB();
+    // One time migration of secrets for Tapis Systems version 1.1.5
+    migrateAllCredentialsToStaticDynamic();
   }
 
   /**
@@ -255,7 +259,7 @@ public class SystemsServiceImpl implements SystemsService
     // Use try/catch to rollback any writes in case of failure.
     boolean itemCreated = false;
     String systemsPermSpecALL = getPermSpecAllStr(tenant, systemId);
-    // TODO remove filesPermSpec related code (jira cic-3071)
+    // Consider using a notification instead(jira cic-3071)
     String filesPermSpec = "files:" + tenant + ":*:" + systemId;
 
     // Get SK client now. If we cannot get this rollback not needed.
@@ -268,7 +272,7 @@ public class SystemsServiceImpl implements SystemsService
       // ------------------- Add permissions -----------------------------
       // Give owner full access to the system
       skClient.grantUserPermission(tenant, system.getOwner(), systemsPermSpecALL);
-      // TODO remove filesPermSpec related code (jira cic-3071)
+      // Consider using a notification instead(jira cic-3071)
       // Give owner files service related permission for root directory
       skClient.grantUserPermission(tenant, system.getOwner(), filesPermSpec);
 
@@ -296,7 +300,7 @@ public class SystemsServiceImpl implements SystemsService
       // Remove perms
       try { skClient.revokeUserPermission(tenant, system.getOwner(), systemsPermSpecALL); }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermOwner", e.getMessage()));}
-      // TODO remove filesPermSpec related code (jira cic-3071)
+      // Consider using a notification instead(jira cic-3071)
       try { skClient.revokeUserPermission(tenant, system.getOwner(), filesPermSpec);  }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
       // Remove creds
@@ -601,12 +605,12 @@ public class SystemsServiceImpl implements SystemsService
 
     // Add permissions for owner
     String systemsPermSpecALL = getPermSpecAllStr(oboTenant, systemId);
-    // TODO remove filesPermSpec related code (jira cic-3071)
+    // Consider using a notification instead(jira cic-3071)
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
     var skClient = getSKClient();
     // Give owner and possibly effectiveUser full access to the system
     skClient.grantUserPermission(oboTenant, owner, systemsPermSpecALL);
-    // TODO remove filesPermSpec related code (jira cic-3071)
+    // Consider using a notification instead(jira cic-3071)
     // Give owner files service related permission for root directory
     skClient.grantUserPermission(oboTenant, owner, filesPermSpec);
 
@@ -682,7 +686,7 @@ public class SystemsServiceImpl implements SystemsService
     {
       // Something went wrong. Attempt to undo all changes and then re-throw the exception
       try { dao.updateSystemOwner(rUser, systemId, newOwnerName, oldOwnerName); } catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "updateOwner", e.getMessage()));}
-      // TODO remove filesPermSpec related code (jira cic-3071)
+      // Consider using a notification instead(jira cic-3071)
       try { skClient.revokeUserPermission(oboTenant, newOwnerName, filesPermSpec); }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermNewOwner", e.getMessage()));}
       try { skClient.revokeUserPermission(oboTenant, newOwnerName, filesPermSpec); }
@@ -732,7 +736,7 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Hard delete all resources in the "test" tenant.
+   * Hard delete all systems in the "test" tenant.
    * Also remove artifacts from the Security Kernel.
    * NOTE: This is package-private. Only test code should ever use it.
    *
@@ -1852,7 +1856,7 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Get Security Kernel client
-   * Note: The service always calls SK as itself.
+   * Note: Systems service always calls SK as itself.
    * @return SK client
    * @throws TapisException - for Tapis related exceptions
    */
@@ -2437,7 +2441,7 @@ public class SystemsServiceImpl implements SystemsService
     // Resolve effectiveUserId if necessary. This becomes the target user for perm and cred
     String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system);
 
-    // TODO remove filesPermSpec related code (jira cic-3071)
+    // Consider using a notification instead(jira cic-3071)
     // Remove files perm for owner and possibly effectiveUser
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
     skClient.revokeUserPermission(oboTenant, system.getOwner(), filesPermSpec);
@@ -2850,5 +2854,193 @@ public class SystemsServiceImpl implements SystemsService
   static private String getTargetUserSecretPath(String targetUser, boolean isStatic)
   {
     return String.format("%s/%s", isStatic ? "static" : "dynamic", targetUser);
+  }
+
+  /*
+   * Migrate all credentials to a static or dynamic path in SK
+   * This is a one time migration for Tapis Systems version 1.1.5
+   * Iterate over all tenants, all systems in a tenant and all users of a system
+   */
+  private void migrateAllCredentialsToStaticDynamic()
+          throws TapisException, TapisClientException, NotAuthorizedException
+  {
+    // We will need to call SK to find users of a system, remove secrets and re-write them to new paths.
+    var skClient = getSKClient();
+    // Get the list of tenants and iterate over them
+    Map<String, Tenant> tenants = TenantManager.getInstance().getTenants();
+    for (String tenantId : tenants.keySet())
+    {
+      // Fetch all systems including deleted items and iterate
+      var systemIdSet = dao.getSystemIDs(tenantId, true);
+      for (String systemId : systemIdSet)
+      {
+        // We will need info from the system, so fetch it
+        TSystem system = dao.getSystem(tenantId, systemId, true);
+        // Determine if effUser is static or dynamic
+        boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+
+        // Use Security Kernel client to find all users with perms associated with the system.
+        String permSpec = String.format(PERM_SPEC_TEMPLATE, tenantId, "%", systemId);
+        var userNames = skClient.getUsersWithPermission(tenantId, permSpec);
+        // Iterate over all users
+        for (String userName : userNames)
+        {
+          // Determine targetUser for credential. If static then effectiveUserId, else the Tapis user
+          String targetUser = isStaticEffectiveUser ? system.getEffectiveUserId() : userName;
+          // Get credential with all secrets from old path
+          Credential cred = getAllOldSecretsForTargetUser(skClient, tenantId, systemId, targetUser);
+          // Write secrets to the new path
+          createCredentialAtNewPath(skClient, tenantId, systemId, targetUser, cred, isStaticEffectiveUser);
+          // Remove the old secrets
+          deleteOldCredential(skClient, tenantId, systemId, targetUser);
+        }
+      }
+    }
+  }
+
+  /*
+   * Get credential for targetUser with all secrets filled in
+   */
+  private static Credential getAllOldSecretsForTargetUser(SKClient skClient, String tenantId, String systemId,
+                                                          String targetUser)
+      throws TapisClientException
+  {
+    Credential credential = null;
+    // Construct basic SK secret parameters
+    // Establish secret type ("system") and secret name ("S1")
+    var sParms = new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
+
+    // Fill in systemId and targetUser for the path to the secret.
+    // Set tenant, system and user associated with the secret.
+    // These values are used to build the vault path to the secret.
+    sParms.setTenant(tenantId).setSysId(systemId).setSysUser(targetUser);
+
+    // NOTE: Next line is needed for the SK call. Not clear if it should be targetUser, serviceUserId, oboUser.
+    //       If not set then the first getAuthnCred in SystemsServiceTest.testUserCredentials
+    //          fails. But it appears the value does not matter. Even an invalid userId appears to be OK.
+    // For migration there is no oboUser, use the service name
+    sParms.setUser(TapisConstants.SERVICE_NAME_SYSTEMS);
+
+    // We will need to fetch each keyType in turn and fill in the secrets before we can create a Credential
+    //   with all secrets populated
+    SkSecret skSecret;
+    Map<String, String> dataMap;
+    var dataMapFull = new HashMap<String, String>();
+
+    // Fetch each key type in turn
+    // NOTE ignore all TapisClientExceptions because SK throws the exception if the secret does not exist.
+    // PASSWORD
+    sParms.setKeyType(KeyType.password);
+    skSecret = null;
+    try { skSecret = skClient.readSecret(sParms); } catch (TapisClientException e) {_log.warn(e.toString());}
+    if (skSecret != null)
+    {
+      dataMap = skSecret.getSecretMap();
+      if (dataMap != null) dataMapFull.put(SK_KEY_PASSWORD, dataMap.get(SK_KEY_PASSWORD));
+    }
+    // SSH_KEY
+    sParms.setKeyType(KeyType.sshkey);
+    skSecret = null;
+    try { skSecret = skClient.readSecret(sParms); } catch (TapisClientException e) {_log.warn(e.toString());}
+    if (skSecret != null)
+    {
+      dataMap = skSecret.getSecretMap();
+      if (dataMap != null) dataMapFull.put(SK_KEY_PRIVATE_KEY, dataMap.get(SK_KEY_PRIVATE_KEY));
+      if (dataMap != null) dataMapFull.put(SK_KEY_PUBLIC_KEY, dataMap.get(SK_KEY_PUBLIC_KEY));
+    }
+    // ACCESS_KEY
+    sParms.setKeyType(KeyType.accesskey);
+    skSecret = null;
+    try { skSecret = skClient.readSecret(sParms); } catch (TapisClientException e) {_log.warn(e.toString());}
+    if (skSecret != null)
+    {
+      dataMap = skSecret.getSecretMap();
+      if (dataMap != null) dataMapFull.put(SK_KEY_ACCESS_KEY, dataMap.get(SK_KEY_ACCESS_KEY));
+      if (dataMap != null) dataMapFull.put(SK_KEY_ACCESS_SECRET, dataMap.get(SK_KEY_ACCESS_SECRET));
+    }
+
+    // Create a credential
+    credential = new Credential(null, null,
+            dataMapFull.get(SK_KEY_PASSWORD),
+            dataMapFull.get(SK_KEY_PRIVATE_KEY),
+            dataMapFull.get(SK_KEY_PUBLIC_KEY),
+            dataMapFull.get(SK_KEY_ACCESS_KEY),
+            dataMapFull.get(SK_KEY_ACCESS_SECRET),
+            null); //dataMap.get(CERT) TODO: get ssh certificate when supported
+    return credential;
+  }
+
+  /*
+   * Create secrets at new path including dynamic/static in path
+   */
+  private static void createCredentialAtNewPath(SKClient skClient, String tenantId,  String systemId,
+                                                String targetUser, Credential credential, boolean isStatic)
+          throws TapisClientException
+  {
+    // Construct basic SK secret parameters including tenant, system and Tapis user for credential
+    // Establish secret type ("system") and secret name ("S1")
+    var sParms = new SKSecretWriteParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
+    // Fill in systemId and targetUserPath for the path to the secret.
+    String targetUserPath = getTargetUserSecretPath(targetUser, isStatic);
+    sParms.setSysId(systemId).setSysUser(targetUserPath);
+    Map<String, String> dataMap;
+    // Check for each secret type and write values if they are present
+    // Note that multiple secrets may be present.
+    // Store password if present
+    if (!StringUtils.isBlank(credential.getPassword()))
+    {
+      dataMap = new HashMap<>();
+      sParms.setKeyType(KeyType.password);
+      dataMap.put(SK_KEY_PASSWORD, credential.getPassword());
+      sParms.setData(dataMap);
+      // First 2 parameters correspond to tenant and user from request payload
+      // Tenant is used in constructing full path for secret, user is not used.
+      // For migration there is no oboUser, use the service name
+      skClient.writeSecret(tenantId, TapisConstants.SERVICE_NAME_SYSTEMS, sParms);
+    }
+    // Store PKI keys if both present
+    if (!StringUtils.isBlank(credential.getPublicKey()) && !StringUtils.isBlank(credential.getPublicKey()))
+    {
+      dataMap = new HashMap<>();
+      sParms.setKeyType(KeyType.sshkey);
+      dataMap.put(SK_KEY_PUBLIC_KEY, credential.getPublicKey());
+      dataMap.put(SK_KEY_PRIVATE_KEY, credential.getPrivateKey());
+      sParms.setData(dataMap);
+      skClient.writeSecret(tenantId, TapisConstants.SERVICE_NAME_SYSTEMS, sParms);
+    }
+    // Store Access key and secret if both present
+    if (!StringUtils.isBlank(credential.getAccessKey()) && !StringUtils.isBlank(credential.getAccessSecret()))
+    {
+      dataMap = new HashMap<>();
+      sParms.setKeyType(KeyType.accesskey);
+      dataMap.put(SK_KEY_ACCESS_KEY, credential.getAccessKey());
+      dataMap.put(SK_KEY_ACCESS_SECRET, credential.getAccessSecret());
+      sParms.setData(dataMap);
+      skClient.writeSecret(tenantId, TapisConstants.SERVICE_NAME_SYSTEMS, sParms);
+    }
+  }
+
+  /**
+   * Delete all secrets from old path
+   */
+  private static void deleteOldCredential(SKClient skClient, String tenantId, String systemId,
+                                          String targetUser)
+          throws TapisClientException
+  {
+    var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
+    sMetaParms.setTenant(tenantId).setUser(TapisConstants.SERVICE_NAME_SYSTEMS);
+    sMetaParms.setSysId(systemId).setSysUser(targetUser);
+
+    // Construct basic SK secret parameters and attempt to destroy each type of secret.
+    // If destroy attempt throws an exception then log a message and continue.
+    sMetaParms.setKeyType(KeyType.password);
+    try { skClient.destroySecretMeta(sMetaParms); }
+    catch (Exception e) { _log.warn(e.getMessage()); }
+    sMetaParms.setKeyType(KeyType.sshkey);
+    try { skClient.destroySecretMeta(sMetaParms); }
+    catch (Exception e) { _log.warn(e.getMessage()); }
+    sMetaParms.setKeyType(KeyType.accesskey);
+    try { skClient.destroySecretMeta(sMetaParms); }
+    catch (Exception e) { _log.warn(e.getMessage()); }
   }
 }
