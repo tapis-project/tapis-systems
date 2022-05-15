@@ -64,11 +64,11 @@ public class SystemsServiceTest
   private SystemsServiceImpl svcImpl;
   private ResourceRequestUser rOwner1, rTestUser0, rTestUser1, rTestUser2,
           rTestUser3, rTestUser4, rAdminUser, rSystemsSvc,
-          rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4;
+          rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rJobsSvcTestUser1;
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
-  int numSystems = 28; // UNUSED SYSTEMS: systems[3]
+  int numSystems = 29; // UNUSED SYSTEMS: systems[3]
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
@@ -1007,6 +1007,56 @@ public class SystemsServiceTest
     Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null for impersonated user: " + testUser4);
     Assert.assertEquals(cred0.getPassword(), cred4.getPassword(), "Retrieved password incorrect for impersonated user");
     Assert.assertEquals(tmpSys.getEffectiveUserId(), testUser4LinuxUser, "Mapping of Tapis user to loginUser incorrect");
+  }
+
+  // Test creating, reading and deleting user credentials for a system
+  //  for the case of a static effectiveUserId
+  @Test
+  public void testUserCredentialsStaticEffUser() throws Exception
+  {
+    // Create a system where effectiveUserId is static and credentials are provided with system definition.
+    TSystem sys0 = systems[28];
+    Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
+            "fakeAccessKey1", "fakeAccessSecret1", "fakeCert1");
+    sys0.setEffectiveUserId(effectiveUserId1);
+    sys0.setAuthnCredential(cred1);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+
+    // Get system as owner using files service, should get cred for static effUser
+    TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse,
+                                   getCredsTrue, impersonationIdNull);
+    Credential cred0 = tmpSys.getAuthnCredential();
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null");
+    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
+    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null");
+    Assert.assertEquals(cred0.getPassword(), cred1.getPassword());
+    // Make sure cred has correct loginUser, the static value
+    Assert.assertEquals(cred0.getLoginUser(), effectiveUserId1, "Incorrect loginUser. Should be static effUser");
+
+    // Fetch credentials directly using targetUser=<static effUser>
+    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), effectiveUserId1, AuthnMethod.PASSWORD);
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null");
+    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
+    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null");
+    Assert.assertEquals(cred0.getPassword(), cred1.getPassword());
+    Assert.assertEquals(cred0.getLoginUser(), effectiveUserId1, "Incorrect loginUser. Should be static effUser");
+
+    // Owner should have no credentials
+    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), owner1, AuthnMethod.PASSWORD);
+    Assert.assertNull(cred0, "AuthnCredential should be null for owner");
+
+    // When impersonating should still get back same cred and loginUser
+    // Give testUser4 READ access to the system. Normally this would be done through sharing and call would
+    // be made with impersonationId set to the system owner but here we are testing loginUser mapping, not impersonation.
+    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser4, testPermsREAD, rawDataEmtpyJson);
+    tmpSys = svc.getSystem(rFilesSvcTestUser3, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
+                           testUser4);
+    cred0 = tmpSys.getAuthnCredential();
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null");
+    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
+    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null");
+    Assert.assertEquals(cred0.getPassword(), cred1.getPassword());
+    Assert.assertEquals(cred0.getLoginUser(), effectiveUserId1, "Incorrect loginUser. Should be static effUser");
   }
 
   // Test various cases when system is missing

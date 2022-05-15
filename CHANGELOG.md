@@ -16,6 +16,7 @@ Incremental improvements and preview of new features.
 
 ### New features:
 - Support mapping of a Tapis user to a login user when effectiveUserId is dynamic.
+- Store secrets in SK under separate paths for static and dynamic effectiveUserId.
 
 ### Bug fixes:
 - None
