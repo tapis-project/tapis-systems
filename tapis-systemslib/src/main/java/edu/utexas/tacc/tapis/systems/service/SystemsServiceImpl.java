@@ -2856,6 +2856,10 @@ public class SystemsServiceImpl implements SystemsService
     return String.format("%s/%s", isStatic ? "static" : "dynamic", targetUser);
   }
 
+  // ************************************************************************
+  // **************************  Migration **********************************
+  // ************************************************************************
+
   /*
    * Migrate all credentials to a static or dynamic path in SK
    * This is a one time migration for Tapis Systems version 1.1.5
@@ -2864,6 +2868,7 @@ public class SystemsServiceImpl implements SystemsService
   private void migrateAllCredentialsToStaticDynamic()
           throws TapisException, TapisClientException, NotAuthorizedException
   {
+    _log.warn("MIGRATE: START Migrating secrets to static/dynamic paths");
     // We will need to call SK to find users of a system, remove secrets and re-write them to new paths.
     var skClient = getSKClient();
     // Get the list of tenants and iterate over them
@@ -2874,6 +2879,7 @@ public class SystemsServiceImpl implements SystemsService
       var systemIdSet = dao.getSystemIDs(tenantId, true);
       for (String systemId : systemIdSet)
       {
+        _log.warn("MIGRATE: Tenant {} System: {}", tenantId, systemId);
         // We will need info from the system, so fetch it
         TSystem system = dao.getSystem(tenantId, systemId, true);
         // Determine if effUser is static or dynamic
@@ -2887,12 +2893,20 @@ public class SystemsServiceImpl implements SystemsService
         {
           // Determine targetUser for credential. If static then effectiveUserId, else the Tapis user
           String targetUser = isStaticEffectiveUser ? system.getEffectiveUserId() : userName;
+          _log.warn("MIGRATE: Tenant {} System: {} User: {} TargetUser: {} isStatic: {}",
+                    tenantId, systemId, userName, targetUser, isStaticEffectiveUser);
           // Get credential with all secrets from old path
-          Credential cred = getAllOldSecretsForTargetUser(skClient, tenantId, systemId, targetUser);
+          Credential cred = getAllOldSecretsForTargetUser(skClient, tenantId, systemId, userName, targetUser);
+          _log.warn("MIGRATE: Tenant {} System: {} User: {} TargetUser: {} Got old secrets",
+                    tenantId, systemId, userName, targetUser);
           // Write secrets to the new path
-          createCredentialAtNewPath(skClient, tenantId, systemId, targetUser, cred, isStaticEffectiveUser);
+          createCredentialAtNewPath(skClient, tenantId, systemId, userName, targetUser, cred, isStaticEffectiveUser);
+          _log.warn("MIGRATE: Tenant {} System: {} User: {} TargetUser: {} Wrote new secrets",
+                    tenantId, systemId, userName, targetUser);
           // Remove the old secrets
-          deleteOldCredential(skClient, tenantId, systemId, targetUser);
+          deleteOldCredential(skClient, tenantId, systemId, userName, targetUser);
+          _log.warn("MIGRATE: Tenant {} System: {} User: {} TargetUser: {} Removed old secrets",
+                    tenantId, systemId, userName, targetUser);
         }
       }
     }
@@ -2902,7 +2916,7 @@ public class SystemsServiceImpl implements SystemsService
    * Get credential for targetUser with all secrets filled in
    */
   private static Credential getAllOldSecretsForTargetUser(SKClient skClient, String tenantId, String systemId,
-                                                          String targetUser)
+                                                          String userName, String targetUser)
       throws TapisClientException
   {
     Credential credential = null;
@@ -2936,7 +2950,12 @@ public class SystemsServiceImpl implements SystemsService
     if (skSecret != null)
     {
       dataMap = skSecret.getSecretMap();
-      if (dataMap != null) dataMapFull.put(SK_KEY_PASSWORD, dataMap.get(SK_KEY_PASSWORD));
+      if (dataMap != null)
+      {
+        _log.warn("MIGRATE: Tenant {} System: {} User: {} TargetUser: {} Got password",
+                  tenantId, systemId, userName, targetUser);
+        dataMapFull.put(SK_KEY_PASSWORD, dataMap.get(SK_KEY_PASSWORD));
+      }
     }
     // SSH_KEY
     sParms.setKeyType(KeyType.sshkey);
@@ -2945,8 +2964,18 @@ public class SystemsServiceImpl implements SystemsService
     if (skSecret != null)
     {
       dataMap = skSecret.getSecretMap();
-      if (dataMap != null) dataMapFull.put(SK_KEY_PRIVATE_KEY, dataMap.get(SK_KEY_PRIVATE_KEY));
-      if (dataMap != null) dataMapFull.put(SK_KEY_PUBLIC_KEY, dataMap.get(SK_KEY_PUBLIC_KEY));
+      if (dataMap != null)
+      {
+        _log.warn("MIGRATE: Tenant {} System: {} User: {} TargetUser: {} Got private key",
+                  tenantId, systemId, userName, targetUser);
+        dataMapFull.put(SK_KEY_PRIVATE_KEY, dataMap.get(SK_KEY_PRIVATE_KEY));
+      }
+      if (dataMap != null)
+      {
+        _log.warn("MIGRATE: Tenant {} System: {} User: {} TargetUser: {} Got public key",
+                  tenantId, systemId, userName, targetUser);
+        dataMapFull.put(SK_KEY_PUBLIC_KEY, dataMap.get(SK_KEY_PUBLIC_KEY));
+      }
     }
     // ACCESS_KEY
     sParms.setKeyType(KeyType.accesskey);
@@ -2955,8 +2984,18 @@ public class SystemsServiceImpl implements SystemsService
     if (skSecret != null)
     {
       dataMap = skSecret.getSecretMap();
-      if (dataMap != null) dataMapFull.put(SK_KEY_ACCESS_KEY, dataMap.get(SK_KEY_ACCESS_KEY));
-      if (dataMap != null) dataMapFull.put(SK_KEY_ACCESS_SECRET, dataMap.get(SK_KEY_ACCESS_SECRET));
+      if (dataMap != null)
+      {
+        _log.warn("MIGRATE: Tenant {} System: {} User: {} TargetUser: {} Got access key",
+                  tenantId, systemId, userName, targetUser);
+        dataMapFull.put(SK_KEY_ACCESS_KEY, dataMap.get(SK_KEY_ACCESS_KEY));
+      }
+      if (dataMap != null)
+      {
+        _log.warn("MIGRATE: Tenant {} System: {} User: {} TargetUser: {} Got access secret",
+                  tenantId, systemId, userName, targetUser);
+        dataMapFull.put(SK_KEY_ACCESS_SECRET, dataMap.get(SK_KEY_ACCESS_SECRET));
+      }
     }
 
     // Create a credential
@@ -2966,14 +3005,14 @@ public class SystemsServiceImpl implements SystemsService
             dataMapFull.get(SK_KEY_PUBLIC_KEY),
             dataMapFull.get(SK_KEY_ACCESS_KEY),
             dataMapFull.get(SK_KEY_ACCESS_SECRET),
-            null); //dataMap.get(CERT) TODO: get ssh certificate when supported
+            null); // No support yet for ssh certificates
     return credential;
   }
 
   /*
    * Create secrets at new path including dynamic/static in path
    */
-  private static void createCredentialAtNewPath(SKClient skClient, String tenantId,  String systemId,
+  private static void createCredentialAtNewPath(SKClient skClient, String tenantId,  String systemId, String userName,
                                                 String targetUser, Credential credential, boolean isStatic)
           throws TapisClientException
   {
@@ -2997,6 +3036,8 @@ public class SystemsServiceImpl implements SystemsService
       // Tenant is used in constructing full path for secret, user is not used.
       // For migration there is no oboUser, use the service name
       skClient.writeSecret(tenantId, TapisConstants.SERVICE_NAME_SYSTEMS, sParms);
+      _log.warn("MIGRATE: Tenant {} System: {} User: {} TargetUser: {} Wrote password",
+                tenantId, systemId, userName, targetUser);
     }
     // Store PKI keys if both present
     if (!StringUtils.isBlank(credential.getPublicKey()) && !StringUtils.isBlank(credential.getPublicKey()))
@@ -3007,6 +3048,8 @@ public class SystemsServiceImpl implements SystemsService
       dataMap.put(SK_KEY_PRIVATE_KEY, credential.getPrivateKey());
       sParms.setData(dataMap);
       skClient.writeSecret(tenantId, TapisConstants.SERVICE_NAME_SYSTEMS, sParms);
+      _log.warn("MIGRATE: Tenant {} System: {} User: {} TargetUser: {} Wrote ssh keys",
+                tenantId, systemId, userName, targetUser);
     }
     // Store Access key and secret if both present
     if (!StringUtils.isBlank(credential.getAccessKey()) && !StringUtils.isBlank(credential.getAccessSecret()))
@@ -3017,6 +3060,8 @@ public class SystemsServiceImpl implements SystemsService
       dataMap.put(SK_KEY_ACCESS_SECRET, credential.getAccessSecret());
       sParms.setData(dataMap);
       skClient.writeSecret(tenantId, TapisConstants.SERVICE_NAME_SYSTEMS, sParms);
+      _log.warn("MIGRATE: Tenant {} System: {} User: {} TargetUser: {} Wrote access key/secret",
+                tenantId, systemId, userName, targetUser);
     }
   }
 
@@ -3024,9 +3069,11 @@ public class SystemsServiceImpl implements SystemsService
    * Delete all secrets from old path
    */
   private static void deleteOldCredential(SKClient skClient, String tenantId, String systemId,
-                                          String targetUser)
+                                          String userName, String targetUser)
           throws TapisClientException
   {
+    _log.warn("MIGRATE: Tenant {} System: {} User: {} TargetUser: {} Removing old secrets",
+              tenantId, systemId, userName, targetUser);
     var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
     sMetaParms.setTenant(tenantId).setUser(TapisConstants.SERVICE_NAME_SYSTEMS);
     sMetaParms.setSysId(systemId).setSysUser(targetUser);
