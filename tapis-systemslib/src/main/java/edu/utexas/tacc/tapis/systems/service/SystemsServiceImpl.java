@@ -1569,9 +1569,8 @@ public class SystemsServiceImpl implements SystemsService
       // Fill in systemId and targetUserPath for the path to the secret.
       String targetUserPath = getTargetUserSecretPath(targetUser, isStaticEffectiveUser);
 
-      // TODO reset path to static/dynamic todo staticdynamic
-      targetUserPath = targetUser;
-      // TODO
+      // TODO reset path to static/dynamic staticdynamic
+//      targetUserPath = targetUser;
 
       // Set tenant, system and user associated with the secret.
       // These values are used to build the vault path to the secret.
@@ -2338,9 +2337,8 @@ public class SystemsServiceImpl implements SystemsService
     var sParms = new SKSecretWriteParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
     // Fill in systemId and targetUserPath for the path to the secret.
     String targetUserPath = getTargetUserSecretPath(targetUser, isStatic);
-    // TODO: Revert to static/dynamic todo staticdynamic
-    targetUserPath = targetUser;
-// TODO
+    // TODO: Revert to static/dynamic staticdynamic
+//    targetUserPath = targetUser;
 
     sParms.setSysId(systemId).setSysUser(targetUserPath);
     Map<String, String> dataMap;
@@ -2393,9 +2391,8 @@ public class SystemsServiceImpl implements SystemsService
 
     // Determine targetUserPath for the path to the secret.
     String targetUserPath = getTargetUserSecretPath(targetUser, isStatic);
-    // TODO reset path to static/dynamic todo staticdynamic
-    targetUserPath = targetUser;
-    // TODO
+    // TODO reset path to static/dynamic staticdynamic
+//    targetUserPath = targetUser;
 
     // Return 0 if credential does not exist
     var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
