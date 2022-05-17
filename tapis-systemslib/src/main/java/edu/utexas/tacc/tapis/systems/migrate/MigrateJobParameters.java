@@ -29,10 +29,10 @@ public class MigrateJobParameters
   /*                                 Fields                                 */
   /* ********************************************************************** */
   // --------- Optional Parameters -----------
-  @Option(name = "-w", aliases = {"--wetrun"}, usage = "Make permanent changes. By default it is a dry run.")
+  @Option(name = "--wetrun", usage = "Make permanent changes. By default it is a dry run.")
   public boolean isWetRun = false;
 
-  @Option(name = "-help", aliases = {"--help"}, usage = "display help information")
+  @Option(name = "-help", aliases = {"--help", "-h", "-?"}, usage = "display help information")
   public boolean help;
 
 
