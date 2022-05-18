@@ -1,38 +1,24 @@
 #!/bin/sh
-# Build and optionally push docker image for Systems service
-# This is the script run in Jenkins as part of job TapisJava->3_ManualBuildDeploy->systems
-# Environment name must be passed in as first argument
+# Build and optionally push docker image for Systems service migrate job
+# This is the job run in Jenkins as an optional part of job TapisJava->3_ManualBuildDeploy->systems
 # Existing docker login is used for push
-# Docker image is created with a unique tag: tapis/<SVC_NAME>-<ENV>-<VER>-<COMMIT>-<YYYYmmddHHMM>
+# Docker image is created with a unique tag: tapis/<SVC_NAME>-<VER>-<COMMIT>-<YYYYmmddHHMM>
 #   - other tags are created and updated as appropriate
 #
-# Env var TAPIS_DEPLOY_MANUAL may be set to "true" to indicate it is a manual deployment and the
-#   image should also be tagged with $ENV
-
 PrgName=$(basename "$0")
 
-USAGE="Usage: $PrgName { dev staging prod } [ -push ]"
+USAGE="Usage: $PrgName [ -push ]"
 
-SVC_NAME="systems"
+SVC_NAME="systems-migratejob"
 REPO="tapis"
 
 BUILD_DIR=../tapis-systemsapi/target
-ENV=$1
 
-# Check number of arguments
-if [ $# -lt 1 -o $# -gt 2 ]; then
+# Check number of arguments and 1st arg if present
+if [ $# -gt 1 ]; then
   echo "$USAGE"
   exit 1
-fi
-
-# Check that env name is valid
-if [ "$ENV" != "dev" -a "$ENV" != "staging" -a "$ENV" != "prod" ]; then
-  echo "$USAGE"
-  exit 1
-fi
-
-# Check second arg
-if [ $# -eq 2 -a "x$2" != "x-push" ]; then
+elif [ "x$1" != "x-push" ]; then
   echo "$USAGE"
   exit 1
 fi
@@ -51,7 +37,7 @@ if [ ! -d "$BUILD_DIR" ]; then
 fi
 
 # Copy Dockerfile to build dir
-cp Dockerfile $BUILD_DIR
+cp Dockerfile_migratejob $BUILD_DIR
 
 # Move to the build directory
 cd $BUILD_DIR || exit
@@ -60,10 +46,8 @@ cd $BUILD_DIR || exit
 VER=$(cat classes/tapis.version)
 GIT_BRANCH_LBL=$(awk '{print $1}' classes/git.info)
 GIT_COMMIT_LBL=$(awk '{print $2}' classes/git.info)
-TAG_UNIQ="${REPO}/${SVC_NAME}:${ENV}-${VER}-$(date +%Y%m%d%H%M)-${GIT_COMMIT_LBL}"
-TAG_ENV="${REPO}/${SVC_NAME}:${ENV}"
-TAG_LATEST="${REPO}/${SVC_NAME}:latest"
-TAG_LOCAL="${REPO}/${SVC_NAME}:dev_local"
+TAG_UNIQ="${REPO}/${SVC_NAME}:${VER}-$(date +%Y%m%d%H%M)-${GIT_COMMIT_LBL}"
+TAG_VER="${REPO}/${SVC_NAME}:${VER}"
 
 # If branch name is UNKNOWN or empty as might be the case in a jenkins job then
 #   set it to GIT_BRANCH. Jenkins jobs should have this set in the env.
@@ -73,34 +57,22 @@ fi
 
 # Build image from Dockerfile
 echo "Building local image using primary tag: $TAG_UNIQ"
-echo "  ENV=        ${ENV}"
 echo "  VER=        ${VER}"
 echo "  GIT_BRANCH_LBL= ${GIT_BRANCH_LBL}"
 echo "  GIT_COMMIT_LBL= ${GIT_COMMIT_LBL}"
-docker build -f Dockerfile \
+docker build -f Dockerfile_migratejob \
    --label VER="${VER}" --label GIT_COMMIT="${GIT_COMMIT_LBL}" --label GIT_BRANCH="${GIT_BRANCH_LBL}" \
     -t "${TAG_UNIQ}" .
 
-# Create other tags for remote repo
-echo "Creating image for local testing user tag: $TAG_LOCAL"
-docker tag "$TAG_UNIQ" "$TAG_LOCAL"
+# Create other tags
+echo "Creating image for local testing user tag: $TAG_VER"
+docker tag "$TAG_UNIQ" "$TAG_VER"
 
 # Push to remote repo
 if [ "x$2" = "x-push" ]; then
-  if [ "$ENV" = "prod" ]; then
-    echo "Creating third image tag for prod env: $TAG_LATEST"
-    docker tag "$TAG_UNIQ" "$TAG_LATEST"
-  fi
   echo "Pushing images to docker hub."
   # NOTE: Use current login. Jenkins job does login
   docker push "$TAG_UNIQ"
-  if [ "x$TAPIS_DEPLOY_MANUAL" = "xtrue" ]; then
-    echo "Creating ENV image tag: $TAG_ENV"
-    docker tag "$TAG_UNIQ" "$TAG_ENV"
-    docker push "$TAG_ENV"
-  fi
-  if [ "$ENV" = "prod" ]; then
-    docker push "$TAG_LATEST"
-  fi
+  docker push "$TAG_VER"
 fi
 cd "$RUN_DIR"

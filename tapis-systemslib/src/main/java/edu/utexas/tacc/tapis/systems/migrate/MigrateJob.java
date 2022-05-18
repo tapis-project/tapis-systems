@@ -51,7 +51,7 @@ import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.PERM_SPEC
  * Run java based non-DB migration steps for the Systems service.
  *
  * By default, it is a dry run, no permanent changes are made.
- * Use option -w or --wetrun to apply changes.
+ * Use option --wetrun to apply changes.
  * 
  * Based on SKAdmin from tapis-java repository: https://github.com/tapis-project/tapis-java
  */
@@ -68,7 +68,6 @@ public class MigrateJob
   /* ********************************************************************** */
   private final MigrateJobParameters _parms;
 
-  private SystemsServiceImpl svcImpl;
   private SystemsDao dao;
   private ServiceClients serviceClients;
 
@@ -438,7 +437,7 @@ public class MigrateJob
     String siteId = runParms.getSiteId();
     siteAdminTenantId = TenantManager.getInstance(url).getSiteAdminTenantId(siteId);
     // Initialize services
-    svcImpl = locator.getService(SystemsServiceImpl.class);
+    SystemsServiceImpl svcImpl = locator.getService(SystemsServiceImpl.class);
     svcImpl.initService(siteId, siteAdminTenantId, RuntimeParameters.getInstance().getServicePassword());
     dao = new SystemsDaoImpl();
     serviceClients = ServiceClients.getInstance();
