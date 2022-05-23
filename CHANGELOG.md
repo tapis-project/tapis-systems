@@ -10,13 +10,14 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.1.5 - 2022-??-??
+## 1.2.0 - 2022-05-23
 
-Incremental improvements and preview of new features.
+Incremental improvements and new features.
 
 ### New features:
 - Support mapping of a Tapis user to a login user when effectiveUserId is dynamic.
 - Store secrets in SK under separate paths for static and dynamic effectiveUserId.
+- Standalone java program (MigrateJob.java) for performing a one-time migration of data for the Systems service.
 
 ### Bug fixes:
 - None

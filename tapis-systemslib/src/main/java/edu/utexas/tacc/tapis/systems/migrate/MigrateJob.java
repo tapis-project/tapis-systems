@@ -48,8 +48,19 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.PERM_SPEC_TEMPLATE;
 
 /*
- * Run java based non-DB migration steps for the Systems service.
+ * Perform a one-time java based non-DB migration of data for the Systems service.
+ * For migration to version 1.2.0
  *
+ * The program should be started up in the same manner as the Systems service api application.
+ * Typically it is run only once, although significant effort should be made to ensure that each
+ * incarnation of this job is idempotent since it may have to be run more than once if there are issues.
+ *
+ * The Systems service api should be shut down before running this job. The job output (the logs) should
+ * be checked to confirm there were no errors.
+ *
+ * This program will need to be updated for migration to a specific version of the Systems service.
+ *
+ * Current vers
  * By default, it is a dry run, no permanent changes are made.
  * Use option --wetrun to apply changes.
  * 
