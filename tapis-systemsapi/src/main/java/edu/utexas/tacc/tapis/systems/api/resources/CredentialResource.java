@@ -104,7 +104,16 @@ public class CredentialResource
   // ************************************************************************
 
   /**
-   * Store or update credential for given system and user.
+   * Store or update credentials for given system and userName.
+   * The Systems service does not store the secrets, they are persisted in the Security Kernel.
+   * The secrets are stored in the Security Kernel under userName.
+   * For a System with a dynamic effectiveUserId (i.e. equal to $apiUserId):
+   *   In addition to secrets the request body may contain a login user.
+   *   If the login user is not provided then it defaults to requesting Tapis user.
+   *   If loginUser != tapisUser then a mapping between the Tapis userName and the login user is recorded.
+   *
+   * @param systemId - System associated with the credentials
+   * @param userName - User associated with the credentials
    * @param payloadStream - request body
    * @return basic response
    */
@@ -131,7 +140,8 @@ public class CredentialResource
 
     // Trace this request.
     if (_log.isTraceEnabled())
-      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,"userName="+userName,"skipCredentialCheck="+skipCredCheck);
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,
+                          "userName="+userName,"skipCredentialCheck="+skipCredCheck);
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
@@ -161,8 +171,12 @@ public class CredentialResource
 
     // Populate credential from payload
     ReqPostCredential req = TapisGsonUtils.getGson().fromJson(json, ReqPostCredential.class);
-    Credential credential = new Credential(null, req.password, req.privateKey, req.publicKey, req.accessKey,
-                                           req.accessSecret, req.certificate);
+    // If no loginUser provided default to userName
+    String loginUser = (StringUtils.isBlank(req.loginUser)) ? userName : req.loginUser;
+    // We do not care about authnMethod here so set to null
+    AuthnMethod nullAuthnMethod = null;
+    Credential credential = new Credential(nullAuthnMethod, loginUser, req.password, req.privateKey,
+                                           req.publicKey, req.accessKey, req.accessSecret, req.certificate);
 
     // If one of PKI keys is missing then reject
     resp = ApiUtils.checkSecrets(rUser, systemId, userName, PRETTY, AuthnMethod.PKI_KEYS.name(), PRIVATE_KEY_FIELD, PUBLIC_KEY_FIELD,
@@ -231,7 +245,8 @@ public class CredentialResource
 
     // Trace this request.
     if (_log.isTraceEnabled())
-      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,"userName="+userName,"authnMethod="+authnMethodStr);
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,
+                          "userName="+userName,"authnMethod="+authnMethodStr);
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists

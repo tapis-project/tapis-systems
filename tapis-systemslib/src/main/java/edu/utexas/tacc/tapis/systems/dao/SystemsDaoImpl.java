@@ -908,9 +908,9 @@ public class SystemsDaoImpl implements SystemsDao
 
   /**
    * getSystemIDs
-   * Fetch all resource IDs in a tenant
+   * Fetch all system IDs in a tenant
    * @param tenant - tenant name
-   * @param showDeleted - whether to included resources that have been marked as deleted.
+   * @param showDeleted - whether to included systems that have been marked as deleted.
    * @return - List of app names
    * @throws TapisException - on error
    */
@@ -1330,6 +1330,140 @@ public class SystemsDaoImpl implements SystemsDao
     {
       // Rollback transaction and throw an exception
       LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "systems");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * getLoginUser
+   * Given a System Id and a tapisUser get the mapping to the loginUser if the map table has an entry.
+   * If there is no mapping return null
+   * @param id - system name
+   * @param tapisUser - Tapis username
+   * @return loginUser or null if no mapping
+   * @throws TapisException - on error
+   */
+  @Override
+  public String getLoginUser(String tenantId, String id, String tapisUser) throws TapisException
+  {
+    // Initialize result.
+    String loginUser = null;
+
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      // Run the sql
+      loginUser = db.selectFrom(SYSTEMS_LOGIN_USER)
+              .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(id),SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
+              .fetchOne(SYSTEMS_LOGIN_USER.LOGIN_USER);
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "System_login_user", tenantId, id, e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return loginUser;
+  }
+
+  /**
+   * Create a new mapping for tapisUser to loginUser
+   */
+  @Override
+  public void createOrUpdateLoginUserMapping(String tenantId, String systemId, String tapisUser, String loginUser) throws TapisException
+  {
+    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(systemId) || StringUtils.isBlank(tapisUser) ||
+        StringUtils.isBlank(loginUser))
+    {
+      return;
+    }
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      boolean recordExists = db.fetchExists(SYSTEMS_LOGIN_USER,SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),
+                                            SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(systemId),
+                                            SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser));
+      // If record not there insert it, else update it
+      if (!recordExists)
+      {
+        int sysSeqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId)).fetchOne(SYSTEMS.SEQ_ID);
+        db.insertInto(SYSTEMS_LOGIN_USER)
+                .set(SYSTEMS_LOGIN_USER.SYSTEM_SEQ_ID, sysSeqId)
+                .set(SYSTEMS_LOGIN_USER.TENANT, tenantId)
+                .set(SYSTEMS_LOGIN_USER.SYSTEM_ID, systemId)
+                .set(SYSTEMS_LOGIN_USER.TAPIS_USER, tapisUser)
+                .set(SYSTEMS_LOGIN_USER.LOGIN_USER, loginUser)
+                .execute();
+      }
+      else
+      {
+        db.update(SYSTEMS_LOGIN_USER)
+                .set(SYSTEMS_LOGIN_USER.TENANT, tenantId)
+                .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),
+                       SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(systemId),
+                       SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
+                .execute();
+      }
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "systems_login_user");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * Delete a mapping entry for tapisUser to loginUser
+   */
+  @Override
+  public void deleteLoginUserMapping(String tenantId, String id, String tapisUser) throws TapisException
+  {
+    // TODO If anything missing simply return
+    //   might want to throw exception if any of first three args missing since they make up the primary key
+    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(id) || StringUtils.isBlank(tapisUser))
+    {
+      return;
+    }
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      db.deleteFrom(SYSTEMS_LOGIN_USER)
+              .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(id),SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
+              .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "scheduler_profiles");
     }
     finally
     {

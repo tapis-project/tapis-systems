@@ -1,0 +1,29 @@
+##########################################################################
+# Dockerfile for Tapis systems service job to perform one-time java based
+#   non-db migration of data
+# This file must be placed in the build directory (api/target)
+#   before docker build is run.
+#
+#   $MIGRATE_PARMS the command line parameters to be passed to MigrateJob
+##########################################################################
+FROM openjdk:17-jdk-bullseye
+
+MAINTAINER CIC Support <cicsupport@tacc.utexas.edu>
+
+WORKDIR /app
+
+# Copy jar file into place
+COPY "systems.jar" .
+COPY /dependencies dependencies
+
+# Other environment variables
+ENV TAPIS_REQUEST_LOGGING_FILTER_PREFIXES /v3/systems_migratejob
+
+# Java module commands that are always needed (java 17 and later).
+ENV JAVA_MODULE_OPTS --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.time=ALL-UNNAMED \
+                     --add-opens java.base/java.util=ALL-UNNAMED
+
+# Options for JVM (turn off verbose SQL logging)
+ENV JAVA_TOOL_OPTIONS -Dp6spy.config.modulelist=
+
+CMD java -Xms4g -Xmx4g ${JAVA_MODULE_OPTS} -cp "systems.jar:dependencies/*" edu.utexas.tacc.tapis.systems.migrate.MigrateJob $MIGRATE_PARMS

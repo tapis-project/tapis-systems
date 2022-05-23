@@ -163,6 +163,27 @@ public class SystemResource
 
   /**
    * Create a system
+   * Create a system using a request body. System name must be unique within a tenant and can be composed of
+   * alphanumeric characters and the following special characters [-._~].
+   * Name must begin with an alphabetic character and can be no more than 80 characters in length.
+   * Description is optional with a maximum length of 2048 characters.
+   *
+   * If effectiveUserId is static then credentials may be optionally provided in the authnCredential attribute of the
+   * request body. If effective user is dynamic (i.e. ${apiUserId}) then credentials may not be provided.
+   * The Systems service does not store the secrets, they are persisted in the Security Kernel.
+   *
+   * By default any credentials provided for LINUX type systems are verified. Use query parameter
+   * skipCredentialCheck=true to bypass initial verification of credentials.
+   *
+   * Note that certain attributes in the request body (such as tenant) are allowed but ignored so that the JSON
+   * result returned by a GET may be modified and used when making a POST request to create a system.
+   * The attributes that are allowed but ignored are
+   *
+   *   - tenant
+   *   - uuid
+   *   - deleted
+   *   - created
+   *   - updated
    * @param payloadStream - request body
    * @param securityContext - user identity
    * @return response containing reference to created object
@@ -175,9 +196,9 @@ public class SystemResource
                                @Context SecurityContext securityContext)
   {
     String opName = "createSystem";
-    // Note that although the following approximately 30 line block of code is very similar for many endpoints the slight
-    //   variations and use of fetched data makes it difficult to refactor into common routines. Common routines
-    //   might make the code even more complex and difficult to follow.
+    // Note that although the following approximately 30 line block of code is very similar for many endpoints the
+    //   slight variations and use of fetched data makes it difficult to refactor into common routines.
+    // Common routines might make the code even more complex and difficult to follow.
 
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -213,9 +234,8 @@ public class SystemResource
       _log.error(msg, e);
       return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
-
-    ReqPostSystem req;
     // ------------------------- Create a TSystem from the json and validate constraints -------------------------
+    ReqPostSystem req;
     try { req = TapisGsonUtils.getGson().fromJson(rawJson, ReqPostSystem.class); }
     catch (JsonSyntaxException e)
     {
@@ -417,7 +437,30 @@ public class SystemResource
   }
 
   /**
-   * Update all updatable attributes of a system
+   * Update all updatable attributes of a system using a request body identical to POST. System must exist.
+   *
+   * Note that although the attribute authnCredential is allowed, it is ignored as discussed in the next paragraph.
+   * Certain attributes in the request body (such as tenant) are allowed but ignored so that the JSON result returned
+   *   by a GET may be modified and used when making a PUT request to update a system.
+   *
+   *   The attributes that are allowed but ignored for both PUT and POST are
+   *      tenant
+   *      uuid
+   *      deleted
+   *      created
+   *      updated
+   *  In addition for a PUT operation the following attributes are allowed but ignored
+   *      id
+   *      systemType
+   *      owner
+   *      enabled
+   *      authnCredential
+   *      bucketName
+   *      rootDir
+   *      isDtn
+   *      canExec
+   *  Note that the attributes owner, enabled and authnCredential may be modified using other endpoints.
+   *
    * @param systemId - name of the system
    * @param payloadStream - request body
    * @param securityContext - user identity

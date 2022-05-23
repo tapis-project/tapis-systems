@@ -8,9 +8,11 @@ import edu.utexas.tacc.tapis.systems.gen.jooq.tables.FlywaySchemaHistory;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemUpdates;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.Systems;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsLoginUser;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.FlywaySchemaHistoryRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedulerProfilesRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemUpdatesRecord;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsLoginUserRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsRecord;
 
 import org.jooq.ForeignKey;
@@ -36,10 +38,12 @@ public class Keys {
     public static final UniqueKey<SystemUpdatesRecord> SYSTEM_UPDATES_PKEY = Internal.createUniqueKey(SystemUpdates.SYSTEM_UPDATES, DSL.name("system_updates_pkey"), new TableField[] { SystemUpdates.SYSTEM_UPDATES.SEQ_ID }, true);
     public static final UniqueKey<SystemsRecord> SYSTEMS_PKEY = Internal.createUniqueKey(Systems.SYSTEMS, DSL.name("systems_pkey"), new TableField[] { Systems.SYSTEMS.SEQ_ID }, true);
     public static final UniqueKey<SystemsRecord> SYSTEMS_TENANT_ID_KEY = Internal.createUniqueKey(Systems.SYSTEMS, DSL.name("systems_tenant_id_key"), new TableField[] { Systems.SYSTEMS.TENANT, Systems.SYSTEMS.ID }, true);
+    public static final UniqueKey<SystemsLoginUserRecord> SYSTEMS_LOGIN_USER_PKEY = Internal.createUniqueKey(SystemsLoginUser.SYSTEMS_LOGIN_USER, DSL.name("systems_login_user_pkey"), new TableField[] { SystemsLoginUser.SYSTEMS_LOGIN_USER.TENANT, SystemsLoginUser.SYSTEMS_LOGIN_USER.SYSTEM_ID, SystemsLoginUser.SYSTEMS_LOGIN_USER.TAPIS_USER }, true);
 
     // -------------------------------------------------------------------------
     // FOREIGN KEY definitions
     // -------------------------------------------------------------------------
 
     public static final ForeignKey<SystemUpdatesRecord, SystemsRecord> SYSTEM_UPDATES__SYSTEM_UPDATES_SYSTEM_SEQ_ID_FKEY = Internal.createForeignKey(SystemUpdates.SYSTEM_UPDATES, DSL.name("system_updates_system_seq_id_fkey"), new TableField[] { SystemUpdates.SYSTEM_UPDATES.SYSTEM_SEQ_ID }, Keys.SYSTEMS_PKEY, new TableField[] { Systems.SYSTEMS.SEQ_ID }, true);
+    public static final ForeignKey<SystemsLoginUserRecord, SystemsRecord> SYSTEMS_LOGIN_USER__SYSTEMS_LOGIN_USER_SYSTEM_SEQ_ID_FKEY = Internal.createForeignKey(SystemsLoginUser.SYSTEMS_LOGIN_USER, DSL.name("systems_login_user_system_seq_id_fkey"), new TableField[] { SystemsLoginUser.SYSTEMS_LOGIN_USER.SYSTEM_SEQ_ID }, Keys.SYSTEMS_PKEY, new TableField[] { Systems.SYSTEMS.SEQ_ID }, true);
 }

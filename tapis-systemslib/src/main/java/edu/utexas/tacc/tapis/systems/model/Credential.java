@@ -4,13 +4,15 @@ import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.List;
-
 /*
  * Credential class representing an authn credential stored in the Security Kernel.
- * Credentials are not persisted by the Systems Service. Actual secrets are managed by
- *   the Security Kernel.
+ * Also includes login user associated with the credential.
+ *
+ * Secrets are not persisted by the Systems Service. Actual secrets are managed by the Security Kernel.
  * The secret information will depend on the system type and authn method.
+ *
+ * Systems does store a mapping of tapis user to login user if they are different.
+ * If a System has a static effectiveUserId then the there will be no mapping.
  *
  * Immutable
  * This class is intended to represent an immutable object.
@@ -41,6 +43,7 @@ public final class Credential
   /* ********************************************************************** */
 
   private final AuthnMethod authnMethod; // Authentication method associated with a retrieved credential
+  private final String loginUser;
   private final String password; // Password for when authnMethod is PASSWORD
   private final String privateKey; // Private key for when authnMethod is PKI_KEYS or CERT
   private final String publicKey; // Public key for when authnMethod is PKI_KEYS or CERT
@@ -55,10 +58,11 @@ public final class Credential
   /**
    * Simple constructor to populate all attributes
    */
-  public Credential(AuthnMethod authnMethod1, String password1, String privateKey1, String publicKey1,
-                    String accessKey1, String accessSecret1, String cert1)
+  public Credential(AuthnMethod authnMethod1, String loginUser1, String password1, String privateKey1,
+                    String publicKey1, String accessKey1, String accessSecret1, String cert1)
   {
     authnMethod = authnMethod1;
+    loginUser = loginUser1;
     password = password1;
     privateKey = privateKey1;
     publicKey = publicKey1;
@@ -83,7 +87,8 @@ public final class Credential
     privateKey = (!StringUtils.isBlank(credential.getPrivateKey())) ? SECRETS_MASK : credential.getPrivateKey();
     publicKey = (!StringUtils.isBlank(credential.getPublicKey())) ? SECRETS_MASK : credential.getPublicKey();
     cert = (!StringUtils.isBlank(credential.getCertificate())) ? SECRETS_MASK : credential.getCertificate();
-    return new Credential(credential.getAuthnMethod(), password, privateKey, publicKey, accessKey, accessSecret, cert);
+    return new Credential(credential.getAuthnMethod(), credential.getLoginUser(),
+                          password, privateKey, publicKey, accessKey, accessSecret, cert);
   }
 
   /**
@@ -108,6 +113,7 @@ public final class Credential
   /*                               Accessors                                */
   /* ********************************************************************** */
   public AuthnMethod getAuthnMethod() { return authnMethod; }
+  public String getLoginUser() { return loginUser; }
   public String getPassword() { return password; }
   public String getPrivateKey() { return privateKey; }
   public String getPublicKey() { return publicKey; }

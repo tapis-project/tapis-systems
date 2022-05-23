@@ -64,11 +64,11 @@ public class SystemsServiceTest
   private SystemsServiceImpl svcImpl;
   private ResourceRequestUser rOwner1, rTestUser0, rTestUser1, rTestUser2,
           rTestUser3, rTestUser4, rAdminUser, rSystemsSvc,
-          rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4;
+          rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rJobsSvcTestUser1;
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
-  int numSystems = 28; // UNUSED SYSTEMS: systems[3]
+  int numSystems = 29; // UNUSED SYSTEMS: systems[3]
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
@@ -234,7 +234,7 @@ public class SystemsServiceTest
   {
     TSystem sys0 = systems[1];
     sys0.setJobCapabilities(capList1);
-    Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
+    Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
             "fakeAccessKey", "fakeAccessSecret", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
@@ -486,7 +486,7 @@ public class SystemsServiceTest
   public void testGetSystemWithVariables() throws Exception
   {
     TSystem sys0 = systems[7];
-    sys0.setOwner("${apiUserId}");
+    sys0.setOwner(TSystem.APIUSERID_VAR);
     sys0.setEffectiveUserId("${owner}");
     sys0.setBucketName("bucket8-${tenant}-${apiUserId}");
     sys0.setRootDir("/root8/${tenant}");
@@ -634,7 +634,7 @@ public class SystemsServiceTest
 
     // Create a system with credentials for owner and another user
     sys0 = systems[23];
-    Credential cred0 = new Credential(null, null, "fakePrivateKey", "fakePublicKey", null, null, null);
+    Credential cred0 = new Credential(null, null, null, "fakePrivateKey", "fakePublicKey", null, null, null);
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
 
@@ -690,29 +690,68 @@ public class SystemsServiceTest
     }
   }
 
-  // Check that if credential contains invalid private key then create/update fails.
+  // Test various cases where create/update should get rejected due to invalid credential input
+  //   - credential contains invalid private key - create sys
+  //   - credential contains invalid private key - create cred
+  //   - credential contains invalid private key - update sys
+  //   - system has dynamic effectiveUserId and cred provided - create sys
+  //   - system has dynamic effectiveUserId and cred provided - update sys
   @Test
-  public void testInvalidPrivateSshKey() throws Exception
+  public void testSystemCreateUpdateBadCred() throws Exception
   {
     TSystem sys0 = systems[19];
+    // Update effectiveUserId to be dynamic since some of the cases require it and others are not invalidated by it
+    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
+
+    // Test create cases first since we will need to create a system to test the update cases
     sys0.setAuthnCredential(credInvalidPrivateSshKey);
-    // Test system create
-    try {
+    // Test system create with invalid private key
+    try
+    {
       svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
       Assert.fail("System create call should have thrown an exception when private ssh key is invalid");
-    } catch (Exception e) {
-      Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1"));
     }
+    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1")); }
+    // Test system create with dynamic effectiveUserId
+    sys0.setAuthnCredential(credNoLoginUser);
+    try
+    {
+      svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+      Assert.fail("System create call should have thrown an exception when effectiveUserId is dynamic");
+    }
+    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_DISALLOWED_INPUT")); }
 
-    // Test credential update
+    // Now create a system so we can test update cases
     sys0.setAuthnCredential(null);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
-    try {
+    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null);
+
+    // Test credential update with invalid private key
+    try
+    {
       svc.createUserCredential(rOwner1, sys0.getId(), sys0.getOwner(), credInvalidPrivateSshKey, skipCredCheckTrue, rawDataEmtpyJson);
       Assert.fail("Credential update call should have thrown an exception when private ssh key is invalid");
-    } catch (Exception e) {
-      Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2"));
     }
+    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2")); }
+
+    // Test system update with invalid private key
+    tmpSys.setAuthnCredential(credInvalidPrivateSshKey);
+    try
+    {
+      svc.putSystem(rOwner1, tmpSys, skipCredCheckTrue, rawDataEmtpyJson);
+      Assert.fail("Credential update call should have thrown an exception when private ssh key is invalid");
+    }
+    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1")); }
+
+    // Test system update with dynamic effectiveUserId
+    tmpSys.setAuthnCredential(credNoLoginUser);
+    tmpSys.setEffectiveUserId(TSystem.APIUSERID_VAR);
+    try
+    {
+      svc.putSystem(rOwner1, tmpSys, skipCredCheckTrue, rawDataEmtpyJson);
+      Assert.fail("System create call should have thrown an exception when effectiveUserId is dynamic");
+    }
+    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_DISALLOWED_INPUT")); }
   }
 
   // Test that attempting to create a system with invalid attribute combinations fails
@@ -863,17 +902,17 @@ public class SystemsServiceTest
     TSystem sys0 = systems[10];
     sys0.setEffectiveUserId("${apiUserId}");
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
-    Credential cred1 = new Credential(null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
+    Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
             "fakeAccessKey1", "fakeAccessSecret1", "fakeCert1");
-    Credential cred3 = new Credential(null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
+    Credential cred3 = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
             "fakeAccessKey3", "fakeAccessSecret3", "fakeCert3");
-    Credential cred3a = new Credential(null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null);
+    Credential cred3a = new Credential(null, null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null);
 
     // Make the separate calls required to store credentials for each user.
     // In this case for owner1 and testUser3
     svc.createUserCredential(rOwner1, sys0.getId(), owner1, cred1, skipCredCheckTrue, rawDataEmtpyJson);
     svc.createUserCredential(rOwner1, sys0.getId(), testUser3, cred3, skipCredCheckTrue, rawDataEmtpyJson);
-    // Get system as owner1 using files service and should get cred for owner1
+    // Get system as owner using files service, should get cred for owner
     TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), AuthnMethod.PASSWORD, false, true, null);
     Credential cred0 = tmpSys.getAuthnCredential();
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + owner1);
@@ -934,6 +973,90 @@ public class SystemsServiceTest
     Assert.assertEquals(changeCount, 1, "Change count incorrect when removing a credential.");
     cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), testUser3, AuthnMethod.ACCESS_KEY);
     Assert.assertNull(cred0, "Credential not deleted. System name: " + sys0.getId() + " User name: " + testUser3);
+
+    // ============================================
+    // Test tapis user to loginUser mapping.
+    // ============================================
+    // Create a credential with a loginUser so that a mapping should be created.
+    // testUser2 should be permitted to update their own credential
+    Credential cred4 = new Credential(null, testUser4LinuxUser, "fakePassword4", null, null, null, null, null);
+    svc.createUserCredential(rOwner1, sys0.getId(), testUser4, cred4, skipCredCheckTrue, rawDataEmtpyJson);
+
+    // Give testUser4 READ access to the system. Normally this would be done through sharing and call would
+    // be made with impersonationId set to the system owner but here we are testing loginUser mapping, not impersonation.
+    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser4, testPermsREAD, rawDataEmtpyJson);
+
+    // Now when fetching System as Files with oboUser=testUser4 and impersonationId=null
+    //   we should find effectiveUserId=testUser4LinuxUser and password=fakePassword4
+    tmpSys = svc.getSystem(rFilesSvcTestUser4, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
+                           impersonationIdNull);
+    cred0 = tmpSys.getAuthnCredential();
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser4);
+    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD, "Retrieved authnMethod incorrect");
+    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null for user: " + testUser4);
+    Assert.assertEquals(cred0.getPassword(), cred4.getPassword(), "Retrieved password incorrect");
+    Assert.assertEquals(tmpSys.getEffectiveUserId(), testUser4LinuxUser, "Mapping of Tapis user to loginUser incorrect");
+
+    // when fetching System as Files with oboUser=testUser3 and impersonationId=testUser4
+    //   we should also find effectiveUserId=testUser4LinuxUser and password=fakePassword4
+    tmpSys = svc.getSystem(rFilesSvcTestUser3, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
+                           testUser4);
+    cred0 = tmpSys.getAuthnCredential();
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null for impersonated user: " + testUser4);
+    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD, "Retrieved authnMethod incorrect for impersonation");
+    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null for impersonated user: " + testUser4);
+    Assert.assertEquals(cred0.getPassword(), cred4.getPassword(), "Retrieved password incorrect for impersonated user");
+    Assert.assertEquals(tmpSys.getEffectiveUserId(), testUser4LinuxUser, "Mapping of Tapis user to loginUser incorrect");
+  }
+
+  // Test creating, reading and deleting user credentials for a system
+  //  for the case of a static effectiveUserId
+  @Test
+  public void testUserCredentialsStaticEffUser() throws Exception
+  {
+    // Create a system where effectiveUserId is static and credentials are provided with system definition.
+    TSystem sys0 = systems[28];
+    Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
+            "fakeAccessKey1", "fakeAccessSecret1", "fakeCert1");
+    sys0.setEffectiveUserId(effectiveUserId1);
+    sys0.setAuthnCredential(cred1);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+
+    // Get system as owner using files service, should get cred for static effUser
+    TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse,
+                                   getCredsTrue, impersonationIdNull);
+    Credential cred0 = tmpSys.getAuthnCredential();
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null");
+    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
+    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null");
+    Assert.assertEquals(cred0.getPassword(), cred1.getPassword());
+    // Make sure cred has correct loginUser, the static value
+    Assert.assertEquals(cred0.getLoginUser(), effectiveUserId1, "Incorrect loginUser. Should be static effUser");
+
+    // Fetch credentials directly using targetUser=<static effUser>
+    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), effectiveUserId1, AuthnMethod.PASSWORD);
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null");
+    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
+    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null");
+    Assert.assertEquals(cred0.getPassword(), cred1.getPassword());
+    Assert.assertEquals(cred0.getLoginUser(), effectiveUserId1, "Incorrect loginUser. Should be static effUser");
+
+    // Owner should have no credentials
+    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), owner1, AuthnMethod.PASSWORD);
+    Assert.assertNull(cred0, "AuthnCredential should be null for owner");
+
+    // When impersonating should still get back same cred and loginUser
+    // Give testUser4 READ access to the system. Normally this would be done through sharing and call would
+    // be made with impersonationId set to the system owner but here we are testing loginUser mapping, not impersonation.
+    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser4, testPermsREAD, rawDataEmtpyJson);
+    tmpSys = svc.getSystem(rFilesSvcTestUser3, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
+                           testUser4);
+    cred0 = tmpSys.getAuthnCredential();
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null");
+    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
+    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null");
+    Assert.assertEquals(cred0.getPassword(), cred1.getPassword());
+    Assert.assertEquals(cred0.getLoginUser(), effectiveUserId1, "Incorrect loginUser. Should be static effUser");
   }
 
   // Test various cases when system is missing
@@ -1005,7 +1128,7 @@ public class SystemsServiceTest
 
     // Create credential with no system should throw an exception
     pass = false;
-    cred = new Credential(null, null, null, null, null,"fakeAccessKey2", "fakeAccessSecret2");
+    cred = new Credential(null, null, null, null, null, null,"fakeAccessKey2", "fakeAccessSecret2");
     try { svc.createUserCredential(rOwner1, fakeSystemName, fakeUserName, cred, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (NotFoundException nfe)
     {
@@ -1053,9 +1176,9 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
 
-    // In prep for following tests create a system and grant permissions
-    Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-            "fakeAccessKey", "fakeAccessSecret", "fakeCert");
+    // Create system for remaining auth access tests
+    Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
+                                      "fakeAccessKey", "fakeAccessSecret", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     // Grant testUesr3 - READ
@@ -1280,7 +1403,7 @@ public class SystemsServiceTest
     // NOTE: By default seed data has owner as testUser1
     TSystem sys0 = systems[14];
     // Create system for remaining auth access tests
-    Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
+    Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
             "fakeAccessKey", "fakeAccessSecret", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
@@ -1567,7 +1690,7 @@ public class SystemsServiceTest
   public void testGetSystemHistory() throws Exception
   {
     TSystem sys0 = systems[26];
-    Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
+    Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
         "fakeAccessKey", "fakeAccessSecret", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
@@ -1596,7 +1719,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[27];
     String sysId = sys0.getId();
     ResourceRequestUser ownerUser = rTestUser2;
-    Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey", "fakeAccessKey",
+    Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey", "fakeAccessKey",
                                       "fakeAccessSecret", "fakeCert");
     sys0.setAuthnCredential(cred0);
     sys0.setOwner(testUser2);

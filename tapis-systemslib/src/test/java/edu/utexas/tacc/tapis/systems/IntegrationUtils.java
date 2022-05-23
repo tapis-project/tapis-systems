@@ -48,12 +48,15 @@ public final class IntegrationUtils
   public static final String owner1 = "owner1";
   public static final String owner2 = "owner2";
   public static final String ownerNull = null;
+  public static final String loginUser1 = "loginUser1";
   public static final String testUser0 = "testuser0";
   public static final String testUser1 = "testuser1";
   public static final String testUser2 = "testuser2";
   public static final String testUser3 = "testuser3";
   public static final String testUser4 = "testuser4";
+  public static final String testUser4LinuxUser = "testuser4LinuxUser";
   public static final String impersonationIdTestUser9 = "testuser9";
+  public static final String impersonationIdNull = null;
   public static final String apiUser = "testApiUser";
   public static final String sysNamePrefix = "TestSys";
   public static final String schedProfileNamePrefix = "TestSchedProfile";
@@ -76,6 +79,8 @@ public final class IntegrationUtils
   public static final boolean canExecFalse = false;
   public static final boolean skipCredCheckTrue = true;
   public static final boolean skipCredCheckFalse = false;
+  public static final boolean getCredsTrue = true;
+  public static final boolean requireExecPermFalse = false;
   public static final String hostPatchedId = "patched.system.org";
   public static final String hostMinimalId = "minimal.system.org";
   public static final String rootDir1 = "/root/dir1";
@@ -234,7 +239,9 @@ public final class IntegrationUtils
   public static final String invalidPublicSshKey = "testPubSshKey";
 
   public static final Credential credInvalidPrivateSshKey =
-          new Credential(null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null);
+          new Credential(null, null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null);
+  public static final Credential credNoLoginUser =
+          new Credential(null, null, "fakePassword", null, null, null, null, null);
 
   // Permissions
   public static final Set<TSystem.Permission> testPermsREADMODIFY = new HashSet<>(Set.of(TSystem.Permission.READ, TSystem.Permission.MODIFY));
