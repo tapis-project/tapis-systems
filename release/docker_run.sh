@@ -10,7 +10,7 @@
 
 PrgName=$(basename "$0")
 
-USAGE1="Usage: $PRG_NAME { dev_local, dev, staging, prod }"
+USAGE1="Usage: $PrgName { dev_local, dev, staging, prod }"
 
 SVC_NAME="systems"
 

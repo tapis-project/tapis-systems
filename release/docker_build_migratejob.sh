@@ -18,7 +18,7 @@ BUILD_DIR=../tapis-systemsapi/target
 if [ $# -gt 1 ]; then
   echo "$USAGE"
   exit 1
-elif [ "x$1" != "x-push" ]; then
+elif [ $# -eq 1 ] && [ "x$1" != "x-push" ]; then
   echo "$USAGE"
   exit 1
 fi
@@ -41,7 +41,6 @@ cp Dockerfile_migratejob $BUILD_DIR
 
 # Move to the build directory
 cd $BUILD_DIR || exit
-
 # Set variables used for build
 VER=$(cat classes/tapis.version)
 GIT_BRANCH_LBL=$(awk '{print $1}' classes/git.info)

@@ -53,9 +53,6 @@ fi
 # Copy Dockerfile to build dir
 cp Dockerfile $BUILD_DIR
 
-# Move to the build directory
-cd $BUILD_DIR || exit
-
 # Set variables used for build
 VER=$(cat classes/tapis.version)
 GIT_BRANCH_LBL=$(awk '{print $1}' classes/git.info)
