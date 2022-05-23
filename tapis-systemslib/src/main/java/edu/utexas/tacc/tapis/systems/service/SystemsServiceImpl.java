@@ -77,11 +77,12 @@ public class SystemsServiceImpl implements SystemsService
   // Tracing.
   private static final Logger _log = LoggerFactory.getLogger(SystemsServiceImpl.class);
 
+  // Permspec format for systems is "system:<tenant>:<perm_list>:<system_id>"
+  public static final String PERM_SPEC_TEMPLATE = "system:%s:%s:%s";
+  private static final String PERM_SPEC_PREFIX = "system";
+
   private static final Set<Permission> ALL_PERMS = new HashSet<>(Set.of(Permission.READ, Permission.MODIFY, Permission.EXECUTE));
   private static final Set<Permission> READMODIFY_PERMS = new HashSet<>(Set.of(Permission.READ, Permission.MODIFY));
-  // Permspec format for systems is "system:<tenant>:<perm_list>:<system_id>"
-  private static final String PERM_SPEC_PREFIX = "system";
-  private static final String PERM_SPEC_TEMPLATE = "system:%s:%s:%s";
 
   private static final String SERVICE_NAME = TapisConstants.SERVICE_NAME_SYSTEMS;
   private static final String FILES_SERVICE = TapisConstants.SERVICE_NAME_FILES;
@@ -150,7 +151,7 @@ public class SystemsServiceImpl implements SystemsService
     // Make sure DB is present and updated to latest version using flyway
     dao.migrateDB();
     // One time migration of secrets for Tapis Systems version 1.1.5
-    migrateAllCredentialsToStaticDynamic();
+//    migrateAllCredentialsToStaticDynamic();
   }
 
   /**
