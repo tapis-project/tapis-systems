@@ -49,10 +49,12 @@ import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.PERM_SPEC
 
 /*
  * Perform a one-time java based non-DB migration of data for the Systems service.
- * For migration to version 1.2.0
+ *
+ * This implementation is for migration to version 1.2.0. This implementation migrates System credential
+ * secrets in SK from old paths to paths that include static/dynamic.
  *
  * The program should be started up in the same manner as the Systems service api application.
- * Typically it is run only once, although significant effort should be made to ensure that each
+ * Typically, it is run only once, although significant effort should be made to ensure that each
  * incarnation of this job is idempotent since it may have to be run more than once if there are issues.
  *
  * The Systems service api should be shut down before running this job. The job output (the logs) should
@@ -60,9 +62,11 @@ import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.PERM_SPEC
  *
  * This program will need to be updated for migration to a specific version of the Systems service.
  *
- * Current vers
  * By default, it is a dry run, no permanent changes are made.
- * Use option --wetrun to apply changes.
+ * To apply changes use option --apply or set env variable TAPIS_MIGRATE_JOB_APPLY to "apply_changes"
+ * The use of an env var is supported (RuntimeParameters.java) because this appears to be the easiest way to pass
+ *   in information to the program when running via a kubernetes job. A special string is used for the env var
+ *   rather than a boolean because all attempts failed when attempting to use true/false for a kubernetes job.
  * 
  * Based on SKAdmin from tapis-java repository: https://github.com/tapis-project/tapis-java
  */
@@ -82,7 +86,8 @@ public class MigrateJob
   private SystemsDao dao;
   private ServiceClients serviceClients;
 
-  private boolean isWetRun;
+  private boolean isApply;
+  private boolean envApply;
   private String msgPrefix;
   private String siteAdminTenantId;
 
@@ -117,6 +122,7 @@ public class MigrateJob
 
     // Create an instance, set it up and run the migration
     MigrateJob migrateJob = new MigrateJob(parms);
+    // Note: setUp sets envApply from RuntimeParameters.
     migrateJob.setUp();
     migrateJob.migrate();
   }
@@ -128,9 +134,9 @@ public class MigrateJob
   public void migrate() throws TapisException, TapisClientException
   {
     // Only apply changes if asked to do so
-    isWetRun = _parms.isWetRun;
+    isApply = _parms.isApply || envApply;
     msgPrefix = "DRY-RUN MIGRATE:";
-    if (isWetRun) msgPrefix = "MIGRATE:";
+    if (isApply) msgPrefix = "APPLY MIGRATE:";
     migrateAllCredentialsToStaticDynamic();
   }
 
@@ -310,6 +316,8 @@ public class MigrateJob
     // Fill in systemId and targetUserPath for the path to the secret.
     String targetUserPath = getTargetUserSecretPath(targetUser, isStatic);
     sParms.setSysId(systemId).setSysUser(targetUserPath);
+    System.out.printf("%s Tenant %s System: %s User: %s TargetUser: %s TargetPath: %s%n", msgPrefix,
+                      tenantId, systemId, userName, targetUser, targetUserPath);
     Map<String, String> dataMap;
     // Check for each secret type and write values if they are present
     // Note that multiple secrets may be present.
@@ -323,16 +331,9 @@ public class MigrateJob
       // First 2 parameters correspond to tenant and user from request payload
       // Tenant is used in constructing full path for secret, user is not used.
       // For migration there is no oboUser, use the service name
-      if (isWetRun)
-      {
-        skClient.writeSecret(tenantId, TapisConstants.SERVICE_NAME_SYSTEMS, sParms);
-        System.out.printf("%s MIGRATE: Tenant %s System: %s User: %s TargetUser: %s Wrote password%n", msgPrefix,
-                tenantId, systemId, userName, targetUser);
-      }
-      else
-      {
-
-      }
+      if (isApply) skClient.writeSecret(tenantId, TapisConstants.SERVICE_NAME_SYSTEMS, sParms);
+      System.out.printf("%s Tenant %s System: %s User: %s TargetUser: %s Wrote password%n", msgPrefix,
+                        tenantId, systemId, userName, targetUser);
     }
     // Store PKI keys if both present
     if (!StringUtils.isBlank(credential.getPublicKey()) && !StringUtils.isBlank(credential.getPublicKey()))
@@ -342,9 +343,9 @@ public class MigrateJob
       dataMap.put(SK_KEY_PUBLIC_KEY, credential.getPublicKey());
       dataMap.put(SK_KEY_PRIVATE_KEY, credential.getPrivateKey());
       sParms.setData(dataMap);
-      skClient.writeSecret(tenantId, TapisConstants.SERVICE_NAME_SYSTEMS, sParms);
+      if (isApply) skClient.writeSecret(tenantId, TapisConstants.SERVICE_NAME_SYSTEMS, sParms);
       System.out.printf("%s Tenant %s System: %s User: %s TargetUser: %s Wrote ssh keys%n", msgPrefix,
-              tenantId, systemId, userName, targetUser);
+                        tenantId, systemId, userName, targetUser);
     }
     // Store Access key and secret if both present
     if (!StringUtils.isBlank(credential.getAccessKey()) && !StringUtils.isBlank(credential.getAccessSecret()))
@@ -354,9 +355,9 @@ public class MigrateJob
       dataMap.put(SK_KEY_ACCESS_KEY, credential.getAccessKey());
       dataMap.put(SK_KEY_ACCESS_SECRET, credential.getAccessSecret());
       sParms.setData(dataMap);
-      skClient.writeSecret(tenantId, TapisConstants.SERVICE_NAME_SYSTEMS, sParms);
+      if (isApply) skClient.writeSecret(tenantId, TapisConstants.SERVICE_NAME_SYSTEMS, sParms);
       System.out.printf("%s Tenant %s System: %s User: %s TargetUser: %s Wrote access key/secret%n", msgPrefix,
-              tenantId, systemId, userName, targetUser);
+                        tenantId, systemId, userName, targetUser);
     }
   }
 
@@ -375,34 +376,43 @@ public class MigrateJob
 
     // Construct basic SK secret parameters and attempt to destroy each type of secret if it was set.
     // If destroy attempt throws an exception then log a message and continue.
+    // PASSWORD
     if (!StringUtils.isBlank(cred.getPassword()))
     {
       sMetaParms.setKeyType(KeyType.password);
+      System.out.printf("%s Tenant %s System: %s User: %s TargetUser: %s Attempting destroy for PASSWORD%n", msgPrefix,
+                        tenantId, systemId, userName, targetUser);
       try
       {
-        skClient.destroySecretMeta(sMetaParms);
+        if (isApply) skClient.destroySecretMeta(sMetaParms);
         System.out.printf("%s Tenant %s System: %s User: %s TargetUser: %s Secret destroyed: PASSWORD%n", msgPrefix,
                 tenantId, systemId, userName, targetUser);
       }
       catch (TapisClientException e) { System.out.printf(e.getMessage()); }
     }
+    // PKI_KEYS
     if (!StringUtils.isBlank(cred.getPrivateKey()))
     {
       sMetaParms.setKeyType(KeyType.sshkey);
+      System.out.printf("%s Tenant %s System: %s User: %s TargetUser: %s Attempting destroy for PKI_KEYS%n", msgPrefix,
+                        tenantId, systemId, userName, targetUser);
       try
       {
-        skClient.destroySecretMeta(sMetaParms);
+        if (isApply) skClient.destroySecretMeta(sMetaParms);
         System.out.printf("%s Tenant %s System: %s User: %s TargetUser: %s Secret destroyed: PKI_KEYS%n", msgPrefix,
                 tenantId, systemId, userName, targetUser);
       }
       catch (TapisClientException e) { System.out.printf(e.getMessage()); }
     }
-    if (!StringUtils.isBlank(cred.getPrivateKey()))
+    // ACCESS_KEY
+    if (!StringUtils.isBlank(cred.getAccessKey()))
     {
       sMetaParms.setKeyType(KeyType.accesskey);
+      System.out.printf("%s Tenant %s System: %s User: %s TargetUser: %s Attempting destroy for ACCESS_KEY%n", msgPrefix,
+                        tenantId, systemId, userName, targetUser);
       try
       {
-        skClient.destroySecretMeta(sMetaParms);
+        if (isApply) skClient.destroySecretMeta(sMetaParms);
         System.out.printf("%s Tenant %s System: %s User: %s TargetUser: %s Secret destroyed: ACCESS_KEY%n", msgPrefix,
                 tenantId, systemId, userName, targetUser);
       }
@@ -452,6 +462,10 @@ public class MigrateJob
     svcImpl.initService(siteId, siteAdminTenantId, RuntimeParameters.getInstance().getServicePassword());
     dao = new SystemsDaoImpl();
     serviceClients = ServiceClients.getInstance();
+    envApply = runParms.isMigrateJobApply();
+    StringBuilder sb = new StringBuilder();
+    runParms.getRuntimeInfo(sb);
+    System.out.println(sb);
   }
 
   /**
