@@ -68,7 +68,7 @@ echo "Creating image for local testing user tag: $TAG_VER"
 docker tag "$TAG_UNIQ" "$TAG_VER"
 
 # Push to remote repo
-if [ "x$2" = "x-push" ]; then
+if [ "x$1" = "x-push" ]; then
   echo "Pushing images to docker hub."
   # NOTE: Use current login. Jenkins job does login
   docker push "$TAG_UNIQ"

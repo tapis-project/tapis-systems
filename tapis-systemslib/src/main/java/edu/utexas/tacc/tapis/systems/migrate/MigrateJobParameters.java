@@ -29,8 +29,8 @@ public class MigrateJobParameters
   /*                                 Fields                                 */
   /* ********************************************************************** */
   // --------- Optional Parameters -----------
-  @Option(name = "--wetrun", usage = "Make permanent changes. By default it is a dry run.")
-  public boolean isWetRun = false;
+  @Option(name = "--apply", usage = "Make permanent changes. By default it is a dry run.")
+  public boolean isApply = false;
 
   @Option(name = "-help", aliases = {"--help", "-h", "-?"}, usage = "display help information")
   public boolean help;
@@ -93,14 +93,14 @@ public class MigrateJobParameters
     // Display help and exit program.
     if (help)
     {
-      String s = "\nMigrateJob for creating and deploying secrets to Kubernetes.";
+      String s = "\nMigrateJob for Tapis Systems Service.";
       System.out.println(s);
       System.out.println("\nMigrateJob [options...]\n");
       parser.printUsage(System.out);
       // Add a usage blurb.
       s = "\nMigrateJob used to perform a java based non-DB migration of Tapis Systems data.\n" +
           "By default a dry run is made, no changes are applied.\n" +
-          "Use option --wetrun to apply changes.";
+          "To apply changes use option --apply or set env variable TAPIS_MIGRATE_JOB_APPLY to \"apply_changes\"";
       System.out.println(s);
       System.exit(0);
     }

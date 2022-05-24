@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: systems-migratejob-dryrun
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: systems-migratejob-dryrun
+        image: tapis/systems-migratejob:1.2.0
+        imagePullPolicy: Always
+        env:
+          - name: TAPIS_DB_JDBC_URL
+            value: jdbc:postgresql://systems-postgres:5432/tapissysdb
+          - name: TAPIS_DB_USER
+            value: tapis_sys
+          - name: TAPIS_SITE_ID
+            valueFrom:
+              configMapKeyRef:
+                name: systems-config
+                key: site_id
+          - name: TAPIS_TENANT_SVC_BASEURL
+            valueFrom:
+              configMapKeyRef:
+                name: systems-config
+                key: service_site_url
+          - name: TAPIS_DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: tapis-systems-secrets
+                key: postgres-password
+          - name: TAPIS_SERVICE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: tapis-systems-secrets
+                key: service-password

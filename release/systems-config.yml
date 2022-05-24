@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata: 
+  name: systems-config
+data:
+  "service_site_url": "https://admin.develop.tapis.io"
+  "service_tenant_id": "admin"
+  "site_id": "tacc"
+  "service_name": "systems"
