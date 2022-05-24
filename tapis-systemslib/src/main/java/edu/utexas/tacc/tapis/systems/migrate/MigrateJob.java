@@ -463,9 +463,9 @@ public class MigrateJob
     dao = new SystemsDaoImpl();
     serviceClients = ServiceClients.getInstance();
     envApply = runParms.isMigrateJobApply();
-    StringBuilder sb = new StringBuilder();
-    runParms.getRuntimeInfo(sb);
-    System.out.println(sb);
+
+    // Log our config
+    System.out.println(runParms.getRuntimeInfo());
   }
 
   /**

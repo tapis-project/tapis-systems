@@ -123,6 +123,8 @@ public class SystemsApplication extends ResourceConfig
     // Log our existence.
     // Output version information on startup
     System.out.printf("**** Starting Systems Service. Version: %s ****%n", TapisUtils.getTapisFullVersion());
+    // Log our config
+    System.out.println(RuntimeParameters.getInstance().getRuntimeInfo());
 
     // If TAPIS_SERVICE_PORT set in env then use it.
     // Useful for starting service locally on a busy system where 8080 may not be available.
@@ -147,8 +149,10 @@ public class SystemsApplication extends ResourceConfig
     SystemsServiceImpl svcImpl = locator.getService(SystemsServiceImpl.class);
 
     // Call the main service init method
+    System.out.println("Initializing service");
     svcImpl.initService(siteId, siteAdminTenantId, RuntimeParameters.getInstance().getServicePassword());
     // Create and start the server
+    System.out.println("Starting http server");
     final HttpServer server = GrizzlyHttpServerFactory.createHttpServer(baseUri, config, false);
     server.start();
   }

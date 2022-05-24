@@ -409,19 +409,19 @@ public final class RuntimeParameters implements EmailClientParameters
     if (!StringUtils.isBlank(parm)) setSupportEmail(parm);
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* getRuntimeInfo:                                                        */
-  /* ---------------------------------------------------------------------- */
-  /** Augment the buffer with printable text based mostly on the parameters
-   * managed by this class but also OS and JVM information.  The intent is
-   * that the various job programs and utilities that rely on this class can
-   * print their configuration parameters, including those from this class,
-   * when they start up.
-   *
-   * @param buf
+  /**
+   * Return listing of runtime settings as well as some OS and JVM information.
    */
-  public void getRuntimeInfo(StringBuilder buf)
+  public String getRuntimeInfo()
   {
+    var buf = new StringBuilder();
+    buf.append("======================");
+    buf.append("\nRuntime Parameters");
+    buf.append("\n======================");
+    buf.append("\n------- Service Specific -------------------------------");
+    buf.append("\n------- Migrate Job Configuration ---------------------");
+    buf.append("\ntapis.migrate.job.apply: ");
+    buf.append(this.migrateJobApply);
     buf.append("\n------- Logging -----------------------------------");
     buf.append("\ntapis.log.directory: ");
     buf.append(this.getLogDirectory());
@@ -474,10 +474,6 @@ public final class RuntimeParameters implements EmailClientParameters
     buf.append("\ntapis.support.email: ");
     buf.append(this.getSupportEmail());
 
-    buf.append("\n------- Migrate Job Configuration ---------------------");
-    buf.append("\ntapis.migrate.job.apply: ");
-    buf.append(this.migrateJobApply);
-
     buf.append("\n------- EnvOnly Configuration ---------------------");
     buf.append("\ntapis.envonly.log.security.info: ");
     buf.append(RuntimeParameters.getLogSecurityInfo());
@@ -522,6 +518,9 @@ public final class RuntimeParameters implements EmailClientParameters
     buf.append(formatter.format(Runtime.getRuntime().totalMemory()));
     buf.append("\nfreeMemory: ");
     buf.append(formatter.format(Runtime.getRuntime().freeMemory()));
+
+    buf.append("\n\n");
+    return buf.toString();
   }
 
   /* ********************************************************************** */
