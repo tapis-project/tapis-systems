@@ -41,13 +41,13 @@ import org.slf4j.LoggerFactory;
  *        in a request body as required?, how to better describe query parameters?
  */
 @Path("/v3/systems")
-public class SystemsResource
+public class GeneralResource
 {
   /* **************************************************************************** */
   /*                                   Constants                                  */
   /* **************************************************************************** */
   // Local logger.
-  private static final Logger _log = LoggerFactory.getLogger(SystemsResource.class);
+  private static final Logger _log = LoggerFactory.getLogger(GeneralResource.class);
 
   /* **************************************************************************** */
   /*                                    Fields                                    */

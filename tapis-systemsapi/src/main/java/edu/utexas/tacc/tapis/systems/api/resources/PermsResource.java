@@ -43,7 +43,7 @@ import edu.utexas.tacc.tapis.systems.service.SystemsService;
  * JAX-RS REST resource for Tapis System permissions
  * NOTE: Annotations for generating OpenAPI specification not currently used.
  *       Please see tapis-systemsapi/src/main/resources/SystemsAPI.yaml
- *       and note at top of SystemsResource.java
+ *       and note at top of GeneralResource.java
  * Annotations map HTTP verb + endpoint to method invocation.
  * Permissions are stored in the Security Kernel
  *
