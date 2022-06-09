@@ -246,7 +246,7 @@ public class SystemsServiceImpl implements SystemsService
       }
 
       // ---------------- Verify credentials if not skipped
-      if (!skipCredCheck) verifyCredentials(rUser, system, credential);
+      if (!skipCredCheck) verifyCredentials(rUser, system, credential, credential.getLoginUser());
     }
 
     // Construct Json string representing the TSystem (without credentials) about to be created
@@ -454,7 +454,7 @@ public class SystemsServiceImpl implements SystemsService
       }
 
       // ---------------- Verify credentials if not skipped
-      if (!skipCredCheck) verifyCredentials(rUser, putSystem, credential);
+      if (!skipCredCheck) verifyCredentials(rUser, putSystem, credential, credential.getLoginUser());
     }
 
     // ------------------- Store credentials -----------------------------------
@@ -1346,7 +1346,7 @@ public class SystemsServiceImpl implements SystemsService
   // -----------------------------------------------------------------------
 
   /**
-   * Store or update credential for given system and and target user.
+   * Store or update credential for given system and target user.
    *
    * rUser, systemId, targetUser and credential are required.
    * Secret path depends on whether effUser type is dynamic or static
@@ -1397,7 +1397,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // ---------------- Verify credentials ------------------------
-    if (!skipCredCheck) { verifyCredentials(rUser, system, credential); }
+    if (!skipCredCheck) { verifyCredentials(rUser, system, credential, loginUser); }
 
     // Create credential
     // If this throws an exception we do not try to rollback. Attempting to track which secrets
@@ -1990,7 +1990,10 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Verify that effectiveUserId can connect to the system using provided credentials.
-   * If effectiveUserId is ${apUserId} then rUser.oboUser is used.
+   * If loginUser is set then use it for connection,
+   * else if effectiveUserId is ${apUserId} then use rUser.oboUser for connection
+   * else use static effectiveUserId from TSystem for connection
+   *
    * Skipped for non-LINUX systems
    * Skipped if no credentials provided, i.e. no password or ssh keys
    * Both types (password and ssh keys) are checked if they are provided
@@ -2000,7 +2003,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param credential - credentials to check
    * @throws IllegalStateException - if credentials not verified
    */
-  private void verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential credential)
+  private void verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential credential, String loginUser)
           throws TapisException, IllegalStateException
   {
     // We must have the system and a set of credentials to check.
@@ -2011,6 +2014,7 @@ public class SystemsServiceImpl implements SystemsService
     // Determine user to check
     // None of the public methods that call this support impersonation so use null for impersonationId
     String effectiveUser = resolveEffectiveUserId(rUser, tSystem1);
+    if (!StringUtils.isBlank(loginUser)) effectiveUser = loginUser;
 
     // Determine authnMethod to check, either password or ssh keys
     // if neither provided then skip check
