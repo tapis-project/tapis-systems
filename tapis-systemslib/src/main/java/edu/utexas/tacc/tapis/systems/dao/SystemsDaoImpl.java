@@ -76,7 +76,7 @@ public class SystemsDaoImpl implements SystemsDao
   /*                               Constants                                */
   /* ********************************************************************** */
   // Local logger.
-  private static final Logger _log = LoggerFactory.getLogger(SystemsDaoImpl.class);
+  private static final Logger log = LoggerFactory.getLogger(SystemsDaoImpl.class);
 
   private static final String EMPTY_JSON = "{}";
   private static final int INVALID_SEQ_ID = -1;
@@ -1403,6 +1403,7 @@ public class SystemsDaoImpl implements SystemsDao
       // If record not there insert it, else update it
       if (!recordExists)
       {
+        log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_INSERT_LOGINMAP", tenantId, systemId, tapisUser, loginUser));
         int sysSeqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId)).fetchOne(SYSTEMS.SEQ_ID);
         db.insertInto(SYSTEMS_LOGIN_USER)
                 .set(SYSTEMS_LOGIN_USER.SYSTEM_SEQ_ID, sysSeqId)
@@ -1414,8 +1415,9 @@ public class SystemsDaoImpl implements SystemsDao
       }
       else
       {
+        log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_UPDATE_LOGINMAP", tenantId, systemId, tapisUser, loginUser));
         db.update(SYSTEMS_LOGIN_USER)
-                .set(SYSTEMS_LOGIN_USER.TENANT, tenantId)
+                .set(SYSTEMS_LOGIN_USER.LOGIN_USER, loginUser)
                 .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),
                        SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(systemId),
                        SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
@@ -1463,7 +1465,7 @@ public class SystemsDaoImpl implements SystemsDao
     catch (Exception e)
     {
       // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "scheduler_profiles");
+      LibUtils.rollbackDB(conn, e,"DB_DELETE_FAILURE", "systems_login_user");
     }
     finally
     {
@@ -1781,7 +1783,7 @@ public class SystemsDaoImpl implements SystemsDao
     try {conn = ds.getConnection();}
     catch (Exception e) {
       String msg = MsgUtils.getMsg("DB_FAILED_CONNECTION");
-      _log.error(msg, e);
+      log.error(msg, e);
       throw new TapisDBConnectionException(msg, e);
     }
 
@@ -1810,7 +1812,7 @@ public class SystemsDaoImpl implements SystemsDao
       catch (TapisException e) {
         // Details are already logged at exception site.
         String msg = MsgUtils.getMsg("DB_FAILED_DATASOURCE");
-        _log.error(msg, e);
+        log.error(msg, e);
         throw new TapisException(msg, e);
       }
     }

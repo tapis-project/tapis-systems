@@ -1602,7 +1602,7 @@ public class SystemsServiceImpl implements SystemsService
       else
       {
         // This is the dynamic case, so targetUser must be a Tapis user.
-        // See if that Tapis user has a mapping to a host login user.
+        // See if the target Tapis user has a mapping to a host login user.
         String mappedLoginUser = dao.getLoginUser(rUser.getOboTenantId(), systemId, targetUser);
         // If so then the mapped value becomes loginUser, else loginUser=targetUser
         if (!StringUtils.isBlank(mappedLoginUser))
