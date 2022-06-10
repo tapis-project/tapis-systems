@@ -49,7 +49,7 @@ import edu.utexas.tacc.tapis.systems.service.SystemsService;
  * JAX-RS REST resource for Tapis System credentials
  * NOTE: Annotations for generating OpenAPI specification not currently used.
  *       Please see tapis-systemsapi/src/main/resources/SystemsAPI.yaml
- *       and note at top of SystemsResource.java
+ *       and note at top of GeneralResource.java
  * Annotations map HTTP verb + endpoint to method invocation.
  * Secrets are stored in the Security Kernel
  *
@@ -108,9 +108,9 @@ public class CredentialResource
    * The Systems service does not store the secrets, they are persisted in the Security Kernel.
    * The secrets are stored in the Security Kernel under userName.
    * For a System with a dynamic effectiveUserId (i.e. equal to $apiUserId):
-   *   In addition to secrets the request body may contain a login user.
-   *   If the login user is not provided then it defaults to requesting Tapis user.
-   *   If loginUser != tapisUser then a mapping between the Tapis userName and the login user is recorded.
+   *   - In addition to secrets the request body may contain a login user.
+   *     - If the login user is not provided then it defaults to requesting Tapis user.
+   *     - If loginUser != tapisUser then a mapping between the Tapis userName and the login user is recorded.
    *
    * @param systemId - System associated with the credentials
    * @param userName - User associated with the credentials
@@ -173,6 +173,12 @@ public class CredentialResource
     ReqPostCredential req = TapisGsonUtils.getGson().fromJson(json, ReqPostCredential.class);
     // If no loginUser provided default to userName
     String loginUser = (StringUtils.isBlank(req.loginUser)) ? userName : req.loginUser;
+    // If loginUser provided then trace it.
+    if (_log.isTraceEnabled() && !StringUtils.isBlank(req.loginUser))
+    {
+      _log.trace(ApiUtils.getMsgAuth("SYSAPI_CRED_LOGINUSER", rUser, systemId, userName, loginUser));
+    }
+
     // We do not care about authnMethod here so set to null
     AuthnMethod nullAuthnMethod = null;
     Credential credential = new Credential(nullAuthnMethod, loginUser, req.password, req.privateKey,

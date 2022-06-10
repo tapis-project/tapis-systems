@@ -23,7 +23,9 @@ Typically it is run only once, although significant effort should be made to
 ensure that each incarnation of this job is idempotent since it may have to
 be run more than once if there are issues.
 
-The Systems service api should be shut down before running this job.
+In general the Systems service api should be shut down before running this job but that
+may not always be true depending on the migration steps.
+
 The job output (the logs) should be checked to confirm there were no errors.
 
 Following env variables must be set:
@@ -37,11 +39,17 @@ Following services from a running tapis3 are required: tenants, tokens, security
 
 
 Version 1.2.0
+===============
 The initial version of this job is for Tapis Systems version 1.2.0 or possibly
 later if version 1.2.0 is never installed and the old version is pre-1.2.0 and
 the new version is post-1.2.0.  
 It migrates all Systems secrets to a path that include "static" or "dynamic" in the path name.
 The job makes calls to the Systems DB, Tenants and SK.
+NOTES:
+* It is not necesarry to shut down the service when running this job.
+* This version of the migration job has been run in dryrun mode against Systems version
+  1.1.3 and 1.2.0 with no errors.
+* This version has been successfully tested in DEV and STG environments.
 
 ## Running the job
 

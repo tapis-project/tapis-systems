@@ -101,9 +101,9 @@ public class SystemsApplication extends ResourceConfig
         @Override
         protected void configure() {
           bind(SystemsServiceImpl.class).to(SystemsService.class); // Used in Resource classes for most service calls
-          bind(SystemsServiceImpl.class).to(SystemsServiceImpl.class); // Used in SystemsResource for checkDB
+          bind(SystemsServiceImpl.class).to(SystemsServiceImpl.class); // Used in GeneralResource for checkDB
           bind(SystemsDaoImpl.class).to(SystemsDao.class); // Used in service impl
-          bindFactory(ServiceContextFactory.class).to(ServiceContext.class); // Used in SystemsResource for checkJWT
+          bindFactory(ServiceContextFactory.class).to(ServiceContext.class); // Used in GeneralResource for checkJWT
           bindFactory(ServiceClientsFactory.class).to(ServiceClients.class); // Used in service impl
         }
       });

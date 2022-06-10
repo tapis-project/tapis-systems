@@ -52,7 +52,7 @@ import java.util.List;
  * jax-rs annotations map HTTP verb + endpoint to method invocation and map query parameters.
  * NOTE: Annotations for generating OpenAPI specification not currently used.
  *       Please see openapi-systems repo file SystemsAPI.yaml
- *       and note at top of SystemsResource.java
+ *       and note at top of GeneralResource.java
  */
 @Path("/v3/systems/schedulerProfile")
 public class SchedulerProfileResource

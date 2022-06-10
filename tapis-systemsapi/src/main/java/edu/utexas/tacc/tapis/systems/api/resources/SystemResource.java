@@ -85,7 +85,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.SYSTEM_TYPE_FIELD;
  * jax-rs annotations map HTTP verb + endpoint to method invocation and map query parameters.
  * NOTE: Annotations for generating OpenAPI specification not currently used.
  *       Please see openapi-systems repo file SystemsAPI.yaml
- *       and note at top of SystemsResource.java
+ *       and note at top of GeneralResource.java
  */
 @Path("/v3/systems")
 public class SystemResource

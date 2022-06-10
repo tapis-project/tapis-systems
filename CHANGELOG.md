@@ -10,6 +10,17 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.2.1 - 2022-06-10
+
+Incremental improvements and bug fixes
+
+### New features:
+- None
+
+### Bug fixes:
+- Fix bugs in login user mapping support.
+
+---------------------------------------------------------------------------
 ## 1.2.0 - 2022-05-23
 
 Incremental improvements and new features.
