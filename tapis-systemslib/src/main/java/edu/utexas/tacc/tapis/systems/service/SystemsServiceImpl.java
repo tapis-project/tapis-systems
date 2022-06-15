@@ -129,10 +129,6 @@ public class SystemsServiceImpl implements SystemsService
   public static String getServiceTenantId() {return siteAdminTenantId;}
   public static String getServiceUserId() {return SERVICE_NAME;}
 
-  // SKClient, created when first needed.
-  private SKClient skClient = null;
-
-
   // ************************************************************************
   // *********************** Public Methods *********************************
   // ************************************************************************
@@ -1551,9 +1547,6 @@ public class SystemsServiceImpl implements SystemsService
       // Fill in systemId and targetUserPath for the path to the secret.
       String targetUserPath = getTargetUserSecretPath(targetUser, isStaticEffectiveUser);
 
-      // TODO reset path to static/dynamic staticdynamic
-//      targetUserPath = targetUser;
-
       // Set tenant, system and user associated with the secret.
       // These values are used to build the vault path to the secret.
       sParms.setTenant(rUser.getOboTenantId()).setSysId(systemId).setSysUser(targetUserPath);
@@ -1849,22 +1842,14 @@ public class SystemsServiceImpl implements SystemsService
    */
   private SKClient getSKClient() throws TapisException
   {
-    // Create skClient if necessary
-    if (skClient == null)
+    String tenantId = getServiceTenantId();
+    String userName = getServiceUserId();
+    try { return serviceClients.getClient(userName, tenantId, SKClient.class); }
+    catch (Exception e)
     {
-      String tenantId = getServiceTenantId();
-      String userName = getServiceUserId();
-      try
-      {
-        skClient = serviceClients.getClient(userName, tenantId, SKClient.class);
-      }
-      catch (Exception e)
-      {
-        String msg = MsgUtils.getMsg("TAPIS_CLIENT_NOT_FOUND", TapisConstants.SERVICE_NAME_SECURITY, tenantId, userName);
-        throw new TapisException(msg, e);
-      }
+      String msg = MsgUtils.getMsg("TAPIS_CLIENT_NOT_FOUND", TapisConstants.SERVICE_NAME_SECURITY, tenantId, userName);
+      throw new TapisException(msg, e);
     }
-    return skClient;
   }
 
   /**
@@ -2376,8 +2361,6 @@ public class SystemsServiceImpl implements SystemsService
 
     // Determine targetUserPath for the path to the secret.
     String targetUserPath = getTargetUserSecretPath(targetUser, isStatic);
-    // TODO reset path to static/dynamic staticdynamic
-//    targetUserPath = targetUser;
 
     // Return 0 if credential does not exist
     var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
