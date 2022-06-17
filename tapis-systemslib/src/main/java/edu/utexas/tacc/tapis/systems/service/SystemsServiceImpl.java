@@ -1836,7 +1836,9 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Get Security Kernel client
-   * Note: Systems service always calls SK as itself.
+   * Need to use serviceClients.getClient() every time because it checks for expired service jwt token and
+   *   refreshes it as needed.
+   * Systems service always calls SK as itself.
    * @return SK client
    * @throws TapisException - for Tapis related exceptions
    */
