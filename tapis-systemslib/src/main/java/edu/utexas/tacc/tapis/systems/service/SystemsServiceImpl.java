@@ -1,13 +1,21 @@
 package edu.utexas.tacc.tapis.systems.service;
 
+import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import javax.inject.Inject;
@@ -19,20 +27,10 @@ import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import edu.utexas.tacc.tapis.shared.security.TenantManager;
-import edu.utexas.tacc.tapis.tenants.client.gen.model.Tenant;
-import edu.utexas.tacc.tapis.shared.TapisConstants;
-import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
-import edu.utexas.tacc.tapis.shared.security.ServiceClients;
-import edu.utexas.tacc.tapis.shared.security.ServiceContext;
-import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
-import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
-import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
-import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
-import edu.utexas.tacc.tapis.search.parser.ASTParser;
-import edu.utexas.tacc.tapis.search.parser.ASTNode;
 import edu.utexas.tacc.tapis.search.SearchUtils;
+import edu.utexas.tacc.tapis.search.parser.ASTNode;
+import edu.utexas.tacc.tapis.search.parser.ASTParser;
 import edu.utexas.tacc.tapis.security.client.SKClient;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
 import edu.utexas.tacc.tapis.security.client.model.KeyType;
@@ -40,27 +38,27 @@ import edu.utexas.tacc.tapis.security.client.model.SKSecretMetaParms;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretReadParms;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretWriteParms;
 import edu.utexas.tacc.tapis.security.client.model.SecretType;
+import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
+import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
+import edu.utexas.tacc.tapis.shared.security.ServiceClients;
+import edu.utexas.tacc.tapis.shared.security.ServiceContext;
+import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
+import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
+import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
+import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile.SchedulerProfileOperation;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
+import edu.utexas.tacc.tapis.systems.model.SystemShare;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
-import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
 
 /*
  * Service level methods for Systems.
@@ -1790,6 +1788,137 @@ public class SystemsServiceImpl implements SystemsService
 
     return systemHistory;
   }
+  
+  /**
+   * Get System share user IDs for the System ID specified
+   * @throws TapisException
+   * @throws IllegalStateException
+   * @throws TapisClientException
+   * @throws NotAuthorizedException
+   */
+  @Override
+  public SystemShare getSystemShare(ResourceRequestUser rUser, String systemId)
+      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+    
+    SystemOperation op = SystemOperation.read;
+
+    // ------------------------- Check authorization -------------------------
+    checkAuthOwnerUnkown(rUser, op, systemId);
+    
+    var sysIDs = new HashSet<String>();
+    sysIDs.add("testUser1");
+    sysIDs.add("testUser2");
+    sysIDs.add("thirdUser");
+    
+    return new SystemShare(false, sysIDs);
+  }
+  
+  /**
+   * Create or update share of a system
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - name of system
+   * @param systemShare - User names
+   * @return rawJson of items updated
+   *
+   * @throws TapisException - for Tapis related exceptions
+   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
+   * @throws IllegalArgumentException - invalid parameter passed in
+   * @throws NotAuthorizedException - unauthorized
+   * @throws NotFoundException - Resource not found
+   */
+  @Override
+  public void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare, String rawJson)
+      throws TapisException {
+    SystemOperation op = SystemOperation.share;
+
+    // ---------------------------- Check inputs ------------------------------------
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId) || systemShare == null || 
+        systemShare.getUserList() ==null || systemShare.getUserList().isEmpty())
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+
+    String oboTenant = rUser.getOboTenantId();
+
+    // System must already exist and not be deleted
+    if (!dao.checkForSystem(oboTenant, systemId, false))
+         throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+  }
+  
+  /**
+   * Unshare of a system
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - name of system
+   * @param systemShare - User names
+   * @return rawJson of items updated
+   *
+   * @throws TapisException - for Tapis related exceptions
+   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
+   * @throws IllegalArgumentException - invalid parameter passed in
+   * @throws NotAuthorizedException - unauthorized
+   * @throws NotFoundException - Resource not found
+   */
+  @Override
+  public void unshareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare, String rawJson)
+      throws TapisException {
+    // ---------------------------- Check inputs ------------------------------------
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId) || systemShare == null || 
+        systemShare.getUserList() ==null || systemShare.getUserList().isEmpty())
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+
+    String oboTenant = rUser.getOboTenantId();
+
+    // System must already exist and not be deleted
+    if (!dao.checkForSystem(oboTenant, systemId, false))
+         throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+  }
+  
+  /**
+   * Share a system publicly
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - name of system
+   *
+   * @throws TapisException - for Tapis related exceptions
+   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
+   * @throws IllegalArgumentException - invalid parameter passed in
+   * @throws NotAuthorizedException - unauthorized
+   * @throws NotFoundException - Resource not found
+   */
+  @Override
+  public void shareSystemPublicly(ResourceRequestUser rUser, String systemId) throws TapisException {
+    // ---------------------------- Check inputs ------------------------------------
+
+    String oboTenant = rUser.getOboTenantId();
+
+    // System must already exist and not be deleted
+    if (!dao.checkForSystem(oboTenant, systemId, false))
+         throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    
+  }
+  
+  /**
+   * Unshare a system publicly
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - name of system
+   *
+   * @throws TapisException - for Tapis related exceptions
+   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
+   * @throws IllegalArgumentException - invalid parameter passed in
+   * @throws NotAuthorizedException - unauthorized
+   * @throws NotFoundException - Resource not found
+   */
+  @Override
+  public void unshareSystemPublicly(ResourceRequestUser rUser, String systemId) throws TapisException {
+    // ---------------------------- Check inputs ------------------------------------
+
+    String oboTenant = rUser.getOboTenantId();
+
+    // System must already exist and not be deleted
+    if (!dao.checkForSystem(oboTenant, systemId, false))
+         throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    
+  }
+  
 
   // ************************************************************************
   // **************************  Private Methods  ***************************
