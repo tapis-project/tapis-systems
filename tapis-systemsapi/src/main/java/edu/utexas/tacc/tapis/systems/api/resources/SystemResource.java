@@ -82,10 +82,15 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.SYSTEM_TYPE_FIELD;
 
 /*
  * JAX-RS REST resource for a Tapis System (edu.utexas.tacc.tapis.systems.model.TSystem)
- * jax-rs annotations map HTTP verb + endpoint to method invocation and map query parameters.
+ *
+ * These methods should do the minimal amount of validation and processing of incoming requests and
+ *   then make the service method call.
+ * One reason for this is the service methods are much easier to test.
+ *
  * NOTE: Annotations for generating OpenAPI specification not currently used.
  *       Please see openapi-systems repo file SystemsAPI.yaml
  *       and note at top of GeneralResource.java
+ * jax-rs annotations map HTTP verb + endpoint to method invocation and map query parameters.
  */
 @Path("/v3/systems")
 public class SystemResource
