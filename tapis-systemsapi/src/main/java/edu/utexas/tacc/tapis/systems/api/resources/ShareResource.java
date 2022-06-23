@@ -393,7 +393,7 @@ public class ShareResource {
    * @return response containing reference to updated object
    */
   @POST
-  @Path("/share/{systemId}/public")
+  @Path("/share_public/{systemId}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response shareSystemPublicly(@PathParam("systemId") String systemId,
@@ -474,7 +474,7 @@ public class ShareResource {
      * @return response containing reference to updated object
      */
     @POST
-    @Path("/unshare/{systemId}/public")
+    @Path("/unshare_public/{systemId}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response unshareSystemPublicly(@PathParam("systemId") String systemId,
