@@ -1,6 +1,5 @@
 package edu.utexas.tacc.tapis.systems.model;
 
-import java.util.HashSet;
 import java.util.Set;
 
 /*
@@ -25,7 +24,7 @@ public final class SystemShare
    * Constructor for jOOQ with input parameter matching order of columns in DB
    * Also useful for testing
    */
-  public SystemShare(boolean publicShare1, HashSet<String> sysIDs1)
+  public SystemShare(boolean publicShare1, Set<String> sysIDs1)
   {
     publicShare = publicShare1;
     users = sysIDs1;
