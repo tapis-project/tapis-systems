@@ -68,11 +68,8 @@ public class ShareResource {
   private static final String SHARE_SYSTEM_REQUEST = "/edu/utexas/tacc/tapis/systems/api/jsonschema/ShareSystemRequest.json";
  
   // Message keys
-  private static final String NOT_FOUND = "SYSAPI_NOT_FOUND";
   private static final String INVALID_JSON_INPUT = "NET_INVALID_JSON_INPUT";
   private static final String JSON_VALIDATION_ERR = "TAPIS_JSON_VALIDATION_ERROR";
-  private static final String UPDATE_ERR = "SYSAPI_UPDATE_ERROR";
-  private static final String API_UNAUTH = "SYSAPI_SYS_UNAUTH";
   private static final String UPDATED = "SYSAPI_UPDATED";
 
   // Always return a nicely formatted response
@@ -130,21 +127,19 @@ public class ShareResource {
     //RespAbstract resp1;
     SystemShare systemShare;
     
-    try
-    {
+    try {
       // Retrieve system share object
       systemShare = service.getSystemShare(rUser, systemId);
     }
-    catch (Exception e)
-    {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
+    catch (Exception e) {
+      String msg = ApiUtils.getMsgAuth("SYSAPI_SHR_GET_ERR", rUser, systemId, e.getMessage());
       _log.error(msg, e);
-      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
     
     // System not found
     if (systemShare == null) {
-     String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+     String msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
       _log.warn(msg);
       return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -152,7 +147,7 @@ public class ShareResource {
     // ---------------------------- Success -------------------------------
     // Success means we retrieved the system share information.
     RespSystemShare resp1 = new RespSystemShare(systemShare);
-    return createSuccessResponse(Status.OK, MsgUtils.getMsg(UPDATED, "SystemShare", systemId), resp1);
+    return createSuccessResponse(Status.OK, MsgUtils.getMsg("TAPIS_FOUND", "SystemShare", systemId), resp1);
   }
   
   /**
@@ -188,9 +183,9 @@ public class ShareResource {
     // Read the payload into a string.
     String rawJson;
     String msg;
-    try { rawJson = IOUtils.toString(payloadStream, StandardCharsets.UTF_8); }
-    catch (Exception e)
-    {
+    try { 
+      rawJson = IOUtils.toString(payloadStream, StandardCharsets.UTF_8); }
+    catch (Exception e) {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
@@ -198,8 +193,7 @@ public class ShareResource {
     // Create validator specification and validate the json against the schema
     JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, SHARE_SYSTEM_REQUEST);
     try { JsonValidator.validate(spec); }
-    catch (TapisJSONException e)
-    {
+    catch (TapisJSONException e) {
       msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
@@ -220,43 +214,17 @@ public class ShareResource {
     // No attributes are required. Constraints validated and defaults filled in on server side.
 
     // ---------------------------- Make service call to update the system -------------------------------
-    try
-    {
+    try {
       service.shareSystem(rUser, systemId, systemShare, rawJson);
     }
     catch (NotFoundException e)
     {
-      msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+      msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
       _log.warn(msg);
       return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
-    catch (IllegalStateException e)
-    {
-      if (e.getMessage().contains(API_UNAUTH))
-      {
-        // IllegalStateException with msg containing SYS_UNAUTH indicates operation not authorized for apiUser - return 401
-        msg = ApiUtils.getMsgAuth(API_UNAUTH, rUser, systemId, opName);
-        _log.warn(msg);
-        return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
-      else
-      {
-        // IllegalStateException indicates an Invalid PatchSystem was passed in
-        msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
-        _log.error(msg);
-        return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
-    }
-    catch (IllegalArgumentException e)
-    {
-      // IllegalArgumentException indicates somehow a bad argument made it this far
-      msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
-      _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
-    catch (Exception e)
-    {
-      msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
+    catch (Exception e) {
+      msg = ApiUtils.getMsgAuth("SYSAPI_SHR_UPD_ERR", rUser, systemId, e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -338,41 +306,16 @@ public class ShareResource {
     // ---------------------------- Make service call to update the system -------------------------------
     try
     {
-      service.shareSystem(rUser, systemId, systemShare, rawJson);
+      service.unshareSystem(rUser, systemId, systemShare, rawJson);
     }
     catch (NotFoundException e)
     {
-      msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+      msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
       _log.warn(msg);
       return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
-    catch (IllegalStateException e)
-    {
-      if (e.getMessage().contains(API_UNAUTH))
-      {
-        // IllegalStateException with msg containing SYS_UNAUTH indicates operation not authorized for apiUser - return 401
-        msg = ApiUtils.getMsgAuth(API_UNAUTH, rUser, systemId, opName);
-        _log.warn(msg);
-        return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
-      else
-      {
-        // IllegalStateException indicates an Invalid PatchSystem was passed in
-        msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
-        _log.error(msg);
-        return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
-    }
-    catch (IllegalArgumentException e)
-    {
-      // IllegalArgumentException indicates somehow a bad argument made it this far
-      msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
-      _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
-    catch (Exception e)
-    {
-      msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
+    catch (Exception e) {
+      msg = ApiUtils.getMsgAuth("SYSAPI_SHR_UPD_ERR", rUser, systemId, e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -425,40 +368,16 @@ public class ShareResource {
     }
     catch (NotFoundException e)
     {
-      msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+      msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
       _log.warn(msg);
       return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
-    catch (IllegalStateException e)
-    {
-      if (e.getMessage().contains(API_UNAUTH))
-      {
-        // IllegalStateException with msg containing SYS_UNAUTH indicates operation not authorized for apiUser - return 401
-        msg = ApiUtils.getMsgAuth(API_UNAUTH, rUser, systemId, opName);
-        _log.warn(msg);
-        return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
-      else
-      {
-        // IllegalStateException indicates an Invalid PatchSystem was passed in
-        msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
-        _log.error(msg);
-        return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
-    }
-    catch (IllegalArgumentException e)
-    {
-      // IllegalArgumentException indicates somehow a bad argument made it this far
-      msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
-      _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
-    catch (Exception e)
-    {
-      msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
+    catch (Exception e) {
+      msg = ApiUtils.getMsgAuth("SYSAPI_SHR_UPD_ERR", rUser, systemId, e.getMessage());
       _log.error(msg, e);
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
+    
     // ---------------------------- Success -------------------------------
     // Success means updates were applied
     ResultResourceUrl respUrl = new ResultResourceUrl();
@@ -466,6 +385,7 @@ public class ShareResource {
     RespResourceUrl resp1 = new RespResourceUrl(respUrl);
     return createSuccessResponse(Status.OK, ApiUtils.getMsgAuth(UPDATED, rUser, systemId, opName), resp1);
   }
+  
     /**
      * Unsharing a system publicly
      * @param systemId - name of the system
@@ -481,7 +401,7 @@ public class ShareResource {
                                 @Context SecurityContext securityContext)
     {
       
-      String opName = "sharePublicly";
+      String opName = "unsharePublicly";
       // ------------------------- Retrieve and validate thread context -------------------------
       TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
       // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -506,37 +426,12 @@ public class ShareResource {
       }
       catch (NotFoundException e)
       {
-        msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+        msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
         _log.warn(msg);
         return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
       }
-      catch (IllegalStateException e)
-      {
-        if (e.getMessage().contains(API_UNAUTH))
-        {
-          // IllegalStateException with msg containing SYS_UNAUTH indicates operation not authorized for apiUser - return 401
-          msg = ApiUtils.getMsgAuth(API_UNAUTH, rUser, systemId, opName);
-          _log.warn(msg);
-          return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-        }
-        else
-        {
-          // IllegalStateException indicates an Invalid PatchSystem was passed in
-          msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
-          _log.error(msg);
-          return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-        }
-      }
-      catch (IllegalArgumentException e)
-      {
-        // IllegalArgumentException indicates somehow a bad argument made it this far
-        msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
-        _log.error(msg);
-        return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
-      catch (Exception e)
-      {
-        msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
+      catch (Exception e) {
+        msg = ApiUtils.getMsgAuth("SYSAPI_SHR_UPD_ERR", rUser, systemId, e.getMessage());
         _log.error(msg, e);
         return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
       }

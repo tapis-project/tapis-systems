@@ -32,11 +32,15 @@ import edu.utexas.tacc.tapis.search.SearchUtils;
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
 import edu.utexas.tacc.tapis.search.parser.ASTParser;
 import edu.utexas.tacc.tapis.security.client.SKClient;
+import edu.utexas.tacc.tapis.security.client.gen.model.ReqShareResource;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
+import edu.utexas.tacc.tapis.security.client.gen.model.SkShare;
 import edu.utexas.tacc.tapis.security.client.model.KeyType;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretMetaParms;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretReadParms;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretWriteParms;
+import edu.utexas.tacc.tapis.security.client.model.SKShareDeleteShareParms;
+import edu.utexas.tacc.tapis.security.client.model.SKShareGetSharesParms;
 import edu.utexas.tacc.tapis.security.client.model.SecretType;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
@@ -78,6 +82,8 @@ public class SystemsServiceImpl implements SystemsService
   // Permspec format for systems is "system:<tenant>:<perm_list>:<system_id>"
   public static final String PERM_SPEC_TEMPLATE = "system:%s:%s:%s";
   private static final String PERM_SPEC_PREFIX = "system";
+  
+  private static final String SYS_SHR_TYPE = "system";
 
   private static final Set<Permission> ALL_PERMS = new HashSet<>(Set.of(Permission.READ, Permission.MODIFY, Permission.EXECUTE));
   private static final Set<Permission> READMODIFY_PERMS = new HashSet<>(Set.of(Permission.READ, Permission.MODIFY));
@@ -1799,18 +1805,46 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public SystemShare getSystemShare(ResourceRequestUser rUser, String systemId)
       throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
-    
     SystemOperation op = SystemOperation.read;
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    // ------------------------- Check authorization -------------------------
-    checkAuthOwnerUnkown(rUser, op, systemId);
+    String oboTenant = rUser.getOboTenantId();
+
+    // We will need info from system, so fetch it now
+    TSystem system = dao.getSystem(oboTenant, systemId);
+    // We need owner to check auth and if system not there cannot find owner, so return null if no system.
+    if (system == null) return null;
+
+    checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet, nullImpersonationId);
+
+    // Create SKShareGetSharesParms needed for SK calls.
+    var skParms = new SKShareGetSharesParms();
+    skParms.setResourceType(SYS_SHR_TYPE);
+    skParms.setResourceId1(systemId);
+
+    var userSet = new HashSet<String>();
     
-    var sysIDs = new HashSet<String>();
-    sysIDs.add("testUser1");
-    sysIDs.add("testUser2");
-    sysIDs.add("thirdUser");
-    
-    return new SystemShare(false, sysIDs);
+    // First determine if system is publicly shared. Search for share to grantee ~public
+    skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
+    var skShares = getSKClient().getShares(skParms);
+    // Set isPublic based on result.
+    boolean isPublic = (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
+    // Now get all the users with whom the system has been shared
+    skParms.setGrantee(null);
+    skParms.setIncludePublicGrantees(false);
+    skShares = getSKClient().getShares(skParms);
+    if (skShares != null && skShares.getShares() != null)
+    {
+      for (SkShare skShare : skShares.getShares())
+      {
+        userSet.add(skShare.getGrantee());
+      }
+    }
+
+    var shareInfo = new SystemShare(isPublic, userSet);
+    return shareInfo;
   }
   
   /**
@@ -1821,27 +1855,43 @@ public class SystemsServiceImpl implements SystemsService
    * @return rawJson of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
+   * @throws IllegalStateException 
+   * @throws TapisClientException 
+   * @throws NotAuthorizedException 
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - Resource not found
    */
   @Override
   public void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare, String rawJson)
-      throws TapisException {
-    SystemOperation op = SystemOperation.share;
-
+      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+    SystemOperation op = SystemOperation.modify;
+    
     // ---------------------------- Check inputs ------------------------------------
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || systemShare == null || 
         systemShare.getUserList() ==null || systemShare.getUserList().isEmpty())
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
     String oboTenant = rUser.getOboTenantId();
 
-    // System must already exist and not be deleted
-    if (!dao.checkForSystem(oboTenant, systemId, false))
-         throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    // We will need info from system, so fetch it now
+    TSystem system = dao.getSystem(oboTenant, systemId);
+    // We need owner to check auth and if system not there cannot find owner.
+    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+
+    checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet, nullImpersonationId);
+    
+    // Create request object needed for SK calls.
+    ReqShareResource reqShareResource =  new ReqShareResource();
+    reqShareResource.setResourceType(SYS_SHR_TYPE);
+    reqShareResource.setResourceId1(systemId);
+    reqShareResource.setGrantor(rUser.getOboUserId());
+    reqShareResource.setPrivilege(Permission.READ.name());
+
+    for (String userName : systemShare.getUserList())
+    {
+      reqShareResource.setGrantee(userName);
+      getSKClient().shareResource(reqShareResource);
+    }
   }
   
   /**
@@ -1852,6 +1902,7 @@ public class SystemsServiceImpl implements SystemsService
    * @return rawJson of items updated
    *
    * @throws TapisException - for Tapis related exceptions
+   * @throws TapisClientException - for Tapis client related exceptions
    * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
@@ -1859,18 +1910,35 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public void unshareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare, String rawJson)
-      throws TapisException {
+      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+    SystemOperation op = SystemOperation.modify;
+    
     // ---------------------------- Check inputs ------------------------------------
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || systemShare == null || 
         systemShare.getUserList() ==null || systemShare.getUserList().isEmpty())
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
     String oboTenant = rUser.getOboTenantId();
 
-    // System must already exist and not be deleted
-    if (!dao.checkForSystem(oboTenant, systemId, false))
-         throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    // We will need info from system, so fetch it now
+    TSystem system = dao.getSystem(oboTenant, systemId);
+    // We need owner to check auth and if system not there cannot find owner.
+    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+
+    checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet, nullImpersonationId);
+
+    // Create object needed for SK calls.
+    SKShareDeleteShareParms deleteShareParms = new SKShareDeleteShareParms();
+    deleteShareParms.setResourceType(SYS_SHR_TYPE);
+    deleteShareParms.setResourceId1(systemId);
+    deleteShareParms.setPrivilege(Permission.READ.name());
+
+    for (String userName : systemShare.getUserList())
+    {
+        deleteShareParms.setGrantee(userName);
+        getSKClient().deleteShare(deleteShareParms);
+    }
   }
   
   /**
@@ -1879,21 +1947,38 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - name of system
    *
    * @throws TapisException - for Tapis related exceptions
+   * @throws TapisClientException - for Tapis client related exceptions
    * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    * @throws NotFoundException - Resource not found
    */
   @Override
-  public void shareSystemPublicly(ResourceRequestUser rUser, String systemId) throws TapisException {
+  public void shareSystemPublicly(ResourceRequestUser rUser, String systemId) 
+      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+    SystemOperation op = SystemOperation.modify;
+    
     // ---------------------------- Check inputs ------------------------------------
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
     String oboTenant = rUser.getOboTenantId();
 
-    // System must already exist and not be deleted
-    if (!dao.checkForSystem(oboTenant, systemId, false))
-         throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    // We will need info from system, so fetch it now
+    TSystem system = dao.getSystem(oboTenant, systemId);
+    // We need owner to check auth and if system not there cannot find owner.
+    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+
+    checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet, nullImpersonationId);
     
+    // Create request object needed for SK calls.
+    ReqShareResource reqShareResource =  new ReqShareResource();
+    reqShareResource.setResourceType(SYS_SHR_TYPE);
+    reqShareResource.setResourceId1(systemId);
+    reqShareResource.setGrantor(rUser.getOboUserId());
+    reqShareResource.setPrivilege(Permission.READ.name());
+
+    reqShareResource.setGrantee(SKClient.PUBLIC_GRANTEE);
+    getSKClient().shareResource(reqShareResource);
   }
   
   /**
@@ -1902,20 +1987,41 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - name of system
    *
    * @throws TapisException - for Tapis related exceptions
+   * @throws TapisClientException - for Tapis client related exceptions
    * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    * @throws NotFoundException - Resource not found
    */
   @Override
-  public void unshareSystemPublicly(ResourceRequestUser rUser, String systemId) throws TapisException {
+  public void unshareSystemPublicly(ResourceRequestUser rUser, String systemId) 
+       throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
     // ---------------------------- Check inputs ------------------------------------
+
+    SystemOperation op = SystemOperation.modify;
+    
+    // ---------------------------- Check inputs ------------------------------------
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+
 
     String oboTenant = rUser.getOboTenantId();
 
-    // System must already exist and not be deleted
-    if (!dao.checkForSystem(oboTenant, systemId, false))
-         throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    // We will need info from system, so fetch it now
+    TSystem system = dao.getSystem(oboTenant, systemId);
+    // We need owner to check auth and if system not there cannot find owner.
+    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+
+    checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet, nullImpersonationId);
+
+    // Create object needed for SK calls.
+    SKShareDeleteShareParms deleteShareParms = new SKShareDeleteShareParms();
+    deleteShareParms.setResourceType(SYS_SHR_TYPE);
+    deleteShareParms.setResourceId1(systemId);
+    deleteShareParms.setPrivilege(Permission.READ.name());
+
+    // 
+    deleteShareParms.setGrantee(SKClient.PUBLIC_GRANTEE);
+    getSKClient().deleteShare(deleteShareParms);
     
   }
   
