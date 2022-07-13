@@ -7,6 +7,7 @@ import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
 import edu.utexas.tacc.tapis.shared.security.TenantManager;
 import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
+import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
@@ -21,6 +22,7 @@ import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
+import edu.utexas.tacc.tapis.systems.model.SystemShare;
 
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.ServiceLocatorUtilities;
@@ -63,12 +65,12 @@ public class SystemsServiceTest
   private SystemsService svc;
   private SystemsServiceImpl svcImpl;
   private ResourceRequestUser rOwner1, rTestUser0, rTestUser1, rTestUser2,
-          rTestUser3, rTestUser4, rAdminUser, rSystemsSvc,
+          rTestUser3, rTestUser4, rTestUser5, rTestUser6,  rTestUser7, rAdminUser, rSystemsSvc,
           rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rJobsSvcTestUser1;
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
-  int numSystems = 29; // UNUSED SYSTEMS: systems[3]
+  int numSystems = 32; // UNUSED SYSTEMS: systems[3]
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
@@ -117,6 +119,12 @@ public class SystemsServiceTest
                                                    null, testUser3, tenantName, null, null, null));
     rTestUser4 = new ResourceRequestUser(new AuthenticatedUser(testUser4, tenantName, TapisThreadContext.AccountType.user.name(),
                                                    null, testUser4, tenantName, null, null, null));
+    rTestUser5 = new ResourceRequestUser(new AuthenticatedUser(testUser5, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                   null, testUser5, tenantName, null, null, null));
+    rTestUser6 = new ResourceRequestUser(new AuthenticatedUser(testUser6, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                   null, testUser6, tenantName, null, null, null));
+    rTestUser7 = new ResourceRequestUser(new AuthenticatedUser(testUser7, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                   null, testUser7, tenantName, null, null, null));
     rSystemsSvc = new ResourceRequestUser(new AuthenticatedUser(svcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                     null, svcName, adminTenantName, null, null, null));
     rFilesSvcOwner1 = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
@@ -1790,4 +1798,49 @@ public class SystemsServiceTest
       System.out.printf("Description:%n%s%n", item.getDescription());
     }
   }
+  
+  // Test retrieving system sharing information
+  @Test
+  public void testGetShareSystem() throws Exception
+  {
+    TSystem sys0 = systems[29];
+    sys0.setOwner(rTestUser5.getOboUserId());
+    svc.createSystem(rTestUser5, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+    
+    // Test retrieval using specified authn method
+    SystemShare systemShare = svc.getSystemShare(rTestUser5, sys0.getId());
+    
+    System.out.println("Found item: " + sys0.getId());
+    // Verify system share fields
+
+    Assert.assertNotNull(systemShare, "System Share information found.");
+  }
+  
+ //Test Test system sharing
+ @Test
+ public void testSystemShare() throws Exception
+ {
+   TSystem sys0 = systems[30];
+   sys0.setOwner(rTestUser6.getOboUserId());
+   svc.createSystem(rTestUser6, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+   
+   //  Create a SystemShare from the json 
+   SystemShare systemShare;
+   String rawDataShare = "{\"users\": [\"0-create1\"]}";
+   systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
+   
+   svc.unshareSystem(rTestUser6, sys0.getId(), systemShare, rawDataShare);
+   
+   // Test retrieval using specified authn method
+   SystemShare systemShareTest = svc.getSystemShare(rTestUser6, sys0.getId());
+   
+   System.out.println("Found item: " + sys0.getId());
+   // Verify system share fields
+
+   Assert.assertNotNull(systemShareTest, "System Share information found.");
+   System.out.printf("isPublic: %s%n", systemShareTest.isPublic());
+   for (var user : systemShareTest.getUserList()) {
+     System.out.printf("userName: %s%n", user);
+   }
+ }
 }
