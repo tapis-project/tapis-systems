@@ -65,12 +65,13 @@ public class SystemsServiceTest
   private SystemsService svc;
   private SystemsServiceImpl svcImpl;
   private ResourceRequestUser rOwner1, rTestUser0, rTestUser1, rTestUser2,
-          rTestUser3, rTestUser4, rTestUser5, rTestUser6,  rTestUser7, rAdminUser, rSystemsSvc,
+          rTestUser3, rTestUser4, rTestUser5, rTestUser6, rTestUser7, rTestUser8, rTestUser9,
+          rAdminUser, rSystemsSvc,
           rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rJobsSvcTestUser1;
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
-  int numSystems = 32; // UNUSED SYSTEMS: systems[3]
+  int numSystems = 34; // UNUSED SYSTEMS: systems[3]
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
@@ -125,6 +126,10 @@ public class SystemsServiceTest
                                                    null, testUser6, tenantName, null, null, null));
     rTestUser7 = new ResourceRequestUser(new AuthenticatedUser(testUser7, tenantName, TapisThreadContext.AccountType.user.name(),
                                                    null, testUser7, tenantName, null, null, null));
+    rTestUser8 = new ResourceRequestUser(new AuthenticatedUser(testUser8, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                   null, testUser8, tenantName, null, null, null));
+    rTestUser9 = new ResourceRequestUser(new AuthenticatedUser(testUser9, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                   null, testUser9, tenantName, null, null, null));
     rSystemsSvc = new ResourceRequestUser(new AuthenticatedUser(svcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                     null, svcName, adminTenantName, null, null, null));
     rFilesSvcOwner1 = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
@@ -1720,6 +1725,7 @@ public class SystemsServiceTest
       Assert.assertNotNull(item.getCreated(), "Fetched created timestamp should not be null");
     }
   }
+  
   // Test system history when there are multiple updates
   @Test
   public void testGetSystemHistoryMultipleUpdates() throws Exception
@@ -1774,30 +1780,6 @@ public class SystemsServiceTest
     svc.undeleteSystem(ownerUser, sysId);
     Assert.assertEquals(systemHistory.size(), 6);
   }
-
-  // Retrieve and display history for manual checking of system history records
-  private void displaySystemHistory(ResourceRequestUser rUser, String systemId) throws TapisException, TapisClientException
-  {
-    // Retrieve and display history for manual checking of display
-    List<SystemHistoryItem> systemHistory = svc.getSystemHistory(rUser, systemId);
-    Assert.assertNotNull(systemHistory);
-    System.out.println("===============================================================================");
-    System.out.printf("History for system: %s Number of history records: %d%n", systemId, systemHistory.size());
-    for (int i=0; i < systemHistory.size(); i++)
-    {
-      System.out.println("-------------------------------------------");
-      System.out.printf("Record # %d%n", i+1);
-      System.out.println("-------------------------------------------");
-      SystemHistoryItem item = systemHistory.get(i);
-      System.out.printf("apiTenant: %s%n", item.getJwtTenant());
-      System.out.printf("apiUser: %s%n", item.getJwtUser());
-      System.out.printf("oboTenant: %s%n", item.getOboTenant());
-      System.out.printf("oboUser: %s%n", item.getOboUser());
-      System.out.printf("operation: %s%n", item.getOperation());
-      System.out.printf("created: %s%n", item.getCreated());
-      System.out.printf("Description:%n%s%n", item.getDescription());
-    }
-  }
   
   // Test retrieving system sharing information
   @Test
@@ -1805,6 +1787,8 @@ public class SystemsServiceTest
   {
     TSystem sys0 = systems[29];
     sys0.setOwner(rTestUser5.getOboUserId());
+    
+    // Service call
     svc.createSystem(rTestUser5, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     
     // Test retrieval using specified authn method
@@ -1829,7 +1813,8 @@ public class SystemsServiceTest
    String rawDataShare = "{\"users\": [\"0-create1\"]}";
    systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
    
-   svc.unshareSystem(rTestUser6, sys0.getId(), systemShare, rawDataShare);
+   // Service call
+   svc.shareSystem(rTestUser6, sys0.getId(), systemShare, rawDataShare);
    
    // Test retrieval using specified authn method
    SystemShare systemShareTest = svc.getSystemShare(rTestUser6, sys0.getId());
@@ -1841,6 +1826,112 @@ public class SystemsServiceTest
    System.out.printf("isPublic: %s%n", systemShareTest.isPublic());
    for (var user : systemShareTest.getUserList()) {
      System.out.printf("userName: %s%n", user);
+   }
+ }
+ 
+ //Test Test system unsharing
+ @Test
+ public void testSystemUnshare() throws Exception
+ {
+   TSystem sys0 = systems[31];
+   sys0.setOwner(rTestUser7.getOboUserId());
+   svc.createSystem(rTestUser7, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+   
+   //  Create a SystemShare from the json 
+   SystemShare systemShare;
+   String rawDataShare = "{\"users\": [\"0-create1\"]}";
+   systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
+   
+   // Service call
+   svc.unshareSystem(rTestUser7, sys0.getId(), systemShare, rawDataShare);
+   
+   // Test retrieval using specified authn method
+   SystemShare systemShareTest = svc.getSystemShare(rTestUser7, sys0.getId());
+   
+   System.out.println("Found item: " + sys0.getId());
+   // Verify system share fields
+
+   Assert.assertNotNull(systemShareTest, "System Share information found.");
+   System.out.printf("isPublic: %s%n", systemShareTest.isPublic());
+   for (var user : systemShareTest.getUserList()) {
+     System.out.printf("userName: %s%n", user);
+   }
+ }
+ 
+ //Test Test system sharing publicly
+ @Test
+ public void testSystemSharePublicly() throws Exception
+ {
+   TSystem sys0 = systems[32];
+   sys0.setOwner(rTestUser8.getOboUserId());
+   svc.createSystem(rTestUser8, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+
+   // Service call
+   svc.shareSystemPublicly(rTestUser8, sys0.getId());
+   
+   // Test retrieval using specified authn method
+   SystemShare systemShareTest = svc.getSystemShare(rTestUser8, sys0.getId());
+   
+   System.out.println("Found item: " + sys0.getId());
+   // Verify system share fields
+
+   Assert.assertNotNull(systemShareTest, "System Share information found.");
+   System.out.printf("isPublic: %s%n", systemShareTest.isPublic());
+   for (var user : systemShareTest.getUserList()) {
+     System.out.printf("userName: %s%n", user);
+   }
+ }
+ 
+ //Test Test system sharing publicly
+ @Test
+ public void testSystemUnsharePublicly() throws Exception
+ {
+   TSystem sys0 = systems[33];
+   sys0.setOwner(rTestUser9.getOboUserId());
+   svc.createSystem(rTestUser9, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+
+   // Service call
+   svc.shareSystemPublicly(rTestUser9, sys0.getId());
+   
+   // Test retrieval using specified authn method
+   SystemShare systemShareTest = svc.getSystemShare(rTestUser9, sys0.getId());
+   
+   System.out.println("Found item: " + sys0.getId());
+   // Verify system share fields
+
+   Assert.assertNotNull(systemShareTest, "System Share information found.");
+   System.out.printf("isPublic: %s%n", systemShareTest.isPublic());
+   for (var user : systemShareTest.getUserList()) {
+     System.out.printf("userName: %s%n", user);
+   }
+ }
+ 
+ // ************************************************************************
+ // **************************  Private Methods  ***************************
+ // ************************************************************************
+ 
+
+ // Retrieve and display history for manual checking of system history records
+ private void displaySystemHistory(ResourceRequestUser rUser, String systemId) throws TapisException, TapisClientException
+ {
+   // Retrieve and display history for manual checking of display
+   List<SystemHistoryItem> systemHistory = svc.getSystemHistory(rUser, systemId);
+   Assert.assertNotNull(systemHistory);
+   System.out.println("===============================================================================");
+   System.out.printf("History for system: %s Number of history records: %d%n", systemId, systemHistory.size());
+   for (int i=0; i < systemHistory.size(); i++)
+   {
+     System.out.println("-------------------------------------------");
+     System.out.printf("Record # %d%n", i+1);
+     System.out.println("-------------------------------------------");
+     SystemHistoryItem item = systemHistory.get(i);
+     System.out.printf("apiTenant: %s%n", item.getJwtTenant());
+     System.out.printf("apiUser: %s%n", item.getJwtUser());
+     System.out.printf("oboTenant: %s%n", item.getOboTenant());
+     System.out.printf("oboUser: %s%n", item.getOboUser());
+     System.out.printf("operation: %s%n", item.getOperation());
+     System.out.printf("created: %s%n", item.getCreated());
+     System.out.printf("Description:%n%s%n", item.getDescription());
    }
  }
 }

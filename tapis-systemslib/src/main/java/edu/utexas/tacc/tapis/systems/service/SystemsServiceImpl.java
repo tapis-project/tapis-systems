@@ -113,10 +113,12 @@ public class SystemsServiceImpl implements SystemsService
   private static final String nullImpersonationId = null;
   private static final String nullTargetUser = null;
   private static final Set<Permission> nullPermSet = null;
+  private static final SystemShare nullSystemShare = null;
   
   // Sharing constants
   private static final String OP_SHARE = "share";
   private static final String OP_UNSHARE = "unShare";
+  private static final Set<String> publicUserSet = Collections.singleton(SKClient.PUBLIC_GRANTEE); // "~public"
 
   // ************************************************************************
   // *********************** Enums ******************************************
@@ -1868,7 +1870,7 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare, String rawJson)
       throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
-    updateUserShares(rUser, OP_SHARE, systemId, systemShare);
+    updateUserShares(rUser, OP_SHARE, systemId, systemShare, false);
   }
   
   /**
@@ -1888,7 +1890,7 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public void unshareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare, String rawJson)
       throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
-    updateUserShares(rUser, OP_UNSHARE, systemId, systemShare);
+    updateUserShares(rUser, OP_UNSHARE, systemId, systemShare, false);
   }
   
   
@@ -1908,29 +1910,7 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public void shareSystemPublicly(ResourceRequestUser rUser, String systemId) 
       throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
-    SystemOperation op = SystemOperation.modify;
-    
-    // ---------------------------- Check inputs ------------------------------------
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-
-    String oboTenant = rUser.getOboTenantId();
-
-    // We will need info from system, so fetch it now
-    TSystem system = dao.getSystem(oboTenant, systemId);
-    // We need owner to check auth and if system not there cannot find owner.
-    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
-
-    checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet, nullImpersonationId);
-    
-    // Create request object needed for SK calls.
-    ReqShareResource reqShareResource =  new ReqShareResource();
-    reqShareResource.setResourceType(SYS_SHR_TYPE);
-    reqShareResource.setResourceId1(systemId);
-    reqShareResource.setGrantor(rUser.getOboUserId());
-    reqShareResource.setPrivilege(Permission.READ.name());
-
-    reqShareResource.setGrantee(SKClient.PUBLIC_GRANTEE);
-    getSKClient().shareResource(reqShareResource);
+    updateUserShares(rUser, OP_SHARE, systemId, nullSystemShare, true);
   }
   
   /**
@@ -1948,33 +1928,7 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public void unshareSystemPublicly(ResourceRequestUser rUser, String systemId) 
        throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
-    // ---------------------------- Check inputs ------------------------------------
-
-    SystemOperation op = SystemOperation.modify;
-    
-    // ---------------------------- Check inputs ------------------------------------
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-
-
-    String oboTenant = rUser.getOboTenantId();
-
-    // We will need info from system, so fetch it now
-    TSystem system = dao.getSystem(oboTenant, systemId);
-    // We need owner to check auth and if system not there cannot find owner.
-    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
-
-    checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet, nullImpersonationId);
-
-    // Create object needed for SK calls.
-    SKShareDeleteShareParms deleteShareParms = new SKShareDeleteShareParms();
-    deleteShareParms.setResourceType(SYS_SHR_TYPE);
-    deleteShareParms.setResourceId1(systemId);
-    deleteShareParms.setPrivilege(Permission.READ.name());
-
-    // 
-    deleteShareParms.setGrantee(SKClient.PUBLIC_GRANTEE);
-    getSKClient().deleteShare(deleteShareParms);
-    
+    updateUserShares(rUser, OP_UNSHARE, systemId, nullSystemShare, true);
   }
   
 
@@ -3059,19 +3013,33 @@ public class SystemsServiceImpl implements SystemsService
   
   /*
    * Common routine to update share/unshare for a list of users.
-   * Can be used to mark a path publicly shared with all users in tenant including "~public" in the set of users.
+   * Can be used to mark a system publicly shared with all users in tenant including "~public" in the set of users.
+   * 
+   * @param rUser - Resource request user
+   * @param shareOpName - Operation type: share/unshare
+   * @param systemId - System ID
+   * @param  systemShare - System share object
+   * @param isPublic - Indicates if the sharing operation is public
+   * @throws TapisClientException - for Tapis client exception
+   * @throws TapisException - for Tapis exception
    */
-  private void updateUserShares(ResourceRequestUser rUser, String shareOpName, String systemId, SystemShare systemShare) 
+  private void updateUserShares(ResourceRequestUser rUser, String shareOpName, String systemId, SystemShare systemShare, boolean isPublic) 
       throws TapisClientException, TapisException
   {
     SystemOperation op = SystemOperation.modify;
     // ---------------------------- Check inputs ------------------------------------
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || systemShare == null)
+    if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
     
-    if (shareOpName == OP_SHARE && (systemShare.getUserList() ==null || systemShare.getUserList().isEmpty())) {
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+    Set<String> userList;
+    if (!isPublic) {
+      // if is not public update userList must have items
+      if (systemShare == null || systemShare.getUserList() ==null || systemShare.getUserList().isEmpty())
+          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_USER_LIST", rUser));
+      userList = systemShare.getUserList();
+    } else {
+      userList = publicUserSet; // "~public"
     }
 
     String oboTenant = rUser.getOboTenantId();
@@ -3094,7 +3062,7 @@ public class SystemsServiceImpl implements SystemsService
         reqShareResource.setGrantor(rUser.getOboUserId());
         reqShareResource.setPrivilege(Permission.READ.name());
     
-        for (String userName : systemShare.getUserList())
+        for (String userName : userList)
         {
           reqShareResource.setGrantee(userName);
           getSKClient().shareResource(reqShareResource);
@@ -3108,8 +3076,12 @@ public class SystemsServiceImpl implements SystemsService
         deleteShareParms.setResourceId1(systemId);
         deleteShareParms.setPrivilege(Permission.READ.name());
         deleteShareParms.setGrantee(rUser.getOboUserId());
-        deleteShareParms.setGrantee(SKClient.PUBLIC_GRANTEE);
-        getSKClient().deleteShare(deleteShareParms);
+        
+        for (String userName : userList)
+        {
+          deleteShareParms.setGrantee(userName);
+          getSKClient().deleteShare(deleteShareParms);
+        }
       }
     }
   }

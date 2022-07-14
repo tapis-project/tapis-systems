@@ -57,6 +57,8 @@ public final class IntegrationUtils
   public static final String testUser5 = "testuser5";
   public static final String testUser6 = "testuser6";
   public static final String testUser7 = "testuser7";
+  public static final String testUser8 = "testuser8";
+  public static final String testUser9 = "testuser9";
   public static final String testUser4LinuxUser = "testuser4LinuxUser";
   public static final String impersonationIdTestUser9 = "testuser9";
   public static final String impersonationIdNull = null;
