@@ -2482,15 +2482,19 @@ public class SystemsServiceImpl implements SystemsService
    */
   private TSystem createPatchedTSystem(TSystem o, PatchSystem p)
   {
+    // Start off with copy of original system
     TSystem p1 = new TSystem(o);
+    // Override attributes if provided in the patch request.
     if (p.getDescription() != null) p1.setDescription(p.getDescription());
     if (p.getHost() != null) p1.setHost(p.getHost());
+    // EffectiveUserId needs special handling. Empty string means reset to the default.
     if (p.getEffectiveUserId() != null)
     {
       if (StringUtils.isBlank(p.getEffectiveUserId()))
       {
         p1.setEffectiveUserId(DEFAULT_EFFECTIVEUSERID);
-      } else
+      }
+      else
       {
         p1.setEffectiveUserId(p.getEffectiveUserId());
       }
