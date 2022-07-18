@@ -2001,15 +2001,27 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Get Security Kernel client
-   * Note: Systems service always calls SK as itself.
+   * Note: Calling SK as system service grantor.
    * @return SK client
    * @throws TapisException - for Tapis related exceptions
    */
   private SKClient getSKClient() throws TapisException
   {
+    return getSKClient(getServiceUserId());
+  }
+  
+  /**
+   * Get Security Kernel client
+   *
+   * @return SK client
+   * @throws TapisException - for Tapis related exceptions
+   */
+  private SKClient getSKClient(String grantor) throws TapisException
+  {
     SKClient skClient;
     String tenantId = getServiceTenantId();
-    String userName = getServiceUserId();
+    String userName = grantor;
+      
     try
     {
       skClient = serviceClients.getClient(userName, tenantId, SKClient.class);
@@ -3075,7 +3087,6 @@ public class SystemsServiceImpl implements SystemsService
         deleteShareParms.setResourceType(SYS_SHR_TYPE);
         deleteShareParms.setResourceId1(systemId);
         deleteShareParms.setPrivilege(Permission.READ.name());
-        deleteShareParms.setGrantee(rUser.getOboUserId());
         
         for (String userName : userList)
         {
