@@ -829,13 +829,15 @@ public class SystemsServiceImpl implements SystemsService
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
    * @param getCreds - flag indicating if credentials for effectiveUserId should be included
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
+   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
+   *                         provided in system definition. By default, this is false.
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod accMethod, boolean requireExecPerm,
-                           boolean getCreds, String impersonationId)
+                           boolean getCreds, String impersonationId, boolean resolveEffUser)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
@@ -873,9 +875,9 @@ public class SystemsServiceImpl implements SystemsService
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
 
-    // Resolve and updat effectiveUserId
+    // Resolve and optionally set effectiveUserId in result
     String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, impersonationId);
-    system.setEffectiveUserId(resolvedEffectiveUserId);
+    if (resolveEffUser) system.setEffectiveUserId(resolvedEffectiveUserId);
 
     // If requested retrieve credentials from Security Kernel
     if (getCreds)
@@ -955,13 +957,16 @@ public class SystemsServiceImpl implements SystemsService
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
+   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
+   *                         provided in system definition. By default, this is false.
    * @param showDeleted - whether or not to included resources that have been marked as deleted.
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList,
-                                  int limit, List<OrderBy> orderByList, int skip, String startAfter, boolean showDeleted)
+                                  int limit, List<OrderBy> orderByList, int skip, String startAfter,
+                                  boolean resolveEffUser, boolean showDeleted)
           throws TapisException, TapisClientException
   {
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -995,9 +1000,12 @@ public class SystemsServiceImpl implements SystemsService
     List<TSystem> systems = dao.getSystems(rUser.getOboTenantId(), verifiedSearchList, null, allowedSysIDs,
                                             limit, orderByList, skip, startAfter, showDeleted);
 
-    for (TSystem system : systems)
+    if (resolveEffUser)
     {
-      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system));
+      for (TSystem system : systems)
+      {
+        system.setEffectiveUserId(resolveEffectiveUserId(rUser, system));
+      }
     }
     return systems;
   }
@@ -1011,6 +1019,8 @@ public class SystemsServiceImpl implements SystemsService
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
+   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
+   *                         provided in system definition. By default, this is false.
    * @param showDeleted - whether or not to included resources that have been marked as deleted.
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
@@ -1018,12 +1028,12 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser,
                                                    String sqlSearchStr, int limit, List<OrderBy> orderByList, int skip,
-                                                   String startAfter, boolean showDeleted)
+                                                   String startAfter, boolean resolveEffUser, boolean showDeleted)
           throws TapisException, TapisClientException
   {
     // If search string is empty delegate to getSystems()
     if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip,
-                                                             startAfter, showDeleted);
+                                                             startAfter, resolveEffUser, showDeleted);
 
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
@@ -1054,9 +1064,12 @@ public class SystemsServiceImpl implements SystemsService
     List<TSystem> systems = dao.getSystems(rUser.getOboTenantId(), null, searchAST, allowedSysIDs,
                                            limit, orderByList, skip, startAfter, showDeleted);
 
-    for (TSystem system : systems)
+    if (resolveEffUser)
     {
-      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system));
+      for (TSystem system : systems)
+      {
+        system.setEffectiveUserId(resolveEffectiveUserId(rUser, system));
+      }
     }
     return systems;
   }
@@ -1835,19 +1848,32 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Get Security Kernel client
+   * Get Security Kernel client with obo tenant and user set to the service tenant and user.
+   * I.e. this is a client where the service calls SK as itself.
    * Note: Systems service always calls SK as itself.
    * @return SK client
    * @throws TapisException - for Tapis related exceptions
    */
   private SKClient getSKClient() throws TapisException
   {
-    String tenantId = getServiceTenantId();
-    String userName = getServiceUserId();
-    try { return serviceClients.getClient(userName, tenantId, SKClient.class); }
+    return getSKClient(getServiceUserId(), getServiceTenantId());
+  }
+
+  /**
+   * Get Security Kernel client with oboUser and oboTenant set as given.
+   * Need to use serviceClients.getClient() every time because it checks for expired service jwt token and
+   *   refreshes it as needed.
+   * @param oboUser - obo user
+   * @param oboTenant - obo tenant
+   * @return SK client
+   * @throws TapisException - for Tapis related exceptions
+   */
+  private SKClient getSKClient(String oboUser, String oboTenant) throws TapisException
+  {
+    try { return serviceClients.getClient(oboUser, oboTenant, SKClient.class); }
     catch (Exception e)
     {
-      String msg = MsgUtils.getMsg("TAPIS_CLIENT_NOT_FOUND", TapisConstants.SERVICE_NAME_SECURITY, tenantId, userName);
+      String msg = MsgUtils.getMsg("TAPIS_CLIENT_NOT_FOUND", TapisConstants.SERVICE_NAME_SECURITY, oboTenant, oboUser);
       throw new TapisException(msg, e);
     }
   }
