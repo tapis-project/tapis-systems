@@ -970,7 +970,7 @@ public class SystemsDaoImpl implements SystemsDao
    */
   @Override
   public List<TSystem> getSystems(String tenantId, List<String> searchList, ASTNode searchAST, Set<String> setOfIDs,
-                             int limit, List<OrderBy> orderByList, int skip, String startAfter, boolean showDeleted)
+                                  int limit, List<OrderBy> orderByList, int skip, String startAfter, boolean showDeleted)
           throws TapisException
   {
     // The result list should always be non-null.

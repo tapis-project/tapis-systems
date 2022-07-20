@@ -106,6 +106,7 @@ public final class TSystem
   public static final int DEFAULT_PROXYPORT = -1;
   public static final int DEFAULT_JOBMAXJOBS = -1;
   public static final int DEFAULT_JOBMAXJOBSPERUSER = -1;
+  public static final boolean DEFAULT_CAN_RUN_BATCH = false;
 
   // Validation patterns
   //ID Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
