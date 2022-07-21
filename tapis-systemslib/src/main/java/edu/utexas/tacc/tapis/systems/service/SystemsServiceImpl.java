@@ -830,7 +830,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param getCreds - flag indicating if credentials for effectiveUserId should be included
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is false.
+   *                         provided in system definition.
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
    * @throws NotAuthorizedException - unauthorized
@@ -958,7 +958,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is false.
+   *                         provided in system definition.
    * @param showDeleted - whether or not to included resources that have been marked as deleted.
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
@@ -1020,7 +1020,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is false.
+   *                         provided in system definition.
    * @param showDeleted - whether or not to included resources that have been marked as deleted.
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
