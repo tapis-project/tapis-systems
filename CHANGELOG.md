@@ -10,6 +10,17 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.2.3 - 2022-07-22
+
+Incremental improvements and new preview feature.
+
+### New features:
+- Support query parameter resolveEffectiveUser for geSystem, getSystems
+
+### Bug fixes:
+- Switch default for *resolveEffectiverUser* from false to true.
+
+---------------------------------------------------------------------------
 ## 1.2.2 - 2022-07-20
 
 Incremental improvements and new preview feature.
