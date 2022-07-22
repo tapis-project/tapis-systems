@@ -830,7 +830,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param getCreds - flag indicating if credentials for effectiveUserId should be included
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is false.
+   *                         provided in system definition.
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
    * @throws NotAuthorizedException - unauthorized
@@ -958,7 +958,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is false.
+   *                         provided in system definition.
    * @param showDeleted - whether or not to included resources that have been marked as deleted.
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
@@ -1020,7 +1020,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is false.
+   *                         provided in system definition.
    * @param showDeleted - whether or not to included resources that have been marked as deleted.
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
@@ -1345,10 +1345,23 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Store or update credential for given system and target user.
+   * Required: rUser, systemId, targetUser, credential.
    *
-   * rUser, systemId, targetUser and credential are required.
    * Secret path depends on whether effUser type is dynamic or static
+   *
+   * If the *effectiveUserId* for the system is dynamic (i.e. equal to *${apiUserId}*) then *targetUser* is interpreted
+   * as a Tapis user and the Credential may contain the optional attribute *loginUser* which will be used to map the
+   * Tapis user to a username to be used when accessing the system. If the login user is not provided then there is
+   * no mapping and the Tapis user is always used when accessing the system.
+   *
+   * If the *effectiveUserId* for the system is static (i.e. not *${apiUserId}*) then *targetUser* is interpreted
+   * as the login user to be used when accessing the host.
+   *
+   * For a dynamic TSystem (effUsr=$apiUsr) if targetUser is not the same as the Tapis user and a loginUser has been
+   * provided then a loginUser mapping is created.
+   *
    * System must exist and not be deleted.
+   *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @param targetUser - Target user for operation
@@ -1487,6 +1500,18 @@ public class SystemsServiceImpl implements SystemsService
    * Get credential for given system, target user and authn method
    * Only certain services are authorized.
    *
+   * If the *effectiveUserId* for the system is dynamic (i.e. equal to *${apiUserId}*) then *targetUser* is
+   * interpreted as a Tapis user. Note that their may me a mapping of the Tapis user to a host *loginUser*.
+   *
+   * If the *effectiveUserId* for the system is static (i.e. not *${apiUserId}*) then *targetUser* is interpreted
+   * as the host *loginUser* that is used when accessing the host.
+   *
+   * Desired authentication method may be specified using query parameter authnMethod=<method>. If desired
+   * authentication method not specified then credentials for the system's default authentication method are returned.
+   *
+   * The result includes the attribute *authnMethod* indicating the authentication method associated with
+   * the returned credentials.
+   *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @param targetUser - Target user for operation. May be Tapis user or host user
@@ -1528,7 +1553,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     /*
-     * When the Systems services calls SK to read secrets it calls with a JWT as itself,
+     * When the Systems service calls SK to read secrets it calls with a JWT as itself,
      *   jwtTenantId = admin tenant (Site Tenant Admin)
      *   jwtUserId = TapisConstants.SERVICE_NAME_SYSTEMS ("systems")
      *   and AccountType = TapisThreadContext.AccountType.service
@@ -2308,6 +2333,7 @@ public class SystemsServiceImpl implements SystemsService
    *   whether the effectiveUserId is static or dynamic.
    *   This provides for separate namespaces for the two cases, so there will be no conflict if a static
    *      user and dynamic (i.e. ${apiUserId}) user happen to have the same value.
+   *
    * The target user may be a Tapis user or login user associated with the host.
    * Secrets for a system follow the format
    *   secret/tapis/tenant/<tenant_id>/<system_id>/user/<static|dynamic>/<target_user>/<key_type>/S1
@@ -2318,6 +2344,7 @@ public class SystemsServiceImpl implements SystemsService
    *     new SKSecretWriteParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME)
    *     sParms.setSysId(systemId).setSysUser(targetUserPath)
    *     skClient.writeSecret(reqPayloadTenant, getServiceUserId(), sParms);
+   *
    * In the SKClient code the tenant value in SKSecretWriteParms is ignored.
    * See method writeSecret(String tenant, String user, SKSecretWriteParms parms) in SKClient.java
    * SK uses tenant from payload when constructing the full path for the secret. User from payload not used.
@@ -2333,8 +2360,6 @@ public class SystemsServiceImpl implements SystemsService
     var sParms = new SKSecretWriteParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
     // Fill in systemId and targetUserPath for the path to the secret.
     String targetUserPath = getTargetUserSecretPath(targetUser, isStatic);
-    // TODO: Revert to static/dynamic staticdynamic
-//    targetUserPath = targetUser;
 
     sParms.setSysId(systemId).setSysUser(targetUserPath);
     Map<String, String> dataMap;

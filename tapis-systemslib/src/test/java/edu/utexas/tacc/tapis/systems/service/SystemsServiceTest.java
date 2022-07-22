@@ -62,9 +62,8 @@ public class SystemsServiceTest
 {
   private SystemsService svc;
   private SystemsServiceImpl svcImpl;
-  private ResourceRequestUser rOwner1, rTestUser0, rTestUser1, rTestUser2,
-          rTestUser3, rTestUser4, rAdminUser, rSystemsSvc,
-          rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rJobsSvcTestUser1;
+  private ResourceRequestUser rOwner1, rTestUser0, rTestUser1, rTestUser2, rTestUser3, rTestUser4, rAdminUser, rSystemsSvc,
+                              rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rFilesSvcTestUser5;
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
@@ -125,6 +124,8 @@ public class SystemsServiceTest
                                                    null, testUser3, tenantName, null, null, null));
     rFilesSvcTestUser4 = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                    null, testUser4, tenantName, null, null, null));
+    rFilesSvcTestUser5 = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
+                                                   null, testUser5, tenantName, null, null, null));
 
     // Cleanup anything leftover from previous failed run
     tearDown();
@@ -905,119 +906,194 @@ public class SystemsServiceTest
   }
 
   // Test creating, reading and deleting user credentials for a system
-  // Including retrieving credentials with a system when effectiveUserId=apiUserId for a system.
+  // Initial system is dynamic, effectiveUserId = ${apiUserId}
+  //   - Test 1 - create and get cred as owner1, testuser3
+  //            - create and get should always use Tapis user (owner1, testuser3) in method arguments
+  // Also test loginUser mapping functionality.
+  //   - Test 2 - basic loginUser mapping with dynamic TSystem. Create and get cred as owner1, testuser3, testuser4
+  // Test switching system from dynamic to static
+  //   - Test 3 - patch system to have static effectiveUserId = "testuser5LinuxUser", get cred as owner1, testuser3
+  //            - create and get should use static user in method arguments
+  // Test switching system back from static to dynamic
+  //   - Test 4 - patch system to revert to dynamic effectiveUserId = ${apiUserId}, get cred as owner1, testuser3, testuser4
+  //            - create and get should always use Tapis user (owner1, testuser3, testuser4) in method arguments
   @Test
   public void testUserCredentials() throws Exception
   {
-    // Create a system with effUsr = apiUserId
+    // Create dynamic system with effUsr = apiUserId
     TSystem sys0 = systems[10];
-    sys0.setEffectiveUserId("${apiUserId}");
+    String sysId = sys0.getId();
+    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR); // "${apiUserId}"
+    // Create the system
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
-    Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
+    // Create in-memory objects fro all creds we will use.
+    Credential cred1NoLoginUser = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
             "fakeAccessKey1", "fakeAccessSecret1", "fakeCert1");
-    Credential cred3 = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
+    Credential cred3NoLoginUser = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
             "fakeAccessKey3", "fakeAccessSecret3", "fakeCert3");
-    Credential cred3a = new Credential(null, null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null);
-
+    Credential cred3NoLoginUserAccessAuthn = new Credential(null, null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null);
+    Credential cred4LoginUser = new Credential(null, testUser4LinuxUser, "fakePassword4", null, null, null, null, null);
+    Credential cred5A_NoLoginUser = new Credential(null, null, "fakePassword5a", null, null, null, null, null);
+    Credential cred5NoLoginLinuxUser = new Credential(null, null, "fakePassword5LinuxUser", null, null, null, null, null);
+    Credential cred5NoLoginStatic = new Credential(null, null, "fakePassword5Static", null, null, null, null, null);
+    Credential cred5B_LoginUser = new Credential(null, testUser5LinuxUser, "fakePassword5b", null, null, null, null, null);
     // Make the separate calls required to store credentials for each user.
-    // In this case for owner1 and testUser3
-    svc.createUserCredential(rOwner1, sys0.getId(), owner1, cred1, skipCredCheckTrue, rawDataEmtpyJson);
-    svc.createUserCredential(rOwner1, sys0.getId(), testUser3, cred3, skipCredCheckTrue, rawDataEmtpyJson);
+    // In this case for owner1, testUser3, testUser5
+    // These should all go under the dynamic secret path in SK
+    svc.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, skipCredCheckTrue, rawDataEmtpyJson);
+    svc.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, skipCredCheckTrue, rawDataEmtpyJson);
+    svc.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, skipCredCheckTrue, rawDataEmtpyJson);
+
+    // ------------------------
+    // Test 1 - basic cred retrieve/delete for owner1, testuser3
+    //        - fetch creds for specific authnMethod
+    // -------------------------
     // Get system as owner using files service, should get cred for owner
-    TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), AuthnMethod.PASSWORD, false, true, null, resolveEffUserTrue);
-    Credential cred0 = tmpSys.getAuthnCredential();
-    Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + owner1);
-    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
-    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null for user: " + owner1);
-    Assert.assertEquals(cred0.getPassword(), cred1.getPassword());
+    TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    checkCredPasswordAndEffectiveUser(tmpSys, cred1NoLoginUser.getPassword(), owner1, owner1);
 
     // Get system as testUser3 using files service and should get cred for testUser3
-    tmpSys = svc.getSystem(rFilesSvcTestUser3, sys0.getId(), AuthnMethod.PASSWORD, false, true, null, resolveEffUserTrue);
-    cred0 = tmpSys.getAuthnCredential();
-    Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser3);
-    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
-    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null for user: " + testUser3);
-    Assert.assertEquals(cred0.getPassword(), cred3.getPassword());
+    tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    checkCredPasswordAndEffectiveUser(tmpSys, cred3NoLoginUser.getPassword(), testUser3, testUser3);
 
     // Get credentials for testUser3 and validate
     // Use files service AuthenticatedUser since only certain services can retrieve the cred.
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), testUser3, AuthnMethod.PASSWORD);
+    Credential cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PASSWORD);
     // Verify credentials
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser3);
-    Assert.assertEquals(cred0.getPassword(), cred3.getPassword());
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), testUser3, AuthnMethod.PKI_KEYS);
+    Assert.assertEquals(cred0.getPassword(), cred3NoLoginUser.getPassword());
+    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PKI_KEYS);
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser3);
     Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PKI_KEYS);
-    Assert.assertEquals(cred0.getPublicKey(), cred3.getPublicKey());
-    Assert.assertEquals(cred0.getPrivateKey(), cred3.getPrivateKey());
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), testUser3, AuthnMethod.ACCESS_KEY);
+    Assert.assertEquals(cred0.getPublicKey(), cred3NoLoginUser.getPublicKey());
+    Assert.assertEquals(cred0.getPrivateKey(), cred3NoLoginUser.getPrivateKey());
+    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.ACCESS_KEY);
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser3);
     Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.ACCESS_KEY);
-    Assert.assertEquals(cred0.getAccessKey(), cred3.getAccessKey());
-    Assert.assertEquals(cred0.getAccessSecret(), cred3.getAccessSecret());
+    Assert.assertEquals(cred0.getAccessKey(), cred3NoLoginUser.getAccessKey());
+    Assert.assertEquals(cred0.getAccessSecret(), cred3NoLoginUser.getAccessSecret());
 
     // Delete credentials and verify they were destroyed
-    int changeCount = svc.deleteUserCredential(rOwner1, sys0.getId(), owner1);
+    int changeCount = svc.deleteUserCredential(rOwner1, sysId, owner1);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when removing credential for user: " + owner1);
-    changeCount = svc.deleteUserCredential(rOwner1, sys0.getId(), testUser3);
+    changeCount = svc.deleteUserCredential(rOwner1, sysId, testUser3);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when removing credential for user: " + testUser3);
 
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), owner1, AuthnMethod.PASSWORD);
-    Assert.assertNull(cred0, "Credential not deleted. System name: " + sys0.getId() + " User name: " + owner1);
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), testUser3, AuthnMethod.PASSWORD);
-    Assert.assertNull(cred0, "Credential not deleted. System name: " + sys0.getId() + " User name: " + testUser3);
+    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, owner1, AuthnMethod.PASSWORD);
+    Assert.assertNull(cred0, "Credential not deleted. System name: " + sysId + " User name: " + owner1);
+    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PASSWORD);
+    Assert.assertNull(cred0, "Credential not deleted. System name: " + sysId + " User name: " + testUser3);
 
     // Attempt to delete again, should return 0 for change count
-    changeCount = svc.deleteUserCredential(rOwner1, sys0.getId(), testUser3);
+    changeCount = svc.deleteUserCredential(rOwner1, sysId, testUser3);
     Assert.assertEquals(changeCount, 0, "Change count incorrect when removing a credential already removed.");
 
-    // Set just ACCESS_KEY only and test
-    svc.createUserCredential(rOwner1, sys0.getId(), testUser3, cred3a, skipCredCheckTrue, rawDataEmtpyJson);
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), testUser3, AuthnMethod.ACCESS_KEY);
-    Assert.assertEquals(cred0.getAccessKey(), cred3a.getAccessKey());
-    Assert.assertEquals(cred0.getAccessSecret(), cred3a.getAccessSecret());
+    // Update cred to set just ACCESS_KEY and test
+    // This should go under the dynamic secret path in SK
+    svc.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUserAccessAuthn, skipCredCheckTrue, rawDataEmtpyJson);
+    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.ACCESS_KEY);
+    Assert.assertEquals(cred0.getAccessKey(), cred3NoLoginUserAccessAuthn.getAccessKey());
+    Assert.assertEquals(cred0.getAccessSecret(), cred3NoLoginUserAccessAuthn.getAccessSecret());
     // Attempt to retrieve secret that has not been set
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), testUser3, AuthnMethod.PKI_KEYS);
-    Assert.assertNull(cred0, "Credential was non-null for missing secret. System name: " + sys0.getId() + " User name: " + testUser3);
+    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PKI_KEYS);
+    Assert.assertNull(cred0, "Credential was non-null for missing secret. System name: " + sysId + " User name: " + testUser3);
     // Delete credentials and verify they were destroyed
-    changeCount = svc.deleteUserCredential(rOwner1, sys0.getId(), testUser3);
+    changeCount = svc.deleteUserCredential(rOwner1, sysId, testUser3);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when removing a credential.");
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), testUser3, AuthnMethod.ACCESS_KEY);
-    Assert.assertNull(cred0, "Credential not deleted. System name: " + sys0.getId() + " User name: " + testUser3);
+    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.ACCESS_KEY);
+    Assert.assertNull(cred0, "Credential not deleted. System name: " + sysId + " User name: " + testUser3);
 
     // ============================================
-    // Test tapis user to loginUser mapping.
+    // Tests for tapis user to loginUser mapping.
     // ============================================
-    // Create a credential with a loginUser so that a mapping should be created.
-    // testUser2 should be permitted to update their own credential
-    Credential cred4 = new Credential(null, testUser4LinuxUser, "fakePassword4", null, null, null, null, null);
-    svc.createUserCredential(rOwner1, sys0.getId(), testUser4, cred4, skipCredCheckTrue, rawDataEmtpyJson);
-
+    // ------------------------
+    // Test 2 - basic loginUser mapping with dynamic TSystem. Create and get cred for testuser3, testuser4
+    // -------------------------
+    // Create a credential for Tapis user testUser4 with a loginUser so that a mapping should be created.
+    // owner should be permitted to update their own credential
+    // This should go under the dynamic secret path in SK
+    svc.createUserCredential(rOwner1, sysId, testUser4, cred4LoginUser, skipCredCheckTrue, rawDataEmtpyJson);
     // Give testUser4 READ access to the system. Normally this would be done through sharing and call would
     // be made with impersonationId set to the system owner but here we are testing loginUser mapping, not impersonation.
-    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser4, testPermsREAD, rawDataEmtpyJson);
+    svc.grantUserPermissions(rOwner1, sysId, testUser4, testPermsREAD, rawDataEmtpyJson);
 
     // Now when fetching System as Files with oboUser=testUser4 and impersonationId=null
     //   we should find effectiveUserId=testUser4LinuxUser and password=fakePassword4
-    tmpSys = svc.getSystem(rFilesSvcTestUser4, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
+    tmpSys = svc.getSystem(rFilesSvcTestUser4, sysId, AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
                            impersonationIdNull, resolveEffUserTrue);
-    cred0 = tmpSys.getAuthnCredential();
-    Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser4);
-    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD, "Retrieved authnMethod incorrect");
-    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null for user: " + testUser4);
-    Assert.assertEquals(cred0.getPassword(), cred4.getPassword(), "Retrieved password incorrect");
-    Assert.assertEquals(tmpSys.getEffectiveUserId(), testUser4LinuxUser, "Mapping of Tapis user to loginUser incorrect");
+    checkCredPasswordAndEffectiveUser(tmpSys, cred4LoginUser.getPassword(), testUser4, testUser4LinuxUser);
 
     // when fetching System as Files with oboUser=testUser3 and impersonationId=testUser4
     //   we should also find effectiveUserId=testUser4LinuxUser and password=fakePassword4
-    tmpSys = svc.getSystem(rFilesSvcTestUser3, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
+    tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
                            testUser4, resolveEffUserTrue);
-    cred0 = tmpSys.getAuthnCredential();
-    Assert.assertNotNull(cred0, "AuthnCredential should not be null for impersonated user: " + testUser4);
-    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD, "Retrieved authnMethod incorrect for impersonation");
-    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null for impersonated user: " + testUser4);
-    Assert.assertEquals(cred0.getPassword(), cred4.getPassword(), "Retrieved password incorrect for impersonated user");
-    Assert.assertEquals(tmpSys.getEffectiveUserId(), testUser4LinuxUser, "Mapping of Tapis user to loginUser incorrect");
+    checkCredPasswordAndEffectiveUser(tmpSys, cred4LoginUser.getPassword(), testUser4, testUser4LinuxUser);
+
+    // ------------------------
+    // Test 3: patch system to have static effectiveUserId = "testuser5LinuxUser", get cred
+    // -------------------------
+    // Patch the system
+    String rawDataPatch = "{\"effectiveUserId\": \"testuser5LinuxUser\"}";
+    PatchSystem patchSystem = new PatchSystem(null, null, testUser5LinuxUser, null, null, null, null, null, null, null, null,
+                              null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+    svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
+    // Retrieve with and without resolve of effUser, effUser should be static value
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, resolveEffUserFalse);
+    Assert.assertEquals(tmpSys.getEffectiveUserId(), testUser5LinuxUser);
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, resolveEffUserTrue);
+    Assert.assertEquals(tmpSys.getEffectiveUserId(), testUser5LinuxUser);
+    // Create "static" cred for testuser5LinuxUser and testuser5
+    // These should go under the static secret path in SK
+    // Note that we create a static cred for testuser5 to make sure it does not get mixed up with the dynamic cred for same user name
+    svc.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5NoLoginLinuxUser, skipCredCheckTrue, rawDataEmtpyJson);
+    svc.createUserCredential(rOwner1, sysId, testUser5, cred5NoLoginStatic, skipCredCheckTrue, rawDataEmtpyJson);
+    // Get cred and verify for testUser5LinuxUser
+    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser5LinuxUser, AuthnMethod.PASSWORD);
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser5LinuxUser);
+    Assert.assertEquals(cred0.getPassword(), cred5NoLoginLinuxUser.getPassword());
+    // Get cred and verify for testUser5
+    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser5, AuthnMethod.PASSWORD);
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser5);
+    Assert.assertEquals(cred0.getPassword(), cred5NoLoginStatic.getPassword());
+
+    // Get sys as owner and check cred. Since it is static should always get back cred for testUser5LinuxUser
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    checkCredPasswordAndEffectiveUser(tmpSys, cred5NoLoginLinuxUser.getPassword(), testUser5, testUser5LinuxUser);
+
+    // Get as testUser3 and check cred. Since it is static should always get back cred for testUser5
+    tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    checkCredPasswordAndEffectiveUser(tmpSys, cred5NoLoginLinuxUser.getPassword(), testUser5, testUser5LinuxUser);
+
+    // ------------------------
+    // TODO Test 4: patch system to revert to dynamic effectiveUserId = ${apiUserId}, get cred
+    // -------------------------
+    // Patch the system
+    rawDataPatch = "{\"effectiveUserId\": \"${apiUserId}\"}";
+    patchSystem = new PatchSystem(null, null, TSystem.APIUSERID_VAR, null, null, null, null, null, null, null, null,
+                                  null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+    svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
+    // Retrieve with and without resolve, check effUser
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, resolveEffUserFalse);
+    Assert.assertEquals(tmpSys.getEffectiveUserId(), TSystem.APIUSERID_VAR);
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, resolveEffUserTrue);
+    Assert.assertEquals(tmpSys.getEffectiveUserId(), owner1);
+    // Re-create creds for owner1, testuser3. Recall we deleted them above as part of the test
+    svc.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, skipCredCheckTrue, rawDataEmtpyJson);
+    svc.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, skipCredCheckTrue, rawDataEmtpyJson);
+    // Create "dynamic" cred for testuser5
+    // This should go under the dynamic secret path in SK
+    svc.createUserCredential(rOwner1, sysId, testUser5, cred5B_LoginUser, skipCredCheckTrue, rawDataEmtpyJson);
+
+    // Get system as owner and check cred, should be same as before for "dynamic" use case.
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    checkCredPasswordAndEffectiveUser(tmpSys, cred1NoLoginUser.getPassword(), owner1, owner1);
+    // Get system as testUser3 using files service and should get cred for testUser3
+    tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    checkCredPasswordAndEffectiveUser(tmpSys, cred3NoLoginUser.getPassword(), testUser3, testUser3);
+
+    // Get system as testUser5 and check cred.
+    tmpSys = svc.getSystem(rFilesSvcTestUser5, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    checkCredPasswordAndEffectiveUser(tmpSys, cred5B_LoginUser.getPassword(), testUser5, testUser5LinuxUser);
   }
 
   // Test creating, reading and deleting user credentials for a system
@@ -1800,5 +1876,17 @@ public class SystemsServiceTest
       System.out.printf("created: %s%n", item.getCreated());
       System.out.printf("Description:%n%s%n", item.getDescription());
     }
+  }
+
+  // Check password and effective user as part of credentials check
+  private void checkCredPasswordAndEffectiveUser(TSystem sys, String password, String user, String effUser)
+  {
+    Credential cred = sys.getAuthnCredential();
+    Assert.assertNotNull(cred, "AuthnCredential should not be null for user: " + user);
+    Assert.assertEquals(cred.getAuthnMethod(), AuthnMethod.PASSWORD, "Retrieved authnMethod incorrect");
+    Assert.assertNotNull(cred.getPassword(), "AuthnCredential password should not be null for user: " + user);
+    Assert.assertEquals(cred.getPassword(), password, "Retrieved password incorrect");
+    Assert.assertEquals(sys.getEffectiveUserId(), effUser, "Incorrect effectiveUserId");
+
   }
 }

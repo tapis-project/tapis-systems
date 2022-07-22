@@ -681,7 +681,7 @@ public class SystemResource
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
    *                          resolving effectiveUserId
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is false.
+   *                         provided in system definition. By default, this is true.
    * @param securityContext - user identity
    * @return Response with system object as the result
    */
@@ -694,7 +694,7 @@ public class SystemResource
                             @QueryParam("requireExecPerm") @DefaultValue("false") boolean requireExecPerm,
                             @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
                             @QueryParam("impersonationId") String impersonationId,
-                            @QueryParam("resolveEffectiveUser") @DefaultValue("false") boolean resolveEffUser,
+                            @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
                             @Context SecurityContext securityContext)
   {
     String opName = "getSystem";
@@ -862,7 +862,7 @@ public class SystemResource
    *       QueryParametersRequestFilter. No need to use @QueryParam here.
    * @param securityContext - user identity
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is false.
+   *                         provided in system definition. By default, this is true.
    * @param showDeleted - whether or not to included resources that have been marked as deleted.
    * @return - list of systems accessible by requester and matching search conditions.
    */
@@ -870,7 +870,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getSystems(@Context SecurityContext securityContext,
-                             @QueryParam("resolveEffectiveUser") @DefaultValue("false") boolean resolveEffUser,
+                             @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
                              @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
   {
     String opName = "getSystems";
@@ -910,7 +910,7 @@ public class SystemResource
    * Dedicated search endpoint for System resource. Search conditions provided as query parameters.
    * @param securityContext - user identity
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is false.
+   *                         provided in system definition. By default, this is true.
    * @param showDeleted - whether or not to included resources that have been marked as deleted.
    * @return - list of systems accessible by requester and matching search conditions.
    */
@@ -919,7 +919,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsQueryParameters(@Context SecurityContext securityContext,
-                                               @QueryParam("resolveEffectiveUser") @DefaultValue("false") boolean resolveEffUser,
+                                               @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
                                                @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
   {
     String opName = "searchSystemsGet";
@@ -979,7 +979,7 @@ public class SystemResource
    * @param payloadStream - request body
    * @param securityContext - user identity
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is false.
+   *                         provided in system definition. By default, this is true.
    * @param showDeleted - whether or not to included resources that have been marked as deleted.
    * @return - list of systems accessible by requester and matching search conditions.
    */
@@ -989,7 +989,7 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsRequestBody(InputStream payloadStream,
                                            @Context SecurityContext securityContext,
-                                           @QueryParam("resolveEffectiveUser") @DefaultValue("false") boolean resolveEffUser,
+                                           @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
                                            @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
   {
     String opName = "searchSystemsPost";

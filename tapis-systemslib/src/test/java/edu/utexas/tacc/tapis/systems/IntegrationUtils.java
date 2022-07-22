@@ -54,7 +54,9 @@ public final class IntegrationUtils
   public static final String testUser2 = "testuser2";
   public static final String testUser3 = "testuser3";
   public static final String testUser4 = "testuser4";
+  public static final String testUser5 = "testuser5";
   public static final String testUser4LinuxUser = "testuser4LinuxUser";
+  public static final String testUser5LinuxUser = "testuser5LinuxUser";
   public static final String impersonationIdTestUser9 = "testuser9";
   public static final String impersonationIdNull = null;
   public static final String apiUser = "testApiUser";
@@ -80,6 +82,7 @@ public final class IntegrationUtils
   public static final boolean skipCredCheckTrue = true;
   public static final boolean skipCredCheckFalse = false;
   public static final boolean getCredsTrue = true;
+  public static final boolean getCredsFalse = false;
   public static final boolean requireExecPermFalse = false;
   public static final String hostPatchedId = "patched.system.org";
   public static final String hostMinimalId = "minimal.system.org";
