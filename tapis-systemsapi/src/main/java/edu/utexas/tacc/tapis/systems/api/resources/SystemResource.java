@@ -682,6 +682,7 @@ public class SystemResource
    *                          resolving effectiveUserId
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
    *                         provided in system definition. By default, this is true.
+   * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth bypassed.
    * @param securityContext - user identity
    * @return Response with system object as the result
    */
@@ -695,6 +696,7 @@ public class SystemResource
                             @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
                             @QueryParam("impersonationId") String impersonationId,
                             @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
+                            @QueryParam("sharedAppCtx") @DefaultValue("true") boolean sharedAppCtx,
                             @Context SecurityContext securityContext)
   {
     String opName = "getSystem";
@@ -713,7 +715,8 @@ public class SystemResource
                                                    "requireExecPerm="+requireExecPerm,
                                                    "returnCredentials="+getCreds,
                                                    "impersonationId="+impersonationId,
-                                                   "resolveEffectiveUser="+resolveEffUser);
+                                                   "resolveEffectiveUser="+resolveEffUser,
+                                                   "sharedAppCtx="+sharedAppCtx);
 
     // Check that authnMethodStr is valid if is passed in
     AuthnMethod authnMethod = null;
@@ -730,7 +733,8 @@ public class SystemResource
     TSystem tSystem;
     try
     {
-      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId, resolveEffUser);
+      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId,
+                                  resolveEffUser, sharedAppCtx);
     }
     catch (Exception e)
     {
@@ -1316,7 +1320,7 @@ public class SystemResource
       TSystem dtnSystem = null;
       try
       {
-        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null, false);
+        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null, false, false);
       }
       catch (NotAuthorizedException e)
       {
@@ -1408,8 +1412,8 @@ public class SystemResource
    *  srchParms must be non-null
    *  One of srchParms.searchList or sqlSearchStr must be non-null
    */
-  private Response getSearchResponse(ResourceRequestUser rUser, String sqlSearchStr,
-                                     SearchParameters srchParms, boolean resolveEffUser, boolean showDeleted)
+  private Response getSearchResponse(ResourceRequestUser rUser, String sqlSearchStr, SearchParameters srchParms,
+                                     boolean resolveEffUser, boolean showDeleted)
           throws Exception
   {
     RespAbstract resp1;

@@ -61,7 +61,7 @@ public interface SystemsService
           throws TapisException, TapisClientException, NotAuthorizedException;
 
   TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod authnMethod, boolean requireExecPerm,
-                    boolean getCreds, String impersonationId, boolean resolveEffectiveUser)
+                    boolean getCreds, String impersonationId, boolean resolveEffectiveUser, boolean sharedAppCtx)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
   int getSystemsTotalCount(ResourceRequestUser rUser, List<String> searchList, List<OrderBy> orderByList,

@@ -831,15 +831,17 @@ public class SystemsServiceImpl implements SystemsService
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
    *                         provided in system definition.
+   * @param sharedAppCtx - Indicates that request is part of a shared app context.
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
    * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod accMethod, boolean requireExecPerm,
-                           boolean getCreds, String impersonationId, boolean resolveEffUser)
+                           boolean getCreds, String impersonationId, boolean resolveEffUser, boolean sharedAppCtx)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
+
     SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId))
