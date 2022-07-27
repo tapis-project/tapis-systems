@@ -218,6 +218,7 @@ public final class IntegrationUtils
   public static final boolean showDeletedTrue = true;
   public static final boolean resolveEffUserTrue = true;
   public static final boolean resolveEffUserFalse = false;
+  public static final boolean sharedAppCtxFalse = false;
   public static final Instant createdNull = null;
   public static final Instant updatedNull = null;
   public static final int qMaxJobs = -1;

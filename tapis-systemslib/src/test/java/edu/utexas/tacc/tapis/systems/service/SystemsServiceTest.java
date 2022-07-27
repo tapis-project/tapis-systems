@@ -240,13 +240,13 @@ public class SystemsServiceTest
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     // Retrieve system as owner, without and with requireExecPerm
-    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse);
+    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     checkCommonSysAttrs(sys0, tmpSys);
-    tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, true, false, null, resolveEffUserFalse);
+    tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, true, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     checkCommonSysAttrs(sys0, tmpSys);
     // Retrieve the system including the credential using the default authn method defined for the system
     // Use files service AuthenticatedUser since only certain services can retrieve the cred.
-    tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), null, false, true, null, resolveEffUserFalse);
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), null, false, true, null, resolveEffUserFalse, sharedAppCtxFalse);
     checkCommonSysAttrs(sys0, tmpSys);
     // Verify credentials. Only cred for default authnMethod is returned. In this case PKI_KEYS.
     Credential cred = tmpSys.getAuthnCredential();
@@ -260,7 +260,7 @@ public class SystemsServiceTest
     Assert.assertNull(cred.getCertificate(), "AuthnCredential certificate should be null");
 
     // Test retrieval using specified authn method
-    tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), AuthnMethod.PASSWORD, false, true, null, resolveEffUserFalse);
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), AuthnMethod.PASSWORD, false, true, null, resolveEffUserFalse, sharedAppCtxFalse);
     System.out.println("Found item: " + sys0.getId());
     // Verify credentials. Only cred for default authnMethod is returned. In this case PASSWORD.
     cred = tmpSys.getAuthnCredential();
@@ -286,7 +286,7 @@ public class SystemsServiceTest
     sys0.setJobCapabilities(capList1);
     String rawDataCreate = "{\"testPut\": \"0-create1\"}";
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataCreate);
-    TSystem tmpSys = svc.getSystem(rOwner1, systemId, null, false, false, null, resolveEffUserFalse);
+    TSystem tmpSys = svc.getSystem(rOwner1, systemId, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     // Get last updated timestamp
     LocalDateTime updated = LocalDateTime.ofInstant(tmpSys.getUpdated(), ZoneOffset.UTC);
     String updatedStr1 = TapisUtils.getSQLStringFromUTCTime(updated);
@@ -298,7 +298,7 @@ public class SystemsServiceTest
 
     // Update using PUT
     svc.putSystem(rOwner1, putSystem, skipCredCheckTrue, rawDataPut);
-    tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse);
+    tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
 
     // Get last updated timestamp
     updated = LocalDateTime.ofInstant(tmpSys.getUpdated(), ZoneOffset.UTC);
@@ -351,7 +351,7 @@ public class SystemsServiceTest
     sys0.setJobCapabilities(capList1);
     String rawDataCreate = "{\"testUpdate\": \"0-create1\"}";
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataCreate);
-    TSystem tmpSys = svc.getSystem(rOwner1, systemId, null, false, false, null, resolveEffUserFalse);
+    TSystem tmpSys = svc.getSystem(rOwner1, systemId, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     // Get last updated timestamp
     LocalDateTime updated = LocalDateTime.ofInstant(tmpSys.getUpdated(), ZoneOffset.UTC);
     String updatedStr1 = TapisUtils.getSQLStringFromUTCTime(updated);
@@ -364,7 +364,7 @@ public class SystemsServiceTest
 
     // Update using patchSys
     svc.patchSystem(rOwner1, systemId, patchSystemFull, rawDataPatch);
-    TSystem tmpSysFull = svc.getSystem(rOwner1, systemId, null, false, false, null, resolveEffUserFalse);
+    TSystem tmpSysFull = svc.getSystem(rOwner1, systemId, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
 
     // Get last updated timestamp
     updated = LocalDateTime.ofInstant(tmpSysFull.getUpdated(), ZoneOffset.UTC);
@@ -420,7 +420,7 @@ public class SystemsServiceTest
 
     // Update using patchSys
     svc.patchSystem(rOwner1, systemId, patchSystemPartial, rawDataPatch2);
-    TSystem tmpSysPartial = svc.getSystem(rOwner1, systemId, null, false, false, null, resolveEffUserFalse);
+    TSystem tmpSysPartial = svc.getSystem(rOwner1, systemId, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
 
     // Update original definition with patched values so we can use the checkCommon method.
     sys0.setDescription(description2);
@@ -446,7 +446,7 @@ public class SystemsServiceTest
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataCreate);
     // Change owner using api
     svc.changeSystemOwner(rOwner1, sys0.getId(), newOwnerName);
-    TSystem tmpSys = svc.getSystem(rTestUser2, sys0.getId(), null, false, false, null, resolveEffUserFalse);
+    TSystem tmpSys = svc.getSystem(rTestUser2, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertEquals(tmpSys.getOwner(), newOwnerName);
     // Check expected auxiliary updates have happened
     // New owner should be able to retrieve permissions and have all permissions
@@ -472,7 +472,7 @@ public class SystemsServiceTest
     }
     // Original owner should not be able to read system
     try {
-      svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse);
+      svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
       Assert.fail("Original owner should not have permission to read system after change of ownership. System name: " + sys0.getId() +
               " Old owner: " + rOwner1.getOboUserId() + " New Owner: " + newOwnerName);
     } catch (Exception e) {
@@ -493,7 +493,7 @@ public class SystemsServiceTest
     sys0.setRootDir("/root8/${tenant}");
     sys0.setJobWorkingDir("jobWorkDir8/${owner}/${tenant}/${apiUserId}");
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
-    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse);
+    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
     System.out.println("Found item: " + sys0.getId());
     String effectiveUserId = owner1;
@@ -519,11 +519,11 @@ public class SystemsServiceTest
     tmpSys.setEffectiveUserId(TSystem.APIUSERID_VAR);
     svc.putSystem(rOwner1, tmpSys, true, rawDataEmtpyJson);
     // Get without resolving
-    tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse);
+    tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertNotNull(tmpSys, "Failed to get item: " + sys0.getId());
     Assert.assertEquals(tmpSys.getEffectiveUserId(), TSystem.APIUSERID_VAR);
     // Get with resolve
-    tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserTrue);
+    tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserTrue, sharedAppCtxFalse);
     Assert.assertNotNull(tmpSys, "Failed to get item: " + sys0.getId());
     Assert.assertEquals(tmpSys.getEffectiveUserId(), rOwner1.getJwtUserId());
   }
@@ -595,30 +595,30 @@ public class SystemsServiceTest
     String sysId = sys0.getId();
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     // Enabled should start off true, then become false and finally true again.
-    TSystem tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, resolveEffUserFalse);
+    TSystem tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertTrue(tmpSys.isEnabled());
     Assert.assertTrue(svc.isEnabled(rOwner1, sysId));
     int changeCount = svc.disableSystem(rOwner1, sysId);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when updating the system.");
-    tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, resolveEffUserFalse);
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertFalse(tmpSys.isEnabled());
     Assert.assertFalse(svc.isEnabled(rOwner1, sysId));
     changeCount = svc.enableSystem(rOwner1, sysId);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when updating the system.");
-    tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, resolveEffUserFalse);
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertTrue(tmpSys.isEnabled());
     Assert.assertTrue(svc.isEnabled(rOwner1, sysId));
 
     // Deleted should start off false, then become true and finally false again.
-    tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, resolveEffUserFalse);
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertFalse(tmpSys.isDeleted());
     changeCount = svc.deleteSystem(rOwner1, sysId);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when updating the system.");
-    tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, resolveEffUserFalse);
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertNull(tmpSys);
     changeCount = svc.undeleteSystem(rOwner1, sysId);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when updating the system.");
-    tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, resolveEffUserFalse);
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertFalse(tmpSys.isDeleted());
 
     // When deleted isEnabled should throw NotFound exception
@@ -641,7 +641,7 @@ public class SystemsServiceTest
     // Delete the system
     int changeCount = svc.deleteSystem(rOwner1, sys0.getId());
     Assert.assertEquals(changeCount, 1, "Change count incorrect when deleting a system.");
-    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse);
+    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertNull(tmpSys, "System without credentials not deleted. System name: " + sys0.getId());
 
     // Create a system with credentials for owner and another user
@@ -653,7 +653,7 @@ public class SystemsServiceTest
     // Delete the system
     changeCount = svc.deleteSystem(rOwner1, sys0.getId());
     Assert.assertEquals(changeCount, 1, "Change count incorrect when deleting a system.");
-    tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse);
+    tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertNull(tmpSys, "System with credentials not deleted. System name: " + sys0.getId());
   }
 
@@ -736,7 +736,7 @@ public class SystemsServiceTest
     // Now create a system so we can test update cases
     sys0.setAuthnCredential(null);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
-    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse);
+    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
 
     // Test credential update with invalid private key
     try
@@ -949,11 +949,11 @@ public class SystemsServiceTest
     //        - fetch creds for specific authnMethod
     // -------------------------
     // Get system as owner using files service, should get cred for owner
-    TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue, sharedAppCtxFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred1NoLoginUser.getPassword(), owner1, owner1);
 
     // Get system as testUser3 using files service and should get cred for testUser3
-    tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue, sharedAppCtxFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred3NoLoginUser.getPassword(), testUser3, testUser3);
 
     // Get credentials for testUser3 and validate
@@ -1020,13 +1020,13 @@ public class SystemsServiceTest
     // Now when fetching System as Files with oboUser=testUser4 and impersonationId=null
     //   we should find effectiveUserId=testUser4LinuxUser and password=fakePassword4
     tmpSys = svc.getSystem(rFilesSvcTestUser4, sysId, AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
-                           impersonationIdNull, resolveEffUserTrue);
+                           impersonationIdNull, resolveEffUserTrue, sharedAppCtxFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred4LoginUser.getPassword(), testUser4, testUser4LinuxUser);
 
     // when fetching System as Files with oboUser=testUser3 and impersonationId=testUser4
     //   we should also find effectiveUserId=testUser4LinuxUser and password=fakePassword4
     tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
-                           testUser4, resolveEffUserTrue);
+                           testUser4, resolveEffUserTrue, sharedAppCtxFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred4LoginUser.getPassword(), testUser4, testUser4LinuxUser);
 
     // ------------------------
@@ -1038,9 +1038,9 @@ public class SystemsServiceTest
                               null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
     // Retrieve with and without resolve of effUser, effUser should be static value
-    tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, resolveEffUserFalse);
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertEquals(tmpSys.getEffectiveUserId(), testUser5LinuxUser);
-    tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, resolveEffUserTrue);
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, resolveEffUserTrue, sharedAppCtxFalse);
     Assert.assertEquals(tmpSys.getEffectiveUserId(), testUser5LinuxUser);
     // Create "static" cred for testuser5LinuxUser and testuser5
     // These should go under the static secret path in SK
@@ -1057,11 +1057,11 @@ public class SystemsServiceTest
     Assert.assertEquals(cred0.getPassword(), cred5NoLoginStatic.getPassword());
 
     // Get sys as owner and check cred. Since it is static should always get back cred for testUser5LinuxUser
-    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue, sharedAppCtxFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred5NoLoginLinuxUser.getPassword(), testUser5, testUser5LinuxUser);
 
     // Get as testUser3 and check cred. Since it is static should always get back cred for testUser5
-    tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue, sharedAppCtxFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred5NoLoginLinuxUser.getPassword(), testUser5, testUser5LinuxUser);
 
     // ------------------------
@@ -1073,9 +1073,9 @@ public class SystemsServiceTest
                                   null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
     // Retrieve with and without resolve, check effUser
-    tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, resolveEffUserFalse);
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertEquals(tmpSys.getEffectiveUserId(), TSystem.APIUSERID_VAR);
-    tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, resolveEffUserTrue);
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, resolveEffUserTrue, sharedAppCtxFalse);
     Assert.assertEquals(tmpSys.getEffectiveUserId(), owner1);
     // Re-create creds for owner1, testuser3. Recall we deleted them above as part of the test
     svc.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, skipCredCheckTrue, rawDataEmtpyJson);
@@ -1085,14 +1085,14 @@ public class SystemsServiceTest
     svc.createUserCredential(rOwner1, sysId, testUser5, cred5B_LoginUser, skipCredCheckTrue, rawDataEmtpyJson);
 
     // Get system as owner and check cred, should be same as before for "dynamic" use case.
-    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue, sharedAppCtxFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred1NoLoginUser.getPassword(), owner1, owner1);
     // Get system as testUser3 using files service and should get cred for testUser3
-    tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue, sharedAppCtxFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred3NoLoginUser.getPassword(), testUser3, testUser3);
 
     // Get system as testUser5 and check cred.
-    tmpSys = svc.getSystem(rFilesSvcTestUser5, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue);
+    tmpSys = svc.getSystem(rFilesSvcTestUser5, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, resolveEffUserTrue, sharedAppCtxFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred5B_LoginUser.getPassword(), testUser5, testUser5LinuxUser);
   }
 
@@ -1111,7 +1111,7 @@ public class SystemsServiceTest
 
     // Get system as owner using files service, should get cred for static effUser
     TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse,
-                                   getCredsTrue, impersonationIdNull, resolveEffUserTrue);
+                                   getCredsTrue, impersonationIdNull, resolveEffUserTrue, sharedAppCtxFalse);
     Credential cred0 = tmpSys.getAuthnCredential();
     Assert.assertNotNull(cred0, "AuthnCredential should not be null");
     Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
@@ -1137,7 +1137,7 @@ public class SystemsServiceTest
     // be made with impersonationId set to the system owner but here we are testing loginUser mapping, not impersonation.
     svc.grantUserPermissions(rOwner1, sys0.getId(), testUser4, testPermsREAD, rawDataEmtpyJson);
     tmpSys = svc.getSystem(rFilesSvcTestUser3, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
-                           testUser4, resolveEffUserTrue);
+                           testUser4, resolveEffUserTrue, sharedAppCtxFalse);
     cred0 = tmpSys.getAuthnCredential();
     Assert.assertNotNull(cred0, "AuthnCredential should not be null");
     Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
@@ -1167,7 +1167,7 @@ public class SystemsServiceTest
     Assert.assertFalse(svc.checkForSystem(rOwner1, fakeSystemName, true));
 
     // Get TSystem with no system should return null
-    TSystem tmpSys = svc.getSystem(rOwner1, fakeSystemName, null, false, false, null, resolveEffUserFalse);
+    TSystem tmpSys = svc.getSystem(rOwner1, fakeSystemName, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertNull(tmpSys, "TSystem not null for non-existent system");
 
     // Delete system with no system should throw a NotFound exception
@@ -1275,7 +1275,7 @@ public class SystemsServiceTest
 
     // READ - deny user not owner/admin and no READ or MODIFY access
     pass = false;
-    try { svc.getSystem(rTestUser0, systemId, null, false, false, null, resolveEffUserFalse); }
+    try { svc.getSystem(rTestUser0, systemId, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1285,7 +1285,7 @@ public class SystemsServiceTest
 
     // EXECUTE - deny user not owner/admin with READ but not EXECUTE
     pass = false;
-    try { svc.getSystem(rTestUser3, systemId, null, true, false, null, resolveEffUserFalse); }
+    try { svc.getSystem(rTestUser3, systemId, null, true, false, null, resolveEffUserFalse, sharedAppCtxFalse); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1457,7 +1457,7 @@ public class SystemsServiceTest
 
     // User should not be able to impersonate another user.
     pass = false;
-    try { svc.getSystem(rTestUser1, systemId, null, false, false, owner1, resolveEffUserFalse); }
+    try { svc.getSystem(rTestUser1, systemId, null, false, false, owner1, resolveEffUserFalse, sharedAppCtxFalse); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_IMPERSONATE"));
@@ -1467,7 +1467,7 @@ public class SystemsServiceTest
 
     // When a service impersonates another user they should be denied if that user cannot read the system.
     pass = false;
-    try { svc.getSystem(rFilesSvcTestUser3, systemId, null, false, false, impersonationIdTestUser9, resolveEffUserFalse); }
+    try { svc.getSystem(rFilesSvcTestUser3, systemId, null, false, false, impersonationIdTestUser9, resolveEffUserFalse, sharedAppCtxFalse); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1499,14 +1499,14 @@ public class SystemsServiceTest
     svc.grantUserPermissions(rOwner1, sys0.getId(), testUser2, testPermsMODIFY, rawDataEmtpyJson);
 
     // READ - allow owner, service, with READ only, with MODIFY only
-    svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse);
-    svc.getSystem(rOwner1, sys0.getId(), null, true, false, null, resolveEffUserFalse);
-    svc.getSystem(rFilesSvcOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse);
-    svc.getSystem(rTestUser3, sys0.getId(), null, false, false, null, resolveEffUserFalse);
-    svc.getSystem(rTestUser3, sys0.getId(), null, true, false, null, resolveEffUserFalse);
-    svc.getSystem(rTestUser2, sys0.getId(), null, false, false, null, resolveEffUserFalse);
+    svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
+    svc.getSystem(rOwner1, sys0.getId(), null, true, false, null, resolveEffUserFalse, sharedAppCtxFalse);
+    svc.getSystem(rFilesSvcOwner1, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
+    svc.getSystem(rTestUser3, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
+    svc.getSystem(rTestUser3, sys0.getId(), null, true, false, null, resolveEffUserFalse, sharedAppCtxFalse);
+    svc.getSystem(rTestUser2, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     // Files should be allowed to impersonate another user
-    svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, owner1, resolveEffUserFalse);
+    svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, owner1, resolveEffUserFalse, sharedAppCtxFalse);
   }
 
   // ******************************************************************
@@ -1815,7 +1815,7 @@ public class SystemsServiceTest
     sys0.setJobCapabilities(capList1);
     // Create systems - history record 1
     svc.createSystem(ownerUser, sys0, skipCredCheckTrue, rawDataEmtpyJson);
-    TSystem tmpSys = svc.getSystem(ownerUser, sysId, null, false, false, null, resolveEffUserFalse);
+    TSystem tmpSys = svc.getSystem(ownerUser, sysId, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     // Get last updated timestamp
     LocalDateTime updated = LocalDateTime.ofInstant(tmpSys.getUpdated(), ZoneOffset.UTC);
     String updatedStr1 = TapisUtils.getSQLStringFromUTCTime(updated);
