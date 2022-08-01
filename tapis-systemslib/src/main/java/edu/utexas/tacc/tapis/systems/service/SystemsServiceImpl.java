@@ -1824,13 +1824,13 @@ public class SystemsServiceImpl implements SystemsService
     
     // First determine if system is publicly shared. Search for share to grantee ~public
     skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
-    var skShares = getSKClient().getShares(skParms);
+    var skShares = getSKClient(rUser.getOboUserId(), rUser.getOboTenantId()).getShares(skParms);
     // Set isPublic based on result.
     boolean isPublic = (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
     // Now get all the users with whom the system has been shared
     skParms.setGrantee(null);
     skParms.setIncludePublicGrantees(false);
-    skShares = getSKClient().getShares(skParms);
+    skShares = getSKClient(rUser.getOboUserId(), rUser.getOboTenantId()).getShares(skParms);
     if (skShares != null && skShares.getShares() != null)
     {
       for (SkShare skShare : skShares.getShares())
@@ -3058,7 +3058,7 @@ public class SystemsServiceImpl implements SystemsService
         for (String userName : userList)
         {
           reqShareResource.setGrantee(userName);
-          getSKClient().shareResource(reqShareResource);
+          getSKClient(rUser.getOboUserId(), rUser.getOboTenantId()).shareResource(reqShareResource);
         }
       }
       case OP_UNSHARE ->
@@ -3072,7 +3072,7 @@ public class SystemsServiceImpl implements SystemsService
         for (String userName : userList)
         {
           deleteShareParms.setGrantee(userName);
-          getSKClient().deleteShare(deleteShareParms);
+          getSKClient(rUser.getOboUserId(), rUser.getOboTenantId()).deleteShare(deleteShareParms);
         }
       }
     }
