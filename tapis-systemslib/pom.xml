@@ -16,7 +16,7 @@
 
   <!-- DB connect properties for jOOQ and Flyway -->
   <properties>
-    <db.url>jdbc:postgresql://localhost:5432/tapissysdb</db.url>
+    <db.url>jdbc:postgresql://localhost:5400/tapissysdb</db.url>
     <db.username>tapis_sys</db.username>
     <db.password>password</db.password>
     <db.schema>tapis_sys</db.schema>
