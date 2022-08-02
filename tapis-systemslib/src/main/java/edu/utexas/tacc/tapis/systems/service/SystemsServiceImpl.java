@@ -1848,7 +1848,6 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @param systemShare - User names
-   * @return rawJson of items updated
    *
    * @throws TapisException - for Tapis related exceptions
    * @throws IllegalStateException 
@@ -1857,7 +1856,7 @@ public class SystemsServiceImpl implements SystemsService
    * @throws IllegalArgumentException - invalid parameter passed in
    */
   @Override
-  public void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare, String rawJson)
+  public void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare)
       throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
     updateUserShares(rUser, OP_SHARE, systemId, systemShare, false);
   }
@@ -1867,7 +1866,6 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @param systemShare - User names
-   * @return rawJson of items updated
    *
    * @throws TapisException - for Tapis related exceptions
    * @throws TapisClientException - for Tapis client related exceptions
@@ -1877,7 +1875,7 @@ public class SystemsServiceImpl implements SystemsService
    * @throws NotFoundException - Resource not found
    */
   @Override
-  public void unshareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare, String rawJson)
+  public void unshareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare)
       throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
     updateUserShares(rUser, OP_UNSHARE, systemId, systemShare, false);
   }

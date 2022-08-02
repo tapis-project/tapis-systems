@@ -215,7 +215,7 @@ public class ShareResource {
 
     // ---------------------------- Make service call to update the system -------------------------------
     try {
-      service.shareSystem(rUser, systemId, systemShare, rawJson);
+      service.shareSystem(rUser, systemId, systemShare);
     }
     catch (NotFoundException e)
     {
@@ -306,7 +306,7 @@ public class ShareResource {
     // ---------------------------- Make service call to update the system -------------------------------
     try
     {
-      service.unshareSystem(rUser, systemId, systemShare, rawJson);
+      service.unshareSystem(rUser, systemId, systemShare);
     }
     catch (NotFoundException e)
     {

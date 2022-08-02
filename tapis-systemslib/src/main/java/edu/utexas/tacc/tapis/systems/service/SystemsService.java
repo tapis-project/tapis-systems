@@ -131,10 +131,10 @@ public interface SystemsService
   
   //------------------- Share ---------------------------------
   // -----------------------------------------------------------------------
-  void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare postShare, String rawJson)
+  void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare postShare)
       throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException;
   
-  void unshareSystem(ResourceRequestUser rUser, String systemId, SystemShare postShare, String rawJson)
+  void unshareSystem(ResourceRequestUser rUser, String systemId, SystemShare postShare)
       throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException;
 
   void shareSystemPublicly(ResourceRequestUser rUser, String systemId) 

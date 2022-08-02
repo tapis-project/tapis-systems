@@ -1793,7 +1793,7 @@ public class SystemsServiceTest
    
    
    // Service call
-   svc.shareSystem(rTestUser5, sys0.getId(), systemShare, rawDataShare);
+   svc.shareSystem(rTestUser5, sys0.getId(), systemShare);
    
    // Test retrieval using specified authn method
    SystemShare systemShareTest = svc.getSystemShare(rTestUser5, sys0.getId());
@@ -1814,7 +1814,7 @@ public class SystemsServiceTest
    // **************************  Unsharing system  ***************************
    
    // Service call
-   svc.unshareSystem(rTestUser5, sys0.getId(), systemShare, rawDataShare);
+   svc.unshareSystem(rTestUser5, sys0.getId(), systemShare);
    
    // Test retrieval using specified authn method
    systemShareTest = svc.getSystemShare(rTestUser5, sys0.getId());
