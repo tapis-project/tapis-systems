@@ -62,7 +62,8 @@ public class SystemsServiceTest
 {
   private SystemsService svc;
   private SystemsServiceImpl svcImpl;
-  private ResourceRequestUser rOwner1, rTestUser0, rTestUser1, rTestUser2, rTestUser3, rTestUser4, rAdminUser, rSystemsSvc,
+  private ResourceRequestUser rOwner1, rTestUser0, rTestUser1, rTestUser2, rTestUser3, rTestUser4, rAdminUser,
+                              rJobsSvcTestUser1, rAppsSvcTestUser1,
                               rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rFilesSvcTestUser5;
 
   // Create test system definitions and scheduler profiles in memory
@@ -116,8 +117,6 @@ public class SystemsServiceTest
                                                    null, testUser3, tenantName, null, null, null));
     rTestUser4 = new ResourceRequestUser(new AuthenticatedUser(testUser4, tenantName, TapisThreadContext.AccountType.user.name(),
                                                    null, testUser4, tenantName, null, null, null));
-    rSystemsSvc = new ResourceRequestUser(new AuthenticatedUser(svcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
-                                                    null, svcName, adminTenantName, null, null, null));
     rFilesSvcOwner1 = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                    null, owner1, tenantName, null, null, null));
     rFilesSvcTestUser3 = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
@@ -126,6 +125,10 @@ public class SystemsServiceTest
                                                    null, testUser4, tenantName, null, null, null));
     rFilesSvcTestUser5 = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                    null, testUser5, tenantName, null, null, null));
+    rJobsSvcTestUser1 = new ResourceRequestUser(new AuthenticatedUser(jobsSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
+                                                null, testUser1, tenantName, null, null, null));
+    rAppsSvcTestUser1 = new ResourceRequestUser(new AuthenticatedUser(appsSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
+                                                null, testUser1, tenantName, null, null, null));
 
     // Cleanup anything leftover from previous failed run
     tearDown();
@@ -1474,6 +1477,25 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
+
+    // User should not be able to set sharedAppCtx
+    pass = false;
+    try { svc.getSystem(rTestUser1, systemId, null, false, false, impersonationIdNull, resolveEffUserFalse, sharedAppCtxTrue); }
+    catch (NotAuthorizedException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_SHAREDAPPCTX"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    // Apps service should not be able to set sharedAppCtx
+    pass = false;
+    try { svc.getSystem(rAppsSvcTestUser1, systemId, null, false, false, impersonationIdNull, resolveEffUserFalse, sharedAppCtxTrue); }
+    catch (NotAuthorizedException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_SHAREDAPPCTX"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
   }
 
   // Test Auth allow
@@ -1507,6 +1529,12 @@ public class SystemsServiceTest
     svc.getSystem(rTestUser2, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     // Files should be allowed to impersonate another user
     svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, owner1, resolveEffUserFalse, sharedAppCtxFalse);
+    // Jobs and Files should be allowed to set sharedAppCtx
+    svc.getSystem(rJobsSvcTestUser1, sys0.getId(), null, false, false, impersonationIdNull, resolveEffUserFalse, sharedAppCtxTrue);
+    svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, impersonationIdNull, resolveEffUserFalse, sharedAppCtxTrue);
+
+    // When a service impersonates another user it should be allowed if sharedAppCtx set to true even if normally denied.
+    svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, impersonationIdTestUser9, resolveEffUserFalse, sharedAppCtxTrue);
   }
 
   // ******************************************************************

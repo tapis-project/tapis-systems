@@ -88,6 +88,7 @@ public class SystemsServiceImpl implements SystemsService
   // NOTE that although next 2 sets are identical, they are used for different purposes and may change in the future.
   private static final Set<String> SVCLIST_READ = new HashSet<>(Set.of(FILES_SERVICE, APPS_SERVICE, JOBS_SERVICE));
   private static final Set<String> SVCLIST_IMPERSONATE = new HashSet<>(Set.of(FILES_SERVICE, APPS_SERVICE, JOBS_SERVICE));
+  private static final Set<String> SVCLIST_SHAREDAPPCTX = new HashSet<>(Set.of(FILES_SERVICE, JOBS_SERVICE));
 
   // Message keys
   private static final String ERROR_ROLLBACK = "SYSLIB_ERROR_ROLLBACK";
@@ -862,10 +863,14 @@ public class SystemsServiceImpl implements SystemsService
     // If impersonationId supplied confirm that it is allowed
     if (!StringUtils.isBlank(impersonationId)) checkImpersonationAllowed(rUser, op, systemId, impersonationId);
 
-    checkAuth(rUser, op, systemId, nullOwner, nullTargetUser, nullPermSet, impersonationId);
+    // If sharedAppCtx set confirm that it is allowed
+    if (sharedAppCtx) checkSharedAppCtxAllowed(rUser, op, systemId);
+
+    // If not skipping auth then check auth
+    if (!sharedAppCtx) checkAuth(rUser, op, systemId, nullOwner, nullTargetUser, nullPermSet, impersonationId);
 
     // If flag is set to also require EXECUTE perm then make a special auth call to make sure user has exec perm
-    if (requireExecPerm)
+    if (!sharedAppCtx && requireExecPerm)
     {
       checkAuthOboUser(rUser, SystemOperation.execute, systemId, nullOwner, nullTargetUser, nullPermSet, impersonationId);
     }
@@ -2811,6 +2816,28 @@ public class SystemsServiceImpl implements SystemsService
     }
     // An allowed service is impersonating, log it
     _log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_IMPERSONATE", rUser, systemId, op.name(), impersonationId));
+  }
+
+  /**
+   * Confirm that caller is allowed to set sharedAppCtx.
+   * Must be a service request from a service in the allowed list.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param op - operation name
+   * @param systemId - name of the system
+   * @throws NotAuthorizedException - user not authorized to perform operation
+   */
+  private void checkSharedAppCtxAllowed(ResourceRequestUser rUser, SystemOperation op, String systemId)
+          throws NotAuthorizedException
+  {
+    // If a service request the username will be the service name. E.g. files, jobs, streams, etc
+    String svcName = rUser.getJwtUserId();
+    if (!rUser.isServiceRequest() || !SVCLIST_SHAREDAPPCTX.contains(svcName))
+    {
+      throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_SHAREDAPPCTX", rUser, systemId, op.name()), NO_CHALLENGE);
+    }
+    // An allowed service is impersonating, log it
+    _log.trace(LibUtils.getMsgAuth("SYSLIB_AUTH_SHAREDAPPCTX", rUser, systemId, op.name()));
   }
 
   /**

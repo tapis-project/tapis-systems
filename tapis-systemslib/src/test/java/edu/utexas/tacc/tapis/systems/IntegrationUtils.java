@@ -41,6 +41,8 @@ public final class IntegrationUtils
   public static final String tenantName = "dev";
   public static final String svcName = "systems";
   public static final String filesSvcName = "files";
+  public static final String jobsSvcName = "jobs";
+  public static final String appsSvcName = "apps";
   public static final String adminUser = "testadmin";
 
   // NOTE: Continue to use the fake users owner1, owner2 since some operations involve modifying credentials
@@ -218,6 +220,7 @@ public final class IntegrationUtils
   public static final boolean showDeletedTrue = true;
   public static final boolean resolveEffUserTrue = true;
   public static final boolean resolveEffUserFalse = false;
+  public static final boolean sharedAppCtxTrue = true;
   public static final boolean sharedAppCtxFalse = false;
   public static final Instant createdNull = null;
   public static final Instant updatedNull = null;
