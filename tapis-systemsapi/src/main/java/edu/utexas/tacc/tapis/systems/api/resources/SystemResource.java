@@ -696,7 +696,7 @@ public class SystemResource
                             @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
                             @QueryParam("impersonationId") String impersonationId,
                             @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
-                            @QueryParam("sharedAppCtx") @DefaultValue("true") boolean sharedAppCtx,
+                            @QueryParam("sharedAppCtx") @DefaultValue("false") boolean sharedAppCtx,
                             @Context SecurityContext securityContext)
   {
     String opName = "getSystem";
