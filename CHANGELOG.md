@@ -10,12 +10,12 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.2.4 - 2022-07-??
+## 1.2.4 - 2022-08-07
 
 Incremental improvements and new preview features.
 
 ### New features:
-- Support sharedAppCtx for geSystem endpoint
+- Support sharedAppCtx for getSystem. Allowed for Jobs and Files services.
 
 ### Bug fixes:
 - None.
