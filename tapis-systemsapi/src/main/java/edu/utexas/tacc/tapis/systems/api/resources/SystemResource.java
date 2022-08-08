@@ -685,6 +685,9 @@ public class SystemResource
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
    *                          resolving effectiveUserId
+   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
+   *                         provided in system definition. By default, this is true.
+   * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth bypassed.
    * @param securityContext - user identity
    * @return Response with system object as the result
    */
@@ -697,6 +700,8 @@ public class SystemResource
                             @QueryParam("requireExecPerm") @DefaultValue("false") boolean requireExecPerm,
                             @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
                             @QueryParam("impersonationId") String impersonationId,
+                            @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
+                            @QueryParam("sharedAppCtx") @DefaultValue("false") boolean sharedAppCtx,
                             @Context SecurityContext securityContext)
   {
     String opName = "getSystem";
@@ -714,7 +719,9 @@ public class SystemResource
                                                    "systemId="+systemId, "authnMethod="+authnMethodStr,
                                                    "requireExecPerm="+requireExecPerm,
                                                    "returnCredentials="+getCreds,
-                                                   "impersonationId="+impersonationId);
+                                                   "impersonationId="+impersonationId,
+                                                   "resolveEffectiveUser="+resolveEffUser,
+                                                   "sharedAppCtx="+sharedAppCtx);
 
     // Check that authnMethodStr is valid if is passed in
     AuthnMethod authnMethod = null;
@@ -731,7 +738,8 @@ public class SystemResource
     TSystem tSystem;
     try
     {
-      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId);
+      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId,
+                                  resolveEffUser, sharedAppCtx);
     }
     catch (Exception e)
     {
@@ -862,6 +870,8 @@ public class SystemResource
    * NOTE: The query parameters search, limit, orderBy, skip, startAfter are all handled in the filter
    *       QueryParametersRequestFilter. No need to use @QueryParam here.
    * @param securityContext - user identity
+   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
+   *                         provided in system definition. By default, this is true.
    * @param showDeleted - whether or not to included resources that have been marked as deleted.
    * @return - list of systems accessible by requester and matching search conditions.
    */
@@ -869,6 +879,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getSystems(@Context SecurityContext securityContext,
+                             @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
                              @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
   {
     String opName = "getSystems";
@@ -882,7 +893,8 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "showDeleted="+showDeleted);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted);
 
     // ThreadContext designed to never return null for SearchParameters
     SearchParameters srchParms = threadContext.getSearchParameters();
@@ -891,7 +903,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted);
+      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffUser, showDeleted);
     }
     catch (Exception e)
     {
@@ -906,6 +918,8 @@ public class SystemResource
    * searchSystemsQueryParameters
    * Dedicated search endpoint for System resource. Search conditions provided as query parameters.
    * @param securityContext - user identity
+   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
+   *                         provided in system definition. By default, this is true.
    * @param showDeleted - whether or not to included resources that have been marked as deleted.
    * @return - list of systems accessible by requester and matching search conditions.
    */
@@ -914,6 +928,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsQueryParameters(@Context SecurityContext securityContext,
+                                               @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
                                                @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
   {
     String opName = "searchSystemsGet";
@@ -927,7 +942,8 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "showDeleted="+showDeleted);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted);
 
     // Create search list based on query parameters
     // Note that some validation is done for each condition but the back end will handle translating LIKE wildcard
@@ -952,7 +968,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted);
+      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffUser, showDeleted);
     }
     catch (Exception e)
     {
@@ -971,6 +987,8 @@ public class SystemResource
    * Request body contains an array of strings that are concatenated to form the full SQL-like search string.
    * @param payloadStream - request body
    * @param securityContext - user identity
+   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
+   *                         provided in system definition. By default, this is true.
    * @param showDeleted - whether or not to included resources that have been marked as deleted.
    * @return - list of systems accessible by requester and matching search conditions.
    */
@@ -980,6 +998,7 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsRequestBody(InputStream payloadStream,
                                            @Context SecurityContext securityContext,
+                                           @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
                                            @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
   {
     String opName = "searchSystemsPost";
@@ -993,7 +1012,8 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "showDeleted="+showDeleted);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -1038,7 +1058,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, showDeleted);
+      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, resolveEffUser, showDeleted);
     }
     catch (Exception e)
     {
@@ -1305,7 +1325,7 @@ public class SystemResource
       TSystem dtnSystem = null;
       try
       {
-        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null);
+        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null, false, false);
       }
       catch (NotAuthorizedException e)
       {
@@ -1397,8 +1417,8 @@ public class SystemResource
    *  srchParms must be non-null
    *  One of srchParms.searchList or sqlSearchStr must be non-null
    */
-  private Response getSearchResponse(ResourceRequestUser rUser, String sqlSearchStr,
-                                     SearchParameters srchParms, boolean showDeleted)
+  private Response getSearchResponse(ResourceRequestUser rUser, String sqlSearchStr, SearchParameters srchParms,
+                                     boolean resolveEffUser, boolean showDeleted)
           throws Exception
   {
     RespAbstract resp1;
@@ -1420,11 +1440,10 @@ public class SystemResource
     List<OrderBy> orderByList = srchParms.getOrderByList();
 
     if (StringUtils.isBlank(sqlSearchStr))
-      systems = service.getSystems(rUser, searchList, limit, orderByList, skip,
-                                          startAfter, showDeleted);
+      systems = service.getSystems(rUser, searchList, limit, orderByList, skip, startAfter, resolveEffUser, showDeleted);
     else
-      systems = service.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit,
-                                                           orderByList, skip, startAfter, showDeleted);
+      systems = service.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit, orderByList, skip, startAfter,
+                                                    resolveEffUser, showDeleted);
     if (systems == null) systems = Collections.emptyList();
     itemCountStr = String.format(SYS_CNT_STR, systems.size());
     if (computeTotal && limit <= 0) totalCount = systems.size();

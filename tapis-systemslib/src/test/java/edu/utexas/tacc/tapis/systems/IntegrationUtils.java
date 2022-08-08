@@ -41,6 +41,8 @@ public final class IntegrationUtils
   public static final String tenantName = "dev";
   public static final String svcName = "systems";
   public static final String filesSvcName = "files";
+  public static final String jobsSvcName = "jobs";
+  public static final String appsSvcName = "apps";
   public static final String adminUser = "testadmin";
 
   // NOTE: Continue to use the fake users owner1, owner2 since some operations involve modifying credentials
@@ -56,6 +58,7 @@ public final class IntegrationUtils
   public static final String testUser4 = "testuser4";
   public static final String testUser5 = "testuser5";
   public static final String testUser4LinuxUser = "testuser4LinuxUser";
+  public static final String testUser5LinuxUser = "testuser5LinuxUser";
   public static final String impersonationIdTestUser9 = "testuser9";
   public static final String impersonationIdNull = null;
   public static final String apiUser = "testApiUser";
@@ -81,6 +84,7 @@ public final class IntegrationUtils
   public static final boolean skipCredCheckTrue = true;
   public static final boolean skipCredCheckFalse = false;
   public static final boolean getCredsTrue = true;
+  public static final boolean getCredsFalse = false;
   public static final boolean requireExecPermFalse = false;
   public static final String hostPatchedId = "patched.system.org";
   public static final String hostMinimalId = "minimal.system.org";
@@ -214,6 +218,10 @@ public final class IntegrationUtils
   public static final boolean isDeletedFalse = false;
   public static final boolean showDeletedFalse = false;
   public static final boolean showDeletedTrue = true;
+  public static final boolean resolveEffUserTrue = true;
+  public static final boolean resolveEffUserFalse = false;
+  public static final boolean sharedAppCtxTrue = true;
+  public static final boolean sharedAppCtxFalse = false;
   public static final Instant createdNull = null;
   public static final Instant updatedNull = null;
   public static final int qMaxJobs = -1;
