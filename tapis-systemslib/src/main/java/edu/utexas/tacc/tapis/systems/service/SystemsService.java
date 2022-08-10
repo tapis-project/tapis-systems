@@ -1,5 +1,13 @@
 package edu.utexas.tacc.tapis.systems.service;
 
+import java.util.List;
+import java.util.Set;
+
+import javax.ws.rs.NotAuthorizedException;
+import javax.ws.rs.NotFoundException;
+
+import org.jvnet.hk2.annotations.Contract;
+
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
@@ -8,15 +16,10 @@ import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
+import edu.utexas.tacc.tapis.systems.model.SystemShare;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
-import org.jvnet.hk2.annotations.Contract;
-
-import javax.ws.rs.NotAuthorizedException;
-import javax.ws.rs.NotFoundException;
-import java.util.List;
-import java.util.Set;
 
 /*
  * Interface for Systems Service
@@ -121,6 +124,23 @@ public interface SystemsService
   boolean checkForSchedulerProfile(ResourceRequestUser rUser, String name)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
-List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
-        throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException;
+  List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
+          throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException;
+  
+  SystemShare getSystemShare(ResourceRequestUser rUser, String systemId)
+      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException;
+  
+  //------------------- Share ---------------------------------
+  // -----------------------------------------------------------------------
+  void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare postShare)
+      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException;
+  
+  void unshareSystem(ResourceRequestUser rUser, String systemId, SystemShare postShare)
+      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException;
+
+  void shareSystemPublicly(ResourceRequestUser rUser, String systemId) 
+      throws TapisException, TapisClientException;
+  
+  void unshareSystemPublicly(ResourceRequestUser rUser, String systemId) 
+      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException;
 }

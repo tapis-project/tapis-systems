@@ -49,6 +49,11 @@ import java.util.List;
 
 /*
  * JAX-RS REST resource for a SchedulerProfile
+ *
+ * These methods should do the minimal amount of validation and processing of incoming requests and
+ *   then make the service method call.
+ * One reason for this is the service methods are much easier to test.
+ *
  * jax-rs annotations map HTTP verb + endpoint to method invocation and map query parameters.
  * NOTE: Annotations for generating OpenAPI specification not currently used.
  *       Please see openapi-systems repo file SystemsAPI.yaml

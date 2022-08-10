@@ -41,6 +41,11 @@ import edu.utexas.tacc.tapis.systems.service.SystemsService;
 
 /*
  * JAX-RS REST resource for Tapis System permissions
+ *
+ * These methods should do the minimal amount of validation and processing of incoming requests and
+ *   then make the service method call.
+ * One reason for this is the service methods are much easier to test.
+ *
  * NOTE: Annotations for generating OpenAPI specification not currently used.
  *       Please see tapis-systemsapi/src/main/resources/SystemsAPI.yaml
  *       and note at top of GeneralResource.java

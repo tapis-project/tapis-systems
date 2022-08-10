@@ -1,6 +1,17 @@
 package edu.utexas.tacc.tapis.systems.service;
 
+import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
+
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -17,46 +28,42 @@ import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
+import edu.utexas.tacc.tapis.search.SearchUtils;
+import edu.utexas.tacc.tapis.search.parser.ASTNode;
+import edu.utexas.tacc.tapis.search.parser.ASTParser;
+import edu.utexas.tacc.tapis.security.client.SKClient;
+import edu.utexas.tacc.tapis.security.client.gen.model.ReqShareResource;
+import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
+import edu.utexas.tacc.tapis.security.client.gen.model.SkShare;
+import edu.utexas.tacc.tapis.security.client.model.KeyType;
+import edu.utexas.tacc.tapis.security.client.model.SKSecretMetaParms;
+import edu.utexas.tacc.tapis.security.client.model.SKSecretReadParms;
+import edu.utexas.tacc.tapis.security.client.model.SKSecretWriteParms;
+import edu.utexas.tacc.tapis.security.client.model.SKShareDeleteShareParms;
+import edu.utexas.tacc.tapis.security.client.model.SKShareGetSharesParms;
+import edu.utexas.tacc.tapis.security.client.model.SecretType;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
+import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
 import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
-import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
-import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
-import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
-import edu.utexas.tacc.tapis.search.parser.ASTParser;
-import edu.utexas.tacc.tapis.search.parser.ASTNode;
-import edu.utexas.tacc.tapis.search.SearchUtils;
-import edu.utexas.tacc.tapis.security.client.SKClient;
-import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
-import edu.utexas.tacc.tapis.security.client.model.KeyType;
-import edu.utexas.tacc.tapis.security.client.model.SKSecretMetaParms;
-import edu.utexas.tacc.tapis.security.client.model.SKSecretReadParms;
-import edu.utexas.tacc.tapis.security.client.model.SKSecretWriteParms;
-import edu.utexas.tacc.tapis.security.client.model.SecretType;
-import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
+import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
+import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile.SchedulerProfileOperation;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
+import edu.utexas.tacc.tapis.systems.model.SystemShare;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
-import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
 
 /*
  * Service level methods for Systems.
@@ -76,6 +83,8 @@ public class SystemsServiceImpl implements SystemsService
   // Permspec format for systems is "system:<tenant>:<perm_list>:<system_id>"
   public static final String PERM_SPEC_TEMPLATE = "system:%s:%s:%s";
   private static final String PERM_SPEC_PREFIX = "system";
+  
+  private static final String SYS_SHR_TYPE = "system";
 
   private static final Set<Permission> ALL_PERMS = new HashSet<>(Set.of(Permission.READ, Permission.MODIFY, Permission.EXECUTE));
   private static final Set<Permission> READMODIFY_PERMS = new HashSet<>(Set.of(Permission.READ, Permission.MODIFY));
@@ -105,6 +114,12 @@ public class SystemsServiceImpl implements SystemsService
   private static final String nullImpersonationId = null;
   private static final String nullTargetUser = null;
   private static final Set<Permission> nullPermSet = null;
+  private static final SystemShare nullSystemShare = null;
+  
+  // Sharing constants
+  private static final String OP_SHARE = "share";
+  private static final String OP_UNSHARE = "unShare";
+  private static final Set<String> publicUserSet = Collections.singleton(SKClient.PUBLIC_GRANTEE); // "~public"
 
   // ************************************************************************
   // *********************** Enums ******************************************
@@ -260,6 +275,9 @@ public class SystemsServiceImpl implements SystemsService
     // Consider using a notification instead (jira cic-3071)
     String filesPermSpec = "files:" + tenant + ":*:" + systemId;
 
+    // Get SK client now. If we cannot get this rollback not needed.
+    // Note that we still need to call getSKClient each time because it refreshes the svc jwt as needed.
+    getSKClient();
     try
     {
       // ------------------- Make Dao call to persist the system -----------------------------------
@@ -654,6 +672,9 @@ public class SystemsServiceImpl implements SystemsService
     // ----------------- Make all updates --------------------
     // Changes not in single DB transaction.
     // Use try/catch to rollback any changes in case of failure.
+    // Get SK client now. If we cannot get this rollback not needed.
+    // Note that we still need to call getSKClient each time because it refreshes the svc jwt as needed.
+    getSKClient();
     String systemsPermSpec = getPermSpecAllStr(oboTenant, systemId);
     // Consider using a notification instead (jira cic-3071)
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
@@ -1811,6 +1832,134 @@ public class SystemsServiceImpl implements SystemsService
 
     return systemHistory;
   }
+  
+  /**
+   * Get System share user IDs for the System ID specified
+   * @throws TapisException
+   * @throws IllegalStateException
+   * @throws TapisClientException
+   * @throws NotAuthorizedException
+   */
+  @Override
+  public SystemShare getSystemShare(ResourceRequestUser rUser, String systemId)
+      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+    SystemOperation op = SystemOperation.read;
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+
+    String oboTenant = rUser.getOboTenantId();
+
+    // We will need info from system, so fetch it now
+    TSystem system = dao.getSystem(oboTenant, systemId);
+    // We need owner to check auth and if system not there cannot find owner, so return null if no system.
+    if (system == null) return null;
+
+    checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet, nullImpersonationId);
+
+    // Create SKShareGetSharesParms needed for SK calls.
+    var skParms = new SKShareGetSharesParms();
+    skParms.setResourceType(SYS_SHR_TYPE);
+    skParms.setResourceId1(systemId);
+
+    var userSet = new HashSet<String>();
+    
+    // First determine if system is publicly shared. Search for share to grantee ~public
+    skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
+    var skShares = getSKClient(rUser.getOboUserId(), rUser.getOboTenantId()).getShares(skParms);
+    // Set isPublic based on result.
+    boolean isPublic = (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
+    // Now get all the users with whom the system has been shared
+    skParms.setGrantee(null);
+    skParms.setIncludePublicGrantees(false);
+    skShares = getSKClient(rUser.getOboUserId(), rUser.getOboTenantId()).getShares(skParms);
+    if (skShares != null && skShares.getShares() != null)
+    {
+      for (SkShare skShare : skShares.getShares())
+      {
+        userSet.add(skShare.getGrantee());
+      }
+    }
+
+    var shareInfo = new SystemShare(isPublic, userSet);
+    return shareInfo;
+  }
+  
+  /**
+   * Create or update share of a system
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - name of system
+   * @param systemShare - User names
+   *
+   * @throws TapisException - for Tapis related exceptions
+   * @throws IllegalStateException 
+   * @throws TapisClientException 
+   * @throws NotAuthorizedException 
+   * @throws IllegalArgumentException - invalid parameter passed in
+   */
+  @Override
+  public void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare)
+      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+    updateUserShares(rUser, OP_SHARE, systemId, systemShare, false);
+  }
+  
+  /**
+   * Unshare of a system
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - name of system
+   * @param systemShare - User names
+   *
+   * @throws TapisException - for Tapis related exceptions
+   * @throws TapisClientException - for Tapis client related exceptions
+   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
+   * @throws IllegalArgumentException - invalid parameter passed in
+   * @throws NotAuthorizedException - unauthorized
+   * @throws NotFoundException - Resource not found
+   */
+  @Override
+  public void unshareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare)
+      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+    updateUserShares(rUser, OP_UNSHARE, systemId, systemShare, false);
+  }
+  
+  
+  
+  /**
+   * Share a system publicly
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - name of system
+   *
+   * @throws TapisException - for Tapis related exceptions
+   * @throws TapisClientException - for Tapis client related exceptions
+   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
+   * @throws IllegalArgumentException - invalid parameter passed in
+   * @throws NotAuthorizedException - unauthorized
+   * @throws NotFoundException - Resource not found
+   */
+  @Override
+  public void shareSystemPublicly(ResourceRequestUser rUser, String systemId) 
+      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+    updateUserShares(rUser, OP_SHARE, systemId, nullSystemShare, true);
+  }
+  
+  /**
+   * Unshare a system publicly
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - name of system
+   *
+   * @throws TapisException - for Tapis related exceptions
+   * @throws TapisClientException - for Tapis client related exceptions
+   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
+   * @throws IllegalArgumentException - invalid parameter passed in
+   * @throws NotAuthorizedException - unauthorized
+   * @throws NotFoundException - Resource not found
+   */
+  @Override
+  public void unshareSystemPublicly(ResourceRequestUser rUser, String systemId) 
+       throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+    updateUserShares(rUser, OP_UNSHARE, systemId, nullSystemShare, true);
+  }
+  
 
   // ************************************************************************
   // **************************  Private Methods  ***************************
@@ -2916,5 +3065,79 @@ public class SystemsServiceImpl implements SystemsService
   static private String getTargetUserSecretPath(String targetUser, boolean isStatic)
   {
     return String.format("%s+%s", isStatic ? "static" : "dynamic", targetUser);
+  }
+  
+  /*
+   * Common routine to update share/unshare for a list of users.
+   * Can be used to mark a system publicly shared with all users in tenant including "~public" in the set of users.
+   * 
+   * @param rUser - Resource request user
+   * @param shareOpName - Operation type: share/unshare
+   * @param systemId - System ID
+   * @param  systemShare - System share object
+   * @param isPublic - Indicates if the sharing operation is public
+   * @throws TapisClientException - for Tapis client exception
+   * @throws TapisException - for Tapis exception
+   */
+  private void updateUserShares(ResourceRequestUser rUser, String shareOpName, String systemId, SystemShare systemShare, boolean isPublic) 
+      throws TapisClientException, TapisException
+  {
+    SystemOperation op = SystemOperation.modify;
+    // ---------------------------- Check inputs ------------------------------------
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+    
+    Set<String> userList;
+    if (!isPublic) {
+      // if is not public update userList must have items
+      if (systemShare == null || systemShare.getUserList() ==null || systemShare.getUserList().isEmpty())
+          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_USER_LIST", rUser));
+      userList = systemShare.getUserList();
+    } else {
+      userList = publicUserSet; // "~public"
+    }
+
+    String oboTenant = rUser.getOboTenantId();
+
+    // We will need info from system, so fetch it now
+    TSystem system = dao.getSystem(oboTenant, systemId);
+    // We need owner to check auth and if system not there cannot find owner.
+    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+
+    checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet, nullImpersonationId);
+    
+    switch (shareOpName)
+    {
+      case OP_SHARE ->
+      {
+        // Create request object needed for SK calls.
+        var reqShareResource = new ReqShareResource();
+        reqShareResource.setResourceType(SYS_SHR_TYPE);
+        reqShareResource.setResourceId1(systemId);
+        reqShareResource.setGrantor(rUser.getOboUserId());
+        reqShareResource.setPrivilege(Permission.READ.name());
+    
+        for (String userName : userList)
+        {
+          reqShareResource.setGrantee(userName);
+          getSKClient(rUser.getOboUserId(), rUser.getOboTenantId()).shareResource(reqShareResource);
+        }
+      }
+      case OP_UNSHARE ->
+      {
+        // Create object needed for SK calls.
+        SKShareDeleteShareParms deleteShareParms = new SKShareDeleteShareParms();
+        deleteShareParms.setResourceType(SYS_SHR_TYPE);
+        deleteShareParms.setResourceId1(systemId);
+        deleteShareParms.setPrivilege(Permission.READ.name());
+        
+        for (String userName : userList)
+        {
+          deleteShareParms.setGrantee(userName);
+          getSKClient(rUser.getOboUserId(), rUser.getOboTenantId()).deleteShare(deleteShareParms);
+        }
+      }
+    }
   }
 }
