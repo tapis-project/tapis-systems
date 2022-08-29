@@ -1860,6 +1860,7 @@ public class SystemsServiceImpl implements SystemsService
     // Create SKShareGetSharesParms needed for SK calls.
     var skParms = new SKShareGetSharesParms();
     skParms.setResourceType(SYS_SHR_TYPE);
+    skParms.setTenant(system.getTenant());
     skParms.setResourceId1(systemId);
 
     var userSet = new HashSet<String>();
@@ -3114,6 +3115,7 @@ public class SystemsServiceImpl implements SystemsService
         // Create request object needed for SK calls.
         var reqShareResource = new ReqShareResource();
         reqShareResource.setResourceType(SYS_SHR_TYPE);
+        reqShareResource.setTenant(system.getTenant());
         reqShareResource.setResourceId1(systemId);
         reqShareResource.setGrantor(rUser.getOboUserId());
         reqShareResource.setPrivilege(Permission.READ.name());
@@ -3129,6 +3131,7 @@ public class SystemsServiceImpl implements SystemsService
         // Create object needed for SK calls.
         SKShareDeleteShareParms deleteShareParms = new SKShareDeleteShareParms();
         deleteShareParms.setResourceType(SYS_SHR_TYPE);
+        deleteShareParms.setTenant(system.getTenant());
         deleteShareParms.setResourceId1(systemId);
         deleteShareParms.setPrivilege(Permission.READ.name());
         
