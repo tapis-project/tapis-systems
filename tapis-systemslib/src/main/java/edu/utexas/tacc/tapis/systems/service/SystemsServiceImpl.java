@@ -1860,19 +1860,20 @@ public class SystemsServiceImpl implements SystemsService
     // Create SKShareGetSharesParms needed for SK calls.
     var skParms = new SKShareGetSharesParms();
     skParms.setResourceType(SYS_SHR_TYPE);
+    skParms.setTenant(system.getTenant());
     skParms.setResourceId1(systemId);
 
     var userSet = new HashSet<String>();
     
     // First determine if system is publicly shared. Search for share to grantee ~public
     skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
-    var skShares = getSKClient(rUser.getOboUserId(), rUser.getOboTenantId()).getShares(skParms);
+    var skShares = getSKClient().getShares(skParms);
     // Set isPublic based on result.
     boolean isPublic = (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
     // Now get all the users with whom the system has been shared
     skParms.setGrantee(null);
     skParms.setIncludePublicGrantees(false);
-    skShares = getSKClient(rUser.getOboUserId(), rUser.getOboTenantId()).getShares(skParms);
+    skShares = getSKClient().getShares(skParms);
     if (skShares != null && skShares.getShares() != null)
     {
       for (SkShare skShare : skShares.getShares())
@@ -2037,20 +2038,9 @@ public class SystemsServiceImpl implements SystemsService
    */
   private SKClient getSKClient() throws TapisException
   {
-    return getSKClient(getServiceUserId(), getServiceTenantId());
-  }
-
-  /**
-   * Get Security Kernel client with oboUser and oboTenant set as given.
-   * Need to use serviceClients.getClient() every time because it checks for expired service jwt token and
-   *   refreshes it as needed.
-   * @param oboUser - obo user
-   * @param oboTenant - obo tenant
-   * @return SK client
-   * @throws TapisException - for Tapis related exceptions
-   */
-  private SKClient getSKClient(String oboUser, String oboTenant) throws TapisException
-  {
+    String oboUser = getServiceUserId();
+    String oboTenant = getServiceTenantId();
+    
     try { return serviceClients.getClient(oboUser, oboTenant, SKClient.class); }
     catch (Exception e)
     {
@@ -3114,6 +3104,7 @@ public class SystemsServiceImpl implements SystemsService
         // Create request object needed for SK calls.
         var reqShareResource = new ReqShareResource();
         reqShareResource.setResourceType(SYS_SHR_TYPE);
+        reqShareResource.setTenant(system.getTenant());
         reqShareResource.setResourceId1(systemId);
         reqShareResource.setGrantor(rUser.getOboUserId());
         reqShareResource.setPrivilege(Permission.READ.name());
@@ -3121,7 +3112,7 @@ public class SystemsServiceImpl implements SystemsService
         for (String userName : userList)
         {
           reqShareResource.setGrantee(userName);
-          getSKClient(rUser.getOboUserId(), rUser.getOboTenantId()).shareResource(reqShareResource);
+          getSKClient().shareResource(reqShareResource);
         }
       }
       case OP_UNSHARE ->
@@ -3129,13 +3120,15 @@ public class SystemsServiceImpl implements SystemsService
         // Create object needed for SK calls.
         SKShareDeleteShareParms deleteShareParms = new SKShareDeleteShareParms();
         deleteShareParms.setResourceType(SYS_SHR_TYPE);
+        deleteShareParms.setTenant(system.getTenant());
         deleteShareParms.setResourceId1(systemId);
+        deleteShareParms.setGrantor(rUser.getOboUserId());
         deleteShareParms.setPrivilege(Permission.READ.name());
         
         for (String userName : userList)
         {
           deleteShareParms.setGrantee(userName);
-          getSKClient(rUser.getOboUserId(), rUser.getOboTenantId()).deleteShare(deleteShareParms);
+          getSKClient().deleteShare(deleteShareParms);
         }
       }
     }
