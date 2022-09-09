@@ -9,6 +9,10 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFUSERID_VAR;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_EVAL;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_EVAL_START;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.ROOTDIR_DYN_VARS;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -851,8 +855,8 @@ public class SystemsServiceImpl implements SystemsService
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
    * @param getCreds - flag indicating if credentials for effectiveUserId should be included
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
-   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition.
+   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
+   *                         else always return values provided in system definition. By default, this is true.
    * @param sharedAppCtx - Indicates that request is part of a shared app context.
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
@@ -860,7 +864,7 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod accMethod, boolean requireExecPerm,
-                           boolean getCreds, String impersonationId, boolean resolveEffUser, boolean sharedAppCtx)
+                           boolean getCreds, String impersonationId, boolean resolveEffective, boolean sharedAppCtx)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
 
@@ -903,9 +907,14 @@ public class SystemsServiceImpl implements SystemsService
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
 
-    // Resolve and optionally set effectiveUserId in result
+    // Resolve and optionally set effectiveUserId, rootDir in result
     String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, impersonationId);
-    if (resolveEffUser) system.setEffectiveUserId(resolvedEffectiveUserId);
+    String resolvedRootDir = resolveRootDir(rUser, system, impersonationId);
+    if (resolveEffective)
+    {
+      system.setEffectiveUserId(resolvedEffectiveUserId);
+      system.setRootDir(resolvedRootDir);
+    }
 
     // If requested retrieve credentials from Security Kernel
     if (getCreds)
@@ -985,16 +994,16 @@ public class SystemsServiceImpl implements SystemsService
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
-   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition.
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
+   *                         else always return values provided in system definition. By default, this is true.
+   * @param showDeleted - flag indicating resources marked as deleted should be included.
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList,
                                   int limit, List<OrderBy> orderByList, int skip, String startAfter,
-                                  boolean resolveEffUser, boolean showDeleted)
+                                  boolean resolveEffective, boolean showDeleted)
           throws TapisException, TapisClientException
   {
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1028,11 +1037,12 @@ public class SystemsServiceImpl implements SystemsService
     List<TSystem> systems = dao.getSystems(rUser.getOboTenantId(), verifiedSearchList, null, allowedSysIDs,
                                             limit, orderByList, skip, startAfter, showDeleted);
 
-    if (resolveEffUser)
+    if (resolveEffective)
     {
       for (TSystem system : systems)
       {
-        system.setEffectiveUserId(resolveEffectiveUserId(rUser, system));
+        system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
+        system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId));
       }
     }
     return systems;
@@ -1047,21 +1057,21 @@ public class SystemsServiceImpl implements SystemsService
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
-   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition.
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
+   *                         else always return values provided in system definition. By default, this is true.
+   * @param showDeleted - flag indicating resources marked as deleted should be included.
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser,
                                                    String sqlSearchStr, int limit, List<OrderBy> orderByList, int skip,
-                                                   String startAfter, boolean resolveEffUser, boolean showDeleted)
+                                                   String startAfter, boolean resolveEffective, boolean showDeleted)
           throws TapisException, TapisClientException
   {
     // If search string is empty delegate to getSystems()
     if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip,
-                                                             startAfter, resolveEffUser, showDeleted);
+                                                             startAfter, resolveEffective, showDeleted);
 
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
@@ -1092,11 +1102,12 @@ public class SystemsServiceImpl implements SystemsService
     List<TSystem> systems = dao.getSystems(rUser.getOboTenantId(), null, searchAST, allowedSysIDs,
                                            limit, orderByList, skip, startAfter, showDeleted);
 
-    if (resolveEffUser)
+    if (resolveEffective)
     {
       for (TSystem system : systems)
       {
-        system.setEffectiveUserId(resolveEffectiveUserId(rUser, system));
+        system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
+        system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId));
       }
     }
     return systems;
@@ -1136,7 +1147,8 @@ public class SystemsServiceImpl implements SystemsService
 
     for (TSystem system : systems)
     {
-      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system));
+      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
+      system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId));
     }
     return systems;
   }
@@ -2070,7 +2082,7 @@ public class SystemsServiceImpl implements SystemsService
    * Check constraints on TSystem attributes.
    * If batchSchedulerProfile is set verify that the profile exists.
    * If DTN is used verify that dtnSystemId exists with isDtn = true
-   * Collect and report as many errors as possible so they can all be fixed before next attempt
+   * Collect and report as many errors as possible, so they can all be fixed before next attempt
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tSystem1 - the TSystem to check
    * @throws IllegalStateException - if any constraints are violated
@@ -2180,7 +2192,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Determine user to check
     // None of the public methods that call this support impersonation so use null for impersonationId
-    String effectiveUser = resolveEffectiveUserId(rUser, tSystem1);
+    String effectiveUser = resolveEffectiveUserId(rUser, tSystem1, nullImpersonationId);
     if (!StringUtils.isBlank(loginUser)) effectiveUser = loginUser;
 
     // Determine authnMethod to check, either password or ssh keys
@@ -2262,11 +2274,11 @@ public class SystemsServiceImpl implements SystemsService
     // If a static string (i.e. not ${apiUserId} then simply return the string
     if (!effUser.equals(APIUSERID_VAR)) return effUser;
 
-    // At this point we have a dynamic effectiveUserId. Figure it out.
+    // At this point we know we have a dynamic effectiveUserId. Figure it out.
     // Determine the loginUser associated with the credential
     // First determine whether to use oboUser or impersonationId
     String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
-    // Now see if there is a mapping from that that Tapis user to a different login user on the host
+    // Now see if there is a mapping from that Tapis user to a different login user on the host
     String loginUser = dao.getLoginUser(rUser.getOboTenantId(), systemId, oboOrImpersonatedUser);
 
     // If a mapping then return it, else return oboUser or impersonationId
@@ -2274,15 +2286,38 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Overloaded method for callers that do not support impersonation
+   * Determine the resolved rootDir. Determine rootDir for static and dynamic cases.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system - the system in question
-   * @return Resolved value for effective user.
-   * @throws TapisException on error
+   * @param impersonationId - use provided Tapis username instead of oboUser when resolving effectiveUserId
+   * @return Resolved value for rootDir
    */
-  private String resolveEffectiveUserId(ResourceRequestUser rUser, TSystem system) throws TapisException
+  private String resolveRootDir(ResourceRequestUser rUser, TSystem system, String impersonationId)
+          throws TapisException
   {
-    return resolveEffectiveUserId(rUser, system, nullImpersonationId);
+    String systemId = system.getId();
+    String rootDir = system.getRootDir();
+    // Incoming rootDir should never be blank but for robustness handle that case.
+    if (StringUtils.isBlank(rootDir)) return rootDir;
+
+    // If rootDir is static then return now.
+    if (!rootDir.contains(HOST_EVAL)) return rootDir;
+
+    // So rootDir is dynamic. We need to resolve HOST_EVAL
+//    ???
+//    // If a static string (i.e. not ${apiUserId} then simply return the string
+//    if (!effUser.equals(APIUSERID_VAR)) return effUser;
+//
+//    // At this point we know we have a dynamic effectiveUserId. Figure it out.
+//    // Determine the loginUser associated with the credential
+//    // First determine whether to use oboUser or impersonationId
+//    String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
+//    // Now see if there is a mapping from that Tapis user to a different login user on the host
+//    String loginUser = dao.getLoginUser(rUser.getOboTenantId(), systemId, oboOrImpersonatedUser);
+//
+//    // If a mapping then return it, else return oboUser or impersonationId
+//    return (!StringUtils.isBlank(loginUser)) ? loginUser : oboOrImpersonatedUser;
+    return null;
   }
 
   /**
@@ -2613,7 +2648,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Resolve effectiveUserId if necessary. This becomes the target user for perm and cred
-    String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system);
+    String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, nullImpersonationId);
 
     // Consider using a notification instead(jira cic-3071)
     // Remove files perm for owner and possibly effectiveUser

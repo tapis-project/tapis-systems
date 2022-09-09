@@ -41,11 +41,15 @@ public final class TSystem
                                                                          "SCHEDULERPROFILE"));
 
   public static final String PERMISSION_WILDCARD = "*";
-  // Allowed substitution variables
+
+  // Substitution variables
   public static final String APIUSERID_VAR = "${apiUserId}";
   public static final String OWNER_VAR = "${owner}";
   public static final String TENANT_VAR = "${tenant}";
   public static final String EFFUSERID_VAR = "${effectiveUserId}";
+  public static final String HOST_EVAL = "HOST_EVAL";
+  public static final String HOST_EVAL_START = "/HOST_EVAL(";
+  public static final String[] ROOTDIR_DYN_VARS = {EFFUSERID_VAR};
 
   private static final String[] ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
 
@@ -108,9 +112,15 @@ public final class TSystem
   public static final int DEFAULT_JOBMAXJOBSPERUSER = -1;
   public static final boolean DEFAULT_CAN_RUN_BATCH = false;
 
-  // Validation patterns
-  //ID Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
-  public static final String PATTERN_VALID_ID = "^[a-zA-Z]([a-zA-Z0-9]|[-\\._~])*";
+  // Validation pattern strings
+  // ID Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
+  public static final String PATTERN_STR_VALID_ID = "^[a-zA-Z]([a-zA-Z0-9]|[-\\._~])*";
+
+  // If rootDir contains HOST_EVAL then rootDir must match a certain pattern at start: "/HOST_EVAL($VARIABLE)...
+  // Preceding / is optional
+  // Research indicates for linux, env var names should start with single alpha/underscore followed by 0 or more alphanum/underscore
+  // Must start with "HOST_EVAL($", followed by 1 alpha/underscore followed by 0 or more alphanum/underscore followed by ")"
+  public static final String PATTERN_STR_HOST_EVAL = "^\\/?HOST_EVAL\\(\\$[a-zA-Z_]+([a-zA-Z0-9_])*\\)";
 
   // Validation constants
   public static final Integer MAX_ID_LEN = 80;
@@ -428,7 +438,7 @@ public final class TSystem
    * Validate an ID string.
    * Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
    */
-  public static boolean isValidId(String id) { return id.matches(PATTERN_VALID_ID); }
+  public static boolean isValidId(String id) { return id.matches(PATTERN_STR_VALID_ID); }
 
   // ************************************************************************
   // *********************** Private methods *********************************
@@ -459,7 +469,7 @@ public final class TSystem
       errMessages.add(LibUtils.getMsg(INVALID_STR_ATTR, HOST_FIELD, host));
 
     if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/"))
-      errMessages.add(LibUtils.getMsg("SYSLIB_LINUX_ROOTDIR_NOSLASH", rootDir));
+      errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NOSLASH", rootDir));
   }
 
   /**
@@ -617,7 +627,9 @@ public final class TSystem
 
   /**
    * Check misc attribute restrictions
-   *  If systemType is LINUX or IRODS then rootDir is required.
+   *  If systemType is LINUX or IRODS then:
+   *           - rootDir is required
+   *           - if rootDir contains HOST_EVAL then it must meet certain criteria
    *  If systemType is IRODS then port is required.
    *  effectiveUserId is restricted.
    *  If effectiveUserId is dynamic then providing credentials is disallowed
@@ -625,10 +637,23 @@ public final class TSystem
    */
   private void checkAttrMisc(List<String> errMessages)
   {
-    // LINUX and IRODS systems require rootDir
-    if ((systemType == SystemType.LINUX || systemType == SystemType.IRODS) && StringUtils.isBlank(rootDir))
+    // LINUX and IRODS systems require rootDir and if dynamic must meet certain criteria
+    if (systemType == SystemType.LINUX || systemType == SystemType.IRODS)
     {
-      errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR", systemType.name()));
+      if (StringUtils.isBlank(rootDir)) errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR", systemType.name()));
+      // If rootDir contains HOST_EVAL then must have only 1 occurrence of HOST_EVAL,
+      //    and it must follow a certain pattern: "HOST_EVAL($variable)"
+      if (rootDir.contains(HOST_EVAL))
+      {
+        if (StringUtils.countMatches(rootDir, HOST_EVAL) != 1)
+        {
+          errMessages.add(LibUtils.getMsg("SYSLIB_HOSTEVAL_MULTIPLE", rootDir));
+        }
+        if (!rootDir.matches(PATTERN_STR_HOST_EVAL))
+        {
+          errMessages.add(LibUtils.getMsg("SYSLIB_HOSTEVAL_ERR", rootDir));
+        }
+      }
     }
 
     // IRODS systems require port

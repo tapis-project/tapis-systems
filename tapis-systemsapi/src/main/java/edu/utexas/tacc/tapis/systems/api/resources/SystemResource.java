@@ -177,7 +177,7 @@ public class SystemResource
    * request body. If effective user is dynamic (i.e. ${apiUserId}) then credentials may not be provided.
    * The Systems service does not store the secrets, they are persisted in the Security Kernel.
    *
-   * By default any credentials provided for LINUX type systems are verified. Use query parameter
+   * By default, any credentials provided for LINUX type systems are verified. Use query parameter
    * skipCredentialCheck=true to bypass initial verification of credentials.
    *
    * Note that certain attributes in the request body (such as tenant) are allowed but ignored so that the JSON
@@ -266,7 +266,7 @@ public class SystemResource
 
     // Fill in defaults and check constraints on TSystem attributes
     tSystem.setDefaults();
-    resp = validateTSystem(tSystem, rUser);
+    resp = validateTSystemAtCreate(tSystem, rUser);
     if (resp != null) return resp;
 
     // ---------------------------- Make service call to create the system -------------------------------
@@ -464,7 +464,7 @@ public class SystemResource
    *      rootDir
    *      isDtn
    *      canExec
-   *  Note that the attributes owner, enabled and authnCredential may be modified using other endpoints.
+   *  Note that the following attributes may be modified using other endpoints: owner, enabled, deleted, authnCredential
    *
    * @param systemId - name of the system
    * @param payloadStream - request body
@@ -685,8 +685,8 @@ public class SystemResource
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
    *                          resolving effectiveUserId
-   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is true.
+   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
+   *                         else always return values provided in system definition. By default, this is true.
    * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth bypassed.
    * @param securityContext - user identity
    * @return Response with system object as the result
@@ -700,7 +700,7 @@ public class SystemResource
                             @QueryParam("requireExecPerm") @DefaultValue("false") boolean requireExecPerm,
                             @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
                             @QueryParam("impersonationId") String impersonationId,
-                            @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
+                            @QueryParam("resolveEffective") @DefaultValue("true") boolean resolveEffective,
                             @QueryParam("sharedAppCtx") @DefaultValue("false") boolean sharedAppCtx,
                             @Context SecurityContext securityContext)
   {
@@ -720,7 +720,7 @@ public class SystemResource
                                                    "requireExecPerm="+requireExecPerm,
                                                    "returnCredentials="+getCreds,
                                                    "impersonationId="+impersonationId,
-                                                   "resolveEffectiveUser="+resolveEffUser,
+                                                   "resolveEffective="+resolveEffective,
                                                    "sharedAppCtx="+sharedAppCtx);
 
     // Check that authnMethodStr is valid if is passed in
@@ -739,7 +739,7 @@ public class SystemResource
     try
     {
       tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId,
-                                  resolveEffUser, sharedAppCtx);
+                                  resolveEffective, sharedAppCtx);
     }
     catch (Exception e)
     {
@@ -870,16 +870,16 @@ public class SystemResource
    * NOTE: The query parameters search, limit, orderBy, skip, startAfter are all handled in the filter
    *       QueryParametersRequestFilter. No need to use @QueryParam here.
    * @param securityContext - user identity
-   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is true.
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
+   *                         else always return values provided in system definition. By default, this is true.
+   * @param showDeleted - flag indicating resources marked as deleted should be included.
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @GET
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getSystems(@Context SecurityContext securityContext,
-                             @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
+                             @QueryParam("resolveEffective") @DefaultValue("true") boolean resolveEffective,
                              @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
   {
     String opName = "getSystems";
@@ -894,7 +894,7 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted);
+                                                   "resolveEffective="+resolveEffective,"showDeleted="+showDeleted);
 
     // ThreadContext designed to never return null for SearchParameters
     SearchParameters srchParms = threadContext.getSearchParameters();
@@ -903,7 +903,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffUser, showDeleted);
+      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffective, showDeleted);
     }
     catch (Exception e)
     {
@@ -918,9 +918,9 @@ public class SystemResource
    * searchSystemsQueryParameters
    * Dedicated search endpoint for System resource. Search conditions provided as query parameters.
    * @param securityContext - user identity
-   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is true.
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
+   *                         else always return values provided in system definition. By default, this is true.
+   * @param showDeleted - flag indicating resources marked as deleted should be included.
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @GET
@@ -928,7 +928,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsQueryParameters(@Context SecurityContext securityContext,
-                                               @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
+                                               @QueryParam("resolveEffective") @DefaultValue("true") boolean resolveEffective,
                                                @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
   {
     String opName = "searchSystemsGet";
@@ -943,7 +943,7 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted);
+                                                   "resolveEffective="+resolveEffective,"showDeleted="+showDeleted);
 
     // Create search list based on query parameters
     // Note that some validation is done for each condition but the back end will handle translating LIKE wildcard
@@ -968,7 +968,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffUser, showDeleted);
+      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffective, showDeleted);
     }
     catch (Exception e)
     {
@@ -986,10 +986,9 @@ public class SystemResource
    * Dedicated search endpoint for System resource. Search conditions provided in a request body.
    * Request body contains an array of strings that are concatenated to form the full SQL-like search string.
    * @param payloadStream - request body
-   * @param securityContext - user identity
-   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is true.
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
+   *                         else always return values provided in system definition. By default, this is true.
+   * @param showDeleted - flag indicating resources marked as deleted should be included.
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @POST
@@ -998,7 +997,7 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsRequestBody(InputStream payloadStream,
                                            @Context SecurityContext securityContext,
-                                           @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
+                                           @QueryParam("resolveEffective") @DefaultValue("true") boolean resolveEffective,
                                            @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
   {
     String opName = "searchSystemsPost";
@@ -1013,7 +1012,7 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted);
+                                                   "resolveEffective="+resolveEffective,"showDeleted="+showDeleted);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -1058,7 +1057,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, resolveEffUser, showDeleted);
+      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, resolveEffective, showDeleted);
     }
     catch (Exception e)
     {
@@ -1283,18 +1282,18 @@ public class SystemResource
     Object notes = extractNotes(rawJson);
 
     // NOTE: Following attributes are not updatable and must be filled in on service side.
-    TSystem.SystemType systemType = null;
-    String owner = null;
-    boolean enabled = true;
-    String bucketName = null;
-    String rootDir = null;
-    boolean isDtn = false;
-    boolean canExec = true;
-    var tSystem = new TSystem(-1, tenantId, systemId, req.description, systemType, owner, req.host,
-            enabled, req.effectiveUserId, req.defaultAuthnMethod, bucketName, rootDir,
+    TSystem.SystemType systemTypeNull = null;
+    String ownerNull = null;
+    boolean enabledTrue = true;
+    String bucketNameNull = null;
+    String rootDirNull = null;
+    boolean isDtnFalse = false;
+    boolean canExecTrue = true;
+    var tSystem = new TSystem(-1, tenantId, systemId, req.description, systemTypeNull, ownerNull, req.host,
+            enabledTrue, req.effectiveUserId, req.defaultAuthnMethod, bucketNameNull, rootDirNull,
             req.port, req.useProxy, req.proxyHost, req.proxyPort,
-            req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, isDtn,
-            canExec, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
+            req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, isDtnFalse,
+            canExecTrue, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
             req.canRunBatch, req.mpiCmd, req.batchScheduler, req.batchLogicalQueues, req.batchDefaultLogicalQueue,
             req.batchSchedulerProfile, req.jobCapabilities, req.tags, notes, req.importRefId, null, false, null, null);
     tSystem.setAuthnCredential(req.authnCredential);
@@ -1302,15 +1301,15 @@ public class SystemResource
   }
 
   /**
-   * Fill in defaults and check restrictions on TSystem attributes
+   * Check restrictions on TSystem attributes
    * Use TSystem method to check internal consistency of attributes.
    * If DTN is used verify that dtnSystemId exists with isDtn = true
-   * Collect and report as many errors as possible so they can all be fixed before next attempt
-   * NOTE: JsonSchema validation should handle some of these checks but we check here again for robustness.
+   * Collect and report as many errors as possible, so they can all be fixed before next attempt
+   * NOTE: JsonSchema validation should handle some of these checks, but we check here again for robustness.
    *
    * @return null if OK or error Response
    */
-  private Response validateTSystem(TSystem tSystem1, ResourceRequestUser rUser)
+  private Response validateTSystemAtCreate(TSystem tSystem1, ResourceRequestUser rUser)
   {
     String msg;
 

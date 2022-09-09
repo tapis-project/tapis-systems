@@ -64,19 +64,19 @@ public interface SystemsService
           throws TapisException, TapisClientException, NotAuthorizedException;
 
   TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod authnMethod, boolean requireExecPerm,
-                    boolean getCreds, String impersonationId, boolean resolveEffectiveUser, boolean sharedAppCtx)
+                    boolean getCreds, String impersonationId, boolean resolveEffective, boolean sharedAppCtx)
           throws TapisException, TapisClientException, NotAuthorizedException;
 
   int getSystemsTotalCount(ResourceRequestUser rUser, List<String> searchList, List<OrderBy> orderByList,
                            String startAfter, boolean showDeleted) throws TapisException, TapisClientException;
 
   List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, int limit, List<OrderBy> orderByList,
-                           int skip, String startAfter, boolean resolveEffectiveUser, boolean showDeleted)
+                           int skip, String startAfter, boolean resolveEffective, boolean showDeleted)
           throws TapisException, TapisClientException;
 
   List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser, String searchStr, int limit,
                                         List<OrderBy> orderByList, int skip, String startAfter,
-                                        boolean resolveEffectiveUser, boolean showDeleted)
+                                        boolean resolveEffective, boolean showDeleted)
           throws TapisException, TapisClientException;
 
   List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr)
