@@ -48,8 +48,6 @@ public final class TSystem
   public static final String TENANT_VAR = "${tenant}";
   public static final String EFFUSERID_VAR = "${effectiveUserId}";
   public static final String HOST_EVAL = "HOST_EVAL";
-  public static final String HOST_EVAL_START = "/HOST_EVAL(";
-  public static final String[] ROOTDIR_DYN_VARS = {EFFUSERID_VAR};
 
   private static final String[] ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
 
@@ -118,7 +116,7 @@ public final class TSystem
 
   // If rootDir contains HOST_EVAL then rootDir must match a certain pattern at start: "/HOST_EVAL($VARIABLE)...
   // Preceding / is optional
-  // Research indicates for linux, env var names should start with single alpha/underscore followed by 0 or more alphanum/underscore
+  // Web search indicates for linux, env var names should start with single alpha/underscore followed by 0 or more alphanum/underscore
   // Must start with "HOST_EVAL($", followed by 1 alpha/underscore followed by 0 or more alphanum/underscore followed by ")"
   public static final String PATTERN_STR_HOST_EVAL = "^\\/?HOST_EVAL\\(\\$[a-zA-Z_]+([a-zA-Z0-9_])*\\)";
 
@@ -459,7 +457,7 @@ public final class TSystem
   /**
    * Check for invalid attributes
    *   systemId, host
-   *   rootDir must start with /
+   *   If rootDir provided it must start with "/" or "HOST_EVAL"
    */
   private void checkAttrValidity(List<String> errMessages)
   {
@@ -468,7 +466,7 @@ public final class TSystem
     if (!StringUtils.isBlank(host) && !isValidHost(host))
       errMessages.add(LibUtils.getMsg(INVALID_STR_ATTR, HOST_FIELD, host));
 
-    if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/"))
+    if (!StringUtils.isBlank(rootDir) && (!rootDir.startsWith("/") || !rootDir.startsWith(HOST_EVAL)))
       errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NOSLASH", rootDir));
   }
 

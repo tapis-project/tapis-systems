@@ -9,10 +9,7 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_EVAL;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_EVAL_START;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.ROOTDIR_DYN_VARS;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,6 +24,8 @@ import javax.inject.Inject;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 
+import edu.utexas.tacc.tapis.shared.utils.MacroResolver;
+import edu.utexas.tacc.tapis.systems.client.gen.model.TapisSystem;
 import org.apache.commons.lang3.StringUtils;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
@@ -888,13 +887,13 @@ public class SystemsServiceImpl implements SystemsService
     // If impersonationId supplied confirm that it is allowed
     if (!StringUtils.isBlank(impersonationId)) checkImpersonationAllowed(rUser, op, systemId, impersonationId);
 
-    // If sharedAppCtx set confirm that it is allowed
+    // If sharedAppCtx set, confirm that it is allowed
     if (sharedAppCtx) checkSharedAppCtxAllowed(rUser, op, systemId);
 
-    // If not skipping auth then check auth
+    // If not skipping auth, then check auth
     if (!sharedAppCtx) checkAuth(rUser, op, systemId, nullOwner, nullTargetUser, nullPermSet, impersonationId);
 
-    // If flag is set to also require EXECUTE perm then make a special auth call to make sure user has exec perm
+    // If flag is set to also require EXECUTE perm, then make a special auth call to make sure user has exec perm
     if (!sharedAppCtx && requireExecPerm)
     {
       checkAuthOboUser(rUser, SystemOperation.execute, systemId, nullOwner, nullTargetUser, nullPermSet, impersonationId);
@@ -908,15 +907,31 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Resolve and optionally set effectiveUserId, rootDir in result
-    String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, impersonationId);
-    String resolvedRootDir = resolveRootDir(rUser, system, impersonationId);
     if (resolveEffective)
     {
+      String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, impersonationId);
       system.setEffectiveUserId(resolvedEffectiveUserId);
+      // Note that resolving rootDir may involve remote call to system host, so do that only if needed
+      // TODO Resolve may throw an exception. Which types? Handle here?
+      //      or will it be a TapisClientException which we already throw? After log of special msg?
+      String resolvedRootDir;
+      try
+      {
+        resolvedRootDir = resolveRootDir(rUser, system, impersonationId);
+      }
+      catch (Exception e)
+      {
+        // TODO
+
+      }
       system.setRootDir(resolvedRootDir);
     }
 
     // If requested retrieve credentials from Security Kernel
+    // Note that resolved effectiveUserId not used to look up credentials.
+    // If effUsr is static then secrets stored using the "static" path in SK and static string used to build the path.
+    // If effUsr is dynamic then secrets stored using the "dynamic" path in SK and a Tapis user
+    //    (oboUser or impersonationId) used to build the path.
     if (getCreds)
     {
       AuthnMethod tmpAccMethod = system.getDefaultAuthnMethod();
@@ -1546,6 +1561,11 @@ public class SystemsServiceImpl implements SystemsService
    * If the *effectiveUserId* for the system is static (i.e. not *${apiUserId}*) then *targetUser* is interpreted
    * as the host *loginUser* that is used when accessing the host.
    *
+   * Another way to view static vs dynamic secrets in SK:
+   *   If effUsr is static, then secrets stored using the "static" path in SK and static string used to build the path.
+   *   If effUsr is dynamic, then secrets stored using the "dynamic" path in SK and a Tapis user
+   *      (oboUser or imperonationId) used to build the path.
+   *
    * Desired authentication method may be specified using query parameter authnMethod=<method>. If desired
    * authentication method not specified then credentials for the system's default authentication method are returned.
    *
@@ -1610,7 +1630,7 @@ public class SystemsServiceImpl implements SystemsService
      *   key_type is sshkey, password, accesskey or cert
      *   and S1 is the reserved SecretName associated with the Systems.
      *
-     * Hence the following code
+     * Hence, the following code
      *     new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME)
      *     sParms.setTenant(rUser.getOboTenantId()).setSysId(systemId).setSysUser(targetUserPath);
      *
@@ -1678,6 +1698,7 @@ public class SystemsServiceImpl implements SystemsService
     {
       // If tapis client exception then log error but continue so null is returned.
       _log.warn(tce.toString());
+      credential = null;
     }
     return credential;
   }
@@ -2293,31 +2314,26 @@ public class SystemsServiceImpl implements SystemsService
    * @return Resolved value for rootDir
    */
   private String resolveRootDir(ResourceRequestUser rUser, TSystem system, String impersonationId)
-          throws TapisException
+          throws TapisException, TapisClientException // TODO
   {
     String systemId = system.getId();
     String rootDir = system.getRootDir();
-    // Incoming rootDir should never be blank but for robustness handle that case.
+    // Incoming rootDir may be blank for some system types so handle that case.
     if (StringUtils.isBlank(rootDir)) return rootDir;
 
     // If rootDir is static then return now.
     if (!rootDir.contains(HOST_EVAL)) return rootDir;
 
     // So rootDir is dynamic. We need to resolve HOST_EVAL
-//    ???
-//    // If a static string (i.e. not ${apiUserId} then simply return the string
-//    if (!effUser.equals(APIUSERID_VAR)) return effUser;
-//
-//    // At this point we know we have a dynamic effectiveUserId. Figure it out.
-//    // Determine the loginUser associated with the credential
-//    // First determine whether to use oboUser or impersonationId
-//    String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
-//    // Now see if there is a mapping from that Tapis user to a different login user on the host
-//    String loginUser = dao.getLoginUser(rUser.getOboTenantId(), systemId, oboOrImpersonatedUser);
-//
-//    // If a mapping then return it, else return oboUser or impersonationId
-//    return (!StringUtils.isBlank(loginUser)) ? loginUser : oboOrImpersonatedUser;
-    return null;
+//TODO    MacroResolver macroResolver = new MacroResolver(system, null);
+    // TODO/TBD: Possibly best approach is to create a client TapisSystem object based on the TSystem we have
+    //   and then call:
+    // TODO/TBD:
+    TapisSystem tapisSystem = createTapisSystem(system);
+    // TODO/TODO: Create empty list of macros
+    Map<String, String> macros = Collections.emptyMap();
+    MacroResolver macroResolver = new MacroResolver(tapisSystem, macros);
+    return  macroResolver.resolve(rootDir);
   }
 
   /**
