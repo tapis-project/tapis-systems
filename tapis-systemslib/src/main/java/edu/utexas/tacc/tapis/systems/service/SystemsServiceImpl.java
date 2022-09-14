@@ -42,6 +42,7 @@ import edu.utexas.tacc.tapis.security.client.model.SKSecretReadParms;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretWriteParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareDeleteShareParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareGetSharesParms;
+import edu.utexas.tacc.tapis.security.client.model.SKShareHasPrivilegeParms;
 import edu.utexas.tacc.tapis.security.client.model.SecretType;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
@@ -2952,27 +2953,18 @@ public class SystemsServiceImpl implements SystemsService
    */
   
   private boolean isSystemPublicOrSharedWithUser(String obotenant, String oboOrImpersonatedUser, String systemId) 
-		  throws TapisClientException, TapisException {
+		  throws TapisClientException, TapisException 
+		  {
 	    // Create SKShareGetSharesParms needed for SK calls.
-	    var skParms = new SKShareGetSharesParms();
+	    SKShareHasPrivilegeParms skParms = new SKShareHasPrivilegeParms();
 	    skParms.setResourceType(SYS_SHR_TYPE);
 	    skParms.setTenant(obotenant);
 	    skParms.setResourceId1(systemId);
-	    var skShares = getSKClient().getShares(skParms);
-	    var shareFlag = false;
-	    if (skShares != null && skShares.getShares() != null)
-	    {
-	      for (SkShare skShare : skShares.getShares())
-	      {
-	        if((oboOrImpersonatedUser.equals(skShare.getGrantee())|| skShare.getGrantee().equals(SKClient.PUBLIC_GRANTEE)) 
-	        	&& (skShare.getPrivilege().equals(Permission.READ.name()))) {
-	        	shareFlag = true;
-	        	break;
-	        	
-	        }
-	      }
-	    }
-	    return shareFlag;
+	    skParms.setGrantee(oboOrImpersonatedUser);
+	    var skShare = getSKClient().hasPrivilege(skParms);
+	    
+	    return skShare;
+	    
   } 
   
   /**
