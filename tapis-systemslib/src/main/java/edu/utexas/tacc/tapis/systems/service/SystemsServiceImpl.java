@@ -2961,8 +2961,8 @@ public class SystemsServiceImpl implements SystemsService
 	    skParms.setTenant(obotenant);
 	    skParms.setResourceId1(systemId);
 	    skParms.setGrantee(oboOrImpersonatedUser);
+	    skParms.setPrivilege(Permission.READ.name());
 	    var skShare = getSKClient().hasPrivilege(skParms);
-	    
 	    return skShare;
 	    
   } 
