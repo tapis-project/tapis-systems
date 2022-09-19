@@ -2835,9 +2835,12 @@ public class SystemsServiceImpl implements SystemsService
     //  If Jobs is getting an execSystem it is ok, because it will pass in requireExecPerm and oboUser check will happen
     //  But what if Jobs is getting a storage system (e.g. archiveSystem) and the oboUser does not have access
     //     (perm/share) to the System?
-    if (op == SystemOperation.read && SVCLIST_READ.contains(svcName)) return;
+    
+// ****** TEMPORARY FIX (commented out following 2 lines of code)
+// ****** Allow all services to read a system
+//    if (op == SystemOperation.read && SVCLIST_READ.contains(svcName)) return;
     // Not authorized, throw an exception
-    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
+//    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
   }
 
   /**
