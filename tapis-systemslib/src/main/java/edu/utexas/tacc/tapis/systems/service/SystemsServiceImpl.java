@@ -42,6 +42,7 @@ import edu.utexas.tacc.tapis.security.client.model.SKSecretReadParms;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretWriteParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareDeleteShareParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareGetSharesParms;
+import edu.utexas.tacc.tapis.security.client.model.SKShareHasPrivilegeParms;
 import edu.utexas.tacc.tapis.security.client.model.SecretType;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
@@ -2904,6 +2905,12 @@ public class SystemsServiceImpl implements SystemsService
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser)) return;
         break;
       case read:
+    	   if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
+                    isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS)||
+                    isSystemPublicOrSharedWithUser(oboTenant, oboOrImpersonatedUser, systemId))
+              return;
+            break;
+
       case getPerms:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
                 isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS))
@@ -2934,7 +2941,32 @@ public class SystemsServiceImpl implements SystemsService
     // Not authorized, throw an exception
     throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
   }
-
+   
+  /**
+   * 
+   * Check if the system is shared with the user or the system is public
+   *  @param obotenant
+   *  @param oboOrImpersonatedUser
+   *  @param systemId
+   *  @throws TapisException 
+   *  @throws TapisClientException 
+   */
+  
+  private boolean isSystemPublicOrSharedWithUser(String obotenant, String oboOrImpersonatedUser, String systemId) 
+		  throws TapisClientException, TapisException 
+		  {
+	    // Create SKShareGetSharesParms needed for SK calls.
+	    SKShareHasPrivilegeParms skParms = new SKShareHasPrivilegeParms();
+	    skParms.setResourceType(SYS_SHR_TYPE);
+	    skParms.setTenant(obotenant);
+	    skParms.setResourceId1(systemId);
+	    skParms.setGrantee(oboOrImpersonatedUser);
+	    skParms.setPrivilege(Permission.READ.name());
+	    var skShare = getSKClient().hasPrivilege(skParms);
+	    return skShare;
+	    
+  } 
+  
   /**
    * Confirm that caller is allowed to impersonate a Tapis user.
    * Must be a service request from a service allowed to impersonate
