@@ -2926,7 +2926,10 @@ public class SystemsServiceImpl implements SystemsService
         break;
       case execute:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
-                isPermitted(rUser, oboTenant, oboOrImpersonatedUser, systemId, Permission.EXECUTE))
+                isPermitted(rUser, oboTenant, oboOrImpersonatedUser, systemId, Permission.EXECUTE) ||
+                // ******* Temporary fix to allow users to execute jobs on shared systems.
+                // This a bit of abuse of the sharing READ permission, to be fixed soon.
+                isSystemPublicOrSharedWithUser(oboTenant, oboOrImpersonatedUser, systemId))
           return;
         break;
       case revokePerms:
