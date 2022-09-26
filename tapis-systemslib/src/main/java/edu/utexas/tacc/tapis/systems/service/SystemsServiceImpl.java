@@ -621,7 +621,7 @@ public class SystemsServiceImpl implements SystemsService
     String systemsPermSpecALL = getPermSpecAllStr(oboTenant, systemId);
     // Consider using a notification instead (jira cic-3071)
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
-    // Give owner and possibly effectiveUser full access to the system
+    // Give owner full access to the system
     getSKClient().grantUserPermission(oboTenant, owner, systemsPermSpecALL);
     // Consider using a notification instead (jira cic-3071)
     // Give owner files service related permission for root directory
@@ -2836,9 +2836,12 @@ public class SystemsServiceImpl implements SystemsService
     //  If Jobs is getting an execSystem it is ok, because it will pass in requireExecPerm and oboUser check will happen
     //  But what if Jobs is getting a storage system (e.g. archiveSystem) and the oboUser does not have access
     //     (perm/share) to the System?
-    if (op == SystemOperation.read && SVCLIST_READ.contains(svcName)) return;
+    
+// ****** TEMPORARY FIX (commented out following 2 lines of code)
+// ****** Allow all services to read a system
+//    if (op == SystemOperation.read && SVCLIST_READ.contains(svcName)) return;
     // Not authorized, throw an exception
-    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
+//    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
   }
 
   /**
@@ -2923,7 +2926,10 @@ public class SystemsServiceImpl implements SystemsService
         break;
       case execute:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
-                isPermitted(rUser, oboTenant, oboOrImpersonatedUser, systemId, Permission.EXECUTE))
+                isPermitted(rUser, oboTenant, oboOrImpersonatedUser, systemId, Permission.EXECUTE) ||
+                // ******* Temporary fix to allow users to execute jobs on shared systems.
+                // This a bit of abuse of the sharing READ permission, to be fixed soon.
+                isSystemPublicOrSharedWithUser(oboTenant, oboOrImpersonatedUser, systemId))
           return;
         break;
       case revokePerms:
@@ -2933,6 +2939,7 @@ public class SystemsServiceImpl implements SystemsService
         break;
       case setCred:
       case removeCred:
+        // TODO Incorporate share/sharing
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
                 (oboOrImpersonatedUser.equals(targetUser) && allowUserCredOp(rUser, systemId, op)))
           return;
