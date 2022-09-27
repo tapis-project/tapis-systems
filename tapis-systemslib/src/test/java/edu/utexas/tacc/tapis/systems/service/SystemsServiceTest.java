@@ -66,7 +66,7 @@ public class SystemsServiceTest
   private SystemsServiceImpl svcImpl;
   private ResourceRequestUser rOwner1, rTestUser0, rTestUser1, rTestUser2,
           rTestUser3, rTestUser4, rTestUser5,
-          rAdminUser, rSystemsSvc, rAppsSvcTestUser1,
+          rAdminUser, rSystemsSvc, rAppsSvcTestUser1, rFilesSvcAsFiles,
           rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rFilesSvcTestUser5, rJobsSvcTestUser1;
 
   // Create test system definitions and scheduler profiles in memory
@@ -124,6 +124,8 @@ public class SystemsServiceTest
                                                    null, testUser5, tenantName, null, null, null));
     rSystemsSvc = new ResourceRequestUser(new AuthenticatedUser(svcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                     null, svcName, adminTenantName, null, null, null));
+    rFilesSvcAsFiles = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
+                                                    null, filesSvcName, adminTenantName, null, null, null));
     rFilesSvcOwner1 = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                    null, owner1, tenantName, null, null, null));
     rFilesSvcTestUser3 = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
@@ -947,6 +949,11 @@ public class SystemsServiceTest
     Credential cred5NoLoginLinuxUser = new Credential(null, null, "fakePassword5LinuxUser", null, null, null, null, null);
     Credential cred5NoLoginStatic = new Credential(null, null, "fakePassword5Static", null, null, null, null, null);
     Credential cred5B_LoginUser = new Credential(null, testUser5LinuxUser, "fakePassword5b", null, null, null, null, null);
+
+    // We will be updating credentials for testUser3, 5 so allow them READ access to system.
+    svc.grantUserPermissions(rOwner1, sysId, testUser3, testPermsREAD, rawDataEmtpyJson);
+    svc.grantUserPermissions(rOwner1, sysId, testUser5, testPermsREAD, rawDataEmtpyJson);
+
     // Make the separate calls required to store credentials for each user.
     // In this case for owner1, testUser3, testUser5
     // These should all go under the dynamic secret path in SK
@@ -1255,7 +1262,7 @@ public class SystemsServiceTest
             jobMaxJobsPerUser1, canRunBatchTrue, mpiCmd1, batchScheduler1, logicalQueueList1,
             batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2, importRefId2);
 
-    // CREATE - Deny user not owner/admin, deny service
+    // CREATE - Deny user not owner/admin, deny service calling as itself
     boolean pass = false;
     try { svc.createSystem(rTestUser0, sys0, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
@@ -1265,7 +1272,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.createSystem(rFilesSvcOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson); }
+    try { svc.createSystem(rFilesSvcAsFiles, sys0, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1303,7 +1310,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
 
-    // MODIFY Deny user with no READ or MODIFY, deny user with only READ, deny service
+    // MODIFY Deny user with no READ or MODIFY, deny user with only READ
     pass = false;
     try { svc.patchSystem(rTestUser0, systemId, patchSys, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
@@ -1320,16 +1327,8 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
-    pass = false;
-    try { svc.patchSystem(rFilesSvcOwner1, systemId, patchSys, rawDataEmtpyJson); }
-    catch (NotAuthorizedException e)
-    {
-      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
-      pass = true;
-    }
-    Assert.assertTrue(pass);
 
-    // DELETE - deny user not owner/admin, deny service
+    // DELETE - deny user not owner/admin
     pass = false;
     try { svc.deleteSystem(rTestUser3, systemId); }
     catch (NotAuthorizedException e)
@@ -1338,26 +1337,10 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
-    pass = false;
-    try { svc.deleteSystem(rFilesSvcOwner1, systemId); }
-    catch (NotAuthorizedException e)
-    {
-      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
-      pass = true;
-    }
-    Assert.assertTrue(pass);
 
-    // CHANGE_OWNER - deny user not owner/admin, deny service
+    // CHANGE_OWNER - deny user not owner/admin
     pass = false;
     try { svc.changeSystemOwner(rTestUser3, systemId, testUser2); }
-    catch (NotAuthorizedException e)
-    {
-      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
-      pass = true;
-    }
-    Assert.assertTrue(pass);
-    pass = false;
-    try { svc.changeSystemOwner(rFilesSvcOwner1, systemId, testUser2); }
     catch (NotAuthorizedException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1375,7 +1358,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
 
-    // GRANT_PERMS - deny user not owner/admin, deny service
+    // GRANT_PERMS - deny user not owner/admin
     pass = false;
     try { svc.grantUserPermissions(rTestUser3, systemId, testUser0, testPermsREADMODIFY, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
@@ -1384,16 +1367,8 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
-    pass = false;
-    try { svc.grantUserPermissions(rFilesSvcOwner1, systemId, testUser0, testPermsREADMODIFY, rawDataEmtpyJson); }
-    catch (NotAuthorizedException e)
-    {
-      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
-      pass = true;
-    }
-    Assert.assertTrue(pass);
 
-    // REVOKE_PERMS - deny user not owner/admin, deny service
+    // REVOKE_PERMS - deny user not owner/admin
     pass = false;
     try { svc.revokeUserPermissions(rTestUser3, systemId, owner1, testPermsREADMODIFY, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
@@ -1411,7 +1386,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
 
-    // SET_CRED - deny user not owner/admin and not target user, deny service
+    // SET_CRED - deny user not owner/admin and not target user
     pass = false;
     try { svc.createUserCredential(rTestUser3, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmtpyJson); }
     catch (NotAuthorizedException e)
@@ -1420,16 +1395,18 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
-    pass = false;
-    try { svc.createUserCredential(rFilesSvcOwner1, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmtpyJson); }
-    catch (NotAuthorizedException e)
-    {
-      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
-      pass = true;
-    }
-    Assert.assertTrue(pass);
 
-    // REMOVE_CRED - deny user not owner/admin and not target user, deny service
+    // Services now allowed to modify, etc obo a user
+//    pass = false;
+//    try { svc.createUserCredential(rFilesSvcOwner1, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmtpyJson); }
+//    catch (NotAuthorizedException e)
+//    {
+//      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
+//      pass = true;
+//    }
+//    Assert.assertTrue(pass);
+
+    // REMOVE_CRED - deny user not owner/admin and not target user
     pass = false;
     try { svc.deleteUserCredential(rTestUser3, systemId, owner1); }
     catch (NotAuthorizedException e)
@@ -1438,14 +1415,14 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
-    pass = false;
-    try { svc.deleteUserCredential(rFilesSvcOwner1, systemId, owner1); }
-    catch (NotAuthorizedException e)
-    {
-      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
-      pass = true;
-    }
-    Assert.assertTrue(pass);
+//    pass = false;
+//    try { svc.deleteUserCredential(rFilesSvcOwner1, systemId, owner1); }
+//    catch (NotAuthorizedException e)
+//    {
+//      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
+//      pass = true;
+//    }
+//    Assert.assertTrue(pass);
 
     // GET_CRED - deny user not owner/admin, deny owner - with special message
     pass = false;

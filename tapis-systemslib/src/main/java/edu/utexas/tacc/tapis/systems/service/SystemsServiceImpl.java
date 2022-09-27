@@ -95,8 +95,6 @@ public class SystemsServiceImpl implements SystemsService
   private static final String APPS_SERVICE = TapisConstants.SERVICE_NAME_APPS;
   private static final String JOBS_SERVICE = TapisConstants.SERVICE_NAME_JOBS;
   private static final Set<String> SVCLIST_GETCRED = new HashSet<>(Set.of(FILES_SERVICE, JOBS_SERVICE));
-  // NOTE that although next 2 sets are identical, they are used for different purposes and may change in the future.
-  private static final Set<String> SVCLIST_READ = new HashSet<>(Set.of(FILES_SERVICE, APPS_SERVICE, JOBS_SERVICE));
   private static final Set<String> SVCLIST_IMPERSONATE = new HashSet<>(Set.of(FILES_SERVICE, APPS_SERVICE, JOBS_SERVICE));
   private static final Set<String> SVCLIST_SHAREDAPPCTX = new HashSet<>(Set.of(FILES_SERVICE, JOBS_SERVICE));
 
@@ -888,13 +886,17 @@ public class SystemsServiceImpl implements SystemsService
     // If sharedAppCtx set confirm that it is allowed
     if (sharedAppCtx) checkSharedAppCtxAllowed(rUser, op, systemId);
 
+    // getSystem auth check:
+    //   - always allow a service calling as itself to read/execute a system.
+    //   - if svc not calling as itself do the normal checks using oboUserOrImpersonationId.
+    //   - as always make sure auth checks are skipped if svc passes in sharedAppCtx=true.
     // If not skipping auth then check auth
     if (!sharedAppCtx) checkAuth(rUser, op, systemId, nullOwner, nullTargetUser, nullPermSet, impersonationId);
 
-    // If flag is set to also require EXECUTE perm then make a special auth call to make sure user has exec perm
+    // If flag is set to also require EXECUTE perm then make explicit auth call to make sure user has exec perm
     if (!sharedAppCtx && requireExecPerm)
     {
-      checkAuthOboUser(rUser, SystemOperation.execute, systemId, nullOwner, nullTargetUser, nullPermSet, impersonationId);
+      checkAuth(rUser, SystemOperation.execute, systemId, nullOwner, nullTargetUser, nullPermSet, impersonationId);
     }
 
     // If flag is set to also require EXECUTE perm then system must support execute
@@ -1843,7 +1845,8 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public SystemShare getSystemShare(ResourceRequestUser rUser, String systemId)
-      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException
+  {
     SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId))
@@ -2766,11 +2769,17 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Standard authorization check using all arguments.
    * Check is different for service and user requests.
+   *
    * A check should be made for system existence before calling this method.
    * If no owner is passed in and one cannot be found then an error is logged and authorization is denied.
    *
-   * Most callers do not support impersonation so make impersonationId the final argument and provide
-   *   and overloaded method for simplicity.
+   * Auth check:
+   *  - always allow read, execute, getPerms for a service calling as itself.
+   *  - if svc not calling as itself do the normal checks using oboUserOrImpersonationId.
+   *  - Note that if svc request and no special cases apply then final standard user request type check is done.
+   *
+   * Most callers do not support impersonation, so make impersonationId the final argument and provide an overloaded
+   *   method for simplicity.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param op - operation name
@@ -2778,7 +2787,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param owner - app owner
    * @param targetUser - Target user for operation
    * @param perms - List of permissions for the revokePerm case
-   * @param impersonationId - for auth check use this Id in place of oboUser
+   * @param impersonationId - for auth check use this user in place of oboUser
    * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
@@ -2786,10 +2795,10 @@ public class SystemsServiceImpl implements SystemsService
           throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
   {
     // Check service and user requests separately to avoid confusing a service name with a username
-    // If service is impersonating a Tapis user then perform normal user check
-    if (rUser.isServiceRequest() && StringUtils.isBlank(impersonationId))
+    if (rUser.isServiceRequest())
     {
-      checkAuthSvc(rUser, op, systemId);
+      // NOTE: This call will do a final checkAuthOboUser() if no special cases apply.
+      checkAuthSvc(rUser, op, systemId, owner, targetUser, perms, impersonationId);
     }
     else
     {
@@ -2799,17 +2808,25 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Service authorization check.
+   * Service authorization check. Special auth exceptions and checks are made for service requests:
+   *  - getCred is only allowed for certain services
+   *  - Always allow read, execute, getPerms for a service calling as itself.
+   *
+   * If no special cases apply then final standard user request type auth check is made.
+   *
    * ONLY CALL this method when it is a service request
+   *
    * A check should be made for system existence before calling this method.
+   *
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param op - operation name
    * @param systemId - name of the system
    * @throws NotAuthorizedException - user not authorized to perform operation
    */
-  private void checkAuthSvc(ResourceRequestUser rUser, SystemOperation op, String systemId)
-          throws NotAuthorizedException, IllegalStateException
+  private void checkAuthSvc(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
+                            String targetUser, Set<Permission> perms, String impersonationId)
+          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
   {
     // If ever called and not a svc request then fall back to denied
     if (!rUser.isServiceRequest())
@@ -2817,6 +2834,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // This is a service request. The username will be the service name. E.g. files, jobs, streams, etc
     String svcName = rUser.getJwtUserId();
+    String svcTenant = rUser.getJwtTenantId();
 
     // For getCred, only certain services are allowed. Everyone else denied with a special message
     // Do this check first to reduce chance a request will be allowed that should not be allowed.
@@ -2828,20 +2846,13 @@ public class SystemsServiceImpl implements SystemsService
               systemId, op.name()), NO_CHALLENGE);
     }
 
-    // For read, only certain services allowed.
-    // TODO Say why we always let svc requests from JOBS, FILES and APPS read and never check auth for oboUser
-    // TODO
-    //  Do services (Jobs, Apps, Files) really always need READ auth regardless of oboUser?
-    //  If so, why? describe here.
-    //  If Jobs is getting an execSystem it is ok, because it will pass in requireExecPerm and oboUser check will happen
-    //  But what if Jobs is getting a storage system (e.g. archiveSystem) and the oboUser does not have access
-    //     (perm/share) to the System?
-    
-// ****** TEMPORARY FIX (commented out following 2 lines of code)
-// ****** Allow all services to read a system
-//    if (op == SystemOperation.read && SVCLIST_READ.contains(svcName)) return;
-    // Not authorized, throw an exception
-//    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
+    // Always allow read, execute, getPerms for a service calling as itself.
+    if ((op == SystemOperation.read || op == SystemOperation.execute || op == SystemOperation.getPerms) &&
+            (svcName.equals(rUser.getOboUserId()) && svcTenant.equals(rUser.getOboTenantId()))) return;
+
+   // No more special cases. Do the standard auth check
+   // Some services, such as Jobs, count on Systems to check auth for OboUserOrImpersonationId
+   checkAuthOboUser(rUser, op, systemId, owner, targetUser, perms, impersonationId);
   }
 
   /**
@@ -2927,8 +2938,8 @@ public class SystemsServiceImpl implements SystemsService
       case execute:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
                 isPermitted(rUser, oboTenant, oboOrImpersonatedUser, systemId, Permission.EXECUTE) ||
-                // ******* Temporary fix to allow users to execute jobs on shared systems.
-                // This a bit of abuse of the sharing READ permission, to be fixed soon.
+                // TODO ******* Temporary fix to allow users to execute jobs on shared systems.
+                // TODO This a bit of abuse of the sharing READ permission, to be fixed soon.
                 isSystemPublicOrSharedWithUser(oboTenant, oboOrImpersonatedUser, systemId))
           return;
         break;
