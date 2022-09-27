@@ -10,10 +10,19 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.2.5 - 2022-09-27
+
+Incremental improvements and bug fixes.
+
+### Bug fixes:
+- Fix issues with handling of authorization checks for service requests.
+- Fix issues with sharing support.
+
+---------------------------------------------------------------------------
 ## 1.2.4 - 2022-09-19
 
 1. Patched system authorization code to allow any service to read any system definition.
-2. Fixed system authorization code for publicly shared system to allow user to add add their own credentials.
+2. Fixed system authorization code for publicly shared system to allow user to add their own credentials.
 
 ## 1.2.4 - 2022-08-07
 

@@ -56,7 +56,7 @@ public class SystemsApplication extends ResourceConfig
   private static String siteAdminTenantId;
   public static String getSiteAdminTenantId() {return siteAdminTenantId;}
 
-  // For all logging use println or similar so we do not have a dependency on a logging subsystem.
+  // For all logging use println or similar, so we do not have a dependency on a logging subsystem.
   public SystemsApplication()
   {
     // Needed for properly returning timestamps
@@ -75,7 +75,7 @@ public class SystemsApplication extends ResourceConfig
     // Set the application name. Note that this has no impact on base URL.
     setApplicationName(TapisConstants.SERVICE_NAME_SYSTEMS);
 
-    // Perform remaining init steps in try block so we can print a fatal error message if something goes wrong.
+    // Perform remaining init steps in try block, so we can print a fatal error message if something goes wrong.
     try
     {
       // Get runtime parameters
