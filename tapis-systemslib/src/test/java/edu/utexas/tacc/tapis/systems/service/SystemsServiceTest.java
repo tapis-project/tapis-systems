@@ -218,7 +218,7 @@ public class SystemsServiceTest
 //TODO  @Test
 //  public void testCreateSystemCredCheck() throws Exception
 //  {
-//    TSystem sys0 = systems[2];
+//    TSystem sys0 = systems[??];
 //    sys0.setEffectiveUserId("testuser2"); //TODO
 //// TODO    sys0.setEffectiveUserId("testuser99"); //TODO
 //    Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
@@ -724,7 +724,7 @@ public class SystemsServiceTest
   public void testSystemCreateUpdateBadCred() throws Exception
   {
     TSystem sys0 = systems[19];
-    // Update effectiveUserId to be dynamic since some of the cases require it and others are not invalidated by it
+    // Update effectiveUserId to be dynamic since some cases require it and others are not invalidated by it
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
 
     // Test create cases first since we will need to create a system to test the update cases
@@ -938,7 +938,7 @@ public class SystemsServiceTest
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR); // "${apiUserId}"
     // Create the system
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
-    // Create in-memory objects fro all creds we will use.
+    // Create in-memory objects for all credentials we will use.
     Credential cred1NoLoginUser = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
             "fakeAccessKey1", "fakeAccessSecret1", "fakeCert1");
     Credential cred3NoLoginUser = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
@@ -1161,6 +1161,103 @@ public class SystemsServiceTest
     Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null");
     Assert.assertEquals(cred0.getPassword(), cred1.getPassword());
     Assert.assertEquals(cred0.getLoginUser(), effectiveUserId1, "Incorrect loginUser. Should be static effUser");
+  }
+
+  // Test creating, reading and deleting user credentials when user is not the owner, dynamic effectiveUserId
+  // Test that user can create and remove credentials when:
+  //    - user only has READ perm
+  //    - user only has MODIFY perm
+  //    - user only has share access
+  @Test
+  public void testUserCredentialsNotOwner() throws Exception
+  {
+    // Create a system where effectiveUserId is dynamic.
+    TSystem sys0 = systems[2];
+    String sysId = sys0.getId();
+    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+
+    Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
+                                      "fakeAccessKey1", "fakeAccessSecret1", "fakeCert1");
+    svc.createUserCredential(rOwner1, sysId, owner1, cred1, skipCredCheckTrue, rawDataEmtpyJson);
+
+    String rawDataShare = "{\"users\": [\"" + testUser5 + "\"]}";
+    SystemShare systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
+
+    // Cleanup from any previous runs
+    svc.unshareSystemPublicly(rOwner1, sysId);
+    svc.unshareSystem(rOwner1, sysId, systemShare);
+    svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREADMODIFY, rawDataEmtpyJson);
+
+    // Get system as owner using files service, should get cred for static effUser
+    TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse,
+            getCredsTrue, impersonationIdNull, resolveEffUserTrue, sharedAppCtxFalse);
+    Credential cred0 = tmpSys.getAuthnCredential();
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null");
+    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
+    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null");
+    Assert.assertEquals(cred0.getPassword(), cred1.getPassword());
+
+    // Initially user testUser5 should not be able to set a cred.
+    boolean pass;
+    pass = false;
+    try { svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmtpyJson); }
+    catch (NotAuthorizedException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    pass = false;
+    try { svc.deleteUserCredential(rTestUser5, sysId, testUser5); }
+    catch (NotAuthorizedException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+
+    // Grant READ perm, now user should be able to set cred
+    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREAD, rawDataEmtpyJson);
+    svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmtpyJson);
+    svc.deleteUserCredential(rTestUser5, sysId, testUser5);
+
+    // Revoke READ perm and grant MODIFY perm. User should be able to set cred.
+    svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREAD, rawDataEmtpyJson);
+    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsMODIFY, rawDataEmtpyJson);
+    svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmtpyJson);
+    svc.deleteUserCredential(rTestUser5, sysId, testUser5);
+
+    // Revoke MODIFY perm and share system. User should be able to set cred.
+    svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsMODIFY, rawDataEmtpyJson);
+    svc.shareSystem(rOwner1, sysId, systemShare);
+    svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmtpyJson);
+    svc.deleteUserCredential(rTestUser5, sysId, testUser5);
+
+    // Unshare and then share publicly. User should be able to set cred
+    svc.unshareSystem(rOwner1, sysId, systemShare);
+    svc.shareSystemPublicly(rOwner1, sysId);
+    svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmtpyJson);
+    svc.deleteUserCredential(rTestUser5, sysId, testUser5);
+
+    // Unshare public and now testUser5 should again be denied
+    svc.unshareSystemPublicly(rOwner1, sysId);
+    pass = false;
+    try { svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmtpyJson); }
+    catch (NotAuthorizedException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    pass = false;
+    try { svc.deleteUserCredential(rTestUser5, sysId, testUser5); }
+    catch (NotAuthorizedException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
   }
 
   // Test various cases when system is missing
