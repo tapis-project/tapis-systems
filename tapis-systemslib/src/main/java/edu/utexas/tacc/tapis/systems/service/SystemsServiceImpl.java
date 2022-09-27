@@ -1,15 +1,5 @@
 package edu.utexas.tacc.tapis.systems.service;
 
-import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
-import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -65,6 +55,16 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+
+import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
 
 /*
  * Service level methods for Systems.
@@ -852,7 +852,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
    *                         provided in system definition.
-   * @param sharedAppCtx - Indicates that request is part of a shared app context.
+   * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth will be skipped.
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
    * @throws NotAuthorizedException - unauthorized
@@ -2451,24 +2451,6 @@ public class SystemsServiceImpl implements SystemsService
     return getSKClient().isPermittedAny(tenantName, userName, permSpecs.toArray(TSystem.EMPTY_STR_ARRAY));
   }
 
-  /**
-   * Check to see if oboUser who is not owner or admin is authorized to operate on a credential
-   * No checks are done for incoming arguments and the system must exist
-   */
-  private boolean allowUserCredOp(ResourceRequestUser rUser, String systemId, SystemOperation op)
-          throws TapisException, IllegalStateException
-  {
-    // Get the effectiveUserId. If not oboUser then considered an error since credential would never be used.
-    String effectiveUserId = dao.getSystemEffectiveUserId(rUser.getOboTenantId(), systemId);
-    if (StringUtils.isBlank(effectiveUserId) || !effectiveUserId.equals(APIUSERID_VAR))
-    {
-      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOTAPIUSER", rUser, systemId, op.name());
-      _log.error(msg);
-      throw new IllegalStateException(msg);
-    }
-    return true;
-  }
-
   /*
    * Create or update a credential
    * No checks are done for incoming arguments and the system must exist
@@ -2864,12 +2846,12 @@ public class SystemsServiceImpl implements SystemsService
    *  Delete -      must be owner or have admin role
    *  ChangeOwner - must be owner or have admin role
    *  GrantPerm -   must be owner or have admin role
-   *  Read -     must be owner or have admin role or have READ or MODIFY permission or be in list of allowed services
-   *  getPerms - must be owner or have admin role or have READ or MODIFY permission or be in list of allowed services
+   *  Read -     must be owner or have admin role or have READ or MODIFY permission or have share READ
+   *  getPerms - must be owner or have admin role or have READ or MODIFY permission
    *  Modify - must be owner or have admin role or have MODIFY permission
-   *  Execute - must be owner or have admin role or have EXECUTE permission
+   *  Execute - must be owner or have admin role or have EXECUTE permission or have share EXECUTE
    *  RevokePerm -  must be owner or have admin role or apiUserId=targetUser and meet certain criteria (allowUserRevokePerm)
-   *  SetCred -     must be owner or have admin role or apiUserId=targetUser and meet certain criteria (allowUserCredOp)
+   *  Set/RemoveCred -  must be owner or have admin role or (apiUserId=targetUser and READ access)
    *  RemoveCred -  must be owner or have admin role or apiUserId=targetUser and meet certain criteria (allowUserCredOp)
    *  GetCred -     Deny. Only authorized services may get credentials. Set specific message.
    *
@@ -2897,13 +2879,13 @@ public class SystemsServiceImpl implements SystemsService
         break;
       case getCred:
         // Only some services allowed to get credentials. Never a user.
-        throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_GETCRED", rUser,
-                systemId, op.name()), NO_CHALLENGE);
+        throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_GETCRED", rUser, systemId, op.name()), NO_CHALLENGE);
     }
 
     // Remaining checks require owner. If no owner specified and owner cannot be determined then log an error and deny.
     if (StringUtils.isBlank(owner)) owner = dao.getSystemOwner(oboTenant, systemId);
-    if (StringUtils.isBlank(owner)) {
+    if (StringUtils.isBlank(owner))
+    {
       String msg = LibUtils.getMsgAuth("SYSLIB_UNAUTH_NO_OWNER", rUser, systemId, op.name());
       _log.error(msg);
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
@@ -2920,8 +2902,8 @@ public class SystemsServiceImpl implements SystemsService
         break;
       case read:
     	   if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
-                    isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS)||
-                    isSystemPublicOrSharedWithUser(oboTenant, oboOrImpersonatedUser, systemId))
+                    isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS) ||
+                    isSystemSharedWithUser(rUser, oboOrImpersonatedUser, systemId, Permission.READ))
               return;
             break;
 
@@ -2938,9 +2920,7 @@ public class SystemsServiceImpl implements SystemsService
       case execute:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
                 isPermitted(rUser, oboTenant, oboOrImpersonatedUser, systemId, Permission.EXECUTE) ||
-                // TODO ******* Temporary fix to allow users to execute jobs on shared systems.
-                // TODO This a bit of abuse of the sharing READ permission, to be fixed soon.
-                isSystemPublicOrSharedWithUser(oboTenant, oboOrImpersonatedUser, systemId))
+                isSystemSharedWithUser(rUser, oboOrImpersonatedUser, systemId, Permission.EXECUTE))
           return;
         break;
       case revokePerms:
@@ -2950,9 +2930,9 @@ public class SystemsServiceImpl implements SystemsService
         break;
       case setCred:
       case removeCred:
-        // TODO Incorporate share/sharing
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
-                (oboOrImpersonatedUser.equals(targetUser) && allowUserCredOp(rUser, systemId, op)))
+             (oboOrImpersonatedUser.equals(targetUser) && isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS)) ||
+             (oboOrImpersonatedUser.equals(targetUser) && isSystemSharedWithUser(rUser, oboOrImpersonatedUser, systemId, Permission.READ)))
           return;
         break;
     }
@@ -2962,28 +2942,28 @@ public class SystemsServiceImpl implements SystemsService
    
   /**
    * 
-   * Check if the system is shared with the user or the system is public
-   *  @param obotenant
-   *  @param oboOrImpersonatedUser
-   *  @param systemId
-   *  @throws TapisException 
-   *  @throws TapisClientException 
+   * Check if the system is shared with the user.
+   * SK call hasPrivilege includes check for public sharing.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param targetUser - user to check
+   * @param systemId - system to check
+   * @param privilege - privilege to check
    */
   
-  private boolean isSystemPublicOrSharedWithUser(String obotenant, String oboOrImpersonatedUser, String systemId) 
-		  throws TapisClientException, TapisException 
-		  {
-	    // Create SKShareGetSharesParms needed for SK calls.
-	    SKShareHasPrivilegeParms skParms = new SKShareHasPrivilegeParms();
-	    skParms.setResourceType(SYS_SHR_TYPE);
-	    skParms.setTenant(obotenant);
-	    skParms.setResourceId1(systemId);
-	    skParms.setGrantee(oboOrImpersonatedUser);
-	    skParms.setPrivilege(Permission.READ.name());
-	    var skShare = getSKClient().hasPrivilege(skParms);
-	    return skShare;
-	    
-  } 
+  private boolean isSystemSharedWithUser(ResourceRequestUser rUser, String targetUser, String systemId, Permission privilege)
+          throws TapisClientException, TapisException
+  {
+    String oboTenant = rUser.getOboTenantId();
+    // Create SKShareGetSharesParms needed for SK calls.
+    SKShareHasPrivilegeParms skParms = new SKShareHasPrivilegeParms();
+    skParms.setResourceType(SYS_SHR_TYPE);
+    skParms.setTenant(oboTenant);
+    skParms.setResourceId1(systemId);
+    skParms.setGrantee(targetUser);
+    skParms.setPrivilege(privilege.name());
+    return getSKClient().hasPrivilege(skParms);
+  }
   
   /**
    * Confirm that caller is allowed to impersonate a Tapis user.
@@ -3157,11 +3137,13 @@ public class SystemsServiceImpl implements SystemsService
         reqShareResource.setTenant(system.getTenant());
         reqShareResource.setResourceId1(systemId);
         reqShareResource.setGrantor(rUser.getOboUserId());
-        reqShareResource.setPrivilege(Permission.READ.name());
-    
+
         for (String userName : userList)
         {
           reqShareResource.setGrantee(userName);
+          reqShareResource.setPrivilege(Permission.READ.name());
+          getSKClient().shareResource(reqShareResource);
+          reqShareResource.setPrivilege(Permission.EXECUTE.name());
           getSKClient().shareResource(reqShareResource);
         }
       }
@@ -3173,11 +3155,13 @@ public class SystemsServiceImpl implements SystemsService
         deleteShareParms.setTenant(system.getTenant());
         deleteShareParms.setResourceId1(systemId);
         deleteShareParms.setGrantor(rUser.getOboUserId());
-        deleteShareParms.setPrivilege(Permission.READ.name());
-        
+
         for (String userName : userList)
         {
           deleteShareParms.setGrantee(userName);
+          deleteShareParms.setPrivilege(Permission.READ.name());
+          getSKClient().deleteShare(deleteShareParms);
+          deleteShareParms.setPrivilege(Permission.EXECUTE.name());
           getSKClient().deleteShare(deleteShareParms);
         }
       }
