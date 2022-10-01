@@ -2800,7 +2800,6 @@ public class SystemsServiceImpl implements SystemsService
    *
    * A check should be made for system existence before calling this method.
    *
-   *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param op - operation name
    * @param systemId - name of the system
@@ -2903,7 +2902,7 @@ public class SystemsServiceImpl implements SystemsService
       case read:
     	   if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
                     isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS) ||
-                    isSystemSharedWithUser(rUser, oboOrImpersonatedUser, systemId, Permission.READ))
+                    isSystemSharedWithUser(rUser, systemId, oboOrImpersonatedUser, Permission.READ))
               return;
             break;
 
@@ -2920,7 +2919,7 @@ public class SystemsServiceImpl implements SystemsService
       case execute:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
                 isPermitted(rUser, oboTenant, oboOrImpersonatedUser, systemId, Permission.EXECUTE) ||
-                isSystemSharedWithUser(rUser, oboOrImpersonatedUser, systemId, Permission.EXECUTE))
+                isSystemSharedWithUser(rUser, systemId, oboOrImpersonatedUser, Permission.EXECUTE))
           return;
         break;
       case revokePerms:
@@ -2932,7 +2931,7 @@ public class SystemsServiceImpl implements SystemsService
       case removeCred:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
              (oboOrImpersonatedUser.equals(targetUser) && isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS)) ||
-             (oboOrImpersonatedUser.equals(targetUser) && isSystemSharedWithUser(rUser, oboOrImpersonatedUser, systemId, Permission.READ)))
+             (oboOrImpersonatedUser.equals(targetUser) && isSystemSharedWithUser(rUser, systemId, oboOrImpersonatedUser, Permission.READ)))
           return;
         break;
     }
@@ -2946,12 +2945,13 @@ public class SystemsServiceImpl implements SystemsService
    * SK call hasPrivilege includes check for public sharing.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param targetUser - user to check
    * @param systemId - system to check
+   * @param targetUser - user to check
    * @param privilege - privilege to check
+   * @return - Boolean value that indicates if app is shared
    */
   
-  private boolean isSystemSharedWithUser(ResourceRequestUser rUser, String targetUser, String systemId, Permission privilege)
+  private boolean isSystemSharedWithUser(ResourceRequestUser rUser, String systemId, String targetUser, Permission privilege)
           throws TapisClientException, TapisException
   {
     String oboTenant = rUser.getOboTenantId();
