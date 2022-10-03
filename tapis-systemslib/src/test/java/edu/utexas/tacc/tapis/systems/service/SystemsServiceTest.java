@@ -1966,39 +1966,36 @@ public class SystemsServiceTest
   
   // Test retrieving system sharing information
   @Test
-  public void tesShareSystem() throws Exception
+  public void testShareSystem() throws Exception
   {
     TSystem sys0 = systems[29];
-    sys0.setOwner(rTestUser5.getOboUserId());
+    sys0.setOwner(testUser5);
     svc.createSystem(rTestUser5, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     
     // **************************  Create and share system  ***************************
-    
     //  Create a SystemShare from the json 
    SystemShare systemShare;
-   String TestUserName = "0-create1";
-   String rawDataShare = "{\"users\": [\"" + TestUserName + "\"]}";
+   String testUserName = testUser4;
+   String rawDataShare = "{\"users\": [\"" + testUserName + "\"]}";
    Set<String> testUserList = new HashSet<String>(1);
-   testUserList.add(TestUserName);
+   testUserList.add(testUserName);
    systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
-   
    
    // Service call
    svc.shareSystem(rTestUser5, sys0.getId(), systemShare);
    
    // Test retrieval using specified authn method
    SystemShare systemShareTest = svc.getSystemShare(rTestUser5, sys0.getId());
-   
    System.out.println("Found item: " + sys0.getId());
-   // Verify system share fields
 
+   // Verify system share fields
    Assert.assertNotNull(systemShareTest, "System Share information found.");
    Assert.assertEquals(systemShareTest.getUserList(), testUserList);
    // Retrieve users, test user is on the list
    boolean userFound = false;
    for (var user : systemShareTest.getUserList()) {
-     if (user.equals(TestUserName)) { userFound = true; }
-     System.out.printf("userName: %s%n", user);
+     if (user.equals(testUserName)) { userFound = true; }
+     System.out.printf("Shared with userName: %s%n", user);
    }
    Assert.assertTrue(userFound);  
    
@@ -2009,29 +2006,27 @@ public class SystemsServiceTest
    
    // Test retrieval using specified authn method
    systemShareTest = svc.getSystemShare(rTestUser5, sys0.getId());
-   
    System.out.println("Found item: " + sys0.getId());
-   // Verify system share fields
 
+   // Verify system share fields
    Assert.assertNotNull(systemShareTest, "System Share information found.");
    // Retrieve users, test user is not on the list
    userFound = false;
    for (var user : systemShareTest.getUserList()) {
-     if (user.equals(TestUserName)) { userFound = true; }
+     if (user.equals(testUserName)) { userFound = true; }
      System.out.printf("userName: %s%n", user);
    }
    Assert.assertFalse(userFound);  
+
    // **************************  Sharing system publicly  ***************************
-   
    // Service call
    svc.shareSystemPublicly(rTestUser5, sys0.getId());
    
    // Test retrieval using specified authn method
    systemShareTest = svc.getSystemShare(rTestUser5, sys0.getId());
-   
    System.out.println("Found item: " + sys0.getId());
-   // Verify system share fields
 
+   // Verify system share fields
    Assert.assertNotNull(systemShareTest, "System Share information found.");
    Assert.assertTrue(systemShareTest.isPublic());
    
@@ -2041,10 +2036,9 @@ public class SystemsServiceTest
    
    // Test retrieval using specified authn method
    systemShareTest = svc.getSystemShare(rTestUser5, sys0.getId());
-   
    System.out.println("Found item: " + sys0.getId());
-   // Verify system share fields
 
+   // Verify system share fields
    Assert.assertNotNull(systemShareTest, "System Share information found.");
    // TODO: assert to False after implementing new SKClient changes
    Assert.assertFalse(systemShareTest.isPublic());
