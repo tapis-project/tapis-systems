@@ -115,26 +115,21 @@ public final class IntegrationUtils
   public static final String batchSchedulerProfile2 = "schedProfile2";
   public static final String batchSchedulerProfileNull = null;
   public static final String noSuchSchedulerProfile = "noSuchSchedulerProfile";
-  public static final KeyValuePair kv1 = new KeyValuePair("a","b");
-  public static final KeyValuePair kv2 = new KeyValuePair("HOME","/home/testuser2");
-  public static final KeyValuePair kv3 = new KeyValuePair("TMP","/tmp");
   public static final List<KeyValuePair> jobEnvVariables1 =
-          new ArrayList<>(List.of(new KeyValuePair("a1","b1"),
-                                  new KeyValuePair("HOME","/home/testuser1"),
-                                  new KeyValuePair("TMP","/tmp1")));
+          new ArrayList<>(List.of(new KeyValuePair("a1","b1", null),
+                                  new KeyValuePair("HOME","/home/testuser1", ""),
+                                  new KeyValuePair("TMP","/tmp1", "my keyvalue pair")));
   public static final List<KeyValuePair> jobEnvVariables2 =
-          new ArrayList<>(List.of(new KeyValuePair("a2","b2"),
-                                  new KeyValuePair("HOME","/home/testuser2"),
+          new ArrayList<>(List.of(new KeyValuePair("a2","b2", "my 2nd key-value pair"),
+                                  new KeyValuePair("HOME","/home/testuser2", null),
                                  new KeyValuePair("TMP","/tmp2")));
   public static final List<KeyValuePair> jobEnvVariables3 =
           new ArrayList<>(List.of(new KeyValuePair("a3","b3"),
-                  new KeyValuePair("HOME","/home/testuser3"),
-                  new KeyValuePair("TMP","/tmp3"),
+                  new KeyValuePair("HOME","/home/testuser3", "third one"),
+                  new KeyValuePair("TMP","/tmp3",
+                          "Send money. Stop. 3rd tmp kv pair with longer description just to test things out. Stop."),
                   new KeyValuePair("TMP2","/tmp3a")));
   public static final List<KeyValuePair> jobEnvVariablesNull = null;
-//  public static final String[] jobEnvVariables1 = {"a1=b1", "HOME=/home/testuser1", "TMP=/tmp1"};
-//  public static final String[] jobEnvVariables2 = {"a2=b2", "HOME=/home/testuser2", "TMP=/tmp2"};
-//  public static final String[] jobEnvVariablesNull = null;
   public static final SchedulerType batchSchedulerNull = null;
   public static final String queueNameNull = null;
   public static final boolean canRunBatchTrue = true;
@@ -154,8 +149,8 @@ public final class IntegrationUtils
   public static final String[] tags2 = {"value3", "value4"};
   public static final String[] tags3 = {"value1"};
   public static final String[] tagsNull = null;
-  public static final Object notes1 = TapisGsonUtils.getGson().fromJson("{\"project\": \"myproj1\", \"testdata\": \"abc1\"}", JsonObject.class);
-  public static final Object notes2 = TapisGsonUtils.getGson().fromJson("{\"project\": \"myproj2\", \"testdata\": \"abc2\"}", JsonObject.class);
+  public static final Object notes1 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj1\", \"testdata\": \"abc 1\"}", JsonObject.class);
+  public static final Object notes2 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj2\", \"testdata\": \"abc 2\"}", JsonObject.class);
   public static final JsonObject notesObj1 = (JsonObject) notes1;
   public static final Object notesNull = null;
 

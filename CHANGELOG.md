@@ -10,6 +10,14 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.2.6 - 2022-10-15
+
+Incremental improvements and new preview feature.
+
+### New features:
+- Add *description* attribute to *jobEnvVariables*.
+
+---------------------------------------------------------------------------
 ## 1.2.5 - 2022-09-27
 
 Incremental improvements and bug fixes.
