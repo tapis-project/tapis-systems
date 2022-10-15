@@ -1965,6 +1965,7 @@ public class SystemsServiceTest
   }
   
   // Test retrieving system sharing information
+  // System owned by testuser5, shared with testuser4
   @Test
   public void testShareSystem() throws Exception
   {
@@ -2040,7 +2041,6 @@ public class SystemsServiceTest
 
    // Verify system share fields
    Assert.assertNotNull(systemShareTest, "System Share information found.");
-   // TODO: assert to False after implementing new SKClient changes
    Assert.assertFalse(systemShareTest.isPublic());
   }
  

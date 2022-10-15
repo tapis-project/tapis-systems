@@ -231,6 +231,7 @@ public class ApiUtils
     return sb.toString();
   }
 
+// NOTE: If this is ever used it will strip off the description
 //  /**
 //   * Return String[] array of jobEnvVariables given list of KeyValuePair
 //   */

@@ -1859,7 +1859,7 @@ public class SystemsServiceImpl implements SystemsService
     // We need owner to check auth and if system not there cannot find owner, so return null if no system.
     if (system == null) return null;
 
-    checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet, nullImpersonationId);
+    checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet);
 
     // Create SKShareGetSharesParms needed for SK calls.
     var skParms = new SKShareGetSharesParms();
@@ -2074,7 +2074,7 @@ public class SystemsServiceImpl implements SystemsService
    * Check constraints on TSystem attributes.
    * If batchSchedulerProfile is set verify that the profile exists.
    * If DTN is used verify that dtnSystemId exists with isDtn = true
-   * Collect and report as many errors as possible so they can all be fixed before next attempt
+   * Collect and report as many errors as possible, so they can all be fixed before next attempt
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tSystem1 - the TSystem to check
    * @throws IllegalStateException - if any constraints are violated
@@ -2760,7 +2760,7 @@ public class SystemsServiceImpl implements SystemsService
    *  - if svc not calling as itself do the normal checks using oboUserOrImpersonationId.
    *  - Note that if svc request and no special cases apply then final standard user request type check is done.
    *
-   * Most callers do not support impersonation, so make impersonationId the final argument and provide an overloaded
+   * Many callers do not support impersonation, so make impersonationId the final argument and provide an overloaded
    *   method for simplicity.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
