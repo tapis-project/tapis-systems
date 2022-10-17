@@ -872,7 +872,7 @@ public class SystemResource
    * @param securityContext - user identity
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
    *                         provided in system definition. By default, this is true.
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param showDeleted - whether to included resources that have been marked as deleted.
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @GET
@@ -920,7 +920,7 @@ public class SystemResource
    * @param securityContext - user identity
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
    *                         provided in system definition. By default, this is true.
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param showDeleted - whether to included resources that have been marked as deleted.
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @GET
@@ -989,7 +989,7 @@ public class SystemResource
    * @param securityContext - user identity
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
    *                         provided in system definition. By default, this is true.
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param showDeleted - whether to included resources that have been marked as deleted.
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @POST

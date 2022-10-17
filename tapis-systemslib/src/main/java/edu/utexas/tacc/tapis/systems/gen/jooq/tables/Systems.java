@@ -63,7 +63,8 @@ public class Systems extends TableImpl<SystemsRecord> {
     public final TableField<SystemsRecord, Integer> SEQ_ID = createField(DSL.name("seq_id"), SQLDataType.INTEGER.nullable(false).identity(true), this, "System sequence id");
 
     /**
-     * The column <code>tapis_sys.systems.tenant</code>. Tenant name associated with system
+     * The column <code>tapis_sys.systems.tenant</code>. Tenant name associated
+     * with system
      */
     public final TableField<SystemsRecord, String> TENANT = createField(DSL.name("tenant"), SQLDataType.CLOB.nullable(false), this, "Tenant name associated with system");
 
@@ -83,52 +84,62 @@ public class Systems extends TableImpl<SystemsRecord> {
     public final TableField<SystemsRecord, SystemType> SYSTEM_TYPE = createField(DSL.name("system_type"), SQLDataType.CLOB.nullable(false), this, "Type of system", new EnumConverter<String, SystemType>(String.class, SystemType.class));
 
     /**
-     * The column <code>tapis_sys.systems.owner</code>. User name of system owner
+     * The column <code>tapis_sys.systems.owner</code>. User name of system
+     * owner
      */
     public final TableField<SystemsRecord, String> OWNER = createField(DSL.name("owner"), SQLDataType.CLOB.nullable(false), this, "User name of system owner");
 
     /**
-     * The column <code>tapis_sys.systems.host</code>. System host name or ip address
+     * The column <code>tapis_sys.systems.host</code>. System host name or ip
+     * address
      */
     public final TableField<SystemsRecord, String> HOST = createField(DSL.name("host"), SQLDataType.CLOB.nullable(false), this, "System host name or ip address");
 
     /**
-     * The column <code>tapis_sys.systems.enabled</code>. Indicates if system is currently active and available for use
+     * The column <code>tapis_sys.systems.enabled</code>. Indicates if system is
+     * currently active and available for use
      */
     public final TableField<SystemsRecord, Boolean> ENABLED = createField(DSL.name("enabled"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("true", SQLDataType.BOOLEAN)), this, "Indicates if system is currently active and available for use");
 
     /**
-     * The column <code>tapis_sys.systems.effective_user_id</code>. User name to use when accessing the system
+     * The column <code>tapis_sys.systems.effective_user_id</code>. User name to
+     * use when accessing the system
      */
     public final TableField<SystemsRecord, String> EFFECTIVE_USER_ID = createField(DSL.name("effective_user_id"), SQLDataType.CLOB.nullable(false), this, "User name to use when accessing the system");
 
     /**
-     * The column <code>tapis_sys.systems.default_authn_method</code>. How authorization is handled by default
+     * The column <code>tapis_sys.systems.default_authn_method</code>. How
+     * authorization is handled by default
      */
     public final TableField<SystemsRecord, AuthnMethod> DEFAULT_AUTHN_METHOD = createField(DSL.name("default_authn_method"), SQLDataType.CLOB.nullable(false), this, "How authorization is handled by default", new EnumConverter<String, AuthnMethod>(String.class, AuthnMethod.class));
 
     /**
-     * The column <code>tapis_sys.systems.bucket_name</code>. Name of the bucket for an S3 system
+     * The column <code>tapis_sys.systems.bucket_name</code>. Name of the bucket
+     * for an S3 system
      */
     public final TableField<SystemsRecord, String> BUCKET_NAME = createField(DSL.name("bucket_name"), SQLDataType.CLOB, this, "Name of the bucket for an S3 system");
 
     /**
-     * The column <code>tapis_sys.systems.root_dir</code>. Effective root directory path for a Unix system
+     * The column <code>tapis_sys.systems.root_dir</code>. Effective root
+     * directory path for a Unix system
      */
     public final TableField<SystemsRecord, String> ROOT_DIR = createField(DSL.name("root_dir"), SQLDataType.CLOB, this, "Effective root directory path for a Unix system");
 
     /**
-     * The column <code>tapis_sys.systems.port</code>. Port number used to access a system
+     * The column <code>tapis_sys.systems.port</code>. Port number used to
+     * access a system
      */
     public final TableField<SystemsRecord, Integer> PORT = createField(DSL.name("port"), SQLDataType.INTEGER.nullable(false).defaultValue(DSL.field("'-1'::integer", SQLDataType.INTEGER)), this, "Port number used to access a system");
 
     /**
-     * The column <code>tapis_sys.systems.use_proxy</code>. Indicates if system should accessed through a proxy
+     * The column <code>tapis_sys.systems.use_proxy</code>. Indicates if system
+     * should accessed through a proxy
      */
     public final TableField<SystemsRecord, Boolean> USE_PROXY = createField(DSL.name("use_proxy"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "Indicates if system should accessed through a proxy");
 
     /**
-     * The column <code>tapis_sys.systems.proxy_host</code>. Proxy host name or ip address
+     * The column <code>tapis_sys.systems.proxy_host</code>. Proxy host name or
+     * ip address
      */
     public final TableField<SystemsRecord, String> PROXY_HOST = createField(DSL.name("proxy_host"), SQLDataType.CLOB, this, "Proxy host name or ip address");
 
@@ -138,12 +149,14 @@ public class Systems extends TableImpl<SystemsRecord> {
     public final TableField<SystemsRecord, Integer> PROXY_PORT = createField(DSL.name("proxy_port"), SQLDataType.INTEGER.nullable(false).defaultValue(DSL.field("'-1'::integer", SQLDataType.INTEGER)), this, "Proxy port number");
 
     /**
-     * The column <code>tapis_sys.systems.dtn_system_id</code>. Alternate system to use as a Data Transfer Node (DTN)
+     * The column <code>tapis_sys.systems.dtn_system_id</code>. Alternate system
+     * to use as a Data Transfer Node (DTN)
      */
     public final TableField<SystemsRecord, String> DTN_SYSTEM_ID = createField(DSL.name("dtn_system_id"), SQLDataType.CLOB, this, "Alternate system to use as a Data Transfer Node (DTN)");
 
     /**
-     * The column <code>tapis_sys.systems.dtn_mount_point</code>. Mount point on local system for the DTN
+     * The column <code>tapis_sys.systems.dtn_mount_point</code>. Mount point on
+     * local system for the DTN
      */
     public final TableField<SystemsRecord, String> DTN_MOUNT_POINT = createField(DSL.name("dtn_mount_point"), SQLDataType.CLOB, this, "Mount point on local system for the DTN");
 
@@ -153,17 +166,20 @@ public class Systems extends TableImpl<SystemsRecord> {
     public final TableField<SystemsRecord, String> DTN_MOUNT_SOURCE_PATH = createField(DSL.name("dtn_mount_source_path"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>tapis_sys.systems.is_dtn</code>. Indicates if system is to serve as a data transfer node
+     * The column <code>tapis_sys.systems.is_dtn</code>. Indicates if system is
+     * to serve as a data transfer node
      */
     public final TableField<SystemsRecord, Boolean> IS_DTN = createField(DSL.name("is_dtn"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "Indicates if system is to serve as a data transfer node");
 
     /**
-     * The column <code>tapis_sys.systems.can_exec</code>. Indicates if system can be used to execute jobs
+     * The column <code>tapis_sys.systems.can_exec</code>. Indicates if system
+     * can be used to execute jobs
      */
     public final TableField<SystemsRecord, Boolean> CAN_EXEC = createField(DSL.name("can_exec"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "Indicates if system can be used to execute jobs");
 
     /**
-     * The column <code>tapis_sys.systems.can_run_batch</code>. Flag indicating if system supports running jobs using a batch scheduler.
+     * The column <code>tapis_sys.systems.can_run_batch</code>. Flag indicating
+     * if system supports running jobs using a batch scheduler.
      */
     public final TableField<SystemsRecord, Boolean> CAN_RUN_BATCH = createField(DSL.name("can_run_batch"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "Flag indicating if system supports running jobs using a batch scheduler.");
 
@@ -173,67 +189,82 @@ public class Systems extends TableImpl<SystemsRecord> {
     public final TableField<SystemsRecord, String> MPI_CMD = createField(DSL.name("mpi_cmd"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>tapis_sys.systems.job_runtimes</code>. Runtimes associated with system
+     * The column <code>tapis_sys.systems.job_runtimes</code>. Runtimes
+     * associated with system
      */
     public final TableField<SystemsRecord, JsonElement> JOB_RUNTIMES = createField(DSL.name("job_runtimes"), SQLDataType.JSONB, this, "Runtimes associated with system", new JSONBToJsonElementBinding());
 
     /**
-     * The column <code>tapis_sys.systems.job_working_dir</code>. Parent directory from which a job is run. Relative to effective root directory.
+     * The column <code>tapis_sys.systems.job_working_dir</code>. Parent
+     * directory from which a job is run. Relative to effective root directory.
      */
     public final TableField<SystemsRecord, String> JOB_WORKING_DIR = createField(DSL.name("job_working_dir"), SQLDataType.CLOB, this, "Parent directory from which a job is run. Relative to effective root directory.");
 
     /**
-     * The column <code>tapis_sys.systems.job_env_variables</code>. Environment variables added to shell environment
+     * The column <code>tapis_sys.systems.job_env_variables</code>. Environment
+     * variables added to shell environment
      */
     public final TableField<SystemsRecord, JsonElement> JOB_ENV_VARIABLES = createField(DSL.name("job_env_variables"), SQLDataType.JSONB.nullable(false), this, "Environment variables added to shell environment", new JSONBToJsonElementBinding());
 
     /**
-     * The column <code>tapis_sys.systems.job_max_jobs</code>. Maximum total number of jobs that can be queued or running on the system at a given time.
+     * The column <code>tapis_sys.systems.job_max_jobs</code>. Maximum total
+     * number of jobs that can be queued or running on the system at a given
+     * time.
      */
     public final TableField<SystemsRecord, Integer> JOB_MAX_JOBS = createField(DSL.name("job_max_jobs"), SQLDataType.INTEGER.nullable(false).defaultValue(DSL.field("'-1'::integer", SQLDataType.INTEGER)), this, "Maximum total number of jobs that can be queued or running on the system at a given time.");
 
     /**
-     * The column <code>tapis_sys.systems.job_max_jobs_per_user</code>. Maximum total number of jobs associated with a specific user that can be queued or running on the system at a given time.
+     * The column <code>tapis_sys.systems.job_max_jobs_per_user</code>. Maximum
+     * total number of jobs associated with a specific user that can be queued
+     * or running on the system at a given time.
      */
     public final TableField<SystemsRecord, Integer> JOB_MAX_JOBS_PER_USER = createField(DSL.name("job_max_jobs_per_user"), SQLDataType.INTEGER.nullable(false).defaultValue(DSL.field("'-1'::integer", SQLDataType.INTEGER)), this, "Maximum total number of jobs associated with a specific user that can be queued or running on the system at a given time.");
 
     /**
-     * The column <code>tapis_sys.systems.batch_scheduler</code>. Type of scheduler used when running batch jobs
+     * The column <code>tapis_sys.systems.batch_scheduler</code>. Type of
+     * scheduler used when running batch jobs
      */
     public final TableField<SystemsRecord, SchedulerType> BATCH_SCHEDULER = createField(DSL.name("batch_scheduler"), SQLDataType.CLOB, this, "Type of scheduler used when running batch jobs", new EnumConverter<String, SchedulerType>(String.class, SchedulerType.class));
 
     /**
-     * The column <code>tapis_sys.systems.batch_logical_queues</code>. Logical queues associated with system
+     * The column <code>tapis_sys.systems.batch_logical_queues</code>. Logical
+     * queues associated with system
      */
     public final TableField<SystemsRecord, JsonElement> BATCH_LOGICAL_QUEUES = createField(DSL.name("batch_logical_queues"), SQLDataType.JSONB.nullable(false), this, "Logical queues associated with system", new JSONBToJsonElementBinding());
 
     /**
-     * The column <code>tapis_sys.systems.batch_default_logical_queue</code>. Default logical batch queue for the system
+     * The column <code>tapis_sys.systems.batch_default_logical_queue</code>.
+     * Default logical batch queue for the system
      */
     public final TableField<SystemsRecord, String> BATCH_DEFAULT_LOGICAL_QUEUE = createField(DSL.name("batch_default_logical_queue"), SQLDataType.CLOB, this, "Default logical batch queue for the system");
 
     /**
-     * The column <code>tapis_sys.systems.batch_scheduler_profile</code>. Scheduler profile for the system
+     * The column <code>tapis_sys.systems.batch_scheduler_profile</code>.
+     * Scheduler profile for the system
      */
     public final TableField<SystemsRecord, String> BATCH_SCHEDULER_PROFILE = createField(DSL.name("batch_scheduler_profile"), SQLDataType.CLOB, this, "Scheduler profile for the system");
 
     /**
-     * The column <code>tapis_sys.systems.job_capabilities</code>. Capabilities associated with system
+     * The column <code>tapis_sys.systems.job_capabilities</code>. Capabilities
+     * associated with system
      */
     public final TableField<SystemsRecord, JsonElement> JOB_CAPABILITIES = createField(DSL.name("job_capabilities"), SQLDataType.JSONB.nullable(false), this, "Capabilities associated with system", new JSONBToJsonElementBinding());
 
     /**
-     * The column <code>tapis_sys.systems.tags</code>. Tags for user supplied key:value pairs
+     * The column <code>tapis_sys.systems.tags</code>. Tags for user supplied
+     * key:value pairs
      */
     public final TableField<SystemsRecord, String[]> TAGS = createField(DSL.name("tags"), SQLDataType.CLOB.getArrayDataType(), this, "Tags for user supplied key:value pairs");
 
     /**
-     * The column <code>tapis_sys.systems.notes</code>. Notes for general information stored as JSON
+     * The column <code>tapis_sys.systems.notes</code>. Notes for general
+     * information stored as JSON
      */
     public final TableField<SystemsRecord, JsonElement> NOTES = createField(DSL.name("notes"), SQLDataType.JSONB.nullable(false), this, "Notes for general information stored as JSON", new JSONBToJsonElementBinding());
 
     /**
-     * The column <code>tapis_sys.systems.import_ref_id</code>. Reference for systems created via import
+     * The column <code>tapis_sys.systems.import_ref_id</code>. Reference for
+     * systems created via import
      */
     public final TableField<SystemsRecord, String> IMPORT_REF_ID = createField(DSL.name("import_ref_id"), SQLDataType.CLOB, this, "Reference for systems created via import");
 
@@ -243,17 +274,20 @@ public class Systems extends TableImpl<SystemsRecord> {
     public final TableField<SystemsRecord, java.util.UUID> UUID = createField(DSL.name("uuid"), SQLDataType.UUID.nullable(false), this, "");
 
     /**
-     * The column <code>tapis_sys.systems.deleted</code>. Indicates if system has been soft deleted
+     * The column <code>tapis_sys.systems.deleted</code>. Indicates if system
+     * has been soft deleted
      */
     public final TableField<SystemsRecord, Boolean> DELETED = createField(DSL.name("deleted"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "Indicates if system has been soft deleted");
 
     /**
-     * The column <code>tapis_sys.systems.created</code>. UTC time for when record was created
+     * The column <code>tapis_sys.systems.created</code>. UTC time for when
+     * record was created
      */
     public final TableField<SystemsRecord, LocalDateTime> CREATED = createField(DSL.name("created"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("timezone('utc'::text, now())", SQLDataType.LOCALDATETIME)), this, "UTC time for when record was created");
 
     /**
-     * The column <code>tapis_sys.systems.updated</code>. UTC time for when record was last updated
+     * The column <code>tapis_sys.systems.updated</code>. UTC time for when
+     * record was last updated
      */
     public final TableField<SystemsRecord, LocalDateTime> UPDATED = createField(DSL.name("updated"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("timezone('utc'::text, now())", SQLDataType.LOCALDATETIME)), this, "UTC time for when record was last updated");
 
@@ -292,12 +326,12 @@ public class Systems extends TableImpl<SystemsRecord> {
 
     @Override
     public Schema getSchema() {
-        return TapisSys.TAPIS_SYS;
+        return aliased() ? null : TapisSys.TAPIS_SYS;
     }
 
     @Override
     public List<Index> getIndexes() {
-        return Arrays.<Index>asList(Indexes.SYS_HOST_IDX, Indexes.SYS_OWNER_IDX, Indexes.SYS_TAGS_IDX, Indexes.SYS_TENANT_NAME_IDX);
+        return Arrays.asList(Indexes.SYS_HOST_IDX, Indexes.SYS_OWNER_IDX, Indexes.SYS_TAGS_IDX, Indexes.SYS_TENANT_NAME_IDX);
     }
 
     @Override
@@ -311,8 +345,8 @@ public class Systems extends TableImpl<SystemsRecord> {
     }
 
     @Override
-    public List<UniqueKey<SystemsRecord>> getKeys() {
-        return Arrays.<UniqueKey<SystemsRecord>>asList(Keys.SYSTEMS_PKEY, Keys.SYSTEMS_TENANT_ID_KEY);
+    public List<UniqueKey<SystemsRecord>> getUniqueKeys() {
+        return Arrays.asList(Keys.SYSTEMS_TENANT_ID_KEY);
     }
 
     @Override
@@ -323,6 +357,11 @@ public class Systems extends TableImpl<SystemsRecord> {
     @Override
     public Systems as(Name alias) {
         return new Systems(alias, this);
+    }
+
+    @Override
+    public Systems as(Table<?> alias) {
+        return new Systems(alias.getQualifiedName(), this);
     }
 
     /**
@@ -339,5 +378,13 @@ public class Systems extends TableImpl<SystemsRecord> {
     @Override
     public Systems rename(Name name) {
         return new Systems(name, null);
+    }
+
+    /**
+     * Rename this table
+     */
+    @Override
+    public Systems rename(Table<?> name) {
+        return new Systems(name.getQualifiedName(), null);
     }
 }

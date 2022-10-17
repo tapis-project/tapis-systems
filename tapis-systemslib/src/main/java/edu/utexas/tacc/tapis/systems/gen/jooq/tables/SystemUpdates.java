@@ -15,14 +15,18 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 
 import org.jooq.Field;
 import org.jooq.ForeignKey;
+import org.jooq.Function12;
 import org.jooq.Identity;
 import org.jooq.Name;
 import org.jooq.Record;
+import org.jooq.Records;
 import org.jooq.Row12;
 import org.jooq.Schema;
+import org.jooq.SelectField;
 import org.jooq.Table;
 import org.jooq.TableField;
 import org.jooq.TableOptions;
@@ -55,62 +59,74 @@ public class SystemUpdates extends TableImpl<SystemUpdatesRecord> {
     }
 
     /**
-     * The column <code>tapis_sys.system_updates.seq_id</code>. System update request sequence id
+     * The column <code>tapis_sys.system_updates.seq_id</code>. System update
+     * request sequence id
      */
     public final TableField<SystemUpdatesRecord, Integer> SEQ_ID = createField(DSL.name("seq_id"), SQLDataType.INTEGER.nullable(false).identity(true), this, "System update request sequence id");
 
     /**
-     * The column <code>tapis_sys.system_updates.system_seq_id</code>. Sequence id of system being updated
+     * The column <code>tapis_sys.system_updates.system_seq_id</code>. Sequence
+     * id of system being updated
      */
     public final TableField<SystemUpdatesRecord, Integer> SYSTEM_SEQ_ID = createField(DSL.name("system_seq_id"), SQLDataType.INTEGER, this, "Sequence id of system being updated");
 
     /**
-     * The column <code>tapis_sys.system_updates.obo_tenant</code>. OBO Tenant associated with the change request
+     * The column <code>tapis_sys.system_updates.obo_tenant</code>. OBO Tenant
+     * associated with the change request
      */
     public final TableField<SystemUpdatesRecord, String> OBO_TENANT = createField(DSL.name("obo_tenant"), SQLDataType.CLOB.nullable(false), this, "OBO Tenant associated with the change request");
 
     /**
-     * The column <code>tapis_sys.system_updates.obo_user</code>. OBO User associated with the change request
+     * The column <code>tapis_sys.system_updates.obo_user</code>. OBO User
+     * associated with the change request
      */
     public final TableField<SystemUpdatesRecord, String> OBO_USER = createField(DSL.name("obo_user"), SQLDataType.CLOB.nullable(false), this, "OBO User associated with the change request");
 
     /**
-     * The column <code>tapis_sys.system_updates.jwt_tenant</code>. Tenant of user who requested the update
+     * The column <code>tapis_sys.system_updates.jwt_tenant</code>. Tenant of
+     * user who requested the update
      */
     public final TableField<SystemUpdatesRecord, String> JWT_TENANT = createField(DSL.name("jwt_tenant"), SQLDataType.CLOB.nullable(false), this, "Tenant of user who requested the update");
 
     /**
-     * The column <code>tapis_sys.system_updates.jwt_user</code>. Name of user who requested the update
+     * The column <code>tapis_sys.system_updates.jwt_user</code>. Name of user
+     * who requested the update
      */
     public final TableField<SystemUpdatesRecord, String> JWT_USER = createField(DSL.name("jwt_user"), SQLDataType.CLOB.nullable(false), this, "Name of user who requested the update");
 
     /**
-     * The column <code>tapis_sys.system_updates.system_id</code>. Id of system being updated
+     * The column <code>tapis_sys.system_updates.system_id</code>. Id of system
+     * being updated
      */
     public final TableField<SystemUpdatesRecord, String> SYSTEM_ID = createField(DSL.name("system_id"), SQLDataType.CLOB.nullable(false), this, "Id of system being updated");
 
     /**
-     * The column <code>tapis_sys.system_updates.operation</code>. Type of update operation
+     * The column <code>tapis_sys.system_updates.operation</code>. Type of
+     * update operation
      */
     public final TableField<SystemUpdatesRecord, SystemOperation> OPERATION = createField(DSL.name("operation"), SQLDataType.CLOB.nullable(false), this, "Type of update operation", new EnumConverter<String, SystemOperation>(String.class, SystemOperation.class));
 
     /**
-     * The column <code>tapis_sys.system_updates.description</code>. JSON describing the change. Secrets scrubbed as needed.
+     * The column <code>tapis_sys.system_updates.description</code>. JSON
+     * describing the change. Secrets scrubbed as needed.
      */
     public final TableField<SystemUpdatesRecord, JsonElement> DESCRIPTION = createField(DSL.name("description"), SQLDataType.JSONB.nullable(false), this, "JSON describing the change. Secrets scrubbed as needed.", new JSONBToJsonElementBinding());
 
     /**
-     * The column <code>tapis_sys.system_updates.raw_data</code>. Raw data associated with the request, if available. Secrets scrubbed as needed.
+     * The column <code>tapis_sys.system_updates.raw_data</code>. Raw data
+     * associated with the request, if available. Secrets scrubbed as needed.
      */
     public final TableField<SystemUpdatesRecord, String> RAW_DATA = createField(DSL.name("raw_data"), SQLDataType.CLOB, this, "Raw data associated with the request, if available. Secrets scrubbed as needed.");
 
     /**
-     * The column <code>tapis_sys.system_updates.uuid</code>. UUID of system being updated
+     * The column <code>tapis_sys.system_updates.uuid</code>. UUID of system
+     * being updated
      */
     public final TableField<SystemUpdatesRecord, java.util.UUID> UUID = createField(DSL.name("uuid"), SQLDataType.UUID.nullable(false), this, "UUID of system being updated");
 
     /**
-     * The column <code>tapis_sys.system_updates.created</code>. UTC time for when record was created
+     * The column <code>tapis_sys.system_updates.created</code>. UTC time for
+     * when record was created
      */
     public final TableField<SystemUpdatesRecord, LocalDateTime> CREATED = createField(DSL.name("created"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("timezone('utc'::text, now())", SQLDataType.LOCALDATETIME)), this, "UTC time for when record was created");
 
@@ -149,7 +165,7 @@ public class SystemUpdates extends TableImpl<SystemUpdatesRecord> {
 
     @Override
     public Schema getSchema() {
-        return TapisSys.TAPIS_SYS;
+        return aliased() ? null : TapisSys.TAPIS_SYS;
     }
 
     @Override
@@ -163,17 +179,15 @@ public class SystemUpdates extends TableImpl<SystemUpdatesRecord> {
     }
 
     @Override
-    public List<UniqueKey<SystemUpdatesRecord>> getKeys() {
-        return Arrays.<UniqueKey<SystemUpdatesRecord>>asList(Keys.SYSTEM_UPDATES_PKEY);
-    }
-
-    @Override
     public List<ForeignKey<SystemUpdatesRecord, ?>> getReferences() {
-        return Arrays.<ForeignKey<SystemUpdatesRecord, ?>>asList(Keys.SYSTEM_UPDATES__SYSTEM_UPDATES_SYSTEM_SEQ_ID_FKEY);
+        return Arrays.asList(Keys.SYSTEM_UPDATES__SYSTEM_UPDATES_SYSTEM_SEQ_ID_FKEY);
     }
 
     private transient Systems _systems;
 
+    /**
+     * Get the implicit join path to the <code>tapis_sys.systems</code> table.
+     */
     public Systems systems() {
         if (_systems == null)
             _systems = new Systems(this, Keys.SYSTEM_UPDATES__SYSTEM_UPDATES_SYSTEM_SEQ_ID_FKEY);
@@ -189,6 +203,11 @@ public class SystemUpdates extends TableImpl<SystemUpdatesRecord> {
     @Override
     public SystemUpdates as(Name alias) {
         return new SystemUpdates(alias, this);
+    }
+
+    @Override
+    public SystemUpdates as(Table<?> alias) {
+        return new SystemUpdates(alias.getQualifiedName(), this);
     }
 
     /**
@@ -207,6 +226,14 @@ public class SystemUpdates extends TableImpl<SystemUpdatesRecord> {
         return new SystemUpdates(name, null);
     }
 
+    /**
+     * Rename this table
+     */
+    @Override
+    public SystemUpdates rename(Table<?> name) {
+        return new SystemUpdates(name.getQualifiedName(), null);
+    }
+
     // -------------------------------------------------------------------------
     // Row12 type methods
     // -------------------------------------------------------------------------
@@ -214,5 +241,20 @@ public class SystemUpdates extends TableImpl<SystemUpdatesRecord> {
     @Override
     public Row12<Integer, Integer, String, String, String, String, String, SystemOperation, JsonElement, String, java.util.UUID, LocalDateTime> fieldsRow() {
         return (Row12) super.fieldsRow();
+    }
+
+    /**
+     * Convenience mapping calling {@link SelectField#convertFrom(Function)}.
+     */
+    public <U> SelectField<U> mapping(Function12<? super Integer, ? super Integer, ? super String, ? super String, ? super String, ? super String, ? super String, ? super SystemOperation, ? super JsonElement, ? super String, ? super java.util.UUID, ? super LocalDateTime, ? extends U> from) {
+        return convertFrom(Records.mapping(from));
+    }
+
+    /**
+     * Convenience mapping calling {@link SelectField#convertFrom(Class,
+     * Function)}.
+     */
+    public <U> SelectField<U> mapping(Class<U> toType, Function12<? super Integer, ? super Integer, ? super String, ? super String, ? super String, ? super String, ? super String, ? super SystemOperation, ? super JsonElement, ? super String, ? super java.util.UUID, ? super LocalDateTime, ? extends U> from) {
+        return convertFrom(toType, Records.mapping(from));
     }
 }

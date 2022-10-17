@@ -1761,6 +1761,47 @@ public class SystemsDaoImpl implements SystemsDao
     return owner;
   }
 
+  /**
+   * Get systems updates records for given system ID
+   * @param systemId - System name
+   * @return List of SystemHistoryItem objects
+   * @throws TapisException - for Tapis related exceptions
+   */
+  @Override
+  public List<SystemHistoryItem> getSystemHistory(String oboTenant, String systemId) throws TapisException {
+    // Initialize result.
+    List<SystemHistoryItem> resultList = new ArrayList<SystemHistoryItem>();
+
+    // Begin where condition for the query
+    Condition whereCondition = SYSTEM_UPDATES.OBO_TENANT.eq(oboTenant).and(SYSTEM_UPDATES.SYSTEM_ID.eq(systemId));
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+
+      SelectConditionStep<SystemUpdatesRecord> results;
+      results = db.selectFrom(SYSTEM_UPDATES).where(whereCondition);
+
+      for (Record r : results) { SystemHistoryItem s = getSystemHistoryFromRecord(r); resultList.add(s); }
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "SystemUpdates", systemId, e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return resultList;
+  }
+
   /* ********************************************************************** */
   /*                             Private Methods                            */
   /* ********************************************************************** */
@@ -2145,6 +2186,7 @@ public class SystemsDaoImpl implements SystemsDao
       case NLIKE -> c = col.notLike(val);
       case IN -> c = col.in(valList);
       case NIN -> c = col.notIn(valList);
+      case ANY -> c = textArrayOverlaps(col, valList.toArray());
       case BETWEEN -> c = col.between(valList.get(0), valList.get(1));
       case NBETWEEN -> c = col.notBetween(valList.get(0), valList.get(1));
     }
@@ -2387,9 +2429,8 @@ public class SystemsDaoImpl implements SystemsDao
     }
   }
 
-  /**
-   * Given an record from a select, create a TSystem object
-   *
+  /*
+   * Given a record from a select, create a TSystem object
    */
   private static TSystem getSystemFromRecord(Record r)
   {
@@ -2429,55 +2470,23 @@ public class SystemsDaoImpl implements SystemsDao
     return system;
   }
 
-  /**
-  * Get systems updates records for given system ID
-  * @param systemId - System name
-  * @return List of SystemHistoryItem objects
-  * @throws TapisException - for Tapis related exceptions
-  */
-  @Override
-  public List<SystemHistoryItem> getSystemHistory(String oboTenant, String systemId) throws TapisException {
-	 // Initialize result.
-	List<SystemHistoryItem> resultList = new ArrayList<SystemHistoryItem>();
-
-    // Begin where condition for the query
-    Condition whereCondition = SYSTEM_UPDATES.OBO_TENANT.eq(oboTenant).and(SYSTEM_UPDATES.SYSTEM_ID.eq(systemId));
-    // ------------------------- Call SQL ----------------------------
-    Connection conn = null;
-    try
-    {
-      // Get a database connection.
-      conn = getConnection();
-      DSLContext db = DSL.using(conn);
-      
-      SelectConditionStep<SystemUpdatesRecord> results;
-      results = db.selectFrom(SYSTEM_UPDATES).where(whereCondition);
-
-      for (Record r : results) { SystemHistoryItem s = getSystemHistoryFromRecord(r); resultList.add(s); }
-      // Close out and commit
-      LibUtils.closeAndCommitDB(conn, null, null);
-    }
-    catch (Exception e)
-    {
-      // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "SystemUpdates", systemId, e.getMessage());
-    }
-    finally
-    {
-      // Always return the connection back to the connection pool.
-      LibUtils.finalCloseDB(conn);
-    }
-	return resultList;
-}
-
-  /**
-  * Given a record from a select, create a SystemHistoryItem object
-  *
-  */
+  /*
+   * Given a record from a select, create a SystemHistoryItem object
+   */
   private SystemHistoryItem getSystemHistoryFromRecord(Record r)
   {
 	return new SystemHistoryItem(r.get(SYSTEM_UPDATES.JWT_TENANT), r.get(SYSTEM_UPDATES.JWT_USER),
                                  r.get(SYSTEM_UPDATES.OBO_TENANT), r.get(SYSTEM_UPDATES.OBO_USER), r.get(SYSTEM_UPDATES.OPERATION),
 	                             r.get(SYSTEM_UPDATES.DESCRIPTION), r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
+  }
+
+  /*
+   * Implement the array overlap construct in jooq.
+   * Given a column as a Field<T[]> and a java array create a jooq condition that
+   * returns true if column contains any of the values in the array.
+   */
+  private static <T> Condition textArrayOverlaps(Field<T[]> col, T[] array)
+  {
+    return DSL.condition("{0} && {1}::text[]", col, DSL.array(array));
   }
 }
