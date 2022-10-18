@@ -144,10 +144,14 @@ public final class IntegrationUtils
   public static final Integer jobMaxJobsNull = null;
   public static final int jobMaxJobsPerUser1 = 1;
   public static final int jobMaxJobsPerUser2 = 2;
-  public static final String[] tags1 = {"value1", "value2", "a",
+  public static final String tagVal1 = "value1";
+  public static final String tagVal2 = "value2";
+  public static final String tagVal3Space = "value 3";
+  public static final String tagValNotThere = "no such tag value";
+  public static final String[] tags1 = {tagVal1, tagVal2, tagVal3Space, "a",
     "Long tag (1 3 2) special chars [_ $ - & * % @ + = ! ^ ? < > , . ( ) { } / \\ | ]. Backslashes must be escaped."};
-  public static final String[] tags2 = {"value3", "value4"};
-  public static final String[] tags3 = {"value1"};
+  public static final String[] tags2 = {"value4", "value5"};
+  public static final String[] tags3 = {tagVal1};
   public static final String[] tagsNull = null;
   public static final Object notes1 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj1\", \"testdata\": \"abc 1\"}", JsonObject.class);
   public static final Object notes2 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj2\", \"testdata\": \"abc 2\"}", JsonObject.class);
