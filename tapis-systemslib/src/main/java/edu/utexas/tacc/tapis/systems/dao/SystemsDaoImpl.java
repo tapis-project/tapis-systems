@@ -2084,6 +2084,12 @@ public class SystemsDaoImpl implements SystemsDao
     String[] parsedStrArray = DOT_SPLIT.split(searchStr, 3);
     // Validate column name
     String column = parsedStrArray[0];
+    // First, check to see if column is on list of unsupported attributes.
+    if (TSystem.SEARCH_ATTRS_UNSUPPORTED.contains(DSL.name(column).toString()))
+    {
+      throw new TapisException(LibUtils.getMsg("SYSLIB_DB_SRCH_ATTR_UNSUPPORTED", SYSTEMS.getName(), DSL.name(column)));
+    }
+
     Field<?> col = SYSTEMS.field(DSL.name(column));
     // Check for column name passed in as camelcase
     if (col == null)
