@@ -344,7 +344,7 @@ public class SystemsDaoTest
     System.out.println("Login map entry created");
     String loginUser = dao.getLoginUser(tenantName, sysId, tapisUser);
     Assert.assertEquals(loginUser, loginUser1);
-    dao.deleteLoginUserMapping(tenantName, sysId, tapisUser);
+    dao.deleteLoginUserMapping(rUser, tenantName, sysId, tapisUser);
     loginUser = dao.getLoginUser(tenantName, sysId, tapisUser);
     Assert.assertNull(loginUser);
   }

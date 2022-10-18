@@ -1517,7 +1517,7 @@ public class SystemsServiceImpl implements SystemsService
     // If dynamic then remove any mapping from loginUser to tapisUser
     if (!isStaticEffectiveUser)
     {
-      dao.deleteLoginUserMapping(rUser.getOboTenantId(), systemId, targetUser);
+      dao.deleteLoginUserMapping(rUser, rUser.getOboTenantId(), systemId, targetUser);
     }
 
     // Get a complete and succinct description of the update.

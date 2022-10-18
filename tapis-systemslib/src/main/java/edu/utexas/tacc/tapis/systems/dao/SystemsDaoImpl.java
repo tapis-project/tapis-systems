@@ -1442,13 +1442,13 @@ public class SystemsDaoImpl implements SystemsDao
    * Delete a mapping entry for tapisUser to loginUser
    */
   @Override
-  public void deleteLoginUserMapping(String tenantId, String id, String tapisUser) throws TapisException
+  public void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser)
+          throws TapisException
   {
-    // TODO If anything missing simply return
-    //   might want to throw exception if any of first three args missing since they make up the primary key
-    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(id) || StringUtils.isBlank(tapisUser))
+    // If anything missing throw an exception. These values make up the primary key
+    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
     {
-      return;
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_DB_DEL_LOGINMAP_ERR", rUser, tenantId, sysId, tapisUser));
     }
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1457,7 +1457,7 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
       db.deleteFrom(SYSTEMS_LOGIN_USER)
-              .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(id),SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
+              .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(sysId),SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
               .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -2186,7 +2186,7 @@ public class SystemsDaoImpl implements SystemsDao
       case NLIKE -> c = col.notLike(val);
       case IN -> c = col.in(valList);
       case NIN -> c = col.notIn(valList);
-      case ANY -> c = textArrayOverlaps(col, valList.toArray());
+      case CONTAINS -> c = textArrayOverlaps(col, valList.toArray());
       case BETWEEN -> c = col.between(valList.get(0), valList.get(1));
       case NBETWEEN -> c = col.notBetween(valList.get(0), valList.get(1));
     }
