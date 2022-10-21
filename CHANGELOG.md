@@ -10,6 +10,16 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.2.7 - 2022-10-??
+
+Incremental improvements and new preview features.
+
+### New features:
+- Add support for searching by *tags* attribute using operator *contains*.
+- Add support for query parameter *listType* when retrieving systems. Allows for filtering based on authorization.
+    * Options are OWNED, SHARED_ONLY, SHARED_PUBLIC, ALL. Default is OWNED.
+
+---------------------------------------------------------------------------
 ## 1.2.6 - 2022-10-15
 
 Incremental improvements and new preview feature.
