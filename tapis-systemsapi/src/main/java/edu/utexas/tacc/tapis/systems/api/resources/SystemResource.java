@@ -464,7 +464,7 @@ public class SystemResource
    *      rootDir
    *      isDtn
    *      canExec
-   *  Note that the attributes owner, enabled and authnCredential may be modified using other endpoints.
+   *  Note that the following attributes may be modified using other endpoints: owner, enabled and authnCredential.
    *
    * @param systemId - name of the system
    * @param payloadStream - request body
@@ -1305,8 +1305,8 @@ public class SystemResource
    * Fill in defaults and check restrictions on TSystem attributes
    * Use TSystem method to check internal consistency of attributes.
    * If DTN is used verify that dtnSystemId exists with isDtn = true
-   * Collect and report as many errors as possible so they can all be fixed before next attempt
-   * NOTE: JsonSchema validation should handle some of these checks but we check here again for robustness.
+   * Collect and report as many errors as possible, so they can all be fixed before next attempt
+   * NOTE: JsonSchema validation should handle some of these checks, but we check here again for robustness.
    *
    * @return null if OK or error Response
    */
