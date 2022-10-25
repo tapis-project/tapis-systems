@@ -147,6 +147,10 @@ public class SearchDaoTest
     TSystem sys0 = systems[0];
     String sys0Id = sys0.getId();
     String nameList = "noSuchName1,noSuchName2," + sys0Id + ",noSuchName3";
+    String tagList1 = String.format("%s", tagVal1);
+    String tagList2 = String.format("%s,%s", tagVal1, tagVal2);
+    String tagList3 = String.format("%s", tagVal3Space);
+    String tagList4 = String.format("%s", tagValNotThere);
     // Create all input and validation data for tests
     // NOTE: Some cases require sysNameLikeAll in the list of conditions since maven runs the tests in
     //       parallel and not all attribute names are unique across integration tests
@@ -181,6 +185,11 @@ public class SearchDaoTest
     validCaseInputs.put(21, new CaseData(numSystems - 1, Arrays.asList(sysIdLikeAll, "id.nin." + nameList)));
     validCaseInputs.put(22, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "system_type.eq.LINUX")));
     validCaseInputs.put(23, new CaseData(numSystems / 2, Arrays.asList(sysIdLikeAll, "system_type.eq.LINUX", "owner.neq." + owner2)));
+    // Test Tapis3 specific CONTAINS operator used only for tags column
+    validCaseInputs.put(24, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "tags.contains."+tagList1)));
+    validCaseInputs.put(25, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "tags.contains."+tagList2)));
+    validCaseInputs.put(26, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "tags.contains."+tagList3)));
+    validCaseInputs.put(27, new CaseData(0, Arrays.asList(sysIdLikeAll, "tags.contains."+tagList4)));
     // Test numeric relational
     validCaseInputs.put(40, new CaseData(numSystems / 2, Arrays.asList(sysIdLikeAll, "port.between.1," + numSystems / 2)));
     validCaseInputs.put(41, new CaseData(numSystems / 2 - 1, Arrays.asList(sysIdLikeAll, "port.between.2," + numSystems / 2)));

@@ -73,7 +73,7 @@ public interface SystemsDao
 
   void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser) throws TapisException;
 
-  void deleteLoginUserMapping(String tenantId, String id, String tapisUser) throws TapisException;
+  void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String id, String tapisUser) throws TapisException;
 
   /* ********************************************************************** */
   /*                             Scheduler Profiles                         */
