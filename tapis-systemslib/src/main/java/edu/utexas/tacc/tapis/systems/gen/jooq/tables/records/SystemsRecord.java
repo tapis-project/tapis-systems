@@ -41,14 +41,16 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.tenant</code>. Tenant name associated with system
+     * Setter for <code>tapis_sys.systems.tenant</code>. Tenant name associated
+     * with system
      */
     public void setTenant(String value) {
         set(1, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.tenant</code>. Tenant name associated with system
+     * Getter for <code>tapis_sys.systems.tenant</code>. Tenant name associated
+     * with system
      */
     public String getTenant() {
         return (String) get(1);
@@ -97,140 +99,160 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.owner</code>. User name of system owner
+     * Setter for <code>tapis_sys.systems.owner</code>. User name of system
+     * owner
      */
     public void setOwner(String value) {
         set(5, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.owner</code>. User name of system owner
+     * Getter for <code>tapis_sys.systems.owner</code>. User name of system
+     * owner
      */
     public String getOwner() {
         return (String) get(5);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.host</code>. System host name or ip address
+     * Setter for <code>tapis_sys.systems.host</code>. System host name or ip
+     * address
      */
     public void setHost(String value) {
         set(6, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.host</code>. System host name or ip address
+     * Getter for <code>tapis_sys.systems.host</code>. System host name or ip
+     * address
      */
     public String getHost() {
         return (String) get(6);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.enabled</code>. Indicates if system is currently active and available for use
+     * Setter for <code>tapis_sys.systems.enabled</code>. Indicates if system is
+     * currently active and available for use
      */
     public void setEnabled(Boolean value) {
         set(7, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.enabled</code>. Indicates if system is currently active and available for use
+     * Getter for <code>tapis_sys.systems.enabled</code>. Indicates if system is
+     * currently active and available for use
      */
     public Boolean getEnabled() {
         return (Boolean) get(7);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.effective_user_id</code>. User name to use when accessing the system
+     * Setter for <code>tapis_sys.systems.effective_user_id</code>. User name to
+     * use when accessing the system
      */
     public void setEffectiveUserId(String value) {
         set(8, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.effective_user_id</code>. User name to use when accessing the system
+     * Getter for <code>tapis_sys.systems.effective_user_id</code>. User name to
+     * use when accessing the system
      */
     public String getEffectiveUserId() {
         return (String) get(8);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.default_authn_method</code>. How authorization is handled by default
+     * Setter for <code>tapis_sys.systems.default_authn_method</code>. How
+     * authorization is handled by default
      */
     public void setDefaultAuthnMethod(AuthnMethod value) {
         set(9, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.default_authn_method</code>. How authorization is handled by default
+     * Getter for <code>tapis_sys.systems.default_authn_method</code>. How
+     * authorization is handled by default
      */
     public AuthnMethod getDefaultAuthnMethod() {
         return (AuthnMethod) get(9);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.bucket_name</code>. Name of the bucket for an S3 system
+     * Setter for <code>tapis_sys.systems.bucket_name</code>. Name of the bucket
+     * for an S3 system
      */
     public void setBucketName(String value) {
         set(10, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.bucket_name</code>. Name of the bucket for an S3 system
+     * Getter for <code>tapis_sys.systems.bucket_name</code>. Name of the bucket
+     * for an S3 system
      */
     public String getBucketName() {
         return (String) get(10);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.root_dir</code>. Effective root directory path for a Unix system
+     * Setter for <code>tapis_sys.systems.root_dir</code>. Effective root
+     * directory path for a Unix system
      */
     public void setRootDir(String value) {
         set(11, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.root_dir</code>. Effective root directory path for a Unix system
+     * Getter for <code>tapis_sys.systems.root_dir</code>. Effective root
+     * directory path for a Unix system
      */
     public String getRootDir() {
         return (String) get(11);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.port</code>. Port number used to access a system
+     * Setter for <code>tapis_sys.systems.port</code>. Port number used to
+     * access a system
      */
     public void setPort(Integer value) {
         set(12, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.port</code>. Port number used to access a system
+     * Getter for <code>tapis_sys.systems.port</code>. Port number used to
+     * access a system
      */
     public Integer getPort() {
         return (Integer) get(12);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.use_proxy</code>. Indicates if system should accessed through a proxy
+     * Setter for <code>tapis_sys.systems.use_proxy</code>. Indicates if system
+     * should accessed through a proxy
      */
     public void setUseProxy(Boolean value) {
         set(13, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.use_proxy</code>. Indicates if system should accessed through a proxy
+     * Getter for <code>tapis_sys.systems.use_proxy</code>. Indicates if system
+     * should accessed through a proxy
      */
     public Boolean getUseProxy() {
         return (Boolean) get(13);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.proxy_host</code>. Proxy host name or ip address
+     * Setter for <code>tapis_sys.systems.proxy_host</code>. Proxy host name or
+     * ip address
      */
     public void setProxyHost(String value) {
         set(14, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.proxy_host</code>. Proxy host name or ip address
+     * Getter for <code>tapis_sys.systems.proxy_host</code>. Proxy host name or
+     * ip address
      */
     public String getProxyHost() {
         return (String) get(14);
@@ -251,28 +273,32 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.dtn_system_id</code>. Alternate system to use as a Data Transfer Node (DTN)
+     * Setter for <code>tapis_sys.systems.dtn_system_id</code>. Alternate system
+     * to use as a Data Transfer Node (DTN)
      */
     public void setDtnSystemId(String value) {
         set(16, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.dtn_system_id</code>. Alternate system to use as a Data Transfer Node (DTN)
+     * Getter for <code>tapis_sys.systems.dtn_system_id</code>. Alternate system
+     * to use as a Data Transfer Node (DTN)
      */
     public String getDtnSystemId() {
         return (String) get(16);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.dtn_mount_point</code>. Mount point on local system for the DTN
+     * Setter for <code>tapis_sys.systems.dtn_mount_point</code>. Mount point on
+     * local system for the DTN
      */
     public void setDtnMountPoint(String value) {
         set(17, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.dtn_mount_point</code>. Mount point on local system for the DTN
+     * Getter for <code>tapis_sys.systems.dtn_mount_point</code>. Mount point on
+     * local system for the DTN
      */
     public String getDtnMountPoint() {
         return (String) get(17);
@@ -293,42 +319,48 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.is_dtn</code>. Indicates if system is to serve as a data transfer node
+     * Setter for <code>tapis_sys.systems.is_dtn</code>. Indicates if system is
+     * to serve as a data transfer node
      */
     public void setIsDtn(Boolean value) {
         set(19, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.is_dtn</code>. Indicates if system is to serve as a data transfer node
+     * Getter for <code>tapis_sys.systems.is_dtn</code>. Indicates if system is
+     * to serve as a data transfer node
      */
     public Boolean getIsDtn() {
         return (Boolean) get(19);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.can_exec</code>. Indicates if system can be used to execute jobs
+     * Setter for <code>tapis_sys.systems.can_exec</code>. Indicates if system
+     * can be used to execute jobs
      */
     public void setCanExec(Boolean value) {
         set(20, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.can_exec</code>. Indicates if system can be used to execute jobs
+     * Getter for <code>tapis_sys.systems.can_exec</code>. Indicates if system
+     * can be used to execute jobs
      */
     public Boolean getCanExec() {
         return (Boolean) get(20);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.can_run_batch</code>. Flag indicating if system supports running jobs using a batch scheduler.
+     * Setter for <code>tapis_sys.systems.can_run_batch</code>. Flag indicating
+     * if system supports running jobs using a batch scheduler.
      */
     public void setCanRunBatch(Boolean value) {
         set(21, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.can_run_batch</code>. Flag indicating if system supports running jobs using a batch scheduler.
+     * Getter for <code>tapis_sys.systems.can_run_batch</code>. Flag indicating
+     * if system supports running jobs using a batch scheduler.
      */
     public Boolean getCanRunBatch() {
         return (Boolean) get(21);
@@ -349,182 +381,212 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.job_runtimes</code>. Runtimes associated with system
+     * Setter for <code>tapis_sys.systems.job_runtimes</code>. Runtimes
+     * associated with system
      */
     public void setJobRuntimes(JsonElement value) {
         set(23, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.job_runtimes</code>. Runtimes associated with system
+     * Getter for <code>tapis_sys.systems.job_runtimes</code>. Runtimes
+     * associated with system
      */
     public JsonElement getJobRuntimes() {
         return (JsonElement) get(23);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.job_working_dir</code>. Parent directory from which a job is run. Relative to effective root directory.
+     * Setter for <code>tapis_sys.systems.job_working_dir</code>. Parent
+     * directory from which a job is run. Relative to effective root directory.
      */
     public void setJobWorkingDir(String value) {
         set(24, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.job_working_dir</code>. Parent directory from which a job is run. Relative to effective root directory.
+     * Getter for <code>tapis_sys.systems.job_working_dir</code>. Parent
+     * directory from which a job is run. Relative to effective root directory.
      */
     public String getJobWorkingDir() {
         return (String) get(24);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.job_env_variables</code>. Environment variables added to shell environment
+     * Setter for <code>tapis_sys.systems.job_env_variables</code>. Environment
+     * variables added to shell environment
      */
     public void setJobEnvVariables(JsonElement value) {
         set(25, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.job_env_variables</code>. Environment variables added to shell environment
+     * Getter for <code>tapis_sys.systems.job_env_variables</code>. Environment
+     * variables added to shell environment
      */
     public JsonElement getJobEnvVariables() {
         return (JsonElement) get(25);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.job_max_jobs</code>. Maximum total number of jobs that can be queued or running on the system at a given time.
+     * Setter for <code>tapis_sys.systems.job_max_jobs</code>. Maximum total
+     * number of jobs that can be queued or running on the system at a given
+     * time.
      */
     public void setJobMaxJobs(Integer value) {
         set(26, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.job_max_jobs</code>. Maximum total number of jobs that can be queued or running on the system at a given time.
+     * Getter for <code>tapis_sys.systems.job_max_jobs</code>. Maximum total
+     * number of jobs that can be queued or running on the system at a given
+     * time.
      */
     public Integer getJobMaxJobs() {
         return (Integer) get(26);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.job_max_jobs_per_user</code>. Maximum total number of jobs associated with a specific user that can be queued or running on the system at a given time.
+     * Setter for <code>tapis_sys.systems.job_max_jobs_per_user</code>. Maximum
+     * total number of jobs associated with a specific user that can be queued
+     * or running on the system at a given time.
      */
     public void setJobMaxJobsPerUser(Integer value) {
         set(27, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.job_max_jobs_per_user</code>. Maximum total number of jobs associated with a specific user that can be queued or running on the system at a given time.
+     * Getter for <code>tapis_sys.systems.job_max_jobs_per_user</code>. Maximum
+     * total number of jobs associated with a specific user that can be queued
+     * or running on the system at a given time.
      */
     public Integer getJobMaxJobsPerUser() {
         return (Integer) get(27);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.batch_scheduler</code>. Type of scheduler used when running batch jobs
+     * Setter for <code>tapis_sys.systems.batch_scheduler</code>. Type of
+     * scheduler used when running batch jobs
      */
     public void setBatchScheduler(SchedulerType value) {
         set(28, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.batch_scheduler</code>. Type of scheduler used when running batch jobs
+     * Getter for <code>tapis_sys.systems.batch_scheduler</code>. Type of
+     * scheduler used when running batch jobs
      */
     public SchedulerType getBatchScheduler() {
         return (SchedulerType) get(28);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.batch_logical_queues</code>. Logical queues associated with system
+     * Setter for <code>tapis_sys.systems.batch_logical_queues</code>. Logical
+     * queues associated with system
      */
     public void setBatchLogicalQueues(JsonElement value) {
         set(29, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.batch_logical_queues</code>. Logical queues associated with system
+     * Getter for <code>tapis_sys.systems.batch_logical_queues</code>. Logical
+     * queues associated with system
      */
     public JsonElement getBatchLogicalQueues() {
         return (JsonElement) get(29);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.batch_default_logical_queue</code>. Default logical batch queue for the system
+     * Setter for <code>tapis_sys.systems.batch_default_logical_queue</code>.
+     * Default logical batch queue for the system
      */
     public void setBatchDefaultLogicalQueue(String value) {
         set(30, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.batch_default_logical_queue</code>. Default logical batch queue for the system
+     * Getter for <code>tapis_sys.systems.batch_default_logical_queue</code>.
+     * Default logical batch queue for the system
      */
     public String getBatchDefaultLogicalQueue() {
         return (String) get(30);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.batch_scheduler_profile</code>. Scheduler profile for the system
+     * Setter for <code>tapis_sys.systems.batch_scheduler_profile</code>.
+     * Scheduler profile for the system
      */
     public void setBatchSchedulerProfile(String value) {
         set(31, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.batch_scheduler_profile</code>. Scheduler profile for the system
+     * Getter for <code>tapis_sys.systems.batch_scheduler_profile</code>.
+     * Scheduler profile for the system
      */
     public String getBatchSchedulerProfile() {
         return (String) get(31);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.job_capabilities</code>. Capabilities associated with system
+     * Setter for <code>tapis_sys.systems.job_capabilities</code>. Capabilities
+     * associated with system
      */
     public void setJobCapabilities(JsonElement value) {
         set(32, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.job_capabilities</code>. Capabilities associated with system
+     * Getter for <code>tapis_sys.systems.job_capabilities</code>. Capabilities
+     * associated with system
      */
     public JsonElement getJobCapabilities() {
         return (JsonElement) get(32);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.tags</code>. Tags for user supplied key:value pairs
+     * Setter for <code>tapis_sys.systems.tags</code>. Tags for user supplied
+     * key:value pairs
      */
     public void setTags(String[] value) {
         set(33, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.tags</code>. Tags for user supplied key:value pairs
+     * Getter for <code>tapis_sys.systems.tags</code>. Tags for user supplied
+     * key:value pairs
      */
     public String[] getTags() {
         return (String[]) get(33);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.notes</code>. Notes for general information stored as JSON
+     * Setter for <code>tapis_sys.systems.notes</code>. Notes for general
+     * information stored as JSON
      */
     public void setNotes(JsonElement value) {
         set(34, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.notes</code>. Notes for general information stored as JSON
+     * Getter for <code>tapis_sys.systems.notes</code>. Notes for general
+     * information stored as JSON
      */
     public JsonElement getNotes() {
         return (JsonElement) get(34);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.import_ref_id</code>. Reference for systems created via import
+     * Setter for <code>tapis_sys.systems.import_ref_id</code>. Reference for
+     * systems created via import
      */
     public void setImportRefId(String value) {
         set(35, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.import_ref_id</code>. Reference for systems created via import
+     * Getter for <code>tapis_sys.systems.import_ref_id</code>. Reference for
+     * systems created via import
      */
     public String getImportRefId() {
         return (String) get(35);
@@ -545,42 +607,48 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.deleted</code>. Indicates if system has been soft deleted
+     * Setter for <code>tapis_sys.systems.deleted</code>. Indicates if system
+     * has been soft deleted
      */
     public void setDeleted(Boolean value) {
         set(37, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.deleted</code>. Indicates if system has been soft deleted
+     * Getter for <code>tapis_sys.systems.deleted</code>. Indicates if system
+     * has been soft deleted
      */
     public Boolean getDeleted() {
         return (Boolean) get(37);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.created</code>. UTC time for when record was created
+     * Setter for <code>tapis_sys.systems.created</code>. UTC time for when
+     * record was created
      */
     public void setCreated(LocalDateTime value) {
         set(38, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.created</code>. UTC time for when record was created
+     * Getter for <code>tapis_sys.systems.created</code>. UTC time for when
+     * record was created
      */
     public LocalDateTime getCreated() {
         return (LocalDateTime) get(38);
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.updated</code>. UTC time for when record was last updated
+     * Setter for <code>tapis_sys.systems.updated</code>. UTC time for when
+     * record was last updated
      */
     public void setUpdated(LocalDateTime value) {
         set(39, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems.updated</code>. UTC time for when record was last updated
+     * Getter for <code>tapis_sys.systems.updated</code>. UTC time for when
+     * record was last updated
      */
     public LocalDateTime getUpdated() {
         return (LocalDateTime) get(39);

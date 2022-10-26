@@ -990,7 +990,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
    *                         provided in system definition.
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param showDeleted - whether to included resources that have been marked as deleted.
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
@@ -1517,7 +1517,7 @@ public class SystemsServiceImpl implements SystemsService
     // If dynamic then remove any mapping from loginUser to tapisUser
     if (!isStaticEffectiveUser)
     {
-      dao.deleteLoginUserMapping(rUser.getOboTenantId(), systemId, targetUser);
+      dao.deleteLoginUserMapping(rUser, rUser.getOboTenantId(), systemId, targetUser);
     }
 
     // Get a complete and succinct description of the update.

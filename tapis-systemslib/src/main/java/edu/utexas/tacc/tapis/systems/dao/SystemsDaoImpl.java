@@ -964,7 +964,7 @@ public class SystemsDaoImpl implements SystemsDao
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param showDeleted - whether to included resources that have been marked as deleted.
    * @return - list of TSystem objects
    * @throws TapisException - on error
    */
@@ -1049,7 +1049,7 @@ public class SystemsDaoImpl implements SystemsDao
     // Add startAfter
     if (!StringUtils.isBlank(startAfter))
     {
-      // Build search string so we can re-use code for checking and adding a condition
+      // Build search string, so we can re-use code for checking and adding a condition
       String searchStr;
       if (sortAsc) searchStr = majorOrderByStr + ".gt." + startAfter;
       else searchStr = majorOrderByStr + ".lt." + startAfter;
@@ -1442,13 +1442,13 @@ public class SystemsDaoImpl implements SystemsDao
    * Delete a mapping entry for tapisUser to loginUser
    */
   @Override
-  public void deleteLoginUserMapping(String tenantId, String id, String tapisUser) throws TapisException
+  public void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser)
+          throws TapisException
   {
-    // TODO If anything missing simply return
-    //   might want to throw exception if any of first three args missing since they make up the primary key
-    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(id) || StringUtils.isBlank(tapisUser))
+    // If anything missing throw an exception. These values make up the primary key
+    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
     {
-      return;
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_DB_DEL_LOGINMAP_ERR", rUser, tenantId, sysId, tapisUser));
     }
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1457,7 +1457,7 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
       db.deleteFrom(SYSTEMS_LOGIN_USER)
-              .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(id),SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
+              .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(sysId),SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
               .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -1761,6 +1761,47 @@ public class SystemsDaoImpl implements SystemsDao
     return owner;
   }
 
+  /**
+   * Get systems updates records for given system ID
+   * @param systemId - System name
+   * @return List of SystemHistoryItem objects
+   * @throws TapisException - for Tapis related exceptions
+   */
+  @Override
+  public List<SystemHistoryItem> getSystemHistory(String oboTenant, String systemId) throws TapisException {
+    // Initialize result.
+    List<SystemHistoryItem> resultList = new ArrayList<SystemHistoryItem>();
+
+    // Begin where condition for the query
+    Condition whereCondition = SYSTEM_UPDATES.OBO_TENANT.eq(oboTenant).and(SYSTEM_UPDATES.SYSTEM_ID.eq(systemId));
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+
+      SelectConditionStep<SystemUpdatesRecord> results;
+      results = db.selectFrom(SYSTEM_UPDATES).where(whereCondition);
+
+      for (Record r : results) { SystemHistoryItem s = getSystemHistoryFromRecord(r); resultList.add(s); }
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "SystemUpdates", systemId, e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return resultList;
+  }
+
   /* ********************************************************************** */
   /*                             Private Methods                            */
   /* ********************************************************************** */
@@ -2043,6 +2084,12 @@ public class SystemsDaoImpl implements SystemsDao
     String[] parsedStrArray = DOT_SPLIT.split(searchStr, 3);
     // Validate column name
     String column = parsedStrArray[0];
+    // First, check to see if column is on list of unsupported attributes.
+    if (TSystem.SEARCH_ATTRS_UNSUPPORTED.contains(DSL.name(column).toString()))
+    {
+      throw new TapisException(LibUtils.getMsg("SYSLIB_DB_SRCH_ATTR_UNSUPPORTED", SYSTEMS.getName(), DSL.name(column)));
+    }
+
     Field<?> col = SYSTEMS.field(DSL.name(column));
     // Check for column name passed in as camelcase
     if (col == null)
@@ -2145,6 +2192,7 @@ public class SystemsDaoImpl implements SystemsDao
       case NLIKE -> c = col.notLike(val);
       case IN -> c = col.in(valList);
       case NIN -> c = col.notIn(valList);
+      case CONTAINS -> c = textArrayOverlaps(col, valList.toArray());
       case BETWEEN -> c = col.between(valList.get(0), valList.get(1));
       case NBETWEEN -> c = col.notBetween(valList.get(0), valList.get(1));
     }
@@ -2387,9 +2435,8 @@ public class SystemsDaoImpl implements SystemsDao
     }
   }
 
-  /**
-   * Given an record from a select, create a TSystem object
-   *
+  /*
+   * Given a record from a select, create a TSystem object
    */
   private static TSystem getSystemFromRecord(Record r)
   {
@@ -2429,55 +2476,23 @@ public class SystemsDaoImpl implements SystemsDao
     return system;
   }
 
-  /**
-  * Get systems updates records for given system ID
-  * @param systemId - System name
-  * @return List of SystemHistoryItem objects
-  * @throws TapisException - for Tapis related exceptions
-  */
-  @Override
-  public List<SystemHistoryItem> getSystemHistory(String oboTenant, String systemId) throws TapisException {
-	 // Initialize result.
-	List<SystemHistoryItem> resultList = new ArrayList<SystemHistoryItem>();
-
-    // Begin where condition for the query
-    Condition whereCondition = SYSTEM_UPDATES.OBO_TENANT.eq(oboTenant).and(SYSTEM_UPDATES.SYSTEM_ID.eq(systemId));
-    // ------------------------- Call SQL ----------------------------
-    Connection conn = null;
-    try
-    {
-      // Get a database connection.
-      conn = getConnection();
-      DSLContext db = DSL.using(conn);
-      
-      SelectConditionStep<SystemUpdatesRecord> results;
-      results = db.selectFrom(SYSTEM_UPDATES).where(whereCondition);
-
-      for (Record r : results) { SystemHistoryItem s = getSystemHistoryFromRecord(r); resultList.add(s); }
-      // Close out and commit
-      LibUtils.closeAndCommitDB(conn, null, null);
-    }
-    catch (Exception e)
-    {
-      // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "SystemUpdates", systemId, e.getMessage());
-    }
-    finally
-    {
-      // Always return the connection back to the connection pool.
-      LibUtils.finalCloseDB(conn);
-    }
-	return resultList;
-}
-
-  /**
-  * Given a record from a select, create a SystemHistoryItem object
-  *
-  */
+  /*
+   * Given a record from a select, create a SystemHistoryItem object
+   */
   private SystemHistoryItem getSystemHistoryFromRecord(Record r)
   {
 	return new SystemHistoryItem(r.get(SYSTEM_UPDATES.JWT_TENANT), r.get(SYSTEM_UPDATES.JWT_USER),
                                  r.get(SYSTEM_UPDATES.OBO_TENANT), r.get(SYSTEM_UPDATES.OBO_USER), r.get(SYSTEM_UPDATES.OPERATION),
 	                             r.get(SYSTEM_UPDATES.DESCRIPTION), r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
+  }
+
+  /*
+   * Implement the array overlap construct in jooq.
+   * Given a column as a Field<T[]> and a java array create a jooq condition that
+   * returns true if column contains any of the values in the array.
+   */
+  private static <T> Condition textArrayOverlaps(Field<T[]> col, T[] array)
+  {
+    return DSL.condition("{0} && {1}::text[]", col, DSL.array(array));
   }
 }

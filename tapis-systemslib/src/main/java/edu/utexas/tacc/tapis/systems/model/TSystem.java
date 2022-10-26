@@ -40,6 +40,11 @@ public final class TSystem
   public static final Set<String> RESERVED_ID_SET = new HashSet<>(Set.of("HEALTHCHECK", "READYCHECK", "SEARCH",
                                                                          "SCHEDULERPROFILE"));
 
+  // Set of attributes (i.e. column names) not supported in searches
+  public static final Set<String> SEARCH_ATTRS_UNSUPPORTED =
+          new HashSet<>(Set.of("authn_credential", "job_runtimes", "job_env_variables", "batch_logical_queues",
+                               "notes", "job_capabilities"));
+
   public static final String PERMISSION_WILDCARD = "*";
   // Allowed substitution variables
   public static final String APIUSERID_VAR = "${apiUserId}";
@@ -449,7 +454,7 @@ public final class TSystem
   /**
    * Check for invalid attributes
    *   systemId, host
-   *   rootDir must start with /
+   *   For LINUX or IRODS rootDir must start with /
    */
   private void checkAttrValidity(List<String> errMessages)
   {
@@ -458,8 +463,11 @@ public final class TSystem
     if (!StringUtils.isBlank(host) && !isValidHost(host))
       errMessages.add(LibUtils.getMsg(INVALID_STR_ATTR, HOST_FIELD, host));
 
-    if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/"))
-      errMessages.add(LibUtils.getMsg("SYSLIB_LINUX_ROOTDIR_NOSLASH", rootDir));
+    if (SystemType.LINUX.equals(systemType) || SystemType.IRODS.equals(systemType))
+    {
+      if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/"))
+        errMessages.add(LibUtils.getMsg("SYSLIB_LINUX_ROOTDIR_NOSLASH", rootDir));
+    }
   }
 
   /**

@@ -11,13 +11,17 @@ import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsLoginUserRec
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 
 import org.jooq.Field;
 import org.jooq.ForeignKey;
+import org.jooq.Function7;
 import org.jooq.Name;
 import org.jooq.Record;
+import org.jooq.Records;
 import org.jooq.Row7;
 import org.jooq.Schema;
+import org.jooq.SelectField;
 import org.jooq.Table;
 import org.jooq.TableField;
 import org.jooq.TableOptions;
@@ -92,14 +96,16 @@ public class SystemsLoginUser extends TableImpl<SystemsLoginUserRecord> {
     }
 
     /**
-     * Create an aliased <code>tapis_sys.systems_login_user</code> table reference
+     * Create an aliased <code>tapis_sys.systems_login_user</code> table
+     * reference
      */
     public SystemsLoginUser(String alias) {
         this(DSL.name(alias), SYSTEMS_LOGIN_USER);
     }
 
     /**
-     * Create an aliased <code>tapis_sys.systems_login_user</code> table reference
+     * Create an aliased <code>tapis_sys.systems_login_user</code> table
+     * reference
      */
     public SystemsLoginUser(Name alias) {
         this(alias, SYSTEMS_LOGIN_USER);
@@ -118,7 +124,7 @@ public class SystemsLoginUser extends TableImpl<SystemsLoginUserRecord> {
 
     @Override
     public Schema getSchema() {
-        return TapisSys.TAPIS_SYS;
+        return aliased() ? null : TapisSys.TAPIS_SYS;
     }
 
     @Override
@@ -127,17 +133,15 @@ public class SystemsLoginUser extends TableImpl<SystemsLoginUserRecord> {
     }
 
     @Override
-    public List<UniqueKey<SystemsLoginUserRecord>> getKeys() {
-        return Arrays.<UniqueKey<SystemsLoginUserRecord>>asList(Keys.SYSTEMS_LOGIN_USER_PKEY);
-    }
-
-    @Override
     public List<ForeignKey<SystemsLoginUserRecord, ?>> getReferences() {
-        return Arrays.<ForeignKey<SystemsLoginUserRecord, ?>>asList(Keys.SYSTEMS_LOGIN_USER__SYSTEMS_LOGIN_USER_SYSTEM_SEQ_ID_FKEY);
+        return Arrays.asList(Keys.SYSTEMS_LOGIN_USER__SYSTEMS_LOGIN_USER_SYSTEM_SEQ_ID_FKEY);
     }
 
     private transient Systems _systems;
 
+    /**
+     * Get the implicit join path to the <code>tapis_sys.systems</code> table.
+     */
     public Systems systems() {
         if (_systems == null)
             _systems = new Systems(this, Keys.SYSTEMS_LOGIN_USER__SYSTEMS_LOGIN_USER_SYSTEM_SEQ_ID_FKEY);
@@ -153,6 +157,11 @@ public class SystemsLoginUser extends TableImpl<SystemsLoginUserRecord> {
     @Override
     public SystemsLoginUser as(Name alias) {
         return new SystemsLoginUser(alias, this);
+    }
+
+    @Override
+    public SystemsLoginUser as(Table<?> alias) {
+        return new SystemsLoginUser(alias.getQualifiedName(), this);
     }
 
     /**
@@ -171,6 +180,14 @@ public class SystemsLoginUser extends TableImpl<SystemsLoginUserRecord> {
         return new SystemsLoginUser(name, null);
     }
 
+    /**
+     * Rename this table
+     */
+    @Override
+    public SystemsLoginUser rename(Table<?> name) {
+        return new SystemsLoginUser(name.getQualifiedName(), null);
+    }
+
     // -------------------------------------------------------------------------
     // Row7 type methods
     // -------------------------------------------------------------------------
@@ -178,5 +195,20 @@ public class SystemsLoginUser extends TableImpl<SystemsLoginUserRecord> {
     @Override
     public Row7<Integer, String, String, String, String, LocalDateTime, LocalDateTime> fieldsRow() {
         return (Row7) super.fieldsRow();
+    }
+
+    /**
+     * Convenience mapping calling {@link SelectField#convertFrom(Function)}.
+     */
+    public <U> SelectField<U> mapping(Function7<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? extends U> from) {
+        return convertFrom(Records.mapping(from));
+    }
+
+    /**
+     * Convenience mapping calling {@link SelectField#convertFrom(Class,
+     * Function)}.
+     */
+    public <U> SelectField<U> mapping(Class<U> toType, Function7<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? extends U> from) {
+        return convertFrom(toType, Records.mapping(from));
     }
 }

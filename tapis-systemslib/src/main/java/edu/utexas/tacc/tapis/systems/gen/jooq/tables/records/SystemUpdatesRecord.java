@@ -28,168 +28,192 @@ public class SystemUpdatesRecord extends UpdatableRecordImpl<SystemUpdatesRecord
     private static final long serialVersionUID = 1L;
 
     /**
-     * Setter for <code>tapis_sys.system_updates.seq_id</code>. System update request sequence id
+     * Setter for <code>tapis_sys.system_updates.seq_id</code>. System update
+     * request sequence id
      */
     public void setSeqId(Integer value) {
         set(0, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.seq_id</code>. System update request sequence id
+     * Getter for <code>tapis_sys.system_updates.seq_id</code>. System update
+     * request sequence id
      */
     public Integer getSeqId() {
         return (Integer) get(0);
     }
 
     /**
-     * Setter for <code>tapis_sys.system_updates.system_seq_id</code>. Sequence id of system being updated
+     * Setter for <code>tapis_sys.system_updates.system_seq_id</code>. Sequence
+     * id of system being updated
      */
     public void setSystemSeqId(Integer value) {
         set(1, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.system_seq_id</code>. Sequence id of system being updated
+     * Getter for <code>tapis_sys.system_updates.system_seq_id</code>. Sequence
+     * id of system being updated
      */
     public Integer getSystemSeqId() {
         return (Integer) get(1);
     }
 
     /**
-     * Setter for <code>tapis_sys.system_updates.obo_tenant</code>. OBO Tenant associated with the change request
+     * Setter for <code>tapis_sys.system_updates.obo_tenant</code>. OBO Tenant
+     * associated with the change request
      */
     public void setOboTenant(String value) {
         set(2, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.obo_tenant</code>. OBO Tenant associated with the change request
+     * Getter for <code>tapis_sys.system_updates.obo_tenant</code>. OBO Tenant
+     * associated with the change request
      */
     public String getOboTenant() {
         return (String) get(2);
     }
 
     /**
-     * Setter for <code>tapis_sys.system_updates.obo_user</code>. OBO User associated with the change request
+     * Setter for <code>tapis_sys.system_updates.obo_user</code>. OBO User
+     * associated with the change request
      */
     public void setOboUser(String value) {
         set(3, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.obo_user</code>. OBO User associated with the change request
+     * Getter for <code>tapis_sys.system_updates.obo_user</code>. OBO User
+     * associated with the change request
      */
     public String getOboUser() {
         return (String) get(3);
     }
 
     /**
-     * Setter for <code>tapis_sys.system_updates.jwt_tenant</code>. Tenant of user who requested the update
+     * Setter for <code>tapis_sys.system_updates.jwt_tenant</code>. Tenant of
+     * user who requested the update
      */
     public void setJwtTenant(String value) {
         set(4, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.jwt_tenant</code>. Tenant of user who requested the update
+     * Getter for <code>tapis_sys.system_updates.jwt_tenant</code>. Tenant of
+     * user who requested the update
      */
     public String getJwtTenant() {
         return (String) get(4);
     }
 
     /**
-     * Setter for <code>tapis_sys.system_updates.jwt_user</code>. Name of user who requested the update
+     * Setter for <code>tapis_sys.system_updates.jwt_user</code>. Name of user
+     * who requested the update
      */
     public void setJwtUser(String value) {
         set(5, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.jwt_user</code>. Name of user who requested the update
+     * Getter for <code>tapis_sys.system_updates.jwt_user</code>. Name of user
+     * who requested the update
      */
     public String getJwtUser() {
         return (String) get(5);
     }
 
     /**
-     * Setter for <code>tapis_sys.system_updates.system_id</code>. Id of system being updated
+     * Setter for <code>tapis_sys.system_updates.system_id</code>. Id of system
+     * being updated
      */
     public void setSystemId(String value) {
         set(6, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.system_id</code>. Id of system being updated
+     * Getter for <code>tapis_sys.system_updates.system_id</code>. Id of system
+     * being updated
      */
     public String getSystemId() {
         return (String) get(6);
     }
 
     /**
-     * Setter for <code>tapis_sys.system_updates.operation</code>. Type of update operation
+     * Setter for <code>tapis_sys.system_updates.operation</code>. Type of
+     * update operation
      */
     public void setOperation(SystemOperation value) {
         set(7, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.operation</code>. Type of update operation
+     * Getter for <code>tapis_sys.system_updates.operation</code>. Type of
+     * update operation
      */
     public SystemOperation getOperation() {
         return (SystemOperation) get(7);
     }
 
     /**
-     * Setter for <code>tapis_sys.system_updates.description</code>. JSON describing the change. Secrets scrubbed as needed.
+     * Setter for <code>tapis_sys.system_updates.description</code>. JSON
+     * describing the change. Secrets scrubbed as needed.
      */
     public void setDescription(JsonElement value) {
         set(8, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.description</code>. JSON describing the change. Secrets scrubbed as needed.
+     * Getter for <code>tapis_sys.system_updates.description</code>. JSON
+     * describing the change. Secrets scrubbed as needed.
      */
     public JsonElement getDescription() {
         return (JsonElement) get(8);
     }
 
     /**
-     * Setter for <code>tapis_sys.system_updates.raw_data</code>. Raw data associated with the request, if available. Secrets scrubbed as needed.
+     * Setter for <code>tapis_sys.system_updates.raw_data</code>. Raw data
+     * associated with the request, if available. Secrets scrubbed as needed.
      */
     public void setRawData(String value) {
         set(9, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.raw_data</code>. Raw data associated with the request, if available. Secrets scrubbed as needed.
+     * Getter for <code>tapis_sys.system_updates.raw_data</code>. Raw data
+     * associated with the request, if available. Secrets scrubbed as needed.
      */
     public String getRawData() {
         return (String) get(9);
     }
 
     /**
-     * Setter for <code>tapis_sys.system_updates.uuid</code>. UUID of system being updated
+     * Setter for <code>tapis_sys.system_updates.uuid</code>. UUID of system
+     * being updated
      */
     public void setUuid(UUID value) {
         set(10, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.uuid</code>. UUID of system being updated
+     * Getter for <code>tapis_sys.system_updates.uuid</code>. UUID of system
+     * being updated
      */
     public UUID getUuid() {
         return (UUID) get(10);
     }
 
     /**
-     * Setter for <code>tapis_sys.system_updates.created</code>. UTC time for when record was created
+     * Setter for <code>tapis_sys.system_updates.created</code>. UTC time for
+     * when record was created
      */
     public void setCreated(LocalDateTime value) {
         set(11, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.system_updates.created</code>. UTC time for when record was created
+     * Getter for <code>tapis_sys.system_updates.created</code>. UTC time for
+     * when record was created
      */
     public LocalDateTime getCreated() {
         return (LocalDateTime) get(11);
