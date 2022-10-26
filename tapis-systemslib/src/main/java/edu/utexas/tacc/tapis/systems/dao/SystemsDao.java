@@ -1,5 +1,8 @@
 package edu.utexas.tacc.tapis.systems.dao;
 
+import java.util.List;
+import java.util.Set;
+
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
@@ -10,8 +13,7 @@ import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 
-import java.util.List;
-import java.util.Set;
+import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.AuthListType;
 
 public interface SystemsDao
 {
@@ -52,14 +54,17 @@ public interface SystemsDao
 
   TSystem getSystem(String tenantId, String id, boolean includeDeleted) throws TapisException;
 
-  int getSystemsCount(String tenantId, List<String> searchList, ASTNode searchAST, Set<String> setOfIDs,
-                      List<OrderBy> orderByList, String startAfter, boolean showDeleted) throws TapisException;
-
-  List<TSystem> getSystems(String tenantId, List<String> searchList, ASTNode searchAST, Set<String> setOfIDs, int limit,
-                           List<OrderBy> orderByList, int skip, String startAfter, boolean showDeleted)
+  int getSystemsCount(ResourceRequestUser rUser, List<String> searchList, ASTNode searchAST, List<OrderBy> orderByList,
+                      String startAfter, boolean includeDeleted, AuthListType listType, Set<String> viewableIDs,
+                      Set<String> sharedIDs)
           throws TapisException;
 
-  Set<String> getSystemIDs(String tenant, boolean showDeleted) throws TapisException;
+  List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, ASTNode searchAST, int limit,
+                           List<OrderBy> orderByList, int skip, String startAfter, boolean includeDeleted, AuthListType listType,
+                           Set<String> viewableIDs, Set<String> sharedIDs)
+          throws TapisException;
+
+  Set<String> getSystemIDs(String tenant, boolean includeDeleted) throws TapisException;
 
   List<TSystem> getSystemsSatisfyingConstraints(String tenantId, ASTNode matchAST, Set<String> setOfIDs) throws TapisException;
 

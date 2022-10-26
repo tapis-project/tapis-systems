@@ -468,7 +468,7 @@ public class SystemsServiceTest
     {
       Assert.assertTrue(userPerms.contains(perm));
     }
-    // Original owner should no longer have the modify or execute permission
+    // Original owner should no longer have to modify or execute permission
     userPerms = svc.getUserPermissions(rTestUser2, sys0.getId(), owner1);
     Assert.assertFalse(userPerms.contains(Permission.READ));
     Assert.assertFalse(userPerms.contains(Permission.MODIFY));
@@ -546,7 +546,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[4];
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     List<TSystem> systems = svc.getSystems(rOwner1, searchListNull, limitNone, orderByListNull, skipZero,
-                                           startAferEmpty, resolveEffUserFalse, showDeletedFalse);
+                                           startAferEmpty, resolveEffUserFalse, showDeletedFalse, listTypeNull);
     Assert.assertNotNull(systems, "getSystems returned null");
     Assert.assertFalse(systems.isEmpty(), "getSystems returned empty list");
     for (TSystem system : systems) {
@@ -572,7 +572,7 @@ public class SystemsServiceTest
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     // When retrieving systems as testUser4 only 2 should be returned
     List<TSystem> systems = svc.getSystems(rTestUser4, searchListNull, limitNone, orderByListNull, skipZero,
-                                           startAferEmpty, resolveEffUserFalse, showDeletedFalse);
+                                           startAferEmpty, resolveEffUserFalse, showDeletedFalse, listTypeNull);
     Assert.assertNotNull(systems, "getSystems returned null");
     Assert.assertFalse(systems.isEmpty(), "getSystems returned empty list");
     System.out.println("Total number of systems retrieved by testuser4: " + systems.size());
@@ -585,7 +585,7 @@ public class SystemsServiceTest
 
     // When retrieving systems as a service with oboUser = testuser4 only 2 should be returned.
     systems = svc.getSystems(rFilesSvcTestUser4, searchListNull, limitNone, orderByListNull, skipZero,
-                             startAferEmpty, resolveEffUserFalse, showDeletedFalse);
+                             startAferEmpty, resolveEffUserFalse, showDeletedFalse, listTypeNull);
     System.out.println("Total number of systems retrieved by Files svc calling with oboUser=testuser4: " + systems.size());
     Assert.assertNotNull(systems, "getSystems returned null");
     Assert.assertFalse(systems.isEmpty(), "getSystems returned empty list");

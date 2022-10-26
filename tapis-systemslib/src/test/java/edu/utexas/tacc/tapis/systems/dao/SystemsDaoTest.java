@@ -35,7 +35,7 @@ import static edu.utexas.tacc.tapis.systems.IntegrationUtils.*;
 public class SystemsDaoTest
 {
   private SystemsDaoImpl dao;
-  private ResourceRequestUser rUser;
+  private ResourceRequestUser rUser, rOwner;
 
   // Create test system definitions and scheduler profiles in memory
   int numSystems = 14;
@@ -54,6 +54,8 @@ public class SystemsDaoTest
     // Initialize authenticated user
     rUser = new ResourceRequestUser(new AuthenticatedUser(apiUser, tenantName, TapisThreadContext.AccountType.user.name(),
                                                           null, apiUser, tenantName, null, null, null));
+    rOwner = new ResourceRequestUser(new AuthenticatedUser(owner1, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                           null, owner1, tenantName, null, null, null));
     // Cleanup anything leftover from previous failed run
     teardown();
   }
@@ -188,14 +190,15 @@ public class SystemsDaoTest
     TSystem sys0 = systems[4];
     boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
-    List<TSystem> systems = dao.getSystems(tenantName, null, null, null, DEFAULT_LIMIT, orderByListNull,
-                                            DEFAULT_SKIP, startAfterNull, showDeletedFalse);
+    List<TSystem> systems = dao.getSystems(rOwner, null, null, DEFAULT_LIMIT, orderByListNull,
+                                            DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeOwned, setOfIDsNull, setOfIDsNull);
     for (TSystem system : systems) {
       System.out.println("Found item with id: " + system.getId());
     }
   }
 
   // Test retrieving all systems in a list of IDs
+  // TODO Update for listType
   @Test
   public void testGetSystemsInIDList() throws Exception
   {
@@ -210,8 +213,8 @@ public class SystemsDaoTest
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     sysIdList.add(sys0.getId());
     // Get all systems in list of seqIDs
-    List<TSystem> systems = dao.getSystems(tenantName, null, null, sysIdList, DEFAULT_LIMIT, orderByListNull,
-                                            DEFAULT_SKIP, startAfterNull, showDeletedFalse);
+    List<TSystem> systems = dao.getSystems(rOwner, null, null, DEFAULT_LIMIT, orderByListNull,
+                                            DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeOwned, setOfIDsNull, setOfIDsNull);
     for (TSystem system : systems) {
       System.out.println("Found item with id: " + system.getId());
       Assert.assertTrue(sysIdList.contains(system.getId()));

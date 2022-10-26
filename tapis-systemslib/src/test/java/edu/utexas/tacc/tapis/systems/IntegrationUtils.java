@@ -15,6 +15,7 @@ import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
+import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
 import org.jooq.tools.StringUtils;
 import org.testng.Assert;
 
@@ -230,6 +231,8 @@ public final class IntegrationUtils
   public static final int qMaxMemoryMB = -1;
   public static final int qMaxMinutes = -1;
 
+  public static final String listTypeNull = null;
+
   public static final List<OrderBy> orderByListNull = null;
   public static final List<OrderBy> orderByListAsc = Collections.singletonList(OrderBy.fromString("id(asc)"));
   public static final List<OrderBy> orderByListDesc = Collections.singletonList(OrderBy.fromString("id(desc)"));
@@ -266,6 +269,8 @@ public final class IntegrationUtils
   public static final List<String> orderByDirEmptyList = Arrays.asList("");
   public static final int skipZero = 0;
   public static final String startAferEmpty = "";
+  public static final SystemsServiceImpl.AuthListType listTypeOwned = SystemsServiceImpl.AuthListType.OWNED;
+  public static final SystemsServiceImpl.AuthListType listTypeAll = SystemsServiceImpl.AuthListType.ALL;
 
   /**
    * Create first DTN System

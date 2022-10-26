@@ -17,7 +17,7 @@ Incremental improvements and new preview features.
 ### New features:
 - Add support for searching by *tags* attribute using operator *contains*.
 - Add support for query parameter *listType* when retrieving systems. Allows for filtering based on authorization.
-    * Options are OWNED, SHARED_ONLY, SHARED_PUBLIC, ALL. Default is OWNED.
+    * Options are OWNED, SHARED_PUBLIC, ALL. Default is OWNED.
 - Improved error message when attempting to search using an unsupported attribute
 
 ---------------------------------------------------------------------------

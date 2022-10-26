@@ -880,7 +880,9 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response getSystems(@Context SecurityContext securityContext,
                              @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
-                             @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
+                             @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
+                             @QueryParam("listType") @DefaultValue("OWNED") String listType)
+
   {
     String opName = "getSystems";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -894,7 +896,8 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted);
+                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted,
+                                                   "listType="+listType);
 
     // ThreadContext designed to never return null for SearchParameters
     SearchParameters srchParms = threadContext.getSearchParameters();
@@ -903,7 +906,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffUser, showDeleted);
+      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffUser, showDeleted, listType);
     }
     catch (Exception e)
     {
@@ -929,7 +932,8 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsQueryParameters(@Context SecurityContext securityContext,
                                                @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
-                                               @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
+                                               @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
+                                               @QueryParam("listType") @DefaultValue("OWNED") String listType)
   {
     String opName = "searchSystemsGet";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -943,7 +947,8 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted);
+                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted,
+                                                   "listType="+listType);
 
     // Create search list based on query parameters
     // Note that some validation is done for each condition but the back end will handle translating LIKE wildcard
@@ -968,7 +973,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffUser, showDeleted);
+      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffUser, showDeleted, listType);
     }
     catch (Exception e)
     {
@@ -999,7 +1004,9 @@ public class SystemResource
   public Response searchSystemsRequestBody(InputStream payloadStream,
                                            @Context SecurityContext securityContext,
                                            @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
-                                           @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
+                                           @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
+                                           @QueryParam("listType") @DefaultValue("OWNED") String listType)
+
   {
     String opName = "searchSystemsPost";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -1013,7 +1020,8 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted);
+                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted,
+                                                   "listType="+listType);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -1058,7 +1066,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, resolveEffUser, showDeleted);
+      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, resolveEffUser, showDeleted, listType);
     }
     catch (Exception e)
     {
@@ -1418,7 +1426,7 @@ public class SystemResource
    *  One of srchParms.searchList or sqlSearchStr must be non-null
    */
   private Response getSearchResponse(ResourceRequestUser rUser, String sqlSearchStr, SearchParameters srchParms,
-                                     boolean resolveEffUser, boolean showDeleted)
+                                     boolean resolveEffUser, boolean showDeleted, String listType)
           throws Exception
   {
     RespAbstract resp1;
@@ -1440,10 +1448,11 @@ public class SystemResource
     List<OrderBy> orderByList = srchParms.getOrderByList();
 
     if (StringUtils.isBlank(sqlSearchStr))
-      systems = service.getSystems(rUser, searchList, limit, orderByList, skip, startAfter, resolveEffUser, showDeleted);
+      systems = service.getSystems(rUser, searchList, limit, orderByList, skip, startAfter, resolveEffUser,
+                                   showDeleted, listType);
     else
       systems = service.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit, orderByList, skip, startAfter,
-                                                    resolveEffUser, showDeleted);
+                                                    resolveEffUser, showDeleted, listType);
     if (systems == null) systems = Collections.emptyList();
     itemCountStr = String.format(SYS_CNT_STR, systems.size());
     if (computeTotal && limit <= 0) totalCount = systems.size();
@@ -1451,8 +1460,7 @@ public class SystemResource
     // If we need the count and there was a limit then we need to make a call
     if (computeTotal && limit > 0)
     {
-      totalCount = service.getSystemsTotalCount(rUser, searchList, orderByList,
-                                                       startAfter, showDeleted);
+      totalCount = service.getSystemsTotalCount(rUser, searchList, orderByList, startAfter, showDeleted, listType);
     }
 
     // ---------------------------- Success -------------------------------
