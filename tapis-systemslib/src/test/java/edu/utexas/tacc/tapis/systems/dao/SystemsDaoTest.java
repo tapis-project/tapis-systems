@@ -36,7 +36,7 @@ import static edu.utexas.tacc.tapis.systems.IntegrationUtils.*;
 public class SystemsDaoTest
 {
   private SystemsDaoImpl dao;
-  private ResourceRequestUser rOwner1, rOwner2, rOwner3, rOwner4, rOwner5, rOwner6;
+  private ResourceRequestUser rOwner1, rOwner2, rOwner3, rOwner4, rOwner5, rOwner6, rOwner7;
 
   // Create test system definitions and scheduler profiles in memory
   int numSystems = 14; // All in use: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
@@ -65,6 +65,8 @@ public class SystemsDaoTest
                                                             null, owner5, tenantName, null, null, null));
     rOwner6 = new ResourceRequestUser(new AuthenticatedUser(owner6, tenantName, TapisThreadContext.AccountType.user.name(),
                                                             null, owner6, tenantName, null, null, null));
+    rOwner7 = new ResourceRequestUser(new AuthenticatedUser(owner7, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                            null, owner7, tenantName, null, null, null));
     // Cleanup anything leftover from previous failed run
     teardown();
   }
@@ -208,20 +210,22 @@ public class SystemsDaoTest
     }
   }
 
-  // Test systems using listType parameter
+  // Test getSystems using listType parameter
   @Test
   public void testGetSystemsByListType() throws Exception
   {
     var viewableIDs = new HashSet<String>();
     var sharedPublicIDS = new HashSet<String>();
     var sharedIDs = new HashSet<String>();
+    // NOTE: User owner7 rather than owner3 because SystemsServiceTest uses owner3 and when tests run in parallel
+    //       from command line there is a failure.
     // Create 4 systems.
-    // One owned by owner3
-    // One owned by owner4 with READ permission granted to owner3
-    // One owned by owner5 and shared with owner3
+    // One owned by owner7
+    // One owned by owner4 with READ permission granted to owner7
+    // One owned by owner5 and shared with owner7
     // One owned by owner6 and shared publicly
     TSystem sys0;
-    sys0 = systems[2]; sys0.setOwner(owner3); dao.createSystem(rOwner3, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    sys0 = systems[2]; sys0.setOwner(owner7); dao.createSystem(rOwner7, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     sys0 = systems[3]; sys0.setOwner(owner4); dao.createSystem(rOwner4, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     viewableIDs.add(sys0.getId());
     sys0 = systems[8]; sys0.setOwner(owner5); dao.createSystem(rOwner5, sys0, gson.toJson(sys0), rawDataEmtpyJson);
@@ -231,19 +235,19 @@ public class SystemsDaoTest
     sharedIDs.add(sys0.getId());
     List<TSystem> systems;
     // Simulate getting just OWNED
-    systems = dao.getSystems(rOwner3, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP, startAfterNull,
+    systems = dao.getSystems(rOwner7, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP, startAfterNull,
                              showDeletedFalse, listTypeOwned, setOfIDsNull, setOfIDsNull);
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeOwned);
     Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypeOwned);
     // Simulate getting just getting PUBLIC
-    systems = dao.getSystems(rOwner3, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP, startAfterNull,
+    systems = dao.getSystems(rOwner7, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP, startAfterNull,
                              showDeletedFalse, listTypePublic, setOfIDsNull, sharedPublicIDS);
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypePublic);
     Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypePublic);
     // Simulate getting ALL
-    systems = dao.getSystems(rOwner3, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP, startAfterNull,
+    systems = dao.getSystems(rOwner7, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP, startAfterNull,
                              showDeletedFalse, listTypeAll, viewableIDs, sharedIDs);
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeAll);
