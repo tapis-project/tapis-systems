@@ -250,30 +250,6 @@ public class SystemsDaoTest
     Assert.assertEquals(systems.size(), 4, "Wrong number of returned systems for listType=" + listTypeAll);
   }
 
-  // Test retrieving all systems in a list of IDs
-  @Test
-  public void testGetSystemsInIDList() throws Exception
-  {
-    var viewableIdList = new HashSet<String>();
-    // Create 2 systems
-    TSystem sys0 = systems[5];
-    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmtpyJson);
-    Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
-    viewableIdList.add(sys0.getId());
-    sys0 = systems[6];
-    itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmtpyJson);
-    Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
-    viewableIdList.add(sys0.getId());
-    // Get all systems in list of seqIDs
-    List<TSystem> systems = dao.getSystems(rOwner1, null, null, DEFAULT_LIMIT, orderByListNull,
-                                            DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, viewableIdList, setOfIDsNull);
-    for (TSystem system : systems) {
-      System.out.println("Found item with id: " + system.getId());
-      Assert.assertTrue(viewableIdList.contains(system.getId()));
-    }
-    Assert.assertEquals(viewableIdList.size(), systems.size());
-  }
-
   // Test enable/disable/delete/undelete
   @Test
   public void testEnableDisableDeleteUndeleteSystem() throws Exception
