@@ -270,7 +270,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // ----------------- Create all artifacts --------------------
     // Creation of system, perms and creds not in single DB transaction.
-    // Use try/catch to rollback any writes in case of failure.
+    // Use try/catch to roll back any writes in case of failure.
     boolean itemCreated = false;
     String systemsPermSpecALL = getPermSpecAllStr(tenant, systemId);
     // Consider using a notification instead (jira cic-3071)
@@ -627,7 +627,7 @@ public class SystemsServiceImpl implements SystemsService
    * Change owner of a system
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param newOwnerName - User name of new owner
+   * @param newOwnerName - Username of new owner
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
@@ -664,7 +664,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // ----------------- Make all updates --------------------
     // Changes not in single DB transaction.
-    // Use try/catch to rollback any changes in case of failure.
+    // Use try/catch to roll back any changes in case of failure.
     // Get SK client now. If we cannot get this rollback not needed.
     // Note that we still need to call getSKClient each time because it refreshes the svc jwt as needed.
     getSKClient();
@@ -2500,60 +2500,15 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Determine all systems that a user is allowed to see.
-   * If all systems return null else return list of system IDs
-   * An empty list indicates no systems allowed.
-   */
-  private Set<String> getAllowedSysIDs(ResourceRequestUser rUser) throws TapisException, TapisClientException
-  {
-    // If requester is a service calling as itself or an admin then all systems allowed
-    if ((rUser.isServiceRequest() && rUser.getJwtUserId().equals(rUser.getOboUserId())) || hasAdminRole(rUser))
-    {
-      return null;
-    }
-    var sysIDs = new HashSet<String>();
-    // TODO Currently all perms returned, including for apps, jobs, etc.
-    //    Is there a way to filter by system prefix?
-//    String impliedBy = String.format("system:%s:read:LSystem1", rUser.getOboTenantId());
-//    String impliedBy = String.format("system:%s:read:%%", rUser.getOboTenantId());
-//    String implies = null;
-//    var userPerms = getSKClient().getUserPerms(rUser.getOboTenantId(), rUser.getOboUserId(), implies, impliedBy);
-    var userPerms = getSKClient().getUserPerms(rUser.getOboTenantId(), rUser.getOboUserId());
-    // Check each perm to see if it allows user READ access.
-    for (String userPerm : userPerms)
-    {
-      if (StringUtils.isBlank(userPerm)) continue;
-      // Split based on :, permSpec has the format system:<tenant>:<perms>:<system_name>
-      // NOTE: This assumes value in last field is always an id and never a wildcard.
-      String[] permFields = COLON_SPLIT.split(userPerm);
-      if (permFields.length < 4) continue;
-      if (permFields[0].equals(PERM_SPEC_PREFIX) &&
-           (permFields[2].contains(Permission.READ.name()) ||
-            permFields[2].contains(Permission.MODIFY.name()) ||
-            permFields[2].contains(TSystem.PERMISSION_WILDCARD)))
-      {
-        // If system exists add ID to the list
-        // else resource no longer exists or has been deleted so remove orphaned permissions
-        if (dao.checkForSystem(rUser.getOboTenantId(), permFields[3], false))
-        {
-          sysIDs.add(permFields[3]);
-        }
-        else
-        {
-          removeOrphanedSKPerms(permFields[3], rUser.getOboTenantId());
-        }
-      }
-    }
-    return sysIDs;
-  }
-
-  /**
    * Determine all systems for which the user has READ or MODIFY permission.
    */
   private Set<String> getViewableSystemIDs(ResourceRequestUser rUser) throws TapisException, TapisClientException
   {
     var systemIDs = new HashSet<String>();
-    var userPerms = getSKClient().getUserPerms(rUser.getOboTenantId(), rUser.getOboUserId());
+    // Use implies to filter permissions returned. Without implies all permissions for apps, etc are returned.
+    String impliedBy = null; // 2420 returned
+    String implies = String.format("system:%s:*:*", rUser.getOboTenantId()); // 75 returned TODO winner?
+    var userPerms = getSKClient().getUserPerms(rUser.getOboTenantId(), rUser.getOboUserId(), implies, impliedBy);
     // Check each perm to see if it allows user READ access.
     for (String userPerm : userPerms)
     {
@@ -2563,11 +2518,22 @@ public class SystemsServiceImpl implements SystemsService
       String[] permFields = COLON_SPLIT.split(userPerm);
       if (permFields.length < 4) continue;
       if (permFields[0].equals(PERM_SPEC_PREFIX) &&
-              (permFields[2].contains(Permission.READ.name()) ||
-                      permFields[2].contains(Permission.MODIFY.name()) ||
-                      permFields[2].contains(TSystem.PERMISSION_WILDCARD)))
+          (permFields[2].contains(Permission.READ.name()) ||
+           permFields[2].contains(Permission.MODIFY.name()) ||
+           permFields[2].contains(TSystem.PERMISSION_WILDCARD)))
       {
-        systemIDs.add(permFields[3]);
+        // If system exists add ID to the list
+        // else resource no longer exists or has been deleted so remove orphaned permissions
+        if (dao.checkForSystem(rUser.getOboTenantId(), permFields[3], false))
+        {
+          systemIDs.add(permFields[3]);
+        }
+        else
+        {
+          // TODO remove or turn into a real log message
+//          _log.warn("Found orphaned permission for system: " + permFields[3]);
+// TODO          removeOrphanedSKPerms(permFields[3], rUser.getOboTenantId());
+        }
       }
     }
     return systemIDs;

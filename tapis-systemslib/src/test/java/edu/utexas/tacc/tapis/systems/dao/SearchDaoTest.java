@@ -195,6 +195,7 @@ public class SearchDaoTest
     validCaseInputs.put(25, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "tags.contains."+tagList2)));
     validCaseInputs.put(26, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "tags.contains."+tagList3)));
     validCaseInputs.put(27, new CaseData(0, Arrays.asList(sysIdLikeAll, "tags.contains."+tagList4)));
+    validCaseInputs.put(28, new CaseData(0, List.of("id.eq.b7d2acb8-e477-4352-86e6-d0b6f5d43393-007")));
     // Test numeric relational
     validCaseInputs.put(40, new CaseData(numSystems / 2, Arrays.asList(sysIdLikeAll, "port.between.1," + numSystems / 2)));
     validCaseInputs.put(41, new CaseData(numSystems / 2 - 1, Arrays.asList(sysIdLikeAll, "port.between.2," + numSystems / 2)));
