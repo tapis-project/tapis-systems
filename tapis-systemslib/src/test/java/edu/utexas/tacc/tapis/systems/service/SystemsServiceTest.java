@@ -461,19 +461,9 @@ public class SystemsServiceTest
     TSystem tmpSys = svc.getSystem(rTestUser2, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertEquals(tmpSys.getOwner(), newOwnerName);
     // Check expected auxiliary updates have happened
-    // New owner should be able to retrieve permissions and have all permissions
+    // New owner should be able to retrieve permissions
     Set<Permission> userPerms = svc.getUserPermissions(rTestUser2, sys0.getId(), newOwnerName);
     Assert.assertNotNull(userPerms, "Null returned when retrieving perms.");
-    for (Permission perm : Permission.values())
-    {
-      Assert.assertTrue(userPerms.contains(perm));
-    }
-    // Original owner should no longer have to modify or execute permission
-    userPerms = svc.getUserPermissions(rTestUser2, sys0.getId(), owner1);
-    Assert.assertFalse(userPerms.contains(Permission.READ));
-    Assert.assertFalse(userPerms.contains(Permission.MODIFY));
-    Assert.assertFalse(userPerms.contains(Permission.EXECUTE));
-    Assert.assertTrue(userPerms.isEmpty());
     // Original owner should not be able to modify system
     try {
       svc.deleteSystem(rOwner1, sys0.getId());

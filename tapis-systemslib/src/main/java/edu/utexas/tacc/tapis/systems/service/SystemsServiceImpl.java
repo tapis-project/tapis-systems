@@ -1228,15 +1228,15 @@ public class SystemsServiceImpl implements SystemsService
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser,
-                                                       String matchStr)
+  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr)
           throws TapisException, TapisClientException
   {
     if (rUser == null)  throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
     // Get list of IDs of systems for which requester has READ permission.
     // This is either all systems (null) or a list of IDs.
-    Set<String> allowedSysIDs = getAllowedSysIDs(rUser);
+// TODO    Set<String> allowedSysIDs = getAllowedSysIDs(rUser);
+    Set<String> allowedSysIDs = getViewableSystemIDs(rUser);
 
     // Validate and parse the sql string into an abstract syntax tree (AST)
     ASTNode matchAST;

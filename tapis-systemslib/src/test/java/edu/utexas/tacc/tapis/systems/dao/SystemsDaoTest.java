@@ -191,35 +191,34 @@ public class SystemsDaoTest
     boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     List<TSystem> systems = dao.getSystems(rOwner, null, null, DEFAULT_LIMIT, orderByListNull,
-                                            DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeOwned, setOfIDsNull, setOfIDsNull);
+                                            DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, setOfIDsNull, setOfIDsNull);
     for (TSystem system : systems) {
       System.out.println("Found item with id: " + system.getId());
     }
   }
 
   // Test retrieving all systems in a list of IDs
-  // TODO Update for listType
   @Test
   public void testGetSystemsInIDList() throws Exception
   {
-    var sysIdList = new HashSet<String>();
+    var viewableIdList = new HashSet<String>();
     // Create 2 systems
     TSystem sys0 = systems[5];
     boolean itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
-    sysIdList.add(sys0.getId());
+    viewableIdList.add(sys0.getId());
     sys0 = systems[6];
     itemCreated = dao.createSystem(rUser, sys0, gson.toJson(sys0), rawDataEmtpyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
-    sysIdList.add(sys0.getId());
+    viewableIdList.add(sys0.getId());
     // Get all systems in list of seqIDs
     List<TSystem> systems = dao.getSystems(rOwner, null, null, DEFAULT_LIMIT, orderByListNull,
-                                            DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeOwned, setOfIDsNull, setOfIDsNull);
+                                            DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, viewableIdList, setOfIDsNull);
     for (TSystem system : systems) {
       System.out.println("Found item with id: " + system.getId());
-      Assert.assertTrue(sysIdList.contains(system.getId()));
+      Assert.assertTrue(viewableIdList.contains(system.getId()));
     }
-    Assert.assertEquals(sysIdList.size(), systems.size());
+    Assert.assertEquals(viewableIdList.size(), systems.size());
   }
 
   // Test enable/disable/delete/undelete
