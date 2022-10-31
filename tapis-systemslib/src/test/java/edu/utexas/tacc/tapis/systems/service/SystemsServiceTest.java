@@ -48,6 +48,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters.DEFAULT_LIMIT;
+import static edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters.DEFAULT_SKIP;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.*;
 
 /**
@@ -64,14 +66,14 @@ public class SystemsServiceTest
 {
   private SystemsService svc;
   private SystemsServiceImpl svcImpl;
-  private ResourceRequestUser rOwner1, rTestUser0, rTestUser1, rTestUser2,
-          rTestUser3, rTestUser4, rTestUser5,
+  private ResourceRequestUser rOwner1, rOwner3, rOwner4, rOwner5, rOwner6,
+          rTestUser0, rTestUser1, rTestUser2, rTestUser3, rTestUser4, rTestUser5,
           rAdminUser, rSystemsSvc, rAppsSvcTestUser1, rFilesSvcAsFiles,
           rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rFilesSvcTestUser5, rJobsSvcTestUser1;
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
-  int numSystems = 30; // UNUSED SYSTEMS: systems[3]
+  int numSystems = 33; // UNUSED SYSTEMS: None
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
@@ -107,9 +109,17 @@ public class SystemsServiceTest
 
     // Initialize users and service
     rAdminUser = new ResourceRequestUser(new AuthenticatedUser(adminUser, tenantName, TapisThreadContext.AccountType.user.name(),
-                                                    null, adminUser, tenantName, null, null, null));
+                                                               null, adminUser, tenantName, null, null, null));
     rOwner1 = new ResourceRequestUser(new AuthenticatedUser(owner1, tenantName, TapisThreadContext.AccountType.user.name(),
-                                                null, owner1, tenantName, null, null, null));
+                                                            null, owner1, tenantName, null, null, null));
+    rOwner3 = new ResourceRequestUser(new AuthenticatedUser(owner3, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                            null, owner3, tenantName, null, null, null));
+    rOwner4 = new ResourceRequestUser(new AuthenticatedUser(owner4, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                            null, owner4, tenantName, null, null, null));
+    rOwner5 = new ResourceRequestUser(new AuthenticatedUser(owner5, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                            null, owner5, tenantName, null, null, null));
+    rOwner6 = new ResourceRequestUser(new AuthenticatedUser(owner6, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                            null, owner6, tenantName, null, null, null));
     rTestUser0 = new ResourceRequestUser(new AuthenticatedUser(testUser0, tenantName, TapisThreadContext.AccountType.user.name(),
                                                    null, testUser0, tenantName, null, null, null));
     rTestUser1 = new ResourceRequestUser(new AuthenticatedUser(testUser1, tenantName, TapisThreadContext.AccountType.user.name(),
@@ -461,19 +471,9 @@ public class SystemsServiceTest
     TSystem tmpSys = svc.getSystem(rTestUser2, sys0.getId(), null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse);
     Assert.assertEquals(tmpSys.getOwner(), newOwnerName);
     // Check expected auxiliary updates have happened
-    // New owner should be able to retrieve permissions and have all permissions
+    // New owner should be able to retrieve permissions
     Set<Permission> userPerms = svc.getUserPermissions(rTestUser2, sys0.getId(), newOwnerName);
     Assert.assertNotNull(userPerms, "Null returned when retrieving perms.");
-    for (Permission perm : Permission.values())
-    {
-      Assert.assertTrue(userPerms.contains(perm));
-    }
-    // Original owner should no longer have the modify or execute permission
-    userPerms = svc.getUserPermissions(rTestUser2, sys0.getId(), owner1);
-    Assert.assertFalse(userPerms.contains(Permission.READ));
-    Assert.assertFalse(userPerms.contains(Permission.MODIFY));
-    Assert.assertFalse(userPerms.contains(Permission.EXECUTE));
-    Assert.assertTrue(userPerms.isEmpty());
     // Original owner should not be able to modify system
     try {
       svc.deleteSystem(rOwner1, sys0.getId());
@@ -546,12 +546,59 @@ public class SystemsServiceTest
     TSystem sys0 = systems[4];
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     List<TSystem> systems = svc.getSystems(rOwner1, searchListNull, limitNone, orderByListNull, skipZero,
-                                           startAferEmpty, resolveEffUserFalse, showDeletedFalse);
+                                           startAferEmpty, resolveEffUserFalse, showDeletedFalse, listTypeNull);
     Assert.assertNotNull(systems, "getSystems returned null");
     Assert.assertFalse(systems.isEmpty(), "getSystems returned empty list");
     for (TSystem system : systems) {
       System.out.println("Found item with id: " + system.getId() + " and name: " + system.getId());
     }
+  }
+
+  // Test getSystems using listType parameter
+  @Test
+  public void testGetSystemsByListType() throws Exception
+  {
+    var sharedIDs = new HashSet<String>();
+    // Create 4 systems.
+    // One owned by owner3
+    // One owned by owner4 with READ permission granted to owner3
+    // One owned by owner5 and shared with owner3
+    // One owned by owner6 and shared publicly
+    TSystem sys0;
+    sys0 = systems[3]; sys0.setOwner(owner3); svc.createSystem(rOwner3, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+    sys0 = systems[30]; sys0.setOwner(owner4); svc.createSystem(rOwner4, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+    sys0 = systems[31]; sys0.setOwner(owner5); svc.createSystem(rOwner5, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+    sharedIDs.add(sys0.getId());
+    sys0 = systems[32]; sys0.setOwner(owner6); svc.createSystem(rOwner6, sys0, skipCredCheckTrue, rawDataEmtpyJson);
+
+    // owner4 grants READ permission to owner3
+    svc.grantUserPermissions(rOwner4, systems[30].getId(), owner3, testPermsREAD, rawDataEmtpyJson);
+    // owner5 shares with owner3
+    String rawDataShare = "{\"users\": [\"" + owner3 + "\"]}";
+    SystemShare systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
+    svc.shareSystem(rOwner5, systems[31].getId(), systemShare);
+    // owner6 makes system public
+    svc.shareSystemPublicly(rOwner6, systems[32].getId());
+
+    List<TSystem> systems;
+    // OWNED - should return 1
+    systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
+                             resolveEffUserFalse, showDeletedFalse, listTypeOwned.name());
+    Assert.assertNotNull(systems, "Returned list of systems should not be null");
+    System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeOwned);
+    Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypeOwned);
+    // PUBLIC - should return 1
+    systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
+                             resolveEffUserFalse, showDeletedFalse, listTypePublic.name());
+    Assert.assertNotNull(systems, "Returned list of systems should not be null");
+    System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypePublic);
+    Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypePublic);
+    // ALL - should return 4
+    systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
+                             resolveEffUserFalse, showDeletedFalse, listTypeAll.name());
+    Assert.assertNotNull(systems, "Returned list of systems should not be null");
+    System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeAll);
+    Assert.assertEquals(systems.size(), 4, "Wrong number of returned systems for listType=" + listTypeAll);
   }
 
   // Check that user only sees systems they are authorized to see.
@@ -572,7 +619,7 @@ public class SystemsServiceTest
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmtpyJson);
     // When retrieving systems as testUser4 only 2 should be returned
     List<TSystem> systems = svc.getSystems(rTestUser4, searchListNull, limitNone, orderByListNull, skipZero,
-                                           startAferEmpty, resolveEffUserFalse, showDeletedFalse);
+                                           startAferEmpty, resolveEffUserFalse, showDeletedFalse, listTypeNull);
     Assert.assertNotNull(systems, "getSystems returned null");
     Assert.assertFalse(systems.isEmpty(), "getSystems returned empty list");
     System.out.println("Total number of systems retrieved by testuser4: " + systems.size());
@@ -585,7 +632,7 @@ public class SystemsServiceTest
 
     // When retrieving systems as a service with oboUser = testuser4 only 2 should be returned.
     systems = svc.getSystems(rFilesSvcTestUser4, searchListNull, limitNone, orderByListNull, skipZero,
-                             startAferEmpty, resolveEffUserFalse, showDeletedFalse);
+                             startAferEmpty, resolveEffUserFalse, showDeletedFalse, listTypeNull);
     System.out.println("Total number of systems retrieved by Files svc calling with oboUser=testuser4: " + systems.size());
     Assert.assertNotNull(systems, "getSystems returned null");
     Assert.assertFalse(systems.isEmpty(), "getSystems returned empty list");

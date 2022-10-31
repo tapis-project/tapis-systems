@@ -15,6 +15,7 @@ import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
+import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
 import org.jooq.tools.StringUtils;
 import org.testng.Assert;
 
@@ -49,6 +50,11 @@ public final class IntegrationUtils
   //       Although it should not be a problem because credentials are stored for each system it is best to be safe.
   public static final String owner1 = "owner1";
   public static final String owner2 = "owner2";
+  public static final String owner3 = "owner3";
+  public static final String owner4 = "owner4";
+  public static final String owner5 = "owner5";
+  public static final String owner6 = "owner6";
+  public static final String owner7 = "owner7";
   public static final String ownerNull = null;
   public static final String loginUser1 = "loginUser1";
   public static final String testUser0 = "testuser0";
@@ -230,6 +236,8 @@ public final class IntegrationUtils
   public static final int qMaxMemoryMB = -1;
   public static final int qMaxMinutes = -1;
 
+  public static final String listTypeNull = null;
+
   public static final List<OrderBy> orderByListNull = null;
   public static final List<OrderBy> orderByListAsc = Collections.singletonList(OrderBy.fromString("id(asc)"));
   public static final List<OrderBy> orderByListDesc = Collections.singletonList(OrderBy.fromString("id(desc)"));
@@ -266,6 +274,9 @@ public final class IntegrationUtils
   public static final List<String> orderByDirEmptyList = Arrays.asList("");
   public static final int skipZero = 0;
   public static final String startAferEmpty = "";
+  public static final SystemsServiceImpl.AuthListType listTypeOwned = SystemsServiceImpl.AuthListType.OWNED;
+  public static final SystemsServiceImpl.AuthListType listTypeAll = SystemsServiceImpl.AuthListType.ALL;
+  public static final SystemsServiceImpl.AuthListType listTypePublic = SystemsServiceImpl.AuthListType.SHARED_PUBLIC;
 
   /**
    * Create first DTN System
@@ -295,7 +306,7 @@ public final class IntegrationUtils
   {
     String dtnSystemName2 = sysNamePrefix+key+dtnSystemId2;
 
-    // Create DTN systems for other systems to reference. Otherwise some system definitions are not valid.
+    // Create DTN systems for other systems to reference. Otherwise, some system definitions are not valid.
     return new TSystem(-1, tenantName, dtnSystemName2, "DTN System2 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn2", prot2.getAuthnMethod(), "bucketDtn2", "/root/dtn2",
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
@@ -320,7 +331,7 @@ public final class IntegrationUtils
     String dtnSystemName1 = sysNamePrefix+key+dtnSystemId1;
     String dtnSystemName2 = sysNamePrefix+key+dtnSystemId2;
 
-    // Create DTN systems for other systems to reference. Otherwise some system definitions are not valid.
+    // Create DTN systems for other systems to reference. Otherwise, some system definitions are not valid.
     dtnSystem1 = new TSystem(-1, tenantName, dtnSystemName1 , "DTN System1 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn1", prot1.getAuthnMethod(), "bucketDtn1", "/root/dtn1",
             prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),

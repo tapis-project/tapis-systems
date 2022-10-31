@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
-
+import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
@@ -69,7 +69,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERI
 /*
  * Service level methods for Systems.
  *   Uses Dao layer and other service library classes to perform all top level service operations.
- * Annotate as an hk2 Service so that default scope for DI is singleton
+ * Annotate as an hk2 Service so that default scope for Dependency Injection is singleton
  */
 @Service
 public class SystemsServiceImpl implements SystemsService
@@ -85,8 +85,6 @@ public class SystemsServiceImpl implements SystemsService
   public static final String PERM_SPEC_TEMPLATE = "system:%s:%s:%s";
   private static final String PERM_SPEC_PREFIX = "system";
   
-  private static final String SYS_SHR_TYPE = "system";
-
   private static final Set<Permission> ALL_PERMS = new HashSet<>(Set.of(Permission.READ, Permission.MODIFY, Permission.EXECUTE));
   private static final Set<Permission> READMODIFY_PERMS = new HashSet<>(Set.of(Permission.READ, Permission.MODIFY));
 
@@ -119,10 +117,14 @@ public class SystemsServiceImpl implements SystemsService
   private static final String OP_SHARE = "share";
   private static final String OP_UNSHARE = "unShare";
   private static final Set<String> publicUserSet = Collections.singleton(SKClient.PUBLIC_GRANTEE); // "~public"
+  private static final String SYS_SHR_TYPE = "system";
+
 
   // ************************************************************************
   // *********************** Enums ******************************************
   // ************************************************************************
+  public enum AuthListType  {OWNED, SHARED_PUBLIC, ALL}
+  public static final AuthListType DEFAULT_LIST_TYPE = AuthListType.OWNED;
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -139,8 +141,8 @@ public class SystemsServiceImpl implements SystemsService
   // We must be running on a specific site and this will never change
   // These are initialized in method initService()
   private static String siteId;
-  public static String getSiteId() {return siteId;}
   private static String siteAdminTenantId;
+  public static String getSiteId() {return siteId;}
   public static String getServiceTenantId() {return siteAdminTenantId;}
   public static String getServiceUserId() {return SERVICE_NAME;}
 
@@ -268,7 +270,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // ----------------- Create all artifacts --------------------
     // Creation of system, perms and creds not in single DB transaction.
-    // Use try/catch to rollback any writes in case of failure.
+    // Use try/catch to roll back any writes in case of failure.
     boolean itemCreated = false;
     String systemsPermSpecALL = getPermSpecAllStr(tenant, systemId);
     // Consider using a notification instead (jira cic-3071)
@@ -283,8 +285,6 @@ public class SystemsServiceImpl implements SystemsService
       itemCreated = dao.createSystem(rUser, system, changeDescription, rawData);
 
       // ------------------- Add permissions -----------------------------
-      // Give owner full access to the system
-      getSKClient().grantUserPermission(tenant, system.getOwner(), systemsPermSpecALL);
       // Consider using a notification instead (jira cic-3071)
       // Give owner files service related permission for root directory
       getSKClient().grantUserPermission(tenant, system.getOwner(), filesPermSpec);
@@ -311,8 +311,6 @@ public class SystemsServiceImpl implements SystemsService
       if (itemCreated) try {dao.hardDeleteSystem(tenant, systemId); }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "hardDelete", e.getMessage()));}
       // Remove perms
-      try { getSKClient().revokeUserPermission(tenant, system.getOwner(), systemsPermSpecALL); }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermOwner", e.getMessage()));}
       // Consider using a notification instead (jira cic-3071)
       try { getSKClient().revokeUserPermission(tenant, system.getOwner(), filesPermSpec);  }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
@@ -615,12 +613,8 @@ public class SystemsServiceImpl implements SystemsService
     // ------------------------- Check authorization -------------------------
     checkAuthOwnerKnown(rUser, op, systemId, owner);
 
-    // Add permissions for owner
-    String systemsPermSpecALL = getPermSpecAllStr(oboTenant, systemId);
     // Consider using a notification instead (jira cic-3071)
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
-    // Give owner full access to the system
-    getSKClient().grantUserPermission(oboTenant, owner, systemsPermSpecALL);
     // Consider using a notification instead (jira cic-3071)
     // Give owner files service related permission for root directory
     getSKClient().grantUserPermission(oboTenant, owner, filesPermSpec);
@@ -633,7 +627,7 @@ public class SystemsServiceImpl implements SystemsService
    * Change owner of a system
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param newOwnerName - User name of new owner
+   * @param newOwnerName - Username of new owner
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
@@ -670,24 +664,23 @@ public class SystemsServiceImpl implements SystemsService
 
     // ----------------- Make all updates --------------------
     // Changes not in single DB transaction.
-    // Use try/catch to rollback any changes in case of failure.
+    // Use try/catch to roll back any changes in case of failure.
     // Get SK client now. If we cannot get this rollback not needed.
     // Note that we still need to call getSKClient each time because it refreshes the svc jwt as needed.
     getSKClient();
     String systemsPermSpec = getPermSpecAllStr(oboTenant, systemId);
     // Consider using a notification instead (jira cic-3071)
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
-    try {
+    try
+    {
       // ------------------- Make Dao call to update the system owner -----------------------------------
       dao.updateSystemOwner(rUser, systemId, oldOwnerName, newOwnerName);
-      // Add permissions for new owner
-      getSKClient().grantUserPermission(oboTenant, newOwnerName, systemsPermSpec);
       // Consider using a notification instead (jira cic-3071)
-      // Give owner files service related permission for root directory
+      // Give new owner files service related permission for root directory
       getSKClient().grantUserPermission(oboTenant, newOwnerName, filesPermSpec);
+
       // Remove permissions from old owner
-      getSKClient().revokeUserPermission(oboTenant, oldOwnerName, systemsPermSpec);
-      // Consider using a notification instead (jira cic-3071)
+      getSKClient().revokeUserPermission(oboTenant, oldOwnerName, filesPermSpec);
 
       // Get a complete and succinct description of the update.
       String changeDescription = LibUtils.getChangeDescriptionUpdateOwner(systemId, oldOwnerName, newOwnerName);
@@ -700,11 +693,7 @@ public class SystemsServiceImpl implements SystemsService
       try { dao.updateSystemOwner(rUser, systemId, newOwnerName, oldOwnerName); } catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "updateOwner", e.getMessage()));}
       // Consider using a notification instead(jira cic-3071)
       try { getSKClient().revokeUserPermission(oboTenant, newOwnerName, filesPermSpec); }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermNewOwner", e.getMessage()));}
-      try { getSKClient().revokeUserPermission(oboTenant, newOwnerName, filesPermSpec); }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
-      try { getSKClient().grantUserPermission(oboTenant, oldOwnerName, systemsPermSpec); }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPermOldOwner", e.getMessage()));}
       try { getSKClient().grantUserPermission(oboTenant, oldOwnerName, filesPermSpec); }
       catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPermF1", e.getMessage()));}
       throw e0;
@@ -931,21 +920,38 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Get count of all systems matching certain criteria and for which user has READ permission
+   * Get count of all systems matching certain criteria.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param searchList - optional list of conditions used for searching
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param startAfter - where to start when sorting, e.g. orderBy=id(asc)&startAfter=101 (may not be used with skip)
-   * @param showDeleted - whether to included resources that have been marked as deleted.
+   * @param includeDeleted - whether to included resources that have been marked as deleted.
+   * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return Count of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public int getSystemsTotalCount(ResourceRequestUser rUser, List<String> searchList,
-                                  List<OrderBy> orderByList, String startAfter, boolean showDeleted)
+  public int getSystemsTotalCount(ResourceRequestUser rUser, List<String> searchList, List<OrderBy> orderByList,
+                               String startAfter, boolean includeDeleted, String listType)
           throws TapisException, TapisClientException
   {
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+
+    // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
+    // If no listType provided use the default
+    if (StringUtils.isBlank(listType)) listType = DEFAULT_LIST_TYPE.name();
+    // Validate the listType enum.
+    if (!EnumUtils.isValidEnum(AuthListType.class, listType))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_LISTTYPE_ERROR", rUser, listType);
+      _log.error(msg);
+      throw new IllegalArgumentException(msg);
+    }
+    AuthListType listTypeEnum = AuthListType.valueOf(listType);
+
+    // Set some flags for convenience and clarity
+    boolean allItems = AuthListType.ALL.equals(listTypeEnum);
+    boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listTypeEnum);
 
     // Build verified list of search conditions
     var verifiedSearchList = new ArrayList<String>();
@@ -968,20 +974,22 @@ public class SystemsServiceImpl implements SystemsService
       }
     }
 
-    // Get list of IDs of systems for which requester has view permission.
-    // This is either all systems (null) or a list of IDs.
-    Set<String> allowedSysIDs = getAllowedSysIDs(rUser);
+    // If needed, get IDs for items for which requester has READ or MODIFY permission
+    Set<String> viewableIDs = new HashSet<>();
+    if (allItems) viewableIDs = getViewableSystemIDs(rUser);
 
-    // If none are allowed we know count is 0
-    if (allowedSysIDs != null && allowedSysIDs.isEmpty()) return 0;
+    // If needed, get IDs for items shared with the requester or only shared publicly.
+    Set<String> sharedIDs = new HashSet<>();
+    if (allItems) sharedIDs = getSharedSystemIDs(rUser, false);
+    else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, true);
 
     // Count all allowed systems matching the search conditions
-    return dao.getSystemsCount(rUser.getOboTenantId(), verifiedSearchList, null, allowedSysIDs, orderByList, startAfter,
-                               showDeleted);
+    return dao.getSystemsCount(rUser, verifiedSearchList, null, orderByList, startAfter, includeDeleted,
+                               listTypeEnum, viewableIDs, sharedIDs);
   }
 
   /**
-   * Get all systems matching certain criteria and for which user has READ permission
+   * Get all systems matching certain criteria
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param searchList - optional list of conditions used for searching
    * @param limit - indicates maximum number of results to be included, -1 for unlimited
@@ -990,17 +998,34 @@ public class SystemsServiceImpl implements SystemsService
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
    *                         provided in system definition.
-   * @param showDeleted - whether to included resources that have been marked as deleted.
+   * @param includeDeleted - whether to included resources that have been marked as deleted.
+   * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList,
                                   int limit, List<OrderBy> orderByList, int skip, String startAfter,
-                                  boolean resolveEffUser, boolean showDeleted)
+                                  boolean resolveEffUser, boolean includeDeleted, String listType)
           throws TapisException, TapisClientException
   {
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+
+    // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
+    // If no listType provided use the default
+    if (StringUtils.isBlank(listType)) listType = DEFAULT_LIST_TYPE.name();
+    // Validate the listType enum.
+    if (!EnumUtils.isValidEnum(AuthListType.class, listType))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_LISTTYPE_ERROR", rUser, listType);
+      _log.error(msg);
+      throw new IllegalArgumentException(msg);
+    }
+    AuthListType listTypeEnum = AuthListType.valueOf(listType);
+
+    // Set some flags for convenience and clarity
+    boolean allItems = AuthListType.ALL.equals(listTypeEnum);
+    boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listTypeEnum);
 
     // Build verified list of search conditions
     var verifiedSearchList = new ArrayList<String>();
@@ -1023,13 +1048,78 @@ public class SystemsServiceImpl implements SystemsService
       }
     }
 
-    // Get list of IDs of systems for which requester has READ permission.
-    // This is either all systems (null) or a list of IDs.
-    Set<String> allowedSysIDs = getAllowedSysIDs(rUser);
+    // If needed, get IDs for items for which requester has READ or MODIFY permission
+    Set<String> viewableIDs = new HashSet<>();
+    if (allItems) viewableIDs = getViewableSystemIDs(rUser);
+
+    // If needed, get IDs for items shared with the requester or only shared publicly.
+    Set<String> sharedIDs = new HashSet<>();
+    if (allItems) sharedIDs = getSharedSystemIDs(rUser, false);
+    else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, true);
+
+//    // Get list of IDs of systems for which requester has READ permission.
+//    // This is either all systems (null) or a list of IDs.
+//// TODO    Set<String> allowedSysIDs = getAllowedSysIDs(rUser);
+//    Set<String> allowedSysIDs = null;
 
     // Get all allowed systems matching the search conditions
-    List<TSystem> systems = dao.getSystems(rUser.getOboTenantId(), verifiedSearchList, null, allowedSysIDs,
-                                            limit, orderByList, skip, startAfter, showDeleted);
+    List<TSystem> systems = dao.getSystems(rUser, verifiedSearchList, null,  limit, orderByList, skip, startAfter,
+                                           includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
+
+// TODO REVISIT
+//    // TODO REMOVE TEMP CODE TO RESTORE READ IN DEV
+//    //    CURRENTLY read in dev is wiped out when running local.
+//    //  HOW to deal with this? Once latest systems is in DEV should be OK. Latest systems - owner always allowed.
+//    String[] sys_ids = {
+//            "KDevSystem2",
+//            "smruti2-tapisv3-exec-new",
+//            "smruti1-tapisv3-exec-new",
+//            "smruti-tapisv3-exec-new",
+//            "public-tapisv3-exec-new",
+//            "tapis-day-vm-testuser2",
+//            "nathandf.test.ls6.shade",
+//            "test-exec1",
+//            "KDevSystem1a",
+//            "KDevTestS3Demo2",
+//            "KDevTestS3Demo",
+//            "KDevTestS3Bug",
+//            "testuser2.workflows",
+//            "KDevTestS3",
+//            "training1_tutorial_vm2",
+//            "testuser2165100616174539543916510061762826921921651006187596822145c",
+//            "testuser2165100616174539543916510061762826921921651006187596822145",
+//            "training1_tutorial_vm",
+//            "KDevSystem1",
+//            "tapisv3-storage",
+//            "tapisv3-storage-dev",
+//            "tapisv3-storage-apiuser",
+//            "tapisv3-file-txfr2",
+//            "tapisv3-file-txfr1",
+//            "tapisv3-file-perms",
+//            "tapisv3-exec4",
+//            "tapisv3-exec3",
+//            "tapisv3-exec2",
+//            "tapisv3-exec2-slurm",
+//            "tapisv3-exec2-slurm-jack",
+//            "tapisv3-exec2-jack",
+//            "tapisv3-exec2-demo",
+//            "tapisv3-exec2-demo-test",
+//            "tapisv3-exec2-demo-final",
+//            "tapisv3-exec",
+//            "tapisv3-exec-jack",
+//            "tapis-demo",
+//            "irods-tapisv3-exec2",
+//            "e2e-irods-test3",
+//            "e2e-irods-test2",
+//            "e2e-irods-test"
+//    };
+//
+//    for (String s : sys_ids)
+//    {
+//      getSKClient().grantUserPermission(rUser.getOboTenantId(), rUser.getOboUserId(),
+//                                        getPermSpecAllStr(rUser.getOboTenantId(), s));
+//    }
+//    // TODO REMOVE TEMP CODE TO RESTORE READ IN DEV
 
     if (resolveEffUser)
     {
@@ -1042,7 +1132,7 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Get all systems for which user has READ permission.
+   * Get all systems
    * Use provided string containing a valid SQL where clause for the search.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param sqlSearchStr - string containing a valid SQL where clause
@@ -1052,21 +1142,37 @@ public class SystemsServiceImpl implements SystemsService
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
    *                         provided in system definition.
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param includeDeleted - whether to included resources that have been marked as deleted.
+   * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser,
-                                                   String sqlSearchStr, int limit, List<OrderBy> orderByList, int skip,
-                                                   String startAfter, boolean resolveEffUser, boolean showDeleted)
+  public List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser, String sqlSearchStr, int limit,
+                                                   List<OrderBy> orderByList, int skip, String startAfter,
+                                                   boolean resolveEffUser, boolean includeDeleted, String listType)
           throws TapisException, TapisClientException
   {
     // If search string is empty delegate to getSystems()
     if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip,
-                                                             startAfter, resolveEffUser, showDeleted);
-
+                                                             startAfter, resolveEffUser, includeDeleted, listType);
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+
+    // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
+    // If no listType provided use the default
+    if (StringUtils.isBlank(listType)) listType = DEFAULT_LIST_TYPE.name();
+    // Validate the listType enum.
+    if (!EnumUtils.isValidEnum(AuthListType.class, listType))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_LISTTYPE_ERROR", rUser, listType);
+      _log.error(msg);
+      throw new IllegalArgumentException(msg);
+    }
+    AuthListType listTypeEnum = AuthListType.valueOf(listType);
+
+    // Set some flags for convenience and clarity
+    boolean allItems = AuthListType.ALL.equals(listTypeEnum);
+    boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listTypeEnum);
 
     // Validate and parse the sql string into an abstract syntax tree (AST)
     // NOTE: The activemq parser validates and parses the string into an AST but there does not appear to be a way
@@ -1087,14 +1193,18 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalArgumentException(msg);
     }
 
-    // Get list of IDs of systems for which requester has READ permission.
-    // This is either all systems (null) or a list of IDs.
-    Set<String> allowedSysIDs = getAllowedSysIDs(rUser);
+    // If needed, get IDs for items for which requester has READ or MODIFY permission
+    Set<String> viewableIDs = new HashSet<>();
+    if (allItems) viewableIDs = getViewableSystemIDs(rUser);
+
+    // If needed, get IDs for items shared with the requester or only shared publicly.
+    Set<String> sharedIDs = new HashSet<>();
+    if (allItems) sharedIDs = getSharedSystemIDs(rUser, false);
+    else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, true);
 
     // Get all allowed systems matching the search conditions
-    List<TSystem> systems = dao.getSystems(rUser.getOboTenantId(), null, searchAST, allowedSysIDs,
-                                           limit, orderByList, skip, startAfter, showDeleted);
-
+    List<TSystem> systems = dao.getSystems(rUser, null, searchAST, limit, orderByList, skip, startAfter,
+                                           includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
     if (resolveEffUser)
     {
       for (TSystem system : systems)
@@ -1114,15 +1224,14 @@ public class SystemsServiceImpl implements SystemsService
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser,
-                                                       String matchStr)
+  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr)
           throws TapisException, TapisClientException
   {
     if (rUser == null)  throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
     // Get list of IDs of systems for which requester has READ permission.
     // This is either all systems (null) or a list of IDs.
-    Set<String> allowedSysIDs = getAllowedSysIDs(rUser);
+    Set<String> allowedSysIDs = getViewableSystemIDs(rUser);
 
     // Validate and parse the sql string into an abstract syntax tree (AST)
     ASTNode matchAST;
@@ -2386,19 +2495,15 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Determine all systems that a user is allowed to see.
-   * If all systems return null else return list of system IDs
-   * An empty list indicates no systems allowed.
+   * Determine all systems for which the user has READ or MODIFY permission.
    */
-  private Set<String> getAllowedSysIDs(ResourceRequestUser rUser) throws TapisException, TapisClientException
+  private Set<String> getViewableSystemIDs(ResourceRequestUser rUser) throws TapisException, TapisClientException
   {
-    // If requester is a service calling as itself or an admin then all systems allowed
-    if ((rUser.isServiceRequest() && rUser.getJwtUserId().equals(rUser.getOboUserId())) || hasAdminRole(rUser))
-    {
-      return null;
-    }
-    var sysIDs = new HashSet<String>();
-    var userPerms = getSKClient().getUserPerms(rUser.getOboTenantId(), rUser.getOboUserId());
+    var systemIDs = new HashSet<String>();
+    // Use implies to filter permissions returned. Without implies all permissions for apps, etc are returned.
+    String impliedBy = null; // 2420 returned
+    String implies = String.format("system:%s:*:*", rUser.getOboTenantId()); // 75 returned TODO winner?
+    var userPerms = getSKClient().getUserPerms(rUser.getOboTenantId(), rUser.getOboUserId(), implies, impliedBy);
     // Check each perm to see if it allows user READ access.
     for (String userPerm : userPerms)
     {
@@ -2408,14 +2513,57 @@ public class SystemsServiceImpl implements SystemsService
       String[] permFields = COLON_SPLIT.split(userPerm);
       if (permFields.length < 4) continue;
       if (permFields[0].equals(PERM_SPEC_PREFIX) &&
-           (permFields[2].contains(Permission.READ.name()) ||
-            permFields[2].contains(Permission.MODIFY.name()) ||
-            permFields[2].contains(TSystem.PERMISSION_WILDCARD)))
+          (permFields[2].contains(Permission.READ.name()) ||
+           permFields[2].contains(Permission.MODIFY.name()) ||
+           permFields[2].contains(TSystem.PERMISSION_WILDCARD)))
       {
-        sysIDs.add(permFields[3]);
+        // If system exists add ID to the list
+        // else resource no longer exists or has been deleted so remove orphaned permissions
+        if (dao.checkForSystem(rUser.getOboTenantId(), permFields[3], false))
+        {
+          systemIDs.add(permFields[3]);
+        }
+        else
+        {
+          // TODO remove or turn into a real log message
+//          _log.warn("Found orphaned permission for system: " + permFields[3]);
+// TODO          removeOrphanedSKPerms(permFields[3], rUser.getOboTenantId());
+        }
       }
     }
-    return sysIDs;
+    return systemIDs;
+  }
+
+  /**
+   * Determine all systems that are shared with a user.
+   */
+  private Set<String> getSharedSystemIDs(ResourceRequestUser rUser, boolean publicOnly)
+          throws TapisException, TapisClientException
+  {
+    var systemIDs = new HashSet<String>();
+    // Extract various names for convenience
+    String oboTenantId = rUser.getOboTenantId();
+    String oboUserId = rUser.getOboUserId();
+
+    // ------------------- Make a call to retrieve share info -----------------------
+    // Create SKShareGetSharesParms needed for SK calls.
+    var skParms = new SKShareGetSharesParms();
+    skParms.setResourceType(SYS_SHR_TYPE);
+    skParms.setTenant(oboTenantId);
+    // Set grantee based on whether we want just public or not.
+    if (publicOnly) skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
+    else skParms.setGrantee(oboUserId);
+
+    // Call SK to get all shared with oboUser and add them to the set
+    var skShares = getSKClient().getShares(skParms);
+    if (skShares != null && skShares.getShares() != null)
+    {
+      for (SkShare skShare : skShares.getShares())
+      {
+        systemIDs.add(skShare.getResourceId1());
+      }
+    }
+    return systemIDs;
   }
 
   /**
@@ -2615,6 +2763,25 @@ public class SystemsServiceImpl implements SystemsService
     if (!effectiveUserId.equals(APIUSERID_VAR)) {
       // Use private internal method instead of public API to skip auth and other checks not needed here.
       deleteCredential(rUser, system.getId(), resolvedEffectiveUserId, true);
+    }
+  }
+
+  /**
+   * Remove all SK permissions associated with given system ID, tenant. System does not need to exist.
+   * Used to clean up orphaned permissions.
+   */
+  private void removeOrphanedSKPerms(String sysId, String tenant)
+          throws TapisException, TapisClientException
+  {
+    // Use Security Kernel client to find all users with perms associated with the system.
+    String permSpec = String.format(PERM_SPEC_TEMPLATE, tenant, "%", sysId);
+    var userNames = getSKClient().getUsersWithPermission(tenant, permSpec);
+    // Revoke all perms for all users
+    for (String userName : userNames)
+    {
+      revokePermissions(tenant, sysId, userName, ALL_PERMS);
+      // Remove wildcard perm
+      getSKClient().revokeUserPermission(tenant, userName, getPermSpecAllStr(tenant, sysId));
     }
   }
 

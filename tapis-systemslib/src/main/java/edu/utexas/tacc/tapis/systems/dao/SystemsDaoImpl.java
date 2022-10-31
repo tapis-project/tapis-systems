@@ -29,43 +29,43 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisDBConnectionException;
-import edu.utexas.tacc.tapis.shareddb.datasource.TapisDataSource;
-import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
-import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
-import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
-import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
-
 import edu.utexas.tacc.tapis.search.parser.ASTBinaryExpression;
 import edu.utexas.tacc.tapis.search.parser.ASTLeaf;
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
 import edu.utexas.tacc.tapis.search.parser.ASTUnaryExpression;
+import edu.utexas.tacc.tapis.search.SearchUtils;
+import edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator;
+import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy.OrderByDir;
+import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisDBConnectionException;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
-
-import static edu.utexas.tacc.tapis.shared.threadlocal.OrderBy.DEFAULT_ORDERBY_DIRECTION;
-
+import edu.utexas.tacc.tapis.shareddb.datasource.TapisDataSource;
+import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedulerProfilesRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemUpdatesRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsRecord;
-import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.*;
-import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.SYSTEMS;
-
-import edu.utexas.tacc.tapis.search.SearchUtils;
-import edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator;
-import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
+import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
+import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
+import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
+import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.AuthListType;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
+import static edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator.CONTAINS;
+import static edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator.NCONTAINS;
+import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.*;
+import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.SYSTEMS;
+import static edu.utexas.tacc.tapis.shared.threadlocal.OrderBy.DEFAULT_ORDERBY_DIRECTION;
+import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.DEFAULT_LIST_TYPE;
 
 /*
  * Class to handle persistence and queries for Tapis System objects.
@@ -694,7 +694,7 @@ public class SystemsDaoImpl implements SystemsDao
 
   /**
    * isEnabled - check if resource with specified Id is enabled
-   * @param sysId - app name
+   * @param sysId - system name
    * @return true if enabled else false
    * @throws TapisException - on error
    */
@@ -750,7 +750,8 @@ public class SystemsDaoImpl implements SystemsDao
    */
   @Override
   public TSystem getSystem(String tenantId, String id, boolean includeDeleted)
-          throws TapisException {
+          throws TapisException
+  {
     // Initialize result.
     TSystem result = null;
 
@@ -792,23 +793,35 @@ public class SystemsDaoImpl implements SystemsDao
    * Conditions in searchList must be processed by SearchUtils.validateAndExtractSearchCondition(cond)
    *   prior to this call for proper validation and treatment of special characters.
    * WARNING: If both searchList and searchAST provided only searchList is used.
-   * @param tenantId - tenant name
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param searchList - optional list of conditions used for searching
    * @param searchAST - AST containing search conditions
-   * @param setOfIDs - list of system IDs to consider. null indicates no restriction.
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param startAfter - where to start when sorting, e.g. orderBy=id(asc)&startAfter=101 (may not be used with skip)
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
-   * @return - count of TSystem objects
+   * @param includeDeleted - whether to included resources that have been marked as deleted.
+   * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param viewableIDs - list of IDs to include due to permission READ or MODIFY
+   * @param sharedIDs - list of IDs shared with the requester or only shared publicly.
+   * @return - count of items
    * @throws TapisException - on error
    */
   @Override
-  public int getSystemsCount(String tenantId, List<String> searchList, ASTNode searchAST, Set<String> setOfIDs,
-                             List<OrderBy> orderByList, String startAfter, boolean showDeleted)
+  public int getSystemsCount(ResourceRequestUser rUser, List<String> searchList, ASTNode searchAST,
+                             List<OrderBy> orderByList, String startAfter, boolean includeDeleted,
+                             AuthListType listType, Set<String> viewableIDs, Set<String> sharedIDs)
           throws TapisException
   {
-    // If no IDs in list then we are done.
-    if (setOfIDs != null && setOfIDs.isEmpty()) return 0;
+    // For convenience
+    String oboTenant = rUser.getOboTenantId();
+    String oboUser = rUser.getOboUserId();
+    boolean allItems = AuthListType.ALL.equals(listType);
+    boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listType);
+
+    // If only looking for public items and there are none in the list we are done.
+    if (publicOnly && (sharedIDs == null || sharedIDs.isEmpty())) return 0;
+
+    // Ensure we have a valid listType
+    if (listType == null) listType = DEFAULT_LIST_TYPE;
 
     // Ensure we have a non-null orderByList
     List<OrderBy> tmpOrderByList = new ArrayList<>();
@@ -834,7 +847,7 @@ public class SystemsDaoImpl implements SystemsDao
 
     // Validate orderBy columns
     // If orderBy column not found then it is an error
-    // For count we do not need the actual column so we just check that the column exists.
+    // For count we do not need the actual column, so we just check that the column exists.
     //   Down below in getSystems() we need the actual column
     for (OrderBy orderBy : tmpOrderByList)
     {
@@ -847,9 +860,14 @@ public class SystemsDaoImpl implements SystemsDao
     }
 
     // Begin where condition for the query
+    // Start with either tenant = <tenant> or
+    //                   tenant = <tenant> and deleted = false
     Condition whereCondition;
-    if (showDeleted) whereCondition = SYSTEMS.TENANT.eq(tenantId);
-    else whereCondition = (SYSTEMS.TENANT.eq(tenantId)).and(SYSTEMS.DELETED.eq(false));
+    if (includeDeleted) whereCondition = SYSTEMS.TENANT.eq(oboTenant);
+    else whereCondition = (SYSTEMS.TENANT.eq(oboTenant)).and(SYSTEMS.DELETED.eq(false));
+
+    // If only selecting items owned by requester we add the condition now.
+    if (AuthListType.OWNED.equals(listType)) whereCondition = whereCondition.and(SYSTEMS.OWNER.eq(oboUser));
 
     // Add searchList or searchAST to where condition
     if (searchList != null)
@@ -865,15 +883,20 @@ public class SystemsDaoImpl implements SystemsDao
     // Add startAfter.
     if (!StringUtils.isBlank(startAfter))
     {
-      // Build search string so we can re-use code for checking and adding a condition
+      // Build search string, so we can re-use code for checking and adding a condition
       String searchStr;
       if (sortAsc) searchStr = majorOrderByStr + ".gt." + startAfter;
       else searchStr = majorOrderByStr + ".lt." + startAfter;
       whereCondition = addSearchCondStrToWhere(whereCondition, searchStr, "AND");
     }
 
-    // Add IN condition for list of IDs
-    if (setOfIDs != null && !setOfIDs.isEmpty()) whereCondition = whereCondition.and(SYSTEMS.ID.in(setOfIDs));
+    // If selecting allItems or publicOnly, add IN condition
+    var setOfIDs = new HashSet<String>();
+    if (allItems && viewableIDs != null) setOfIDs.addAll(viewableIDs);
+    if (allItems && sharedIDs != null) setOfIDs.addAll(sharedIDs);
+    if (publicOnly && sharedIDs != null) setOfIDs.addAll(sharedIDs);
+
+    if (!setOfIDs.isEmpty()) whereCondition = whereCondition.and(SYSTEMS.ID.in(setOfIDs));
 
     // ------------------------- Build and execute SQL ----------------------------
     int count = 0;
@@ -886,7 +909,7 @@ public class SystemsDaoImpl implements SystemsDao
 
       // Execute the select including startAfter
       // NOTE: This is much simpler than the same section in getSystems() because we are not ordering since
-      //       we only want the count and we are not limiting (we want a count of all records).
+      //       we only want the count, and we are not limiting (we want a count of all records).
       Integer countInt = db.selectCount().from(SYSTEMS).where(whereCondition).fetchOne(0,Integer.class);
       count = (countInt == null) ? 0 : countInt;
 
@@ -907,77 +930,47 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   /**
-   * getSystemIDs
-   * Fetch all system IDs in a tenant
-   * @param tenant - tenant name
-   * @param showDeleted - whether to included systems that have been marked as deleted.
-   * @return - List of app names
-   * @throws TapisException - on error
-   */
-  @Override
-  public Set<String> getSystemIDs(String tenant, boolean showDeleted) throws TapisException
-  {
-    // The result list is always non-null.
-    var idList = new HashSet<String>();
-
-    Condition whereCondition;
-    if (showDeleted) whereCondition = SYSTEMS.TENANT.eq(tenant);
-    else whereCondition = (SYSTEMS.TENANT.eq(tenant)).and(SYSTEMS.DELETED.eq(false));
-
-    Connection conn = null;
-    try
-    {
-      // Get a database connection.
-      conn = getConnection();
-      // ------------------------- Call SQL ----------------------------
-      // Use jOOQ to build query string
-      DSLContext db = DSL.using(conn);
-      Result<?> result = db.select(SYSTEMS.ID).from(SYSTEMS).where(whereCondition).fetch();
-      // Iterate over result
-      for (Record r : result) { idList.add(r.get(SYSTEMS.ID)); }
-    }
-    catch (Exception e)
-    {
-      // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_QUERY_ERROR", "apps", e.getMessage());
-    }
-    finally
-    {
-      // Always return the connection back to the connection pool.
-      LibUtils.finalCloseDB(conn);
-    }
-    return idList;
-  }
-
-  /**
    * getSystems
    * Retrieve all TSystems matching various search and sort criteria.
    *     Search conditions given as a list of strings or an abstract syntax tree (AST).
    * Conditions in searchList must be processed by SearchUtils.validateAndExtractSearchCondition(cond)
    *   prior to this call for proper validation and treatment of special characters.
    * WARNING: If both searchList and searchAST provided only searchList is used.
-   * @param tenantId - tenant name
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param searchList - optional list of conditions used for searching
    * @param searchAST - AST containing search conditions
-   * @param setOfIDs - list of system IDs to consider. null indicates no restriction.
    * @param limit - indicates maximum number of results to be included, -1 for unlimited
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
-   * @param showDeleted - whether to included resources that have been marked as deleted.
+   * @param includeDeleted - whether to included resources that have been marked as deleted.
+   * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param viewableIDs - list of IDs to include due to permission READ or MODIFY
+   * @param sharedIDs - list of IDs shared with the requester or only shared publicly.
    * @return - list of TSystem objects
    * @throws TapisException - on error
    */
   @Override
-  public List<TSystem> getSystems(String tenantId, List<String> searchList, ASTNode searchAST, Set<String> setOfIDs,
-                                  int limit, List<OrderBy> orderByList, int skip, String startAfter, boolean showDeleted)
+  public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, ASTNode searchAST, int limit,
+                                  List<OrderBy> orderByList, int skip, String startAfter, boolean includeDeleted,
+                                  AuthListType listType, Set<String> viewableIDs, Set<String> sharedIDs)
           throws TapisException
   {
     // The result list should always be non-null.
     List<TSystem> retList = new ArrayList<>();
 
-    // If no IDs in list then we are done.
-    if (setOfIDs != null && setOfIDs.isEmpty()) return retList;
+    // For convenience
+    String oboTenant = rUser.getOboTenantId();
+    String oboUser = rUser.getOboUserId();
+    boolean allItems = AuthListType.ALL.equals(listType);
+    boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listType);
+    boolean ownedOnly = AuthListType.OWNED.equals(listType);
+
+    // If only looking for public items and there are none in the list we are done.
+    if (publicOnly && (sharedIDs == null || sharedIDs.isEmpty())) return retList;
+
+    // Ensure we have a valid listType
+    if (listType == null) listType = DEFAULT_LIST_TYPE;
 
     // Ensure we have a non-null orderByList
     List<OrderBy> tmpOrderByList = new ArrayList<>();
@@ -1032,8 +1025,8 @@ public class SystemsDaoImpl implements SystemsDao
 
     // Begin where condition for the query
     Condition whereCondition;
-    if (showDeleted) whereCondition = SYSTEMS.TENANT.eq(tenantId);
-    else whereCondition = (SYSTEMS.TENANT.eq(tenantId)).and(SYSTEMS.DELETED.eq(false));
+    if (includeDeleted) whereCondition = SYSTEMS.TENANT.eq(oboTenant);
+    else whereCondition = (SYSTEMS.TENANT.eq(oboTenant)).and(SYSTEMS.DELETED.eq(false));
 
     // Add searchList or searchAST to where condition
     if (searchList != null)
@@ -1056,8 +1049,32 @@ public class SystemsDaoImpl implements SystemsDao
       whereCondition = addSearchCondStrToWhere(whereCondition, searchStr, "AND");
     }
 
-    // Add IN condition for list of IDs
-    if (setOfIDs != null && !setOfIDs.isEmpty()) whereCondition = whereCondition.and(SYSTEMS.ID.in(setOfIDs));
+    // Build and add the listType condition:
+    //  OWNED = single condition where owner = oboUser
+    //  PUBLIC = single condition where id in setOfIDs
+    //  ALL = where (owner = oboUser) OR (id in setOfIDs)
+    Condition listTypeCondition = null;
+    if (ownedOnly)
+    {
+      listTypeCondition = SYSTEMS.OWNER.eq(oboUser);
+    }
+    else if (publicOnly)
+    {
+      // NOTE: We check above for sharedIDs == null or is empty so no need to do it here
+      listTypeCondition = SYSTEMS.ID.in(sharedIDs);
+    }
+    else if (allItems)
+    {
+      listTypeCondition = SYSTEMS.OWNER.eq(oboUser);
+      var setOfIDs = new HashSet<String>();
+      if (sharedIDs != null && !sharedIDs.isEmpty()) setOfIDs.addAll(sharedIDs);
+      if (viewableIDs != null && !viewableIDs.isEmpty()) setOfIDs.addAll(viewableIDs);
+      if (!setOfIDs.isEmpty())
+      {
+        listTypeCondition = listTypeCondition.or(SYSTEMS.ID.in(setOfIDs));
+      }
+    }
+    whereCondition = whereCondition.and(listTypeCondition);
 
     // ------------------------- Build and execute SQL ----------------------------
     Connection conn = null;
@@ -1123,6 +1140,49 @@ public class SystemsDaoImpl implements SystemsDao
       LibUtils.finalCloseDB(conn);
     }
     return retList;
+  }
+
+  /**
+   * getSystemIDs
+   * Fetch all system IDs in a tenant
+   * @param tenant - tenant name
+   * @param includeDeleted - whether to included systems that have been marked as deleted.
+   * @return - List of system names
+   * @throws TapisException - on error
+   */
+  @Override
+  public Set<String> getSystemIDs(String tenant, boolean includeDeleted) throws TapisException
+  {
+    // The result list is always non-null.
+    var idList = new HashSet<String>();
+
+    Condition whereCondition;
+    if (includeDeleted) whereCondition = SYSTEMS.TENANT.eq(tenant);
+    else whereCondition = (SYSTEMS.TENANT.eq(tenant)).and(SYSTEMS.DELETED.eq(false));
+
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      // ------------------------- Call SQL ----------------------------
+      // Use jOOQ to build query string
+      DSLContext db = DSL.using(conn);
+      Result<?> result = db.select(SYSTEMS.ID).from(SYSTEMS).where(whereCondition).fetch();
+      // Iterate over result
+      for (Record r : result) { idList.add(r.get(SYSTEMS.ID)); }
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_QUERY_ERROR", "systems", e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return idList;
   }
 
   /**
@@ -2178,10 +2238,14 @@ public class SystemsDaoImpl implements SystemsDao
    */
   private static Condition createCondition(Field col, SearchOperator op, String val)
   {
+    SearchOperator op1 = op;
     List<String> valList = Collections.emptyList();
     if (SearchUtils.listOpSet.contains(op)) valList = SearchUtils.getValueList(val);
+    // If operator is IN or NIN and column type is array then handle it as CONTAINS or NCONTAINS
+    if ((col.getDataType().getSQLType() == Types.ARRAY) && SearchOperator.IN.equals(op)) op1 = CONTAINS;
+    if ((col.getDataType().getSQLType() == Types.ARRAY) && SearchOperator.NIN.equals(op)) op1 = NCONTAINS;
     Condition c = null;
-    switch (op) {
+    switch (op1) {
       case EQ -> c = col.eq(val);
       case NEQ -> c = col.ne(val);
       case LT -> c =  col.lt(val);
@@ -2192,7 +2256,8 @@ public class SystemsDaoImpl implements SystemsDao
       case NLIKE -> c = col.notLike(val);
       case IN -> c = col.in(valList);
       case NIN -> c = col.notIn(valList);
-      case CONTAINS -> c = textArrayOverlaps(col, valList.toArray());
+      case CONTAINS -> c = textArrayOverlaps(col, valList.toArray(), false);
+      case NCONTAINS -> c = textArrayOverlaps(col, valList.toArray(), true);
       case BETWEEN -> c = col.between(valList.get(0), valList.get(1));
       case NBETWEEN -> c = col.notBetween(valList.get(0), valList.get(1));
     }
@@ -2491,8 +2556,10 @@ public class SystemsDaoImpl implements SystemsDao
    * Given a column as a Field<T[]> and a java array create a jooq condition that
    * returns true if column contains any of the values in the array.
    */
-  private static <T> Condition textArrayOverlaps(Field<T[]> col, T[] array)
+  private static <T> Condition textArrayOverlaps(Field<T[]> col, T[] array, boolean negate)
   {
-    return DSL.condition("{0} && {1}::text[]", col, DSL.array(array));
+    Condition cond = DSL.condition("{0} && {1}::text[]", col, DSL.array(array));
+    if (negate) return cond.not();
+    else return cond;
   }
 }
