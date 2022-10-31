@@ -1202,10 +1202,6 @@ public class SystemsServiceImpl implements SystemsService
     if (allItems) sharedIDs = getSharedSystemIDs(rUser, false);
     else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, true);
 
-// TODO revisit    // Get list of IDs of systems for which requester has READ permission.
-//    // This is either all systems (null) or a list of IDs.
-//    Set<String> allowedSysIDs = getAllowedSysIDs(rUser);
-//
     // Get all allowed systems matching the search conditions
     List<TSystem> systems = dao.getSystems(rUser, null, searchAST, limit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
@@ -1235,7 +1231,6 @@ public class SystemsServiceImpl implements SystemsService
 
     // Get list of IDs of systems for which requester has READ permission.
     // This is either all systems (null) or a list of IDs.
-// TODO    Set<String> allowedSysIDs = getAllowedSysIDs(rUser);
     Set<String> allowedSysIDs = getViewableSystemIDs(rUser);
 
     // Validate and parse the sql string into an abstract syntax tree (AST)

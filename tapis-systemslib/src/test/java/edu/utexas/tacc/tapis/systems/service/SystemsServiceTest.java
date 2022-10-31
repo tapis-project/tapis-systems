@@ -558,8 +558,6 @@ public class SystemsServiceTest
   @Test
   public void testGetSystemsByListType() throws Exception
   {
-    var viewableIDs = new HashSet<String>();
-    var sharedPublicIDS = new HashSet<String>();
     var sharedIDs = new HashSet<String>();
     // Create 4 systems.
     // One owned by owner3
@@ -582,21 +580,20 @@ public class SystemsServiceTest
     // owner6 makes system public
     svc.shareSystemPublicly(rOwner6, systems[32].getId());
 
-
     List<TSystem> systems;
-    // OWNED
+    // OWNED - should return 1
     systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
                              resolveEffUserFalse, showDeletedFalse, listTypeOwned.name());
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeOwned);
     Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypeOwned);
-    // PUBLIC
+    // PUBLIC - should return 1
     systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
                              resolveEffUserFalse, showDeletedFalse, listTypePublic.name());
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypePublic);
     Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypePublic);
-    // ALL
+    // ALL - should return 4
     systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
                              resolveEffUserFalse, showDeletedFalse, listTypeAll.name());
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
