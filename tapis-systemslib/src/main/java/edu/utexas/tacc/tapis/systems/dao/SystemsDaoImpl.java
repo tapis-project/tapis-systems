@@ -59,6 +59,9 @@ import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.AuthListType;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+
+import static edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator.CONTAINS;
+import static edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator.NCONTAINS;
 import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.*;
 import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.SYSTEMS;
 import static edu.utexas.tacc.tapis.shared.threadlocal.OrderBy.DEFAULT_ORDERBY_DIRECTION;
@@ -2235,10 +2238,14 @@ public class SystemsDaoImpl implements SystemsDao
    */
   private static Condition createCondition(Field col, SearchOperator op, String val)
   {
+    SearchOperator op1 = op;
     List<String> valList = Collections.emptyList();
     if (SearchUtils.listOpSet.contains(op)) valList = SearchUtils.getValueList(val);
+    // If operator is IN or NIN and column type is array then handle it as CONTAINS or NCONTAINS
+    if ((col.getDataType().getSQLType() == Types.ARRAY) && SearchOperator.IN.equals(op)) op1 = CONTAINS;
+    if ((col.getDataType().getSQLType() == Types.ARRAY) && SearchOperator.NIN.equals(op)) op1 = NCONTAINS;
     Condition c = null;
-    switch (op) {
+    switch (op1) {
       case EQ -> c = col.eq(val);
       case NEQ -> c = col.ne(val);
       case LT -> c =  col.lt(val);
@@ -2249,7 +2256,8 @@ public class SystemsDaoImpl implements SystemsDao
       case NLIKE -> c = col.notLike(val);
       case IN -> c = col.in(valList);
       case NIN -> c = col.notIn(valList);
-      case CONTAINS -> c = textArrayOverlaps(col, valList.toArray());
+      case CONTAINS -> c = textArrayOverlaps(col, valList.toArray(), false);
+      case NCONTAINS -> c = textArrayOverlaps(col, valList.toArray(), true);
       case BETWEEN -> c = col.between(valList.get(0), valList.get(1));
       case NBETWEEN -> c = col.notBetween(valList.get(0), valList.get(1));
     }
@@ -2548,8 +2556,10 @@ public class SystemsDaoImpl implements SystemsDao
    * Given a column as a Field<T[]> and a java array create a jooq condition that
    * returns true if column contains any of the values in the array.
    */
-  private static <T> Condition textArrayOverlaps(Field<T[]> col, T[] array)
+  private static <T> Condition textArrayOverlaps(Field<T[]> col, T[] array, boolean negate)
   {
-    return DSL.condition("{0} && {1}::text[]", col, DSL.array(array));
+    Condition cond = DSL.condition("{0} && {1}::text[]", col, DSL.array(array));
+    if (negate) return cond.not();
+    else return cond;
   }
 }

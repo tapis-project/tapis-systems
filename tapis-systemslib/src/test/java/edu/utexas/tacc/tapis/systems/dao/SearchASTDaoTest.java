@@ -14,6 +14,7 @@ import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -140,6 +141,10 @@ public class SearchASTDaoTest
     TSystem sys0 = systems[0];
     String sys0Name = sys0.getId();
     String nameList = String.format("('noSuchName1','noSuchName2','%s','noSuchName3')", sys0Name);
+    String tagList1 = String.format("('%s')", tagVal1);
+    String tagList2 = String.format("('%s','%s')", tagVal1, tagVal2);
+    String tagList3 = String.format("('%s')", tagVal3Space);
+    String tagList4 = String.format("('%s')", tagValNotThere);
     // Create all input and validation data for tests
     // NOTE: Some cases require sysNameLikeAll in the list of conditions since maven runs the tests in
     //       parallel and not all attribute names are unique across integration tests
@@ -169,6 +174,12 @@ public class SearchASTDaoTest
     validCaseInputs.put(21,new CaseData(numSystems-1, sysNameLikeAll + " AND id NIN " + nameList));
     validCaseInputs.put(22,new CaseData(numSystems, sysNameLikeAll + " AND system_type = LINUX"));
     validCaseInputs.put(23,new CaseData(numSystems/2, sysNameLikeAll +  String.format(" AND system_type = LINUX AND owner <> '%s'",owner2)));
+    // Test Tapis3 specific CONTAINS operator used only for tags column
+    validCaseInputs.put(24, new CaseData(numSystems, String.format("%s AND tags IN %s", sysNameLikeAll, tagList1)));
+    validCaseInputs.put(25, new CaseData(numSystems, String.format("%s AND tags IN %s", sysNameLikeAll, tagList2)));
+    validCaseInputs.put(26, new CaseData(numSystems, String.format("%s AND tags IN %s", sysNameLikeAll, tagList3)));
+    validCaseInputs.put(27, new CaseData(0, String.format("%s AND tags NIN %s", sysNameLikeAll, tagList1)));
+    validCaseInputs.put(28, new CaseData(0, String.format("%s AND tags IN %s", sysNameLikeAll, tagList4)));
 
     // Check various special characters require modified handling in AST. Special chars in value: _:.
     validCaseInputs.put(30,new CaseData(1, sysNameLikeAll + String.format(" AND description = '%s'",specialChar3Str)));

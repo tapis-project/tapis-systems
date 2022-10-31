@@ -196,11 +196,12 @@ public class SearchDaoTest
     validCaseInputs.put(22, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "system_type.eq.LINUX")));
     validCaseInputs.put(23, new CaseData(numSystems / 2, Arrays.asList(sysIdLikeAll, "system_type.eq.LINUX", "owner.neq." + owner2)));
     // Test Tapis3 specific CONTAINS operator used only for tags column
-    validCaseInputs.put(24, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "tags.contains."+tagList1)));
-    validCaseInputs.put(25, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "tags.contains."+tagList2)));
-    validCaseInputs.put(26, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "tags.contains."+tagList3)));
-    validCaseInputs.put(27, new CaseData(0, Arrays.asList(sysIdLikeAll, "tags.contains."+tagList4)));
-    validCaseInputs.put(28, new CaseData(0, List.of("id.eq.b7d2acb8-e477-4352-86e6-d0b6f5d43393-007")));
+    validCaseInputs.put(24, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "tags.in."+tagList1)));
+    validCaseInputs.put(25, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "tags.in."+tagList2)));
+    validCaseInputs.put(26, new CaseData(numSystems, Arrays.asList(sysIdLikeAll, "tags.in."+tagList3)));
+    validCaseInputs.put(27, new CaseData(0, Arrays.asList(sysIdLikeAll, "tags.in."+tagList4)));
+    validCaseInputs.put(28, new CaseData(0, Arrays.asList(sysIdLikeAll, "tags.nin."+tagList1)));
+    validCaseInputs.put(29, new CaseData(0, List.of("id.eq.b7d2acb8-e477-4352-86e6-d0b6f5d43393-007")));
     // Test numeric relational
     validCaseInputs.put(40, new CaseData(numSystems / 2, Arrays.asList(sysIdLikeAll, "port.between.1," + numSystems / 2)));
     validCaseInputs.put(41, new CaseData(numSystems / 2 - 1, Arrays.asList(sysIdLikeAll, "port.between.2," + numSystems / 2)));
