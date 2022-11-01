@@ -10,7 +10,7 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.2.6 - 2022-??-??
+## 1.2.8 - 2022-??-??
 
 Incremental improvements and new preview features.
 
@@ -20,6 +20,25 @@ Incremental improvements and new preview features.
 
 ### Bug fixes:
 - None.
+
+---------------------------------------------------------------------------
+## 1.2.7 - 2022-11-01
+
+Incremental improvements and new preview features.
+
+### New features:
+- Add support for searching by *tags* attribute using operator *contains*.
+- Add support for query parameter *listType* when retrieving systems. Allows for filtering based on authorization.
+    * Options are OWNED, SHARED_PUBLIC, ALL. Default is OWNED.
+- Improved error message when attempting to search using an unsupported attribute
+
+---------------------------------------------------------------------------
+## 1.2.6 - 2022-10-25
+
+Incremental improvements and new preview feature.
+
+### New features:
+- Add *description* attribute to *jobEnvVariables*.
 
 ---------------------------------------------------------------------------
 ## 1.2.5 - 2022-09-27

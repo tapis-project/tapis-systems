@@ -68,15 +68,15 @@ public interface SystemsService
           throws TapisException, TapisClientException, NotAuthorizedException;
 
   int getSystemsTotalCount(ResourceRequestUser rUser, List<String> searchList, List<OrderBy> orderByList,
-                           String startAfter, boolean showDeleted) throws TapisException, TapisClientException;
+                           String startAfter, boolean includeDeleted, String listType) throws TapisException, TapisClientException;
 
   List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, int limit, List<OrderBy> orderByList,
-                           int skip, String startAfter, boolean resolveEffective, boolean showDeleted)
+                           int skip, String startAfter, boolean resolveEffective, boolean includeDeleted, String listType)
           throws TapisException, TapisClientException;
 
   List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser, String searchStr, int limit,
                                         List<OrderBy> orderByList, int skip, String startAfter,
-                                        boolean resolveEffective, boolean showDeleted)
+                                        boolean resolveEffective, boolean includeDeleted, String listType)
           throws TapisException, TapisClientException;
 
   List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr)

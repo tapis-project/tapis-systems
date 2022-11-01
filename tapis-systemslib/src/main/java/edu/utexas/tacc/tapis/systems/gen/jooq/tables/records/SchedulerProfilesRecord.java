@@ -24,98 +24,112 @@ public class SchedulerProfilesRecord extends TableRecordImpl<SchedulerProfilesRe
     private static final long serialVersionUID = 1L;
 
     /**
-     * Setter for <code>tapis_sys.scheduler_profiles.tenant</code>. Tenant name associated with the profile
+     * Setter for <code>tapis_sys.scheduler_profiles.tenant</code>. Tenant name
+     * associated with the profile
      */
     public void setTenant(String value) {
         set(0, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.scheduler_profiles.tenant</code>. Tenant name associated with the profile
+     * Getter for <code>tapis_sys.scheduler_profiles.tenant</code>. Tenant name
+     * associated with the profile
      */
     public String getTenant() {
         return (String) get(0);
     }
 
     /**
-     * Setter for <code>tapis_sys.scheduler_profiles.name</code>. Unique name for the profile
+     * Setter for <code>tapis_sys.scheduler_profiles.name</code>. Unique name
+     * for the profile
      */
     public void setName(String value) {
         set(1, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.scheduler_profiles.name</code>. Unique name for the profile
+     * Getter for <code>tapis_sys.scheduler_profiles.name</code>. Unique name
+     * for the profile
      */
     public String getName() {
         return (String) get(1);
     }
 
     /**
-     * Setter for <code>tapis_sys.scheduler_profiles.description</code>. Profile description
+     * Setter for <code>tapis_sys.scheduler_profiles.description</code>. Profile
+     * description
      */
     public void setDescription(String value) {
         set(2, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.scheduler_profiles.description</code>. Profile description
+     * Getter for <code>tapis_sys.scheduler_profiles.description</code>. Profile
+     * description
      */
     public String getDescription() {
         return (String) get(2);
     }
 
     /**
-     * Setter for <code>tapis_sys.scheduler_profiles.owner</code>. User name of system owner
+     * Setter for <code>tapis_sys.scheduler_profiles.owner</code>. User name of
+     * system owner
      */
     public void setOwner(String value) {
         set(3, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.scheduler_profiles.owner</code>. User name of system owner
+     * Getter for <code>tapis_sys.scheduler_profiles.owner</code>. User name of
+     * system owner
      */
     public String getOwner() {
         return (String) get(3);
     }
 
     /**
-     * Setter for <code>tapis_sys.scheduler_profiles.module_load_command</code>. Command to load software library modules.
+     * Setter for <code>tapis_sys.scheduler_profiles.module_load_command</code>.
+     * Command to load software library modules.
      */
     public void setModuleLoadCommand(String value) {
         set(4, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.scheduler_profiles.module_load_command</code>. Command to load software library modules.
+     * Getter for <code>tapis_sys.scheduler_profiles.module_load_command</code>.
+     * Command to load software library modules.
      */
     public String getModuleLoadCommand() {
         return (String) get(4);
     }
 
     /**
-     * Setter for <code>tapis_sys.scheduler_profiles.modules_to_load</code>. Software library modules that should be loaded for each job.
+     * Setter for <code>tapis_sys.scheduler_profiles.modules_to_load</code>.
+     * Software library modules that should be loaded for each job.
      */
     public void setModulesToLoad(String[] value) {
         set(5, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.scheduler_profiles.modules_to_load</code>. Software library modules that should be loaded for each job.
+     * Getter for <code>tapis_sys.scheduler_profiles.modules_to_load</code>.
+     * Software library modules that should be loaded for each job.
      */
     public String[] getModulesToLoad() {
         return (String[]) get(5);
     }
 
     /**
-     * Setter for <code>tapis_sys.scheduler_profiles.hidden_options</code>. Scheduler options that are subsumed by TAPIS.
+     * Setter for <code>tapis_sys.scheduler_profiles.hidden_options</code>.
+     * Scheduler options that are subsumed by TAPIS.
      */
     public void setHiddenOptions(String[] value) {
         set(6, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.scheduler_profiles.hidden_options</code>. Scheduler options that are subsumed by TAPIS.
+     * Getter for <code>tapis_sys.scheduler_profiles.hidden_options</code>.
+     * Scheduler options that are subsumed by TAPIS.
      */
     public String[] getHiddenOptions() {
         return (String[]) get(6);
@@ -136,28 +150,32 @@ public class SchedulerProfilesRecord extends TableRecordImpl<SchedulerProfilesRe
     }
 
     /**
-     * Setter for <code>tapis_sys.scheduler_profiles.created</code>. UTC time for when record was created
+     * Setter for <code>tapis_sys.scheduler_profiles.created</code>. UTC time
+     * for when record was created
      */
     public void setCreated(LocalDateTime value) {
         set(8, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.scheduler_profiles.created</code>. UTC time for when record was created
+     * Getter for <code>tapis_sys.scheduler_profiles.created</code>. UTC time
+     * for when record was created
      */
     public LocalDateTime getCreated() {
         return (LocalDateTime) get(8);
     }
 
     /**
-     * Setter for <code>tapis_sys.scheduler_profiles.updated</code>. UTC time for when record was last updated
+     * Setter for <code>tapis_sys.scheduler_profiles.updated</code>. UTC time
+     * for when record was last updated
      */
     public void setUpdated(LocalDateTime value) {
         set(9, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.scheduler_profiles.updated</code>. UTC time for when record was last updated
+     * Getter for <code>tapis_sys.scheduler_profiles.updated</code>. UTC time
+     * for when record was last updated
      */
     public LocalDateTime getUpdated() {
         return (LocalDateTime) get(9);

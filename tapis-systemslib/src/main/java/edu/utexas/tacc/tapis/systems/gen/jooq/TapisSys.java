@@ -14,7 +14,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.jooq.Catalog;
-import org.jooq.Sequence;
 import org.jooq.Table;
 import org.jooq.impl.SchemaImpl;
 
@@ -71,19 +70,13 @@ public class TapisSys extends SchemaImpl {
     }
 
     @Override
-    public final List<Sequence<?>> getSequences() {
-        return Arrays.<Sequence<?>>asList(
-            Sequences.SYSTEM_UPDATES_SEQ_ID_SEQ,
-            Sequences.SYSTEMS_SEQ_ID_SEQ);
-    }
-
-    @Override
     public final List<Table<?>> getTables() {
-        return Arrays.<Table<?>>asList(
+        return Arrays.asList(
             FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY,
             SchedulerProfiles.SCHEDULER_PROFILES,
             SystemUpdates.SYSTEM_UPDATES,
             Systems.SYSTEMS,
-            SystemsLoginUser.SYSTEMS_LOGIN_USER);
+            SystemsLoginUser.SYSTEMS_LOGIN_USER
+        );
     }
 }

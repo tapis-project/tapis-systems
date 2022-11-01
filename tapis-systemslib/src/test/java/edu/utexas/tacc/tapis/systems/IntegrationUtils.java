@@ -15,6 +15,7 @@ import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
+import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
 import org.jooq.tools.StringUtils;
 import org.testng.Assert;
 
@@ -49,6 +50,11 @@ public final class IntegrationUtils
   //       Although it should not be a problem because credentials are stored for each system it is best to be safe.
   public static final String owner1 = "owner1";
   public static final String owner2 = "owner2";
+  public static final String owner3 = "owner3";
+  public static final String owner4 = "owner4";
+  public static final String owner5 = "owner5";
+  public static final String owner6 = "owner6";
+  public static final String owner7 = "owner7";
   public static final String ownerNull = null;
   public static final String loginUser1 = "loginUser1";
   public static final String testUser0 = "testuser0";
@@ -115,26 +121,21 @@ public final class IntegrationUtils
   public static final String batchSchedulerProfile2 = "schedProfile2";
   public static final String batchSchedulerProfileNull = null;
   public static final String noSuchSchedulerProfile = "noSuchSchedulerProfile";
-  public static final KeyValuePair kv1 = new KeyValuePair("a","b");
-  public static final KeyValuePair kv2 = new KeyValuePair("HOME","/home/testuser2");
-  public static final KeyValuePair kv3 = new KeyValuePair("TMP","/tmp");
   public static final List<KeyValuePair> jobEnvVariables1 =
-          new ArrayList<>(List.of(new KeyValuePair("a1","b1"),
-                                  new KeyValuePair("HOME","/home/testuser1"),
-                                  new KeyValuePair("TMP","/tmp1")));
+          new ArrayList<>(List.of(new KeyValuePair("a1","b1", null),
+                                  new KeyValuePair("HOME","/home/testuser1", ""),
+                                  new KeyValuePair("TMP","/tmp1", "my keyvalue pair")));
   public static final List<KeyValuePair> jobEnvVariables2 =
-          new ArrayList<>(List.of(new KeyValuePair("a2","b2"),
-                                  new KeyValuePair("HOME","/home/testuser2"),
+          new ArrayList<>(List.of(new KeyValuePair("a2","b2", "my 2nd key-value pair"),
+                                  new KeyValuePair("HOME","/home/testuser2", null),
                                  new KeyValuePair("TMP","/tmp2")));
   public static final List<KeyValuePair> jobEnvVariables3 =
           new ArrayList<>(List.of(new KeyValuePair("a3","b3"),
-                  new KeyValuePair("HOME","/home/testuser3"),
-                  new KeyValuePair("TMP","/tmp3"),
+                  new KeyValuePair("HOME","/home/testuser3", "third one"),
+                  new KeyValuePair("TMP","/tmp3",
+                          "Send money. Stop. 3rd tmp kv pair with longer description just to test things out. Stop."),
                   new KeyValuePair("TMP2","/tmp3a")));
   public static final List<KeyValuePair> jobEnvVariablesNull = null;
-//  public static final String[] jobEnvVariables1 = {"a1=b1", "HOME=/home/testuser1", "TMP=/tmp1"};
-//  public static final String[] jobEnvVariables2 = {"a2=b2", "HOME=/home/testuser2", "TMP=/tmp2"};
-//  public static final String[] jobEnvVariablesNull = null;
   public static final SchedulerType batchSchedulerNull = null;
   public static final String queueNameNull = null;
   public static final boolean canRunBatchTrue = true;
@@ -149,13 +150,17 @@ public final class IntegrationUtils
   public static final Integer jobMaxJobsNull = null;
   public static final int jobMaxJobsPerUser1 = 1;
   public static final int jobMaxJobsPerUser2 = 2;
-  public static final String[] tags1 = {"value1", "value2", "a",
+  public static final String tagVal1 = "value1";
+  public static final String tagVal2 = "value2";
+  public static final String tagVal3Space = "value 3";
+  public static final String tagValNotThere = "no such tag value";
+  public static final String[] tags1 = {tagVal1, tagVal2, tagVal3Space, "a",
     "Long tag (1 3 2) special chars [_ $ - & * % @ + = ! ^ ? < > , . ( ) { } / \\ | ]. Backslashes must be escaped."};
-  public static final String[] tags2 = {"value3", "value4"};
-  public static final String[] tags3 = {"value1"};
+  public static final String[] tags2 = {"value4", "value5"};
+  public static final String[] tags3 = {tagVal1};
   public static final String[] tagsNull = null;
-  public static final Object notes1 = TapisGsonUtils.getGson().fromJson("{\"project\": \"myproj1\", \"testdata\": \"abc1\"}", JsonObject.class);
-  public static final Object notes2 = TapisGsonUtils.getGson().fromJson("{\"project\": \"myproj2\", \"testdata\": \"abc2\"}", JsonObject.class);
+  public static final Object notes1 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj1\", \"testdata\": \"abc 1\"}", JsonObject.class);
+  public static final Object notes2 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj2\", \"testdata\": \"abc 2\"}", JsonObject.class);
   public static final JsonObject notesObj1 = (JsonObject) notes1;
   public static final Object notesNull = null;
 
@@ -165,7 +170,7 @@ public final class IntegrationUtils
 
   public static final Protocol prot1 = new Protocol(AuthnMethod.PKI_KEYS, 22, false, "", 0);
   public static final Protocol prot2 = new Protocol(AuthnMethod.PASSWORD, 0, true, "localhost",2222);
-  public static final String rawDataEmtpyJson = "{}";
+  public static final String rawDataEmptyJson = "{}";
 
   // Job Runtimes
   public static final JobRuntime runtimeA1 = new JobRuntime(JobRuntime.RuntimeType.DOCKER, "0.0.1A1");
@@ -231,6 +236,8 @@ public final class IntegrationUtils
   public static final int qMaxMemoryMB = -1;
   public static final int qMaxMinutes = -1;
 
+  public static final String listTypeNull = null;
+
   public static final List<OrderBy> orderByListNull = null;
   public static final List<OrderBy> orderByListAsc = Collections.singletonList(OrderBy.fromString("id(asc)"));
   public static final List<OrderBy> orderByListDesc = Collections.singletonList(OrderBy.fromString("id(desc)"));
@@ -267,6 +274,9 @@ public final class IntegrationUtils
   public static final List<String> orderByDirEmptyList = Arrays.asList("");
   public static final int skipZero = 0;
   public static final String startAferEmpty = "";
+  public static final SystemsServiceImpl.AuthListType listTypeOwned = SystemsServiceImpl.AuthListType.OWNED;
+  public static final SystemsServiceImpl.AuthListType listTypeAll = SystemsServiceImpl.AuthListType.ALL;
+  public static final SystemsServiceImpl.AuthListType listTypePublic = SystemsServiceImpl.AuthListType.SHARED_PUBLIC;
 
   /**
    * Create first DTN System
@@ -296,7 +306,7 @@ public final class IntegrationUtils
   {
     String dtnSystemName2 = sysNamePrefix+key+dtnSystemId2;
 
-    // Create DTN systems for other systems to reference. Otherwise some system definitions are not valid.
+    // Create DTN systems for other systems to reference. Otherwise, some system definitions are not valid.
     return new TSystem(-1, tenantName, dtnSystemName2, "DTN System2 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn2", prot2.getAuthnMethod(), "bucketDtn2", "/root/dtn2",
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
@@ -321,7 +331,7 @@ public final class IntegrationUtils
     String dtnSystemName1 = sysNamePrefix+key+dtnSystemId1;
     String dtnSystemName2 = sysNamePrefix+key+dtnSystemId2;
 
-    // Create DTN systems for other systems to reference. Otherwise some system definitions are not valid.
+    // Create DTN systems for other systems to reference. Otherwise, some system definitions are not valid.
     dtnSystem1 = new TSystem(-1, tenantName, dtnSystemName1 , "DTN System1 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn1", prot1.getAuthnMethod(), "bucketDtn1", "/root/dtn1",
             prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
