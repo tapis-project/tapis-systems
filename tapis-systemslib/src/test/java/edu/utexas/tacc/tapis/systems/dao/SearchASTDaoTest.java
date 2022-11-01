@@ -14,7 +14,6 @@ import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -111,7 +110,7 @@ public class SearchASTDaoTest
     Thread.sleep(500);
     for (TSystem sys : systems)
     {
-      boolean itemCreated = dao.createSystem(rOwner, sys, gson.toJson(sys), rawDataEmtpyJson);
+      boolean itemCreated = dao.createSystem(rOwner, sys, gson.toJson(sys), rawDataEmptyJson);
       Assert.assertTrue(itemCreated, "Item not created, id: " + sys.getId());
     }
     Thread.sleep(500);
