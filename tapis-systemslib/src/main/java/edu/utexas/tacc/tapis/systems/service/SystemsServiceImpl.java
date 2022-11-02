@@ -7,18 +7,21 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 
 import javax.inject.Inject;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
+
+import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
+import edu.utexas.tacc.tapis.systems.client.gen.model.SystemTypeEnum;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import edu.utexas.tacc.tapis.systems.client.gen.model.TapisSystem;
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.search.SearchUtils;
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
@@ -35,6 +38,7 @@ import edu.utexas.tacc.tapis.security.client.model.SKShareDeleteShareParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareGetSharesParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareHasPrivilegeParms;
 import edu.utexas.tacc.tapis.security.client.model.SecretType;
+import edu.utexas.tacc.tapis.systems.client.gen.model.TapisSystem;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
@@ -65,9 +69,14 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_STR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFECTIVE_USER_ID_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFUSERID_STR;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_EVAL;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.PATTERN_STR_HOST_EVAL;
 
 /*
  * Service level methods for Systems.
@@ -843,7 +852,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param getCreds - flag indicating if credentials for effectiveUserId should be included
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
-   *                         else always return values provided in system definition. By default, this is true.
+   *                           else return values provided in system definition. By default, this is true.
    * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth will be skipped.
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
@@ -854,18 +863,22 @@ public class SystemsServiceImpl implements SystemsService
                            boolean getCreds, String impersonationId, boolean resolveEffective, boolean sharedAppCtx)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
-
     SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
+    // For clarity and convenience
     String oboTenant = rUser.getOboTenantId();
+    String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
 
     // We will need info from system, so fetch it now
     TSystem system = dao.getSystem(oboTenant, systemId);
     // We need owner to check auth and if system not there cannot find owner, so return null if no system.
     if (system == null) return null;
+
+    String rootDir = system.getRootDir();
+    if (rootDir == null) rootDir = "";
 
     // Determine the effectiveUser type, either static or dynamic
     // Secrets get stored on different paths based on this
@@ -898,40 +911,28 @@ public class SystemsServiceImpl implements SystemsService
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
 
-    // Resolve and optionally set effectiveUserId, rootDir in result
+    // Resolve and optionally set effectiveUserId in result
     if (resolveEffective)
     {
       String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, impersonationId);
       system.setEffectiveUserId(resolvedEffectiveUserId);
-      // Note that resolving rootDir may involve remote call to system host, so do that only if needed
-      // TODO Resolve may throw an exception. Which types? Handle here?
-      //      or will it be a TapisClientException which we already throw? After log of special msg?
-      String resolvedRootDir;
-      try
-      {
-        resolvedRootDir = resolveRootDir(rUser, system, impersonationId);
-      }
-      catch (Exception e)
-      {
-        // TODO
-
-      }
-      system.setRootDir(resolvedRootDir);
     }
 
-    // If requested retrieve credentials from Security Kernel
+    // Determine if we need credentials to resolve rootDir
+    boolean needCredsForHostEval = (resolveEffective && isRootDirDynamic(rootDir) && rootDir.matches(PATTERN_STR_HOST_EVAL));
+
+    // If credentials are requested, or we will need them to resolve rootDir then fetch the credentials
     // Note that resolved effectiveUserId not used to look up credentials.
     // If effUsr is static then secrets stored using the "static" path in SK and static string used to build the path.
     // If effUsr is dynamic then secrets stored using the "dynamic" path in SK and a Tapis user
     //    (oboUser or impersonationId) used to build the path.
-    if (getCreds)
+    if (getCreds || needCredsForHostEval)
     {
       AuthnMethod tmpAccMethod = system.getDefaultAuthnMethod();
       // If authnMethod specified then use it instead of default authn method defined for the system.
       if (accMethod != null) tmpAccMethod = accMethod;
       // Determine targetUser for fetching credential.
       //   If static use effectiveUserId, else use oboOrImpersonatedUser
-      String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
       String credTargetUser;
       if (isStaticEffectiveUser)
         credTargetUser = system.getEffectiveUserId();
@@ -940,6 +941,14 @@ public class SystemsServiceImpl implements SystemsService
       Credential cred = getUserCredential(rUser, systemId, credTargetUser, tmpAccMethod);
       system.setAuthnCredential(cred);
     }
+
+    // TODO Resolve and optionally set effectiveUserId in result
+    if (resolveEffective)
+    {
+      String resolvedRootDir = resolveRootDir(rUser, system, impersonationId);
+      system.setRootDir(resolvedRootDir);
+    }
+
     return system;
   }
 
@@ -1190,11 +1199,13 @@ public class SystemsServiceImpl implements SystemsService
    * Use provided string containing a valid SQL where clause for the search.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param matchStr - string containing a valid SQL where clause
+   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
+   *                         else always return values provided in system definition. By default, this is true.
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr)
+  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr, boolean resolveEffective)
           throws TapisException, TapisClientException
   {
     if (rUser == null)  throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1216,10 +1227,13 @@ public class SystemsServiceImpl implements SystemsService
     // Get all allowed systems matching the constraint conditions
     List<TSystem> systems = dao.getSystemsSatisfyingConstraints(rUser.getOboTenantId(), matchAST, allowedSysIDs);
 
-    for (TSystem system : systems)
+    if (resolveEffective)
     {
-      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
-      system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId));
+      for (TSystem system : systems)
+      {
+        system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
+        system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId));
+      }
     }
     return systems;
   }
@@ -2363,34 +2377,127 @@ public class SystemsServiceImpl implements SystemsService
     return (!StringUtils.isBlank(loginUser)) ? loginUser : oboOrImpersonatedUser;
   }
 
+  /*
+   * Determine if rootDir is dynamic.
+   * Dynamic if it contains the pattern HOST_EVAL($variable), the string "${effectiveUserId}"
+   *    or the string "${apiUserId}"
+   */
+  private static boolean isRootDirDynamic(String rootDir)
+  {
+    if (StringUtils.isBlank(rootDir)) return false;
+
+    if (rootDir.matches(PATTERN_STR_HOST_EVAL) || rootDir.contains(EFFUSERID_VAR) || rootDir.contains(APIUSERID_VAR))
+    {
+      return true;
+    }
+    return false;
+  }
+
   /**
-   * Determine the resolved rootDir. Determine rootDir for static and dynamic cases.
+   * Determine the resolved rootDir for static and dynamic cases.
+   * NOTE: This method should only be called when resolveEffective == true
+   * Resolving rootDir may involve remote call to system host, so do that only if needed
+   *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system - the system in question
    * @param impersonationId - use provided Tapis username instead of oboUser when resolving effectiveUserId
    * @return Resolved value for rootDir
    */
   private String resolveRootDir(ResourceRequestUser rUser, TSystem system, String impersonationId)
-          throws TapisException, TapisClientException // TODO
+          throws TapisException
   {
-    String systemId = system.getId();
+    // TODO
+    // TODO For the call from geSystem() the creds are pulled, but not for the other calls: getSystems,
+    //      getSystemsUsingSqlSearchStr, and getSystemsSatisfyingConstraints
+    // TODO Do we need to check if system.getCreds is null and fetch creds in this method?
+    // TODO
     String rootDir = system.getRootDir();
-    // Incoming rootDir may be blank for some system types so handle that case.
-    if (StringUtils.isBlank(rootDir)) return rootDir;
+    String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
+    boolean rootDirIsDynamic = isRootDirDynamic(rootDir);
 
-    // If rootDir is static then return now.
-    if (!rootDir.contains(HOST_EVAL)) return rootDir;
+    // If not dynamic we are done.
+    if (StringUtils.isBlank(rootDir) || !rootDirIsDynamic) return rootDir;
 
-    // So rootDir is dynamic. We need to resolve HOST_EVAL
-//TODO    MacroResolver macroResolver = new MacroResolver(system, null);
-    // TODO/TBD: Possibly best approach is to create a client TapisSystem object based on the TSystem we have
-    //   and then call:
-    // TODO/TBD:
-    TapisSystem tapisSystem = createTapisSystem(system);
-    // TODO/TODO: Create empty list of macros
-    Map<String, String> macros = Collections.emptyMap();
+    // MacroResolver requires a TapisSystem, so create a partially filled in TapisSystem from the TSystem
+    TapisSystem tapisSystem = createTapisSystemFromTSystem(system);
+    // Create list of macros: effectiveUserId, apiUserId
+    var macros = new TreeMap<String,String>();
+    macros.put(EFFUSERID_STR, system.getEffectiveUserId());
+    macros.put(APIUSERID_STR, oboOrImpersonatedUser);
+    // Resolve HOST_EVAL and other macros
     MacroResolver macroResolver = new MacroResolver(tapisSystem, macros);
     return  macroResolver.resolve(rootDir);
+  }
+
+  /**
+   * Build a TapisSystem from a TSystem for use by MacroResolver.
+   * Need to fill in credentials and authn method if HOST_EVAL needs evaluation
+   * NOTE: Following attributes are not set:
+   *   created, updated, tags, notes, jobRuntimes, jobEnvVariables,
+   *   batchScheduler, batchLogicalQueues, jobCapabilities
+   * @param s - a TSystem
+   * @return TapisSystem based on TSystem
+   */
+  private TapisSystem createTapisSystemFromTSystem(TSystem s)
+  {
+    TapisSystem tapisSystem = new TapisSystem();
+    if (s == null) return tapisSystem;
+    tapisSystem.setTenant(s.getTenant());
+    tapisSystem.setId(s.getId());
+    tapisSystem.setDescription(s.getDescription());
+    tapisSystem.setSystemType(EnumUtils.getEnum(SystemTypeEnum.class, s.getSystemType().name()));
+    tapisSystem.setOwner(s.getOwner());
+    tapisSystem.setHost(s.getHost());
+    tapisSystem.setEnabled(s.isEnabled());
+    tapisSystem.setEffectiveUserId(s.getEffectiveUserId());
+    tapisSystem.setAuthnCredential(buildAuthnCred(s.getAuthnCredential()));
+    tapisSystem.setDefaultAuthnMethod(EnumUtils.getEnum(AuthnEnum.class, s.getDefaultAuthnMethod().name()));
+    tapisSystem.setBucketName(s.getBucketName());
+    tapisSystem.setRootDir(s.getRootDir());
+    tapisSystem.setPort(s.getPort());
+    tapisSystem.setUseProxy(s.isUseProxy());
+    tapisSystem.setProxyHost(s.getProxyHost());
+    tapisSystem.setProxyPort(s.getProxyPort());
+    tapisSystem.setDtnSystemId(s.getDtnSystemId());
+    tapisSystem.setDtnMountPoint(s.getDtnMountPoint());
+    tapisSystem.setDtnMountSourcePath(s.getDtnMountSourcePath());
+    tapisSystem.setIsDtn(s.isDtn());
+    tapisSystem.setCanExec(s.getCanExec());
+//    tapisSystem.setJobRuntimes(s.getJobRuntimes());
+    tapisSystem.setJobWorkingDir(s.getJobWorkingDir());
+//    tapisSystem.setJobEnvVariables(s.getJobEnvVariables());
+    tapisSystem.setJobMaxJobs(s.getJobMaxJobs());
+    tapisSystem.setCanRunBatch(s.getCanRunBatch());
+    tapisSystem.setMpiCmd(s.getMpiCmd());
+//    tapisSystem.setBatchScheduler(s.getBatchScheduler());
+//    tapisSystem.setBatchLogicalQueues(s.getBatchLogicalQueues());
+    tapisSystem.setBatchDefaultLogicalQueue(s.getBatchDefaultLogicalQueue());
+    tapisSystem.setBatchSchedulerProfile(s.getBatchSchedulerProfile());
+//    tapisSystem.setJobCapabilities(s.getJobCapabilities());
+//    tapisSystem.setTags(s.getTags());
+    tapisSystem.setNotes(s.getNotes());
+    tapisSystem.setImportRefId(s.getImportRefId());
+//    tapisSystem.setCreated(s.getCreated());
+//    tapisSystem.setUpdated(s.getUpdated());
+    tapisSystem.setUuid(s.getUuid());
+    tapisSystem.setDeleted(s.isDeleted());
+    return tapisSystem;
+  }
+
+  // Build a TapisSystem client credential based on the TSystem model credential
+  private static edu.utexas.tacc.tapis.systems.client.gen.model.Credential buildAuthnCred(Credential cred)
+  {
+    var c = new edu.utexas.tacc.tapis.systems.client.gen.model.Credential();
+    var am = EnumUtils.getEnum(AuthnEnum.class, cred.getAuthnMethod().name());
+    c.setAuthnMethod(am);
+    c.setAccessKey(cred.getAccessKey());
+    c.setAccessSecret(cred.getAccessSecret());
+    c.setPassword(cred.getPassword());
+    c.setPublicKey(cred.getPublicKey());
+    c.setPrivateKey(cred.getPrivateKey());
+    c.setCertificate(cred.getCertificate());
+    c.setLoginUser(cred.getLoginUser());
+    return c;
   }
 
   /**

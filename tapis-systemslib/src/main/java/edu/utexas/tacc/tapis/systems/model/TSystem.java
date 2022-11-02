@@ -47,11 +47,15 @@ public final class TSystem
 
   public static final String PERMISSION_WILDCARD = "*";
 
+  //
+  public static final String APIUSERID_STR = "apiUserId";
+  public static final String EFFUSERID_STR = "effectiveUserId";
+
   // Substitution variables
-  public static final String APIUSERID_VAR = "${apiUserId}";
+  public static final String APIUSERID_VAR = String.format("${%s}", APIUSERID_STR);
+  public static final String EFFUSERID_VAR = String.format("${%s}", EFFUSERID_STR);
   public static final String OWNER_VAR = "${owner}";
   public static final String TENANT_VAR = "${tenant}";
-  public static final String EFFUSERID_VAR = "${effectiveUserId}";
   public static final String HOST_EVAL = "HOST_EVAL";
 
   private static final String[] ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
@@ -65,7 +69,7 @@ public final class TSystem
   public static final String HOST_FIELD = "host";
   public static final String ENABLED_FIELD = "enabled";
   public static final String DELETED_FIELD = "deleted";
-  public static final String EFFECTIVE_USER_ID_FIELD = "effectiveUserId";
+  public static final String EFFECTIVE_USER_ID_FIELD = EFFUSERID_STR;
   public static final String DEFAULT_AUTHN_METHOD_FIELD = "defaultAuthnMethod";
   public static final String AUTHN_CREDENTIAL_FIELD = "authnCredential";
   public static final String BUCKET_NAME_FIELD = "bucketName";
@@ -649,7 +653,7 @@ public final class TSystem
       if (StringUtils.isBlank(rootDir)) errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR", systemType.name()));
       // If rootDir contains HOST_EVAL then must have only 1 occurrence of HOST_EVAL,
       //    and it must follow a certain pattern: "HOST_EVAL($variable)"
-      if (rootDir.contains(HOST_EVAL))
+      if (rootDir != null && rootDir.contains(HOST_EVAL))
       {
         if (StringUtils.countMatches(rootDir, HOST_EVAL) != 1)
         {

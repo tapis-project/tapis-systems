@@ -16,7 +16,7 @@ Incremental improvements and new preview features.
 
 ### New features:
 - Support having a dynamic *rootDir* property. Attribute *rootDir* may start with *HOST_EVAL()*.
-- Update getSystem query parameter *resolveEffectUser*. Rename it *resolveEffective* and apply it to *effectiveUserId* and *rootDir*.
+- Rename getSystem query parameter from *resolveEffectUser* to *resolveEffective* and apply it to *effectiveUserId* and *rootDir*.
 
 ### Bug fixes:
 - None.
