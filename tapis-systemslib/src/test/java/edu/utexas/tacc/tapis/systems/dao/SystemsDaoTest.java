@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
@@ -97,7 +96,7 @@ public class SystemsDaoTest
   public void testCreateSystem() throws Exception
   {
     TSystem sys0 = systems[0];
-    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmptyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
   }
 
@@ -110,7 +109,7 @@ public class SystemsDaoTest
   public void testGetSystem() throws Exception
   {
     TSystem sys0 = systems[1];
-    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmptyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     TSystem tmpSys = dao.getSystem(sys0.getTenant(), sys0.getId());
     Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
@@ -200,7 +199,7 @@ public class SystemsDaoTest
   public void testGetSystems() throws Exception
   {
     TSystem sys0 = systems[4];
-    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmptyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     List<TSystem> systems = dao.getSystems(rOwner1, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP,
                                            startAfterNull, showDeletedFalse, listTypeAll, setOfIDsNull, setOfIDsNull);
@@ -225,12 +224,12 @@ public class SystemsDaoTest
     // One owned by owner5 and shared with owner7
     // One owned by owner6 and shared publicly
     TSystem sys0;
-    sys0 = systems[2]; sys0.setOwner(owner7); dao.createSystem(rOwner7, sys0, gson.toJson(sys0), rawDataEmtpyJson);
-    sys0 = systems[3]; sys0.setOwner(owner4); dao.createSystem(rOwner4, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    sys0 = systems[2]; sys0.setOwner(owner7); dao.createSystem(rOwner7, sys0, gson.toJson(sys0), rawDataEmptyJson);
+    sys0 = systems[3]; sys0.setOwner(owner4); dao.createSystem(rOwner4, sys0, gson.toJson(sys0), rawDataEmptyJson);
     viewableIDs.add(sys0.getId());
-    sys0 = systems[8]; sys0.setOwner(owner5); dao.createSystem(rOwner5, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    sys0 = systems[8]; sys0.setOwner(owner5); dao.createSystem(rOwner5, sys0, gson.toJson(sys0), rawDataEmptyJson);
     sharedIDs.add(sys0.getId());
-    sys0 = systems[10]; sys0.setOwner(owner6); dao.createSystem(rOwner6, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    sys0 = systems[10]; sys0.setOwner(owner6); dao.createSystem(rOwner6, sys0, gson.toJson(sys0), rawDataEmptyJson);
     sharedPublicIDS.add(sys0.getId());
     sharedIDs.add(sys0.getId());
     List<TSystem> systems;
@@ -259,7 +258,7 @@ public class SystemsDaoTest
   public void testEnableDisableDeleteUndeleteSystem() throws Exception
   {
     TSystem sys0 = systems[11];
-    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmptyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     System.out.println("Created item, id: " + sys0.getId() + " enabled: " + sys0.isEnabled());
     // Enabled should start off true, then become false and finally true again.
@@ -288,7 +287,7 @@ public class SystemsDaoTest
   public void testChangeSystemOwner() throws Exception
   {
     TSystem sys0 = systems[7];
-    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmptyJson);
     System.out.println("Created item with systemId: " + sys0.getId());
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     dao.updateSystemOwner(rOwner1, sys0.getId(), apiUser, "newOwner");
@@ -301,7 +300,7 @@ public class SystemsDaoTest
   public void testHardDeleteSystem() throws Exception
   {
     TSystem sys0 = systems[9];
-    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmptyJson);
     System.out.println("Created item with systemId: " + sys0.getId());
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     dao.hardDeleteSystem(sys0.getTenant(), sys0.getId());
@@ -329,7 +328,7 @@ public class SystemsDaoTest
     Assert.assertFalse(dao.checkForSystem(tenantName, fakeSystemName, false));
     // update should throw not found exception
     boolean pass = false;
-    try { dao.patchSystem(rOwner1, fakeSystemName, patchedSystem, rawDataEmtpyJson, null); }
+    try { dao.patchSystem(rOwner1, fakeSystemName, patchedSystem, rawDataEmptyJson, null); }
     catch (IllegalStateException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_NOT_FOUND"));
@@ -344,7 +343,7 @@ public class SystemsDaoTest
   @Test
   public void testGetSystemHistory() throws Exception {
     TSystem sys0 = systems[12];
-    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmptyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
     List<SystemHistoryItem> systemHistory = dao.getSystemHistory(tenantName, sys0.getId());
 
@@ -373,7 +372,7 @@ public class SystemsDaoTest
     TSystem sys0 = systems[13];
     String sysId = sys0.getId();
     String tapisUser = owner1;
-    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmtpyJson);
+    boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmptyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sysId);
     dao.createOrUpdateLoginUserMapping(tenantName, sysId, tapisUser, loginUser1);
     System.out.println("Login map entry created");
