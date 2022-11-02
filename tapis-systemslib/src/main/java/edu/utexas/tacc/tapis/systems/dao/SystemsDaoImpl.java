@@ -649,10 +649,9 @@ public class SystemsDaoImpl implements SystemsDao
   public void migrateDB() throws TapisException
   {
     Flyway flyway = Flyway.configure().dataSource(getDataSource()).load();
-    // TODO remove workaround if possible. Figure out how to deploy X.Y.Z-SNAPSHOT repeatedly.
     // Use repair as workaround to avoid checksum error during develop/deploy of SNAPSHOT versions when it is not
     // a true migration.
-    flyway.repair();
+//    flyway.repair();
     flyway.migrate();
   }
 
@@ -1113,7 +1112,7 @@ public class SystemsDaoImpl implements SystemsDao
       if (results == null || results.isEmpty()) return retList;
 
       // Fill in batch logical queues and job capabilities list from aux tables
-      // TODO: Looks like jOOQ has fetchGroups() which should allow us to retrieve LogicalQueues and Capabilities
+      // NOTE: Looks like jOOQ has fetchGroups() which should allow us to retrieve LogicalQueues and Capabilities
       //       in one call which might improve performance.
 //      for (SystemsRecord r : results)
 //      {
@@ -1199,14 +1198,14 @@ public class SystemsDaoImpl implements SystemsDao
   public List<TSystem> getSystemsSatisfyingConstraints(String tenantId, ASTNode matchAST, Set<String> setOfIDs)
           throws TapisException
   {
-    // TODO: might be possible to optimize this method with a join between systems and capabilities tables.
+    // NOTE: might be possible to optimize this method with a join between systems and capabilities tables.
     // The result list should always be non-null.
     var retList = new ArrayList<TSystem>();
 
     // If no match criteria or IDs list is empty then we are done.
     if (matchAST == null || (setOfIDs != null && setOfIDs.isEmpty())) return retList;
 
-    // TODO/TBD: For now return all allowed systems. Once a shared util method is available for matching
+    // NOTE/TBD: For now return all allowed systems. Once a shared util method is available for matching
     //       as a first pass we can simply iterate through all systems to find matches.
     //       For performance might need to later do matching with DB queries.
 
@@ -1225,8 +1224,8 @@ public class SystemsDaoImpl implements SystemsDao
 
       Set<String> allowedIDs = setOfIDs;
       // If IDs is null then all allowed. Use tenant to get all system IDs
-      // TODO: might be able to optimize with a join somewhere
-      if (setOfIDs == null) allowedIDs = null; //TODO getAllSystemSeqIdsInTenant(db, tenant); still needed?
+      // NOTE: might be able to optimize with a join somewhere
+      if (setOfIDs == null) allowedIDs = null; // NOTE is getAllSystemSeqIdsInTenant(db, tenant) still needed?
 
       // Get all Systems that specify they support the desired Capabilities
       systemsList = getSystemsHavingCapabilities(db, tenantId, capabilitiesInAST, allowedIDs);
@@ -1248,7 +1247,7 @@ public class SystemsDaoImpl implements SystemsDao
     // If there was a problem the list to match against might be null
     if (systemsList == null) return retList;
 
-    // TODO Select only those systems satisfying the constraints
+    // Select only those systems satisfying the constraints
     for (TSystem sys : systemsList)
     {
 // TODO      if (systemMatchesConstraints(sys, matchAST)) retList.add(sys);
@@ -2471,7 +2470,7 @@ public class SystemsDaoImpl implements SystemsDao
 //    if (results == null || results.isEmpty()) return retList;
 //
 //    // Fill in batch logical queues and job capabilities list from aux tables
-//    // TODO might be able to use fetchGroups to populate these.
+//    // NOTE might be able to use fetchGroups to populate these.
 //    for (SystemsRecord r : results)
 //    {
 //      TSystem s = r.into(TSystem.class);

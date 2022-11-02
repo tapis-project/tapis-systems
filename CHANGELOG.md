@@ -22,7 +22,7 @@ Incremental improvements and new preview features.
 - None.
 
 ---------------------------------------------------------------------------
-## 1.2.7 - 2022-11-01
+## 1.2.7 - 2022-11-02
 
 Incremental improvements and new preview features.
 

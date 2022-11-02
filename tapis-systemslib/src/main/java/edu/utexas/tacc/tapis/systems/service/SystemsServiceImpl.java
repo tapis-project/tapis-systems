@@ -1083,69 +1083,9 @@ public class SystemsServiceImpl implements SystemsService
     if (allItems) sharedIDs = getSharedSystemIDs(rUser, false);
     else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, true);
 
-//    // Get list of IDs of systems for which requester has READ permission.
-//    // This is either all systems (null) or a list of IDs.
-//// TODO    Set<String> allowedSysIDs = getAllowedSysIDs(rUser);
-//    Set<String> allowedSysIDs = null;
-
     // Get all allowed systems matching the search conditions
     List<TSystem> systems = dao.getSystems(rUser, verifiedSearchList, null,  limit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
-
-// TODO REVISIT
-//    // TODO REMOVE TEMP CODE TO RESTORE READ IN DEV
-//    //    CURRENTLY read in dev is wiped out when running local.
-//    //  HOW to deal with this? Once latest systems is in DEV should be OK. Latest systems - owner always allowed.
-//    String[] sys_ids = {
-//            "KDevSystem2",
-//            "smruti2-tapisv3-exec-new",
-//            "smruti1-tapisv3-exec-new",
-//            "smruti-tapisv3-exec-new",
-//            "public-tapisv3-exec-new",
-//            "tapis-day-vm-testuser2",
-//            "nathandf.test.ls6.shade",
-//            "test-exec1",
-//            "KDevSystem1a",
-//            "KDevTestS3Demo2",
-//            "KDevTestS3Demo",
-//            "KDevTestS3Bug",
-//            "testuser2.workflows",
-//            "KDevTestS3",
-//            "training1_tutorial_vm2",
-//            "testuser2165100616174539543916510061762826921921651006187596822145c",
-//            "testuser2165100616174539543916510061762826921921651006187596822145",
-//            "training1_tutorial_vm",
-//            "KDevSystem1",
-//            "tapisv3-storage",
-//            "tapisv3-storage-dev",
-//            "tapisv3-storage-apiuser",
-//            "tapisv3-file-txfr2",
-//            "tapisv3-file-txfr1",
-//            "tapisv3-file-perms",
-//            "tapisv3-exec4",
-//            "tapisv3-exec3",
-//            "tapisv3-exec2",
-//            "tapisv3-exec2-slurm",
-//            "tapisv3-exec2-slurm-jack",
-//            "tapisv3-exec2-jack",
-//            "tapisv3-exec2-demo",
-//            "tapisv3-exec2-demo-test",
-//            "tapisv3-exec2-demo-final",
-//            "tapisv3-exec",
-//            "tapisv3-exec-jack",
-//            "tapis-demo",
-//            "irods-tapisv3-exec2",
-//            "e2e-irods-test3",
-//            "e2e-irods-test2",
-//            "e2e-irods-test"
-//    };
-//
-//    for (String s : sys_ids)
-//    {
-//      getSKClient().grantUserPermission(rUser.getOboTenantId(), rUser.getOboUserId(),
-//                                        getPermSpecAllStr(rUser.getOboTenantId(), s));
-//    }
-//    // TODO REMOVE TEMP CODE TO RESTORE READ IN DEV
 
     if (resolveEffective)
     {
@@ -1212,7 +1152,7 @@ public class SystemsServiceImpl implements SystemsService
     //        looks like activemq parser will ensure the leaf nodes all represent <attr>.<op>.<value> and in principle
     //        we should be able to check each one and generate of list of errors for reporting.
     //  Looks like jOOQ can parse an SQL string into a jooq Condition. Do this in the Dao? But still seems like no way
-    //    to walk the AST and check each condition so we can report on errors.
+    //    to walk the AST and check each condition, so we can report on errors.
     ASTNode searchAST;
     try { searchAST = ASTParser.parse(sqlSearchStr); }
     catch (Exception e)
@@ -1808,7 +1748,7 @@ public class SystemsServiceImpl implements SystemsService
                                  dataMap.get(SK_KEY_PUBLIC_KEY),
                                  dataMap.get(SK_KEY_ACCESS_KEY),
                                  dataMap.get(SK_KEY_ACCESS_SECRET),
-                                 null); //dataMap.get(CERT) TODO: get ssh certificate when supported
+                                 null); //dataMap.get(CERT) NOTE: get ssh certificate when supported
     }
     catch (TapisClientException tce)
     {
@@ -2555,9 +2495,9 @@ public class SystemsServiceImpl implements SystemsService
   private Set<String> getViewableSystemIDs(ResourceRequestUser rUser) throws TapisException, TapisClientException
   {
     var systemIDs = new HashSet<String>();
-    // Use implies to filter permissions returned. Without implies all permissions for apps, etc are returned.
-    String impliedBy = null; // 2420 returned
-    String implies = String.format("system:%s:*:*", rUser.getOboTenantId()); // 75 returned TODO winner?
+    // Use implies to filter permissions returned. Without implies all permissions for apps, etc. are returned.
+    String impliedBy = null;
+    String implies = String.format("system:%s:*:*", rUser.getOboTenantId());
     var userPerms = getSKClient().getUserPerms(rUser.getOboTenantId(), rUser.getOboUserId(), implies, impliedBy);
     // Check each perm to see if it allows user READ access.
     for (String userPerm : userPerms)
@@ -2580,9 +2520,10 @@ public class SystemsServiceImpl implements SystemsService
         }
         else
         {
-          // TODO remove or turn into a real log message
-//          _log.warn("Found orphaned permission for system: " + permFields[3]);
-// TODO          removeOrphanedSKPerms(permFields[3], rUser.getOboTenantId());
+          // Log a warning and remove the permission
+          String msg = LibUtils.getMsgAuth("SYSLIB_PERM_ORPHAN", rUser, permFields[3]);
+          _log.warn(msg);
+          removeOrphanedSKPerms(permFields[3], rUser.getOboTenantId());
         }
       }
     }
@@ -2731,7 +2672,7 @@ public class SystemsServiceImpl implements SystemsService
       sParms.setData(dataMap);
       getSKClient().writeSecret(oboTenant, oboUser, sParms);
     }
-    // TODO if necessary handle ssh certificate when supported
+    // NOTE if necessary handle ssh certificate when supported
   }
 
   /**
@@ -2781,7 +2722,7 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Remove all SK artifacts associated with a System: user credentials, user permissions
+   * Remove SK artifacts associated with a System: user credentials, user permissions
    * No checks are done for incoming arguments and the system must exist
    */
   private void removeSKArtifacts(ResourceRequestUser rUser, TSystem system)
@@ -2795,7 +2736,8 @@ public class SystemsServiceImpl implements SystemsService
     String permSpec = String.format(PERM_SPEC_TEMPLATE, oboTenant, "%", systemId);
     var userNames = getSKClient().getUsersWithPermission(oboTenant, permSpec);
     // Revoke all perms for all users
-    for (String userName : userNames) {
+    for (String userName : userNames)
+    {
       revokePermissions(oboTenant, systemId, userName, ALL_PERMS);
       // Remove wildcard perm
       getSKClient().revokeUserPermission(oboTenant, userName, getPermSpecAllStr(oboTenant, systemId));
@@ -2812,7 +2754,7 @@ public class SystemsServiceImpl implements SystemsService
       getSKClient().revokeUserPermission(oboTenant, resolvedEffectiveUserId, filesPermSpec);;
 
     // Remove credentials associated with the system.
-    // TODO: Have SK do this in one operation?
+    // NOTE: Have SK do this in one operation?
     // TODO: How to remove for users other than effectiveUserId?
     // Remove credentials in Security Kernel if effectiveUser is static
     if (!effectiveUserId.equals(APIUSERID_VAR)) {
