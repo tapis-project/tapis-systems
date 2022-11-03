@@ -71,7 +71,7 @@ public class SystemsServiceTest
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
-  int numSystems = 34; // UNUSED SYSTEMS: None
+  int numSystems = 35; // UNUSED SYSTEMS: None
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
@@ -219,35 +219,47 @@ public class SystemsServiceTest
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
   }
 
-  // NOTE: cred check fails when it should not when run from laptop
-  //   Error is:
-  //   TAPIS_SSH_CONNECT_ERROR Unable to establish SSH session on host 129.114.17.113 (port 22) for user testuser3
-  //   using PUBLICKEY_AUTH authentication: java.lang.IllegalArgumentException: Invalid host pattern char in (129.114.60.128)
-//  @Test
-//  public void testCreateSystemCredCheck() throws Exception
-//  {
-//    TSystem sys0 = systems[??];
-//    sys0.setEffectiveUserId("testuser2"); //
-////     sys0.setEffectiveUserId("testuser99");
-//    Credential cred0 = new Credential(null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-//            "fakeAccessKey", "fakeAccessSecret", "fakeCert");
-//    sys0.setAuthnCredential(cred0);
-//
-//    // Using invalid credentials should fail with exception
-//    try {
-//      svc.createSystem(rOwner1, sys0, skipCredCheckFalse, scrubbedJson);
-//      Assert.fail("System create call should have thrown an exception when credentials are invalid");
-//    } catch (Exception e) {
-//      Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID"));
-//    }
-//
-//    // Using valid credentials should succeed.
-//    String password = "testuser99";
-//    cred0 = new Credential(null, password, null, null, null, null, null);
-//    sys0.setAuthnCredential(cred0);
-//    svc.createSystem(rOwner1, sys0, skipCredCheckFalse, scrubbedJson);
-//  }
-//
+  // Test credential verification
+  @Test
+  public void testCredCheck() throws Exception
+  {
+    TSystem sys0 = systems[34];
+    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
+    sys0.setHost("129.114.35.53");
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+    // Fetch system without resolving rootDir. Returned rootDir should match original.
+    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffFalse, sharedAppCtxFalse);
+    Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
+    System.out.println("Found item: " + sys0.getId());
+
+    String targetUser = owner1;
+    String loginUser = testUser3;
+    // Get password from environment - TAPIS_VM_TESTUSER3_PASSWORD
+    String testUser3P = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
+    if (StringUtils.isBlank(testUser3P))
+    {
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_PASSWORD_ENV_VAR);
+    }
+    Credential cred0 = new Credential(AuthnMethod.PASSWORD, loginUser, "fakePassword", null, null, null, null, null);
+
+    // Using invalid credentials should fail with exception
+    try
+    {
+      svc.createUserCredential(rOwner1, sys0.getId(), targetUser, cred0, skipCredCheckFalse, rawDataEmptyJson);
+      Assert.fail("System createUserCred call should have thrown an exception when credentials are invalid");
+    }
+    catch (Exception e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_CRED_INVALID"));
+    }
+
+    // Using valid credentials should succeed.
+    cred0 = new Credential(null, loginUser, testUser3P, null, null, null, null, null);
+    sys0.setAuthnCredential(cred0);
+    svc.createUserCredential(rOwner1, sys0.getId(), targetUser, cred0, skipCredCheckFalse, rawDataEmptyJson);
+  }
+
   // Test retrieving a system including default authn method
   //   and test retrieving for specified authn method.
   @Test

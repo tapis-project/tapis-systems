@@ -115,6 +115,9 @@ public class SystemsServiceImpl implements SystemsService
   // NotAuthorizedException requires a Challenge, although it serves no purpose here.
   private static final String NO_CHALLENGE = "NoChallenge";
 
+  // String used to detect that credentials are the problem when creating an SSH connection
+  private static final String NO_MORE_AUTH_METHODS = "No more authentication methods available";
+
   // Compiled regex for splitting around ":"
   private static final Pattern COLON_SPLIT = Pattern.compile(":");
 
@@ -215,7 +218,15 @@ public class SystemsServiceImpl implements SystemsService
     // NOTE: do not do this for effectiveUserId since it may be ${owner} and get resolved below.
     String tenant = system.getTenant();
     String systemId = system.getId();
-    Credential credential = system.getAuthnCredential();
+    // Create a cred with authnMethod set. If we need to verify we want to only verify using provided authnMethod.
+    Credential credential;
+    Credential c = system.getAuthnCredential();
+    if (c == null) credential = null;
+    else
+    {
+      credential = new Credential(system.getDefaultAuthnMethod(), c.getLoginUser(), c.getPassword(),
+                       c.getPrivateKey(), c.getPublicKey(), c.getAccessKey(), c.getAccessSecret(), c.getCertificate());
+    }
 
     // ---------------------------- Check inputs ------------------------------------
     // Required system attributes: tenant, id, type, host, defaultAuthnMethod
@@ -430,7 +441,16 @@ public class SystemsServiceImpl implements SystemsService
     String oboTenant = rUser.getOboTenantId();
     String systemId = putSystem.getId();
     String effectiveUserId = putSystem.getEffectiveUserId();
-    Credential credential = putSystem.getAuthnCredential();
+
+    // Create a cred with authnMethod set. If we need to verify we want to only verify using provided authnMethod.
+    Credential credential;
+    Credential c = putSystem.getAuthnCredential();
+    if (c == null) credential = null;
+    else
+    {
+      credential = new Credential(putSystem.getDefaultAuthnMethod(), c.getLoginUser(), c.getPassword(),
+              c.getPrivateKey(), c.getPublicKey(), c.getAccessKey(), c.getAccessSecret(), c.getCertificate());
+    }
 
     // ---------------------------- Check inputs ------------------------------------
     if (StringUtils.isBlank(oboTenant) || StringUtils.isBlank(systemId) || StringUtils.isBlank(rawData))
@@ -2267,7 +2287,9 @@ public class SystemsServiceImpl implements SystemsService
    *
    * Skipped for non-LINUX systems
    * Skipped if no credentials provided, i.e. no password or ssh keys
-   * Both types (password and ssh keys) are checked if they are provided
+   *
+   * If authnMethod provided in Credential then only that method is checked,
+   * else both types (password and ssh keys) are checked if they are provided
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tSystem1 - the TSystem to check
@@ -2289,10 +2311,17 @@ public class SystemsServiceImpl implements SystemsService
 
     // Determine authnMethod to check, either password or ssh keys
     // if neither provided then skip check
-    // if both provided check both
+    // if both provided check depends on authnMethod
     boolean passwordSet = !StringUtils.isBlank(credential.getPassword());
     boolean sshKeysSet = (!StringUtils.isBlank(credential.getPublicKey()) && !StringUtils.isBlank(credential.getPublicKey()));
     if (!passwordSet && !sshKeysSet) return;
+
+    // Determine if we will check password, keys or both
+    boolean checkPassword = false;
+    boolean checkKeys = false;
+    AuthnMethod authnMethod = credential.getAuthnMethod();
+    if (passwordSet && (authnMethod == null || AuthnMethod.PASSWORD.equals(authnMethod))) checkPassword = true;
+    if (sshKeysSet && (authnMethod == null || AuthnMethod.PKI_KEYS.equals(authnMethod))) checkKeys = true;
 
     String host = tSystem1.getHost();
     int port = tSystem1.getPort();
@@ -2304,7 +2333,7 @@ public class SystemsServiceImpl implements SystemsService
     SSHConnection sshConnection = null;
 
     // If password set then try it
-    if (passwordSet)
+    if (checkPassword)
     {
       try
       {
@@ -2313,15 +2342,24 @@ public class SystemsServiceImpl implements SystemsService
       }
       catch(TapisException e)
       {
-        msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, effectiveUser, AuthnMethod.PASSWORD.name(),
-                                  e.getMessage());
+        String eMsg = e.getMessage();
+        if (eMsg != null && eMsg.contains(NO_MORE_AUTH_METHODS))
+        {
+          msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID", rUser, tSystem1.getId(), host, effectiveUser,
+                                    AuthnMethod.PASSWORD.name());
+        }
+        else
+        {
+          msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, effectiveUser,
+                                    AuthnMethod.PASSWORD.name(), eMsg);
+        }
         _log.error(msg, e);
       }
       finally { if (sshConnection != null) sshConnection.close(); }
     }
 
     // If ssh keys set then try it
-    if (sshKeysSet)
+    if (checkKeys)
     {
       try
       {
@@ -2330,8 +2368,17 @@ public class SystemsServiceImpl implements SystemsService
       }
       catch(TapisException e)
       {
-        msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, effectiveUser, AuthnMethod.PKI_KEYS.name(),
-                                  e.getMessage());
+        String eMsg = e.getMessage();
+        if (eMsg != null && eMsg.contains(NO_MORE_AUTH_METHODS))
+        {
+          msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID", rUser, tSystem1.getId(), host, effectiveUser,
+                                    AuthnMethod.PKI_KEYS.name());
+        }
+        else
+        {
+          msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, effectiveUser,
+                                    AuthnMethod.PKI_KEYS.name(), eMsg);
+        }
         _log.error(msg, e);
       }
       finally { if (sshConnection != null) sshConnection.close(); }

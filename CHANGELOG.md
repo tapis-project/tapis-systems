@@ -15,8 +15,8 @@ https://tapis-project.github.io/live-docs
 Incremental improvements and new preview features.
 
 ### New features:
-- Support having a dynamic *rootDir* property. Attribute *rootDir* may start with *HOST_EVAL()*.
-- Rename getSystem query parameter from *resolveEffectiveUser* to *resolveEffective* and apply it to *effectiveUserId* and *rootDir*.
+- Support having a dynamic *rootDir* property. Allow *apiUserId* and *effectiveUserId*. Attribute *rootDir* may start with *HOST_EVAL()*.
+- Rename getSystem query parameter from *resolveEffectiveUser* to *resolveEffective*. Apply it to *effectiveUserId* and *rootDir*.
 
 ### Bug fixes:
 - None.

@@ -36,6 +36,7 @@ public final class IntegrationUtils
 {
   public static final Gson gson =  TapisGsonUtils.getGson();
 
+  public static final String TAPIS_TEST_PASSWORD_ENV_VAR = "TAPIS_VM_TESTUSER3_PASSWORD";
   // Test data
   public static final String siteId = "tacc";
   public static final String adminTenantName = "admin";
