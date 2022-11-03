@@ -124,11 +124,10 @@ public final class TSystem
   // ID Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
   public static final String PATTERN_STR_VALID_ID = "^[a-zA-Z]([a-zA-Z0-9]|[-\\._~])*";
 
-  // If rootDir contains HOST_EVAL then rootDir must match a certain pattern at start: "/HOST_EVAL($VARIABLE)...
-  // Preceding / is optional
+  // If rootDir contains HOST_EVAL then rootDir must match a certain pattern at start: "HOST_EVAL($VARIABLE)...
   // Web search indicates for linux, env var names should start with single alpha/underscore followed by 0 or more alphanum/underscore
   // Must start with "HOST_EVAL($", followed by 1 alpha/underscore followed by 0 or more alphanum/underscore followed by ")"
-  public static final String PATTERN_STR_HOST_EVAL = "^\\/?HOST_EVAL\\(\\$[a-zA-Z_]+([a-zA-Z0-9_])*\\)";
+  public static final String PATTERN_STR_HOST_EVAL = "^HOST_EVAL\\(\\$[a-zA-Z_]+([a-zA-Z0-9_])*\\)(.*)";
 
   // Validation constants
   public static final Integer MAX_ID_LEN = 80;

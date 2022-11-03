@@ -36,7 +36,6 @@ public final class IntegrationUtils
 {
   public static final Gson gson =  TapisGsonUtils.getGson();
 
-  public static final String TAPIS_TEST_PASSWORD_ENV_VAR = "TAPIS_VM_TESTUSER3_PASSWORD";
   // Test data
   public static final String siteId = "tacc";
   public static final String adminTenantName = "admin";
@@ -45,10 +44,11 @@ public final class IntegrationUtils
   public static final String filesSvcName = "files";
   public static final String jobsSvcName = "jobs";
   public static final String appsSvcName = "apps";
-  public static final String adminUser = "testadmin";
 
+  // Various usernames
   // NOTE: Continue to use the fake users owner1, owner2 since some operations involve modifying credentials
   //       Although it should not be a problem because credentials are stored for each system it is best to be safe.
+  public static final String adminUser = "testadmin";
   public static final String owner1 = "owner1";
   public static final String owner2 = "owner2";
   public static final String owner3 = "owner3";
@@ -69,6 +69,13 @@ public final class IntegrationUtils
   public static final String impersonationIdTestUser9 = "testuser9";
   public static final String impersonationIdNull = null;
   public static final String apiUser = "testApiUser";
+
+  // Properties for one of the Tapis v3 test VMs
+  public static final String TAPIS_TEST_HOST_LOGIN_USER = testUser3;
+  public static final String TAPIS_TEST_PASSWORD_ENV_VAR = "TAPIS_VM_TESTUSER3_PASSWORD";
+  public static final String TAPIS_TEST_HOST_IP = "129.114.35.53";
+
+
   public static final String sysNamePrefix = "TestSys";
   public static final String schedProfileNamePrefix = "TestSchedProfile";
   public static final String description1 = "System description 1";

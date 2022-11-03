@@ -225,7 +225,7 @@ public class SystemsServiceTest
   {
     TSystem sys0 = systems[34];
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
-    sys0.setHost("129.114.35.53");
+    sys0.setHost(TAPIS_TEST_HOST_IP);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // Fetch system without resolving rootDir. Returned rootDir should match original.
     TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffFalse, sharedAppCtxFalse);
@@ -233,7 +233,7 @@ public class SystemsServiceTest
     System.out.println("Found item: " + sys0.getId());
 
     String targetUser = owner1;
-    String loginUser = testUser3;
+    String loginUser = TAPIS_TEST_HOST_LOGIN_USER;
     // Get password from environment - TAPIS_VM_TESTUSER3_PASSWORD
     String testUser3P = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
     if (StringUtils.isBlank(testUser3P))
@@ -554,22 +554,39 @@ public class SystemsServiceTest
   @Test
   public void testGetSystemResolveRootDir() throws Exception
   {
-    String rootDir = "/home/${apiUserId}/${effectiveUserId}";
+    String rootDir = "HOST_EVAL($HOME)/${apiUserId}/test/${effectiveUserId}";
     TSystem sys0 = systems[33];
+    sys0.setHost(TAPIS_TEST_HOST_IP);
     sys0.setRootDir(rootDir);
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
+    sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+
     // Fetch system without resolving rootDir. Returned rootDir should match original.
     TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffFalse, sharedAppCtxFalse);
     Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
     System.out.println("Found item: " + sys0.getId());
     checkCommonSysAttrs(sys0, tmpSys);
+
+    // Set up for evaluating HOST_EVAL. Tapis will need to ssh to the host.
+    String targetUser = owner1;
+    String loginUser = TAPIS_TEST_HOST_LOGIN_USER;
+    // Get password from environment - TAPIS_VM_TESTUSER3_PASSWORD
+    String testUser3P = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
+    if (StringUtils.isBlank(testUser3P))
+    {
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_PASSWORD_ENV_VAR);
+    }
+    Credential cred0 = new Credential(null, loginUser, testUser3P, null, null, null, null, null);
+    sys0.setAuthnCredential(cred0);
+    svc.createUserCredential(rOwner1, sys0.getId(), targetUser, cred0, skipCredCheckFalse, rawDataEmptyJson);
+
     // Fetch system with resolving rootDir. Returned rootDir should have been updated.
     tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffTrue, sharedAppCtxFalse);
     // Update original definition, so we can use the checkCommon method.
-    String resolvedRootDir = String.format("/home/%s/%s",owner1, owner1);
+    String resolvedRootDir = String.format("/home/%s/%s/test/%s", loginUser, owner1, loginUser);
     sys0.setRootDir(resolvedRootDir);
-    sys0.setEffectiveUserId(owner1);
+    sys0.setEffectiveUserId(loginUser);
     checkCommonSysAttrs(sys0, tmpSys);
     // Reset rootDir
     sys0.setRootDir(rootDir);

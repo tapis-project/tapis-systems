@@ -127,6 +127,7 @@ public class SystemsServiceImpl implements SystemsService
   private static final String nullTargetUser = null;
   private static final Set<Permission> nullPermSet = null;
   private static final SystemShare nullSystemShare = null;
+  private static final Credential nullCredential = null;
   
   // Sharing constants
   private static final String OP_SHARE = "share";
@@ -899,6 +900,7 @@ public class SystemsServiceImpl implements SystemsService
 
     String rootDir = system.getRootDir();
     if (rootDir == null) rootDir = "";
+    String owner = system.getOwner();
 
     // Determine the effectiveUser type, either static or dynamic
     // Secrets get stored on different paths based on this
@@ -916,12 +918,16 @@ public class SystemsServiceImpl implements SystemsService
     //   - if svc not calling as itself do the normal checks using oboUserOrImpersonationId.
     //   - as always make sure auth checks are skipped if svc passes in sharedAppCtx=true.
     // If not skipping auth then check auth
-    if (!sharedAppCtx) checkAuth(rUser, op, systemId, nullOwner, nullTargetUser, nullPermSet, impersonationId);
+    if (!sharedAppCtx) checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, impersonationId);
+
+    // If caller asks for credentials, explicitly check auth now
+    // That way we can call private getCredential and not have overhead of getUserCredential().
+    if (getCreds) checkAuth(rUser, SystemOperation.getCred, systemId, owner, nullTargetUser, nullPermSet, impersonationId);
 
     // If flag is set to also require EXECUTE perm then make explicit auth call to make sure user has exec perm
     if (!sharedAppCtx && requireExecPerm)
     {
-      checkAuth(rUser, SystemOperation.execute, systemId, nullOwner, nullTargetUser, nullPermSet, impersonationId);
+      checkAuth(rUser, SystemOperation.execute, systemId, owner, nullTargetUser, nullPermSet, impersonationId);
     }
 
     // If flag is set to also require EXECUTE perm then system must support execute
@@ -938,15 +944,12 @@ public class SystemsServiceImpl implements SystemsService
       system.setEffectiveUserId(resolvedEffectiveUserId);
     }
 
-    // Determine if we need credentials to resolve rootDir
-    boolean needCredsForHostEval = (resolveEffective && isRootDirDynamic(rootDir) && rootDir.matches(PATTERN_STR_HOST_EVAL));
-
-    // If credentials are requested, or we will need them to resolve rootDir then fetch the credentials
+    // If credentials are requested, fetch them now.
     // Note that resolved effectiveUserId not used to look up credentials.
     // If effUsr is static then secrets stored using the "static" path in SK and static string used to build the path.
     // If effUsr is dynamic then secrets stored using the "dynamic" path in SK and a Tapis user
     //    (oboUser or impersonationId) used to build the path.
-    if (getCreds || needCredsForHostEval)
+    if (getCreds)
     {
       AuthnMethod tmpAccMethod = system.getDefaultAuthnMethod();
       // If authnMethod specified then use it instead of default authn method defined for the system.
@@ -958,14 +961,15 @@ public class SystemsServiceImpl implements SystemsService
         credTargetUser = system.getEffectiveUserId();
       else
         credTargetUser = oboOrImpersonatedUser;
-      Credential cred = getUserCredential(rUser, systemId, credTargetUser, tmpAccMethod);
+      // Use private internal method instead of public API to skip auth and other checks not needed here.
+      Credential cred = getCredential(rUser, system, credTargetUser, tmpAccMethod, isStaticEffectiveUser);
       system.setAuthnCredential(cred);
     }
 
     // If requested resolve and set rootDir in result
     if (resolveEffective)
     {
-      String resolvedRootDir = resolveRootDir(rUser, system, impersonationId);
+      String resolvedRootDir = resolveRootDir(rUser, system, impersonationId, isStaticEffectiveUser);
       system.setRootDir(resolvedRootDir);
     }
 
@@ -1120,8 +1124,9 @@ public class SystemsServiceImpl implements SystemsService
     {
       for (TSystem system : systems)
       {
+        boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
         system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
-        system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId));
+        system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId, isStaticEffectiveUser));
       }
     }
     return systems;
@@ -1207,8 +1212,9 @@ public class SystemsServiceImpl implements SystemsService
     {
       for (TSystem system : systems)
       {
+        boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
         system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
-        system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId));
+        system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId, isStaticEffectiveUser));
       }
     }
     return systems;
@@ -1251,8 +1257,9 @@ public class SystemsServiceImpl implements SystemsService
     {
       for (TSystem system : systems)
       {
+        boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
         system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
-        system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId));
+        system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId, isStaticEffectiveUser));
       }
     }
     return systems;
@@ -1666,7 +1673,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - name of system
    * @param targetUser - Target user for operation. May be Tapis user or host user
    * @param authnMethod - (optional) return credentials for specified authn method instead of default authn method
-   * @return Credential - populated instance or null if not found.
+   * @return populated instance or null if not found.
    * @throws TapisException - for Tapis related exceptions
    * @throws NotAuthorizedException - unauthorized
    * @throws NotFoundException - Resource not found
@@ -1702,95 +1709,7 @@ public class SystemsServiceImpl implements SystemsService
       authnMethod = defaultAuthnMethod;
     }
 
-    /*
-     * When the Systems service calls SK to read secrets it calls with a JWT as itself,
-     *   jwtTenantId = admin tenant (Site Tenant Admin)
-     *   jwtUserId = TapisConstants.SERVICE_NAME_SYSTEMS ("systems")
-     *   and AccountType = TapisThreadContext.AccountType.service
-     *
-     * For Systems the secret needs to be scoped by the tenant associated with the system,
-     *   the system id, the target user (i.e. the user associated with the secret) and
-     *   whether the effectiveUserId is static or dynamic.
-     *   This provides for separate namespaces for the two cases, so there will be no conflict if a static
-     *      user and dynamic (i.e. ${apiUserId}) user happen to have the same value.
-     * The target user may be a Tapis user or login user associated with the host.
-     * Secrets for a system follow the format
-     *   secret/tapis/tenant/<tenant_id>/<system_id>/user/<static|dynamic>/<target_user>/<key_type>/S1
-     * where tenant_id, system_id, user_id, key_type and <static|dynamic> are filled in at runtime.
-     *   key_type is sshkey, password, accesskey or cert
-     *   and S1 is the reserved SecretName associated with the Systems.
-     *
-     * Hence, the following code
-     *     new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME)
-     *     sParms.setTenant(rUser.getOboTenantId()).setSysId(systemId).setSysUser(targetUserPath);
-     *
-     */
-    Credential credential = null;
-    try
-    {
-      // Construct basic SK secret parameters
-      // Establish secret type ("system") and secret name ("S1")
-      var sParms = new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
-
-      // Fill in systemId and targetUserPath for the path to the secret.
-      String targetUserPath = getTargetUserSecretPath(targetUser, isStaticEffectiveUser);
-
-      // Set tenant, system and user associated with the secret.
-      // These values are used to build the vault path to the secret.
-      sParms.setTenant(rUser.getOboTenantId()).setSysId(systemId).setSysUser(targetUserPath);
-
-      // NOTE: Next line is needed for the SK call. Not clear if it should be targetUser, serviceUserId, oboUser.
-      //       If not set then the first getAuthnCred in SystemsServiceTest.testUserCredentials
-      //          fails. But it appears the value does not matter. Even an invalid userId appears to be OK.
-      sParms.setUser(rUser.getOboUserId());
-      // Set key type based on authn method
-      if (authnMethod.equals(AuthnMethod.PASSWORD))sParms.setKeyType(KeyType.password);
-      else if (authnMethod.equals(AuthnMethod.PKI_KEYS))sParms.setKeyType(KeyType.sshkey);
-      else if (authnMethod.equals(AuthnMethod.ACCESS_KEY))sParms.setKeyType(KeyType.accesskey);
-      else if (authnMethod.equals(AuthnMethod.CERT))sParms.setKeyType(KeyType.cert);
-
-      // Retrieve the secrets
-      SkSecret skSecret = getSKClient().readSecret(sParms);
-      if (skSecret == null) return null;
-      var dataMap = skSecret.getSecretMap();
-      if (dataMap == null) return null;
-
-      // Determine the loginUser associated with the credential.
-      // If static or dynamic and there is no mapping then it is targetUser
-      //   else look up mapping
-      String loginUser;
-      if (isStaticEffectiveUser)
-      {
-        loginUser = targetUser;
-      }
-      else
-      {
-        // This is the dynamic case, so targetUser must be a Tapis user.
-        // See if the target Tapis user has a mapping to a host login user.
-        String mappedLoginUser = dao.getLoginUser(rUser.getOboTenantId(), systemId, targetUser);
-        // If so then the mapped value becomes loginUser, else loginUser=targetUser
-        if (!StringUtils.isBlank(mappedLoginUser))
-          loginUser = mappedLoginUser;
-        else
-          loginUser = targetUser;
-      }
-
-      // Create a credential
-      credential = new Credential(authnMethod, loginUser,
-                                 dataMap.get(SK_KEY_PASSWORD),
-                                 dataMap.get(SK_KEY_PRIVATE_KEY),
-                                 dataMap.get(SK_KEY_PUBLIC_KEY),
-                                 dataMap.get(SK_KEY_ACCESS_KEY),
-                                 dataMap.get(SK_KEY_ACCESS_SECRET),
-                                 null); //dataMap.get(CERT) NOTE: get ssh certificate when supported
-    }
-    catch (TapisClientException tce)
-    {
-      // If tapis client exception then log error but continue so null is returned.
-      _log.warn(tce.toString());
-      credential = null;
-    }
-    return credential;
+    return getCredential(rUser, system, targetUser, authnMethod, isStaticEffectiveUser);
   }
 
   // -----------------------------------------------------------------------
@@ -2440,15 +2359,16 @@ public class SystemsServiceImpl implements SystemsService
    * Determine the resolved rootDir for static and dynamic cases.
    * NOTE: This method should only be called when resolveEffective == true
    * Resolving rootDir may involve remote call to system host, so do that only if needed
-   * If HOST_EVAL is present, call will be made to system host, credentials will be fetched if not provided.
+   * If HOST_EVAL is present, call will be made to system host, credentials will be fetched.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system - the system in question
    * @param impersonationId - use provided Tapis username instead of oboUser when resolving effectiveUserId
    * @return Resolved value for rootDir
    */
-  private String resolveRootDir(ResourceRequestUser rUser, TSystem system, String impersonationId)
-          throws TapisException, TapisClientException
+  private String resolveRootDir(ResourceRequestUser rUser, TSystem system, String impersonationId,
+                                boolean isStaticEffectiveUser)
+          throws TapisException
   {
     String rootDir = system.getRootDir();
     String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
@@ -2457,10 +2377,10 @@ public class SystemsServiceImpl implements SystemsService
     // If not dynamic we are done.
     if (StringUtils.isBlank(rootDir) || !rootDirIsDynamic) return rootDir;
 
-    // Some callers do not provide credentials. If necessary fetch the credentials
-    if (rootDir.matches(PATTERN_STR_HOST_EVAL) && system.getAuthnCredential() == null)
+    Credential cred = null;
+    // If necessary fetch the credentials
+    if (rootDir.matches(PATTERN_STR_HOST_EVAL))
     {
-      boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
       // Determine targetUser for fetching credential.
       //   If static use effectiveUserId, else use oboOrImpersonatedUser
       String credTargetUser;
@@ -2468,12 +2388,13 @@ public class SystemsServiceImpl implements SystemsService
         credTargetUser = system.getEffectiveUserId();
       else
         credTargetUser = oboOrImpersonatedUser;
-      Credential cred = getUserCredential(rUser, system.getId(), credTargetUser, system.getDefaultAuthnMethod());
-      system.setAuthnCredential(cred);
+      // Use private internal method instead of public API to skip auth and other checks not needed here.
+      cred = getCredential(rUser, system, credTargetUser, system.getDefaultAuthnMethod(), isStaticEffectiveUser);
     }
 
     // MacroResolver requires a TapisSystem, so create a partially filled in TapisSystem from the TSystem
-    TapisSystem tapisSystem = createTapisSystemFromTSystem(system);
+    TapisSystem tapisSystem = createTapisSystemFromTSystem(system, cred);
+
     // Create list of macros: effectiveUserId, apiUserId
     var macros = new TreeMap<String,String>();
     macros.put(EFFUSERID_STR, system.getEffectiveUserId());
@@ -2481,7 +2402,8 @@ public class SystemsServiceImpl implements SystemsService
 
     // Resolve HOST_EVAL and other macros
     MacroResolver macroResolver = new MacroResolver(tapisSystem, macros);
-    return  macroResolver.resolve(rootDir);
+    String resolvedRootDir = macroResolver.resolve(rootDir);
+    return resolvedRootDir;
   }
 
   /**
@@ -2493,7 +2415,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param s - a TSystem
    * @return TapisSystem based on TSystem
    */
-  private TapisSystem createTapisSystemFromTSystem(TSystem s)
+  private TapisSystem createTapisSystemFromTSystem(TSystem s, Credential cred)
   {
     TapisSystem tapisSystem = new TapisSystem();
     if (s == null) return tapisSystem;
@@ -2505,7 +2427,7 @@ public class SystemsServiceImpl implements SystemsService
     tapisSystem.setHost(s.getHost());
     tapisSystem.setEnabled(s.isEnabled());
     tapisSystem.setEffectiveUserId(s.getEffectiveUserId());
-    tapisSystem.setAuthnCredential(buildAuthnCred(s.getAuthnCredential()));
+    tapisSystem.setAuthnCredential(buildAuthnCred(cred));
     tapisSystem.setDefaultAuthnMethod(EnumUtils.getEnum(AuthnEnum.class, s.getDefaultAuthnMethod().name()));
     tapisSystem.setBucketName(s.getBucketName());
     tapisSystem.setRootDir(s.getRootDir());
@@ -2758,6 +2680,112 @@ public class SystemsServiceImpl implements SystemsService
     return getSKClient().isPermittedAny(tenantName, userName, permSpecs.toArray(TSystem.EMPTY_STR_ARRAY));
   }
 
+  /**
+   * Get a credential given system, targetUser, isStatic and authnMethod
+   * No checks are done for incoming arguments and the system must exist
+   */
+  private Credential getCredential(ResourceRequestUser rUser, TSystem system, String targetUser,
+                                   AuthnMethod authnMethod, boolean isStaticEffectiveUser)
+          throws TapisException
+  {
+    String oboTenant = rUser.getOboTenantId();
+    String oboUser = rUser.getOboUserId();
+    String systemId = system.getId();
+
+    // If authnMethod not passed in fill in with default from system
+    if (authnMethod == null) authnMethod = system.getDefaultAuthnMethod();
+
+    /*
+     * When the Systems service calls SK to read secrets it calls with a JWT as itself,
+     *   jwtTenantId = admin tenant (Site Tenant Admin)
+     *   jwtUserId = TapisConstants.SERVICE_NAME_SYSTEMS ("systems")
+     *   and AccountType = TapisThreadContext.AccountType.service
+     *
+     * For Systems the secret needs to be scoped by the tenant associated with the system,
+     *   the system id, the target user (i.e. the user associated with the secret) and
+     *   whether the effectiveUserId is static or dynamic.
+     *   This provides for separate namespaces for the two cases, so there will be no conflict if a static
+     *      user and dynamic (i.e. ${apiUserId}) user happen to have the same value.
+     * The target user may be a Tapis user or login user associated with the host.
+     * Secrets for a system follow the format
+     *   secret/tapis/tenant/<tenant_id>/<system_id>/user/<static|dynamic>/<target_user>/<key_type>/S1
+     * where tenant_id, system_id, user_id, key_type and <static|dynamic> are filled in at runtime.
+     *   key_type is sshkey, password, accesskey or cert
+     *   and S1 is the reserved SecretName associated with the Systems.
+     *
+     * Hence, the following code
+     *     new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME)
+     *     sParms.setTenant(rUser.getOboTenantId()).setSysId(systemId).setSysUser(targetUserPath);
+     *
+     */
+    Credential credential = null;
+    try
+    {
+      // Construct basic SK secret parameters
+      // Establish secret type ("system") and secret name ("S1")
+      var sParms = new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
+
+      // Fill in systemId and targetUserPath for the path to the secret.
+      String targetUserPath = getTargetUserSecretPath(targetUser, isStaticEffectiveUser);
+
+      // Set tenant, system and user associated with the secret.
+      // These values are used to build the vault path to the secret.
+      sParms.setTenant(rUser.getOboTenantId()).setSysId(systemId).setSysUser(targetUserPath);
+
+      // NOTE: Next line is needed for the SK call. Not clear if it should be targetUser, serviceUserId, oboUser.
+      //       If not set then the first getAuthnCred in SystemsServiceTest.testUserCredentials
+      //          fails. But it appears the value does not matter. Even an invalid userId appears to be OK.
+      sParms.setUser(rUser.getOboUserId());
+      // Set key type based on authn method
+      if (authnMethod.equals(AuthnMethod.PASSWORD))sParms.setKeyType(KeyType.password);
+      else if (authnMethod.equals(AuthnMethod.PKI_KEYS))sParms.setKeyType(KeyType.sshkey);
+      else if (authnMethod.equals(AuthnMethod.ACCESS_KEY))sParms.setKeyType(KeyType.accesskey);
+      else if (authnMethod.equals(AuthnMethod.CERT))sParms.setKeyType(KeyType.cert);
+
+      // Retrieve the secrets
+      SkSecret skSecret = getSKClient().readSecret(sParms);
+      if (skSecret == null) return null;
+      var dataMap = skSecret.getSecretMap();
+      if (dataMap == null) return null;
+
+      // Determine the loginUser associated with the credential.
+      // If static or dynamic and there is no mapping then it is targetUser
+      //   else look up mapping
+      String loginUser;
+      if (isStaticEffectiveUser)
+      {
+        loginUser = targetUser;
+      }
+      else
+      {
+        // This is the dynamic case, so targetUser must be a Tapis user.
+        // See if the target Tapis user has a mapping to a host login user.
+        String mappedLoginUser = dao.getLoginUser(rUser.getOboTenantId(), systemId, targetUser);
+        // If so then the mapped value becomes loginUser, else loginUser=targetUser
+        if (!StringUtils.isBlank(mappedLoginUser))
+          loginUser = mappedLoginUser;
+        else
+          loginUser = targetUser;
+      }
+
+      // Create a credential
+      credential = new Credential(authnMethod, loginUser,
+              dataMap.get(SK_KEY_PASSWORD),
+              dataMap.get(SK_KEY_PRIVATE_KEY),
+              dataMap.get(SK_KEY_PUBLIC_KEY),
+              dataMap.get(SK_KEY_ACCESS_KEY),
+              dataMap.get(SK_KEY_ACCESS_SECRET),
+              null); //dataMap.get(CERT) NOTE: get ssh certificate when supported
+    }
+    catch (TapisClientException tce)
+    {
+      // If tapis client exception then log error but continue so null is returned.
+      _log.warn(tce.toString());
+      credential = null;
+    }
+    return credential;
+  }
+
   /*
    * Create or update a credential
    * No checks are done for incoming arguments and the system must exist
@@ -2842,8 +2870,7 @@ public class SystemsServiceImpl implements SystemsService
    * Delete a credential
    * No checks are done for incoming arguments and the system must exist
    */
-  private int deleteCredential(ResourceRequestUser rUser, String systemId,
-                               String targetUser, boolean isStatic)
+  private int deleteCredential(ResourceRequestUser rUser, String systemId, String targetUser, boolean isStatic)
           throws TapisClientException
   {
     String oboTenant = rUser.getOboTenantId();
