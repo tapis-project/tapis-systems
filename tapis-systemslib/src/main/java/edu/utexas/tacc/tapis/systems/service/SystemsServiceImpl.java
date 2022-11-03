@@ -911,7 +911,7 @@ public class SystemsServiceImpl implements SystemsService
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
 
-    // Resolve and optionally set effectiveUserId in result
+    // If requested resolve and set effectiveUserId in result
     if (resolveEffective)
     {
       String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, impersonationId);
@@ -942,7 +942,7 @@ public class SystemsServiceImpl implements SystemsService
       system.setAuthnCredential(cred);
     }
 
-    // TODO Resolve and optionally set effectiveUserId in result
+    // If requested resolve and set rootDir in result
     if (resolveEffective)
     {
       String resolvedRootDir = resolveRootDir(rUser, system, impersonationId);
@@ -2386,17 +2386,14 @@ public class SystemsServiceImpl implements SystemsService
   {
     if (StringUtils.isBlank(rootDir)) return false;
 
-    if (rootDir.matches(PATTERN_STR_HOST_EVAL) || rootDir.contains(EFFUSERID_VAR) || rootDir.contains(APIUSERID_VAR))
-    {
-      return true;
-    }
-    return false;
+    return rootDir.matches(PATTERN_STR_HOST_EVAL) || rootDir.contains(EFFUSERID_VAR) || rootDir.contains(APIUSERID_VAR);
   }
 
   /**
    * Determine the resolved rootDir for static and dynamic cases.
    * NOTE: This method should only be called when resolveEffective == true
    * Resolving rootDir may involve remote call to system host, so do that only if needed
+   * If HOST_EVAL is present, call will be made to system host, credentials will be fetched if not provided.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system - the system in question
@@ -2404,13 +2401,8 @@ public class SystemsServiceImpl implements SystemsService
    * @return Resolved value for rootDir
    */
   private String resolveRootDir(ResourceRequestUser rUser, TSystem system, String impersonationId)
-          throws TapisException
+          throws TapisException, TapisClientException
   {
-    // TODO
-    // TODO For the call from geSystem() the creds are pulled, but not for the other calls: getSystems,
-    //      getSystemsUsingSqlSearchStr, and getSystemsSatisfyingConstraints
-    // TODO Do we need to check if system.getCreds is null and fetch creds in this method?
-    // TODO
     String rootDir = system.getRootDir();
     String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
     boolean rootDirIsDynamic = isRootDirDynamic(rootDir);
@@ -2418,12 +2410,28 @@ public class SystemsServiceImpl implements SystemsService
     // If not dynamic we are done.
     if (StringUtils.isBlank(rootDir) || !rootDirIsDynamic) return rootDir;
 
+    // Some callers do not provide credentials. If necessary fetch the credentials
+    if (rootDir.matches(PATTERN_STR_HOST_EVAL) && system.getAuthnCredential() == null)
+    {
+      boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+      // Determine targetUser for fetching credential.
+      //   If static use effectiveUserId, else use oboOrImpersonatedUser
+      String credTargetUser;
+      if (isStaticEffectiveUser)
+        credTargetUser = system.getEffectiveUserId();
+      else
+        credTargetUser = oboOrImpersonatedUser;
+      Credential cred = getUserCredential(rUser, system.getId(), credTargetUser, system.getDefaultAuthnMethod());
+      system.setAuthnCredential(cred);
+    }
+
     // MacroResolver requires a TapisSystem, so create a partially filled in TapisSystem from the TSystem
     TapisSystem tapisSystem = createTapisSystemFromTSystem(system);
     // Create list of macros: effectiveUserId, apiUserId
     var macros = new TreeMap<String,String>();
     macros.put(EFFUSERID_STR, system.getEffectiveUserId());
     macros.put(APIUSERID_STR, oboOrImpersonatedUser);
+
     // Resolve HOST_EVAL and other macros
     MacroResolver macroResolver = new MacroResolver(tapisSystem, macros);
     return  macroResolver.resolve(rootDir);
@@ -2487,6 +2495,7 @@ public class SystemsServiceImpl implements SystemsService
   // Build a TapisSystem client credential based on the TSystem model credential
   private static edu.utexas.tacc.tapis.systems.client.gen.model.Credential buildAuthnCred(Credential cred)
   {
+    if (cred == null) return null;
     var c = new edu.utexas.tacc.tapis.systems.client.gen.model.Credential();
     var am = EnumUtils.getEnum(AuthnEnum.class, cred.getAuthnMethod().name());
     c.setAuthnMethod(am);

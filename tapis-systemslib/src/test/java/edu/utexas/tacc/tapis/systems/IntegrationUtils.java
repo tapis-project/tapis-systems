@@ -223,8 +223,8 @@ public final class IntegrationUtils
   public static final boolean isDeletedFalse = false;
   public static final boolean showDeletedFalse = false;
   public static final boolean showDeletedTrue = true;
-  public static final boolean resolveEffUserTrue = true;
-  public static final boolean resolveEffUserFalse = false;
+  public static final boolean resolveEffTrue = true;
+  public static final boolean resolveEffFalse = false;
   public static final boolean sharedAppCtxTrue = true;
   public static final boolean sharedAppCtxFalse = false;
   public static final Instant createdNull = null;

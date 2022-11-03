@@ -59,6 +59,7 @@ public final class TSystem
   public static final String HOST_EVAL = "HOST_EVAL";
 
   private static final String[] ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
+  private static final String[] ROOTDIR_VARS = {OWNER_VAR, TENANT_VAR};
 
   // Attribute names, also used as field names in Json
   public static final String TENANT_FIELD = "tenant";
@@ -414,10 +415,12 @@ public final class TSystem
 
     // Perform variable substitutions that happen at create time: bucketName, rootDir, jobWorkingDir
     //    ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
+    //    ROOTDIR_VARS = {OWNER_VAR, TENANT_VAR};
     String[] allVarSubstitutions = {oboUser, owner, tenant};
+    String[] rootDirVarSubstitutions = {owner, tenant};
     setBucketName(StringUtils.replaceEach(bucketName, ALL_VARS, allVarSubstitutions));
-    setRootDir(StringUtils.replaceEach(rootDir, ALL_VARS, allVarSubstitutions));
     setJobWorkingDir(StringUtils.replaceEach(jobWorkingDir, ALL_VARS, allVarSubstitutions));
+    setRootDir(StringUtils.replaceEach(rootDir, ROOTDIR_VARS, rootDirVarSubstitutions));
   }
 
   /**
@@ -477,7 +480,7 @@ public final class TSystem
 
     if (SystemType.LINUX.equals(systemType) || SystemType.IRODS.equals(systemType))
     {
-      if (!StringUtils.isBlank(rootDir) && (!rootDir.startsWith("/") || !rootDir.startsWith(HOST_EVAL)))
+      if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/")  && !rootDir.startsWith(HOST_EVAL))
         errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NOSLASH", systemType.name(), rootDir));
     }
   }
