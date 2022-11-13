@@ -138,7 +138,7 @@ public class PermsResource
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_JSON_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // ------------------------- Extract and validate payload -------------------------
@@ -152,11 +152,14 @@ public class PermsResource
     {
       service.grantUserPermissions(rUser, systemId, userName, permsList, json);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
@@ -205,21 +208,17 @@ public class PermsResource
     Set<Permission> perms;
     String msg;
     try { perms = service.getUserPermissions(rUser, systemId, userName); }
-    catch (NotFoundException e)
-    {
-      msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
-      _log.warn(msg);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
-    if (perms == null) perms = new HashSet<>();
     ResultNameArray names = new ResultNameArray();
     List<String> permNames = new ArrayList<>();
     for (Permission perm : perms) { permNames.add(perm.name()); }
@@ -275,13 +274,16 @@ public class PermsResource
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_ENUM_ERROR", rUser, systemId, userName, permissionStr, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
@@ -335,7 +337,7 @@ public class PermsResource
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_JSON_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // ------------------------- Extract and validate payload -------------------------
@@ -349,11 +351,14 @@ public class PermsResource
     {
       service.revokeUserPermissions(rUser, systemId, userName, permsList, json);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
@@ -390,7 +395,7 @@ public class PermsResource
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_JSON_INVALID", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     JsonObject obj = TapisGsonUtils.getGson().fromJson(json, JsonObject.class);
@@ -410,7 +415,7 @@ public class PermsResource
         {
           msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_ENUM_ERROR", rUser, systemId, userName, permStr, e.getMessage());
           _log.error(msg, e);
-          return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+          throw new BadRequestException(msg);
         }
       }
     }
@@ -426,7 +431,7 @@ public class PermsResource
     if (msg != null)
     {
       _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
     else return null;
   }
