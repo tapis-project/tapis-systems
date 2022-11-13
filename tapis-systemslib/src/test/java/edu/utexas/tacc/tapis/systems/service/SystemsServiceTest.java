@@ -1351,9 +1351,14 @@ public class SystemsServiceTest
     String owner = svc.getSystemOwner(rOwner1, fakeSystemName);
     Assert.assertNull(owner, "Owner not null for non-existent system.");
 
-    // Get perms with no system should return null
-    Set<Permission> perms = svc.getUserPermissions(rOwner1, fakeSystemName, fakeUserName);
-    Assert.assertNull(perms, "Perms list was not null for non-existent system");
+    // Get perms with no system should throw exception
+    pass = false;
+    try { svc.getUserPermissions(rOwner1, fakeSystemName, fakeUserName); }
+    catch (NotFoundException nfe)
+    {
+      pass = true;
+    }
+    Assert.assertTrue(pass);
 
     // Revoke perm with no system should return 0 changes
     changeCount = svc.revokeUserPermissions(rOwner1, fakeSystemName, fakeUserName, testPermsREADMODIFY, rawDataEmptyJson);
