@@ -499,14 +499,13 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting resource would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    * @throws NotFoundException - Resource not found
    */
   @Override
   public int enableSystem(ResourceRequestUser rUser, String systemId)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
   {
     return updateEnabled(rUser, systemId, SystemOperation.enable);
   }
@@ -518,14 +517,13 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting resource would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    * @throws NotFoundException - resource not found
    */
   @Override
   public int disableSystem(ResourceRequestUser rUser, String systemId)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
   {
     return updateEnabled(rUser, systemId, SystemOperation.disable);
   }
@@ -540,14 +538,13 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting resource would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    * @throws NotFoundException - resource not found
    */
   @Override
   public int deleteSystem(ResourceRequestUser rUser, String systemId)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
   {
     SystemOperation op = SystemOperation.delete;
     // ---------------------------- Check inputs ------------------------------------
@@ -582,14 +579,13 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting resource would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    * @throws NotFoundException - resource not found
    */
   @Override
   public int undeleteSystem(ResourceRequestUser rUser, String systemId)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
   {
     SystemOperation op = SystemOperation.undelete;
     // ---------------------------- Check inputs ------------------------------------
@@ -608,7 +604,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(owner)) {
       String msg = LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, systemId, op.name());
       _log.error(msg);
-      throw new IllegalStateException(msg);
+      throw new TapisException(msg);
     }
     // ------------------------- Check authorization -------------------------
     checkAuthOwnerKnown(rUser, op, systemId, owner);
@@ -631,14 +627,13 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    * @throws NotFoundException - Resource not found
    */
   @Override
   public int changeSystemOwner(ResourceRequestUser rUser, String systemId, String newOwnerName)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
   {
     SystemOperation op = SystemOperation.changeOwner;
 
@@ -1869,13 +1864,12 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Get System Updates records for the System ID specified
    * @throws TapisException
-   * @throws IllegalStateException
    * @throws TapisClientException
    * @throws NotAuthorizedException
    */
   @Override
   public List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
-          throws TapisException, NotAuthorizedException, IllegalStateException, TapisClientException
+          throws TapisException, TapisClientException, NotAuthorizedException
   {
     SystemOperation op = SystemOperation.read;
     // ------------------------- Check authorization -------------------------
@@ -1888,13 +1882,12 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Get System share user IDs for the System ID specified
    * @throws TapisException
-   * @throws IllegalStateException
    * @throws TapisClientException
    * @throws NotAuthorizedException
    */
   @Override
   public SystemShare getSystemShare(ResourceRequestUser rUser, String systemId)
-      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException
+      throws TapisException, TapisClientException, NotAuthorizedException
   {
     SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1946,14 +1939,14 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemShare - User names
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException 
-   * @throws TapisClientException 
+   * @throws TapisClientException
    * @throws NotAuthorizedException 
    * @throws IllegalArgumentException - invalid parameter passed in
    */
   @Override
   public void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare)
-      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+      throws TapisException, TapisClientException, NotAuthorizedException
+  {
     updateUserShares(rUser, OP_SHARE, systemId, systemShare, false);
   }
   
@@ -1965,14 +1958,14 @@ public class SystemsServiceImpl implements SystemsService
    *
    * @throws TapisException - for Tapis related exceptions
    * @throws TapisClientException - for Tapis client related exceptions
-   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    * @throws NotFoundException - Resource not found
    */
   @Override
   public void unshareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare)
-      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+      throws TapisException, TapisClientException, NotAuthorizedException
+  {
     updateUserShares(rUser, OP_UNSHARE, systemId, systemShare, false);
   }
   
@@ -1985,14 +1978,14 @@ public class SystemsServiceImpl implements SystemsService
    *
    * @throws TapisException - for Tapis related exceptions
    * @throws TapisClientException - for Tapis client related exceptions
-   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    * @throws NotFoundException - Resource not found
    */
   @Override
   public void shareSystemPublicly(ResourceRequestUser rUser, String systemId) 
-      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+      throws TapisException, NotAuthorizedException, TapisClientException
+  {
     updateUserShares(rUser, OP_SHARE, systemId, nullSystemShare, true);
   }
   
@@ -2003,14 +1996,14 @@ public class SystemsServiceImpl implements SystemsService
    *
    * @throws TapisException - for Tapis related exceptions
    * @throws TapisClientException - for Tapis client related exceptions
-   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    * @throws NotFoundException - Resource not found
    */
   @Override
   public void unshareSystemPublicly(ResourceRequestUser rUser, String systemId) 
-       throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+       throws TapisException, NotAuthorizedException, TapisClientException
+  {
     updateUserShares(rUser, OP_UNSHARE, systemId, nullSystemShare, true);
   }
   
@@ -2027,13 +2020,12 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting resource would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
    * @throws NotAuthorizedException - unauthorized
    * @throws NotFoundException - resource not found
    */
   private int updateEnabled(ResourceRequestUser rUser, String systemId, SystemOperation sysOp)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
   {
     // ---------------------------- Check inputs ------------------------------------
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -2065,13 +2057,9 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting resource would be in an invalid state
-   * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - resource not found
    */
   private int updateDeleted(ResourceRequestUser rUser, String systemId, SystemOperation sysOp)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException
   {
     String oboTenant = rUser.getOboTenantId();
     // ----------------- Make update --------------------
@@ -2825,7 +2813,7 @@ public class SystemsServiceImpl implements SystemsService
    * Check for case when owner is not known and no need for impersonationId, targetUser or perms
    */
   private void checkAuthOwnerUnkown(ResourceRequestUser rUser, SystemOperation op, String systemId)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+          throws TapisException, TapisClientException, NotAuthorizedException
   {
     checkAuth(rUser, op, systemId, nullOwner, nullTargetUser, nullPermSet, nullImpersonationId);
   }
@@ -2852,7 +2840,7 @@ public class SystemsServiceImpl implements SystemsService
    */
   private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
                          String targetUser, Set<Permission> perms)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+          throws TapisException, TapisClientException, NotAuthorizedException
   {
     checkAuth(rUser, op, systemId, owner, targetUser, perms, nullImpersonationId);
   }
