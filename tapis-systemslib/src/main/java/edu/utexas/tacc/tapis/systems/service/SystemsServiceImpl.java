@@ -192,7 +192,7 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public void createSystem(ResourceRequestUser rUser, TSystem system, boolean skipCredCheck, String rawData)
-          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException, NotAuthorizedException
+          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException, IllegalArgumentException
   {
     SystemOperation op = SystemOperation.create;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -851,7 +851,6 @@ public class SystemsServiceImpl implements SystemsService
                            boolean getCreds, String impersonationId, boolean resolveEffUser, boolean sharedAppCtx)
           throws TapisException, NotAuthorizedException, TapisClientException
   {
-
     SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId))
@@ -1412,8 +1411,9 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    // If system does not exist or has been deleted then return null
-    if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false)) return null;
+    // If system does not exist or has been deleted then throw an exception
+    if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false))
+      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
     // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
@@ -1875,16 +1875,13 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
-          throws TapisException, NotAuthorizedException, IllegalStateException, TapisClientException {
-
+          throws TapisException, NotAuthorizedException, IllegalStateException, TapisClientException
+  {
     SystemOperation op = SystemOperation.read;
-
     // ------------------------- Check authorization -------------------------
     checkAuthOwnerUnkown(rUser, op, systemId);
-
     // ----------------- Retrieve system updates information (system history) --------------------
     List<SystemHistoryItem> systemHistory = dao.getSystemHistory(rUser.getOboTenantId(), systemId);
-
     return systemHistory;
   }
   
@@ -2445,7 +2442,7 @@ public class SystemsServiceImpl implements SystemsService
     var systemIDs = new HashSet<String>();
     // Use implies to filter permissions returned. Without implies all permissions for apps, etc. are returned.
     String impliedBy = null;
-    String implies = String.format("system:%s:*:*", rUser.getOboTenantId());
+    String implies = String.format("%s:%s:*:*", PERM_SPEC_PREFIX, rUser.getOboTenantId());
     var userPerms = getSKClient().getUserPerms(rUser.getOboTenantId(), rUser.getOboUserId(), implies, impliedBy);
     // Check each perm to see if it allows user READ access.
     for (String userPerm : userPerms)
@@ -2837,7 +2834,7 @@ public class SystemsServiceImpl implements SystemsService
    * Check for case when owner is known and no need for impersonationId, targetUser or perms
    */
   private void checkAuthOwnerKnown(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+          throws TapisException, TapisClientException, NotAuthorizedException
   {
     checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, nullImpersonationId);
   }
@@ -2886,7 +2883,7 @@ public class SystemsServiceImpl implements SystemsService
    */
   private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
                          String targetUser, Set<Permission> perms, String impersonationId)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+          throws TapisException, TapisClientException, NotAuthorizedException
   {
     // Check service and user requests separately to avoid confusing a service name with a username
     if (rUser.isServiceRequest())
@@ -2919,7 +2916,7 @@ public class SystemsServiceImpl implements SystemsService
    */
   private void checkAuthSvc(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
                             String targetUser, Set<Permission> perms, String impersonationId)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+          throws TapisException, TapisClientException, NotAuthorizedException
   {
     // If ever called and not a svc request then fall back to denied
     if (!rUser.isServiceRequest())
@@ -2977,7 +2974,7 @@ public class SystemsServiceImpl implements SystemsService
    */
   private void checkAuthOboUser(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
                                 String targetUser, Set<Permission> perms, String impersonationId)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+          throws TapisException, TapisClientException, NotAuthorizedException
   {
     String oboTenant = rUser.getOboTenantId();
     String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;

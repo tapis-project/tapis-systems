@@ -5,13 +5,17 @@ import java.nio.charset.StandardCharsets;
 
 import javax.inject.Inject;
 import javax.servlet.ServletContext;
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
+import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Application;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
@@ -57,7 +61,8 @@ import edu.utexas.tacc.tapis.systems.service.SystemsService;
  *
  */
 @Path("/v3/systems")
-public class ShareResource {
+public class ShareResource
+{
   // ************************************************************************
   // *********************** Constants **************************************
   // ************************************************************************
@@ -104,7 +109,7 @@ public class ShareResource {
   // ************************************************************************
   /**
    * getShare
-   * @param appId - name of the app
+   * @param systemId - name of the system
    * @param securityContext - user identity
    * @return Response with share information object as the result
    */
@@ -126,24 +131,24 @@ public class ShareResource {
 
     //RespAbstract resp1;
     SystemShare systemShare;
-    
-    try {
+    try
+    {
       // Retrieve system share object
       systemShare = service.getSystemShare(rUser, systemId);
     }
-    catch (Exception e) {
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
+    catch (Exception e)
+    {
       String msg = ApiUtils.getMsgAuth("SYSAPI_SHR_GET_ERR", rUser, systemId, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
     
     // System not found
-    if (systemShare == null) {
-     String msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
-      _log.warn(msg);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
-    
+    if (systemShare == null) throw new NotFoundException(ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId));
+
     // ---------------------------- Success -------------------------------
     // Success means we retrieved the system share information.
     RespSystemShare resp1 = new RespSystemShare(systemShare);
@@ -183,20 +188,21 @@ public class ShareResource {
     // Read the payload into a string.
     String rawJson;
     String msg;
-    try { 
-      rawJson = IOUtils.toString(payloadStream, StandardCharsets.UTF_8); }
-    catch (Exception e) {
+    try { rawJson = IOUtils.toString(payloadStream, StandardCharsets.UTF_8); }
+    catch (Exception e)
+    {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
     // Create validator specification and validate the json against the schema
     JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, SHARE_SYSTEM_REQUEST);
     try { JsonValidator.validate(spec); }
-    catch (TapisJSONException e) {
+    catch (TapisJSONException e)
+    {
       msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // ------------------------- Create a SystemShare from the json and validate constraints -------------------------
@@ -206,7 +212,7 @@ public class ShareResource {
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_PUT_TRACE", rUser, rawJson));
@@ -214,19 +220,18 @@ public class ShareResource {
     // No attributes are required. Constraints validated and defaults filled in on server side.
 
     // ---------------------------- Make service call to update the system -------------------------------
-    try {
+    try
+    {
       service.shareSystem(rUser, systemId, systemShare);
     }
-    catch (NotFoundException e)
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
+    catch (Exception e)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
-      _log.warn(msg);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
-    catch (Exception e) {
       msg = ApiUtils.getMsgAuth("SYSAPI_SHR_UPD_ERR", rUser, systemId, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
@@ -277,7 +282,7 @@ public class ShareResource {
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
     // Create validator specification and validate the json against the schema
     JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, SHARE_SYSTEM_REQUEST);
@@ -286,7 +291,7 @@ public class ShareResource {
     {
       msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // ------------------------- Create a SystemShare from the json and validate constraints -------------------------
@@ -296,7 +301,7 @@ public class ShareResource {
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_PUT_TRACE", rUser, rawJson));
@@ -308,16 +313,14 @@ public class ShareResource {
     {
       service.unshareSystem(rUser, systemId, systemShare);
     }
-    catch (NotFoundException e)
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
+    catch (Exception e)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
-      _log.warn(msg);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
-    catch (Exception e) {
       msg = ApiUtils.getMsgAuth("SYSAPI_SHR_UPD_ERR", rUser, systemId, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
@@ -331,7 +334,6 @@ public class ShareResource {
   /**
    * Create or update sharing information for a system
    * @param systemId - name of the system
-   * @param payloadStream - request body
    * @param securityContext - user identity
    * @return response containing reference to updated object
    */
@@ -340,7 +342,7 @@ public class ShareResource {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response shareSystemPublicly(@PathParam("systemId") String systemId,
-                              @Context SecurityContext securityContext)
+                                      @Context SecurityContext securityContext)
   {
     
     String opName = "sharePublicly";
@@ -366,16 +368,14 @@ public class ShareResource {
     {
       service.shareSystemPublicly(rUser, systemId);
     }
-    catch (NotFoundException e)
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
+    catch (Exception e)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
-      _log.warn(msg);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
-    catch (Exception e) {
       msg = ApiUtils.getMsgAuth("SYSAPI_SHR_UPD_ERR", rUser, systemId, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
     
     // ---------------------------- Success -------------------------------
@@ -389,7 +389,6 @@ public class ShareResource {
     /**
      * Unsharing a system publicly
      * @param systemId - name of the system
-     * @param payloadStream - request body
      * @param securityContext - user identity
      * @return response containing reference to updated object
      */
@@ -424,16 +423,14 @@ public class ShareResource {
       {
         service.unshareSystemPublicly(rUser, systemId);
       }
-      catch (NotFoundException e)
+      // Pass through not found or not auth to let exception mapper handle it.
+      catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+      // As final fallback
+      catch (Exception e)
       {
-        msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
-        _log.warn(msg);
-        return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
-      catch (Exception e) {
         msg = ApiUtils.getMsgAuth("SYSAPI_SHR_UPD_ERR", rUser, systemId, e.getMessage());
         _log.error(msg, e);
-        return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+        throw new WebApplicationException(msg);
       }
       
 

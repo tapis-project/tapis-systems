@@ -30,14 +30,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
 import javax.ws.rs.NotAuthorizedException;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -142,7 +146,7 @@ public class SchedulerProfileResource
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
     // Create validator specification and validate the json against the schema
     JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, FILE_CREATE_REQUEST);
@@ -151,7 +155,7 @@ public class SchedulerProfileResource
     {
       msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     ReqPostSchedulerProfile req;
@@ -160,14 +164,14 @@ public class SchedulerProfileResource
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
     // If req is null that is an unrecoverable error
     if (req == null)
     {
       msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, "N/A", "ReqPostSchedulerProfile == null");
       _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // Create a scheduler profile from the request
@@ -194,33 +198,26 @@ public class SchedulerProfileResource
         _log.warn(msg);
         return Response.status(Status.CONFLICT).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
       }
-      else if (e.getMessage().contains(LIB_UNAUTH))
-      {
-        // IllegalStateException with msg containing UNAUTH indicates operation not authorized for apiUser - return 401
-        msg = ApiUtils.getMsgAuth(API_UNAUTH, rUser, profileName, opName);
-        _log.warn(msg);
-        return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
-      else
-      {
-        // IllegalStateException indicates an Invalid object was passed in
-        msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, profileName, e.getMessage());
-        _log.error(msg);
-        return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
+      // IllegalStateException indicates an Invalid object was passed in
+      msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, profileName, e.getMessage());
+      _log.error(msg);
+      throw new BadRequestException(msg);
     }
     catch (IllegalArgumentException e)
     {
       // IllegalArgumentException indicates somehow a bad argument made it this far
       msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, profileName, e.getMessage());
       _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, profileName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success ------------------------------- 
@@ -263,19 +260,18 @@ public class SchedulerProfileResource
     {
       schedulerProfile = systemsService.getSchedulerProfile(rUser, name);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       String msg = ApiUtils.getMsgAuth("SYSAPI_PRF_GET_ERROR", rUser, name, e.getMessage());
       _log.error(msg, e);
-      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // Resource was not found.
-    if (schedulerProfile == null)
-    {
-      String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, name);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
+    if (schedulerProfile == null) throw new NotFoundException(ApiUtils.getMsgAuth(NOT_FOUND, rUser, name));
 
     // ---------------------------- Success -------------------------------
     // Success means we retrieved the information.
@@ -320,11 +316,14 @@ public class SchedulerProfileResource
       return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "SchedulerProfiles", itemCountStr),
                                    successResponse);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       String msg = ApiUtils.getMsgAuth(LIST_ERR, rUser, e.getMessage());
       _log.error(msg, e);
-      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
   }
 
@@ -362,24 +361,21 @@ public class SchedulerProfileResource
     {
       changeCount = systemsService.deleteSchedulerProfile(rUser, name);
     }
-    catch (NotAuthorizedException e)
-    {
-      msg = ApiUtils.getMsgAuth(API_UNAUTH, rUser, name, opName);
-      _log.warn(msg);
-      return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
     catch (IllegalArgumentException e)
     {
       // IllegalArgumentException indicates somehow a bad argument made it this far
       msg = ApiUtils.getMsgAuth("SYSAPI_PRF_DEL_ERROR", rUser, name, opName, e.getMessage());
       _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PRF_DEL_ERROR", rUser, name, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
@@ -414,7 +410,7 @@ public class SchedulerProfileResource
       // Construct message reporting all errors
       String allErrors = ApiUtils.getListOfErrors(errMessages, rUser, profile.getName());
       _log.error(allErrors);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(allErrors, PRETTY)).build();
+      throw new BadRequestException(allErrors);
     }
     return null;
   }
