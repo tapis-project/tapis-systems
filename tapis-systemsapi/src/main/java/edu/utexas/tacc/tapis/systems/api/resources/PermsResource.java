@@ -22,7 +22,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
+import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidator;
@@ -33,9 +33,9 @@ import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespBasic;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespNameArray;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultNameArray;
-import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
+import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 
@@ -165,10 +165,9 @@ public class PermsResource
     // ---------------------------- Success -------------------------------
     String permsListStr = permsList.stream().map(Enum::name).collect(Collectors.joining(","));
     RespBasic resp1 = new RespBasic();
+    msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_GRANTED", rUser, systemId, userName, permsListStr);
     return Response.status(Status.CREATED)
-      .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_PERMS_GRANTED", rUser, systemId,
-                                                                       userName, permsListStr),
-                                                   PRETTY, resp1))
+      .entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp1))
       .build();
   }
 
@@ -288,10 +287,9 @@ public class PermsResource
 
     // ---------------------------- Success -------------------------------
     RespBasic resp1 = new RespBasic();
+    msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_REVOKED", rUser, systemId, userName, permissionStr);
     return Response.status(Status.CREATED)
-      .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_PERMS_REVOKED", rUser, systemId,
-                                                                       userName, permissionStr),
-                                                   PRETTY, resp1))
+      .entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp1))
       .build();
   }
 
@@ -364,10 +362,9 @@ public class PermsResource
     // ---------------------------- Success -------------------------------
     String permsListStr = permsList.stream().map(Enum::name).collect(Collectors.joining(","));
     RespBasic resp1 = new RespBasic();
+    msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_REVOKED", rUser, systemId, userName, permsListStr);
     return Response.status(Status.CREATED)
-      .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_PERMS_REVOKED", rUser, systemId,
-                                                                       userName, permsListStr),
-                                                   PRETTY, resp1))
+      .entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp1))
       .build();
   }
 

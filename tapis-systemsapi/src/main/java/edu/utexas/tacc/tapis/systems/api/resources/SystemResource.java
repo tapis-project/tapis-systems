@@ -33,19 +33,18 @@ import javax.ws.rs.core.UriInfo;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.http.server.Request;
-import org.jooq.impl.QOM;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 
-import edu.utexas.tacc.tapis.sharedapi.responses.RespAbstract;
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.search.SearchUtils;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters;
+import edu.utexas.tacc.tapis.sharedapi.responses.RespAbstract;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespBoolean;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultBoolean;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
@@ -90,11 +89,8 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.SYSTEM_TYPE_FIELD;
  * These methods should do the minimal amount of validation and processing of incoming requests and
  *   then make the service method call.
  * One reason for this is the service methods are much easier to test.
- *
- * NOTE: Annotations for generating OpenAPI specification not currently used.
- *       Please see openapi-systems repo file SystemsAPI.yaml
- *       and note at top of GeneralResource.java
  * jax-rs annotations map HTTP verb + endpoint to method invocation and map query parameters.
+ *  NOTE: For OpenAPI spec please see repo openapi-systems, file SystemsAPI.yaml
  */
 @Path("/v3/systems")
 public class SystemResource
@@ -741,106 +737,6 @@ public class SystemResource
   }
 
   /**
-   * getHistory
-   * @param systemId - name of the system
-   * @param securityContext - user identity
-   * @return Response with system history object as the result
-   */
-  @GET
-  @Path("{systemId}/history")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response getHistory(@PathParam("systemId") String systemId,
-                             @Context SecurityContext securityContext)
-  {
-    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
-    // Utility method returns null if all OK and appropriate error response if there was a problem.
-    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
-    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
-    if (resp != null) return resp;
-
-    // Create a user that collects together tenant, user and request information needed by the service call
-    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
-
-    //RespAbstract resp1;
-    List<SystemHistoryItem> systemHistory;
-    
-    try
-    {
-      // Retrieve system history List
-      systemHistory = service.getSystemHistory(rUser, systemId);
-    }
-    // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
-    // As final fallback
-    catch (Exception e)
-    {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
-      _log.error(msg, e);
-      throw new WebApplicationException(msg);
-    }
-
-    // System or history not found
-    if (systemHistory == null || systemHistory.size()==0)
-      throw new NotFoundException(ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
-
-    // ---------------------------- Success -------------------------------
-    // Success means we retrieved the system history information.
-    RespSystemHistory resp1 = new RespSystemHistory(systemHistory);
-    return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "SystemHistory", systemId), resp1);
-  }
-  
-  /**
-   * isEnabled
-   * Check if resource is enabled.
-   * @param systemId - name of system
-   * @param securityContext - user identity
-   * @return Response with boolean result
-   */
-  @GET
-  @Path("{systemId}/isEnabled")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response isEnabled(@PathParam("systemId") String systemId,
-                            @Context SecurityContext securityContext)
-  {
-    String opName = "isEnabled";
-    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
-    // Utility method returns null if all OK and appropriate error response if there was a problem.
-    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
-    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
-    if (resp != null) return resp;
-
-    // Create a user that collects together tenant, user and request information needed by the service call
-    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
-
-    // Trace this request.
-    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
-
-    boolean isEnabled;
-    try
-    {
-      isEnabled = service.isEnabled(rUser, systemId);
-    }
-    // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
-    // As final fallback
-    catch (Exception e)
-    {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
-      _log.error(msg, e);
-      throw new WebApplicationException(msg);
-    }
-
-    // ---------------------------- Success -------------------------------
-    // Success means we made the check
-    ResultBoolean respResult = new ResultBoolean();
-    respResult.aBool = isEnabled;
-    RespBoolean resp1 = new RespBoolean(respResult);
-    return createSuccessResponse(Status.OK, MsgUtils.getMsg("TAPIS_FOUND", "System", systemId), resp1);
-  }
-
-  /**
    * getSystems
    * Retrieve all systems accessible by requester and matching any search conditions provided.
    * NOTE: The query parameters search, limit, orderBy, skip, startAfter are all handled in the filter
@@ -873,7 +769,7 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted,
+                                                   "resolveEffectiveUser="+resolveEffUser, "showDeleted="+showDeleted,
                                                    "listType="+listType);
 
     // ThreadContext designed to never return null for SearchParameters
@@ -928,7 +824,7 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted,
+                                                   "resolveEffectiveUser="+resolveEffUser, "showDeleted="+showDeleted,
                                                    "listType="+listType);
 
     // Create search list based on query parameters
@@ -1005,7 +901,7 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffectiveUser="+resolveEffUser,"showDeleted="+showDeleted,
+                                                   "resolveEffectiveUser="+resolveEffUser, "showDeleted="+showDeleted,
                                                    "listType="+listType);
 
     // ------------------------- Extract and validate payload -------------------------
@@ -1154,6 +1050,106 @@ public class SystemResource
 //    return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, SYSTEMS_SVC, itemCountStr), resp1);
 //  }
 
+  /**
+   * getHistory
+   * @param systemId - name of the system
+   * @param securityContext - user identity
+   * @return Response with system history object as the result
+   */
+  @GET
+  @Path("{systemId}/history")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getHistory(@PathParam("systemId") String systemId,
+                             @Context SecurityContext securityContext)
+  {
+    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
+    // Utility method returns null if all OK and appropriate error response if there was a problem.
+    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
+    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    if (resp != null) return resp;
+
+    // Create a user that collects together tenant, user and request information needed by the service call
+    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    //RespAbstract resp1;
+    List<SystemHistoryItem> systemHistory;
+
+    try
+    {
+      // Retrieve system history List
+      systemHistory = service.getSystemHistory(rUser, systemId);
+    }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
+    catch (Exception e)
+    {
+      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
+      _log.error(msg, e);
+      throw new WebApplicationException(msg);
+    }
+
+    // System or history not found
+    if (systemHistory == null || systemHistory.size()==0)
+      throw new NotFoundException(ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+
+    // ---------------------------- Success -------------------------------
+    // Success means we retrieved the system history information.
+    RespSystemHistory resp1 = new RespSystemHistory(systemHistory);
+    return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "SystemHistory", systemId), resp1);
+  }
+
+  /**
+   * isEnabled
+   * Check if resource is enabled.
+   * @param systemId - name of system
+   * @param securityContext - user identity
+   * @return Response with boolean result
+   */
+  @GET
+  @Path("{systemId}/isEnabled")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response isEnabled(@PathParam("systemId") String systemId,
+                            @Context SecurityContext securityContext)
+  {
+    String opName = "isEnabled";
+    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
+    // Utility method returns null if all OK and appropriate error response if there was a problem.
+    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
+    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    if (resp != null) return resp;
+
+    // Create a user that collects together tenant, user and request information needed by the service call
+    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
+
+    boolean isEnabled;
+    try
+    {
+      isEnabled = service.isEnabled(rUser, systemId);
+    }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
+    catch (Exception e)
+    {
+      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
+      _log.error(msg, e);
+      throw new WebApplicationException(msg);
+    }
+
+    // ---------------------------- Success -------------------------------
+    // Success means we made the check
+    ResultBoolean respResult = new ResultBoolean();
+    respResult.aBool = isEnabled;
+    RespBoolean resp1 = new RespBoolean(respResult);
+    return createSuccessResponse(Status.OK, MsgUtils.getMsg("TAPIS_FOUND", "System", systemId), resp1);
+  }
+
   /* **************************************************************************** */
   /*                                Private Methods                               */
   /* **************************************************************************** */
@@ -1167,8 +1163,7 @@ public class SystemResource
    * @param securityContext Security context from client call
    * @return Response to be returned to the client.
    */
-  private Response postSystemSingleUpdate(String opName, String systemId, String userName,
-                                          SecurityContext securityContext)
+  private Response postSystemSingleUpdate(String opName, String systemId, String userName, SecurityContext securityContext)
   {
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -1349,10 +1344,13 @@ public class SystemResource
 
   /**
    * Extract notes from the incoming json
+   * This explicit method to extract is needed because notes is an unstructured object and other seemingly simpler
+   * approaches caused problems with the json marshalling. This method ensures notes end up as a JsonObject rather
+   * than a LinkedTreeMap.
    */
-  private static Object extractNotes(String rawJson)
+  private static JsonObject extractNotes(String rawJson)
   {
-    Object notes = null;
+    JsonObject notes = null;
     // Check inputs
     if (StringUtils.isBlank(rawJson)) return notes;
     // Turn the request string into a json object and extract the notes object
@@ -1436,6 +1434,9 @@ public class SystemResource
     if (computeTotal && limit <= 0) totalCount = systems.size();
 
     // If we need the count and there was a limit then we need to make a call
+    // This is a separate call from getSystems() because unlike getSystems() we do not want to include the limit or skip,
+    //   and we do not need to fetch all the data. One benefit is that the method is simpler and easier to follow
+    //   compared to attempting to fold everything into getApps().
     if (computeTotal && limit > 0)
     {
       totalCount = service.getSystemsTotalCount(rUser, searchList, orderByList, startAfter, showDeleted, listType);

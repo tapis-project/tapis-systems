@@ -2,7 +2,6 @@ package edu.utexas.tacc.tapis.systems.api.resources;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-
 import javax.inject.Inject;
 import javax.servlet.ServletContext;
 import javax.ws.rs.BadRequestException;
@@ -24,12 +23,10 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
-
 import org.apache.commons.io.IOUtils;
 import org.glassfish.grizzly.http.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import com.google.gson.JsonSyntaxException;
 
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
@@ -50,14 +47,11 @@ import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.SystemShare;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 
-
 /*
  * JAX-RS REST resource for Tapis System share
- * NOTE: Annotations for generating OpenAPI specification not currently used.
- *       Please see tapis-systemsapi/src/main/resources/SystemsAPI.yaml
- *       and note at top of GeneralResource.java
+ *  NOTE: For OpenAPI spec please see repo openapi-systems file SystemsAPI.yaml
  * Annotations map HTTP verb + endpoint to method invocation.
- * Secrets are stored in the Security Kernel
+ * Permissions are stored in the Security Kernel
  *
  */
 @Path("/v3/systems")
@@ -79,7 +73,6 @@ public class ShareResource
 
   // Always return a nicely formatted response
   private static final boolean PRETTY = true;
-
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -217,11 +210,9 @@ public class ShareResource
 
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_PUT_TRACE", rUser, rawJson));
 
-    // No attributes are required. Constraints validated and defaults filled in on server side.
-
-    // ---------------------------- Make service call to update the system -------------------------------
     try
     {
+      // Retrieve share information
       service.shareSystem(rUser, systemId, systemShare);
     }
     // Pass through not found or not auth to let exception mapper handle it.
@@ -305,12 +296,9 @@ public class ShareResource
     }
 
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_PUT_TRACE", rUser, rawJson));
-
-    // No attributes are required. Constraints validated and defaults filled in on server side.
-
-    // ---------------------------- Make service call to update the system -------------------------------
     try
     {
+      // Unshare System
       service.unshareSystem(rUser, systemId, systemShare);
     }
     // Pass through not found or not auth to let exception mapper handle it.
@@ -332,7 +320,7 @@ public class ShareResource
   }
   
   /**
-   * Create or update sharing information for a system
+   * Share a system publicly
    * @param systemId - name of the system
    * @param securityContext - user identity
    * @return response containing reference to updated object
@@ -344,7 +332,6 @@ public class ShareResource
   public Response shareSystemPublicly(@PathParam("systemId") String systemId,
                                       @Context SecurityContext securityContext)
   {
-    
     String opName = "sharePublicly";
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -358,14 +345,10 @@ public class ShareResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
-
-    // No attributes are required. Constraints validated and defaults filled in on server side.
-    // No secrets in PatchSystem so no need to scrub
-
-    // ---------------------------- Make service call to update the system -------------------------------
     String msg;
     try
     {
+      //Share system publicly
       service.shareSystemPublicly(rUser, systemId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
@@ -377,7 +360,7 @@ public class ShareResource
       _log.error(msg, e);
       throw new WebApplicationException(msg);
     }
-    
+
     // ---------------------------- Success -------------------------------
     // Success means updates were applied
     ResultResourceUrl respUrl = new ResultResourceUrl();
@@ -386,53 +369,48 @@ public class ShareResource
     return createSuccessResponse(Status.OK, ApiUtils.getMsgAuth(UPDATED, rUser, systemId, opName), resp1);
   }
   
-    /**
-     * Unsharing a system publicly
-     * @param systemId - name of the system
-     * @param securityContext - user identity
-     * @return response containing reference to updated object
-     */
-    @POST
-    @Path("/unshare_public/{systemId}")
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response unshareSystemPublicly(@PathParam("systemId") String systemId,
-                                @Context SecurityContext securityContext)
-    {
-      
-      String opName = "unsharePublicly";
+  /**
+   * Unsharing a system publicly
+   * @param systemId - name of the system
+   * @param securityContext - user identity
+   * @return response containing reference to updated object
+   */
+  @POST
+  @Path("/unshare_public/{systemId}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response unshareSystemPublicly(@PathParam("systemId") String systemId,
+                              @Context SecurityContext securityContext)
+  {
+    String opName = "unsharePublicly";
       // ------------------------- Retrieve and validate thread context -------------------------
       TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
       // Check that we have all we need from the context, the jwtTenantId and jwtUserId
       // Utility method returns null if all OK and appropriate error response if there was a problem.
-      Response resp = ApiUtils.checkContext(threadContext, PRETTY);
-      if (resp != null) return resp;
+    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    if (resp != null) return resp;
 
-      // Create a user that collects together tenant, user and request information needed by the service call
-      ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+    // Create a user that collects together tenant, user and request information needed by the service call
+    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
-      // Trace this request.
-      if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
+    // Trace this request.
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
 
-      // No attributes are required. Constraints validated and defaults filled in on server side.
-      // No secrets in PatchSystem so no need to scrub
-
-      // ---------------------------- Make service call to update the system -------------------------------
-      String msg;
-      try
-      {
-        service.unshareSystemPublicly(rUser, systemId);
-      }
-      // Pass through not found or not auth to let exception mapper handle it.
-      catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
-      // As final fallback
-      catch (Exception e)
-      {
-        msg = ApiUtils.getMsgAuth("SYSAPI_SHR_UPD_ERR", rUser, systemId, e.getMessage());
-        _log.error(msg, e);
-        throw new WebApplicationException(msg);
-      }
-      
+    String msg;
+    try
+    {
+      // Share System publicly
+      service.unshareSystemPublicly(rUser, systemId);
+    }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    // As final fallback
+    catch (Exception e)
+    {
+      msg = ApiUtils.getMsgAuth("SYSAPI_SHR_UPD_ERR", rUser, systemId, e.getMessage());
+      _log.error(msg, e);
+      throw new WebApplicationException(msg);
+    }      
 
     // ---------------------------- Success -------------------------------
     // Success means updates were applied
