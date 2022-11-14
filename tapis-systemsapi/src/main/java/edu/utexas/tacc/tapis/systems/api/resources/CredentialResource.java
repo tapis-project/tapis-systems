@@ -33,6 +33,7 @@ import javax.ws.rs.core.UriInfo;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
+import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidator;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidatorSpec;
@@ -135,7 +136,7 @@ public class CredentialResource
                                        @PathParam("userName") String userName,
                                        @QueryParam("skipCredentialCheck") @DefaultValue("false") boolean skipCredCheck,
                                        InputStream payloadStream,
-                                       @Context SecurityContext securityContext)
+                                       @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "createUserCredential";
     // ------------------------- Retrieve and validate thread context -------------------------
@@ -221,7 +222,7 @@ public class CredentialResource
       service.createUserCredential(rUser, systemId, userName, credential, skipCredCheck, scrubbedJson);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -250,7 +251,7 @@ public class CredentialResource
   public Response getUserCredential(@PathParam("systemId") String systemId,
                                     @PathParam("userName") String userName,
                                     @QueryParam("authnMethod") @DefaultValue("") String authnMethodStr,
-                                    @Context SecurityContext securityContext)
+                                    @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "getUserCredential";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
@@ -288,7 +289,7 @@ public class CredentialResource
     Credential credential;
     try { credential = service.getUserCredential(rUser, systemId, userName, authnMethod); }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -322,7 +323,7 @@ public class CredentialResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response removeUserCredential(@PathParam("systemId") String systemId,
                                        @PathParam("userName") String userName,
-                                       @Context SecurityContext securityContext)
+                                       @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "removeUserCredential";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
@@ -350,7 +351,7 @@ public class CredentialResource
       service.deleteUserCredential(rUser, systemId, userName);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {

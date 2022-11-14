@@ -29,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.gson.JsonSyntaxException;
 
+import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidator;
@@ -111,7 +112,7 @@ public class ShareResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getShareSystem(@PathParam("systemId") String systemId,
-        @Context SecurityContext securityContext)
+                                 @Context SecurityContext securityContext) throws TapisClientException
   {
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
@@ -130,7 +131,7 @@ public class ShareResource
       systemShare = service.getSystemShare(rUser, systemId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -161,7 +162,7 @@ public class ShareResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response shareSystem(@PathParam("systemId") String systemId,
                               InputStream payloadStream,
-                              @Context SecurityContext securityContext)
+                              @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "createUpdateShare";
     // ------------------------- Retrieve and validate thread context -------------------------
@@ -216,7 +217,7 @@ public class ShareResource
       service.shareSystem(rUser, systemId, systemShare);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -248,7 +249,7 @@ public class ShareResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response unshareSystem(@PathParam("systemId") String systemId,
                               InputStream payloadStream,
-                              @Context SecurityContext securityContext)
+                              @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "unshare";
     // ------------------------- Retrieve and validate thread context -------------------------
@@ -302,7 +303,7 @@ public class ShareResource
       service.unshareSystem(rUser, systemId, systemShare);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -330,7 +331,7 @@ public class ShareResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response shareSystemPublicly(@PathParam("systemId") String systemId,
-                                      @Context SecurityContext securityContext)
+                                      @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "sharePublicly";
     // ------------------------- Retrieve and validate thread context -------------------------
@@ -352,7 +353,7 @@ public class ShareResource
       service.shareSystemPublicly(rUser, systemId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -380,7 +381,7 @@ public class ShareResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response unshareSystemPublicly(@PathParam("systemId") String systemId,
-                              @Context SecurityContext securityContext)
+                              @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "unsharePublicly";
       // ------------------------- Retrieve and validate thread context -------------------------
@@ -403,7 +404,7 @@ public class ShareResource
       service.unshareSystemPublicly(rUser, systemId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
