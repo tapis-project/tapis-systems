@@ -10,7 +10,7 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.2.7 - 2022-11-13
+## 1.2.7 - 2022-11-14
 
 Incremental improvements and new preview features.
 
@@ -19,6 +19,7 @@ Incremental improvements and new preview features.
 - Add support for query parameter *listType* when retrieving systems. Allows for filtering based on authorization.
     * Options are OWNED, SHARED_PUBLIC, ALL. Default is OWNED.
 - Improved error message when attempting to search using an unsupported attribute
+- Use ForbiddenException (403) as appropriate.
 
 ---------------------------------------------------------------------------
 ## 1.2.6 - 2022-10-25
