@@ -198,7 +198,7 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response createSystem(InputStream payloadStream,
                                @QueryParam("skipCredentialCheck") @DefaultValue("false") boolean skipCredCheck,
-                               @Context SecurityContext securityContext)
+                               @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "createSystem";
     // Note that although the following approximately 30 line block of code is very similar for many endpoints the
@@ -307,7 +307,7 @@ public class SystemResource
       throw new BadRequestException(msg);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -337,7 +337,7 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response patchSystem(@PathParam("systemId") String systemId,
                               InputStream payloadStream,
-                              @Context SecurityContext securityContext)
+                              @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "patchSystem";
     // ------------------------- Retrieve and validate thread context -------------------------
@@ -413,7 +413,7 @@ public class SystemResource
       throw new BadRequestException(msg);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -467,7 +467,7 @@ public class SystemResource
   public Response putSystem(@PathParam("systemId") String systemId,
                             @QueryParam("skipCredentialCheck") @DefaultValue("false") boolean skipCredCheck,
                             InputStream payloadStream,
-                            @Context SecurityContext securityContext)
+                            @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "putSystem";
     // ------------------------- Retrieve and validate thread context -------------------------
@@ -555,7 +555,7 @@ public class SystemResource
       throw new BadRequestException(msg);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -583,7 +583,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response enableSystem(@PathParam("systemId") String systemId,
-                               @Context SecurityContext securityContext)
+                               @Context SecurityContext securityContext) throws TapisClientException
   {
     return postSystemSingleUpdate(OP_ENABLE, systemId, null, securityContext);
   }
@@ -599,7 +599,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response disableSystem(@PathParam("systemId") String systemId,
-                                @Context SecurityContext securityContext)
+                                @Context SecurityContext securityContext) throws TapisClientException
   {
     return postSystemSingleUpdate(OP_DISABLE, systemId, null, securityContext);
   }
@@ -615,7 +615,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response deleteSystem(@PathParam("systemId") String systemId,
-                               @Context SecurityContext securityContext)
+                               @Context SecurityContext securityContext) throws TapisClientException
   {
     return postSystemSingleUpdate(OP_DELETE, systemId, null, securityContext);
   }
@@ -631,7 +631,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response undeleteSystem(@PathParam("systemId") String systemId,
-                                 @Context SecurityContext securityContext)
+                                 @Context SecurityContext securityContext) throws TapisClientException
   {
     return postSystemSingleUpdate(OP_UNDELETE, systemId, null, securityContext);
   }
@@ -649,7 +649,7 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response changeSystemOwner(@PathParam("systemId") String systemId,
                                     @PathParam("userName") String userName,
-                                    @Context SecurityContext securityContext)
+                                    @Context SecurityContext securityContext) throws TapisClientException
   {
     return postSystemSingleUpdate(OP_CHANGEOWNER, systemId, userName, securityContext);
   }
@@ -678,7 +678,7 @@ public class SystemResource
                             @QueryParam("impersonationId") String impersonationId,
                             @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
                             @QueryParam("sharedAppCtx") @DefaultValue("false") boolean sharedAppCtx,
-                            @Context SecurityContext securityContext)
+                            @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "getSystem";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -719,7 +719,7 @@ public class SystemResource
                                   resolveEffUser, sharedAppCtx);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -754,7 +754,7 @@ public class SystemResource
   public Response getSystems(@Context SecurityContext securityContext,
                              @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
                              @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
-                             @QueryParam("listType") @DefaultValue("OWNED") String listType)
+                             @QueryParam("listType") @DefaultValue("OWNED") String listType) throws TapisClientException
 
   {
     String opName = "getSystems";
@@ -782,7 +782,7 @@ public class SystemResource
       successResponse = getSearchResponse(rUser, null, srchParms, resolveEffUser, showDeleted, listType);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -811,6 +811,7 @@ public class SystemResource
                                                @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
                                                @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
                                                @QueryParam("listType") @DefaultValue("OWNED") String listType)
+          throws TapisClientException
   {
     String opName = "searchSystemsGet";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -853,7 +854,7 @@ public class SystemResource
       successResponse = getSearchResponse(rUser, null, srchParms, resolveEffUser, showDeleted, listType);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -887,7 +888,7 @@ public class SystemResource
                                            @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
                                            @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
                                            @QueryParam("listType") @DefaultValue("OWNED") String listType)
-
+          throws TapisClientException
   {
     String opName = "searchSystemsPost";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -950,7 +951,7 @@ public class SystemResource
       successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, resolveEffUser, showDeleted, listType);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -976,7 +977,7 @@ public class SystemResource
 //  @Consumes(MediaType.APPLICATION_JSON)
 //  @Produces(MediaType.APPLICATION_JSON)
 //  public Response matchConstraints(InputStream payloadStream,
-//                                   @Context SecurityContext securityContext)
+//                                   @Context SecurityContext securityContext) throws TapisClientException
 //  {
 //    String opName = "matchConstraints";
 //    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -1033,7 +1034,7 @@ public class SystemResource
 //      systems = systemsService.getSystemsSatisfyingConstraints(rUser, matchStr);
 //    }
 //  // Pass through not found or not auth to let exception mapper handle it.
-//    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+//    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
 //  // As final fallback
 //    catch (Exception e)
 //    {
@@ -1061,7 +1062,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getHistory(@PathParam("systemId") String systemId,
-                             @Context SecurityContext securityContext)
+                             @Context SecurityContext securityContext) throws TapisClientException
   {
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
@@ -1081,7 +1082,7 @@ public class SystemResource
       systemHistory = service.getSystemHistory(rUser, systemId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -1112,7 +1113,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response isEnabled(@PathParam("systemId") String systemId,
-                            @Context SecurityContext securityContext)
+                            @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "isEnabled";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -1133,7 +1134,7 @@ public class SystemResource
       isEnabled = service.isEnabled(rUser, systemId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -1163,7 +1164,9 @@ public class SystemResource
    * @param securityContext Security context from client call
    * @return Response to be returned to the client.
    */
-  private Response postSystemSingleUpdate(String opName, String systemId, String userName, SecurityContext securityContext)
+  private Response postSystemSingleUpdate(String opName, String systemId, String userName,
+                                          SecurityContext securityContext)
+          throws TapisClientException
   {
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -1216,7 +1219,7 @@ public class SystemResource
       throw new BadRequestException(msg);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {

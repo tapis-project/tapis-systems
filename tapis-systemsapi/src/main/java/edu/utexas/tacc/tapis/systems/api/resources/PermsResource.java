@@ -1,18 +1,5 @@
 package edu.utexas.tacc.tapis.systems.api.resources;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.inject.Inject;
-import javax.servlet.ServletContext;
-import org.glassfish.grizzly.http.server.Request;
-import javax.ws.rs.*;
-import javax.ws.rs.core.*;
-import javax.ws.rs.core.Response.Status;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -20,7 +7,20 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
+import javax.servlet.ServletContext;
+import javax.ws.rs.*;
+import javax.ws.rs.core.*;
+import javax.ws.rs.core.Response.Status;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.glassfish.grizzly.http.server.Request;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
+import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
@@ -109,7 +109,7 @@ public class PermsResource
   public Response grantUserPerms(@PathParam("systemId") String systemId,
                                  @PathParam("userName") String userName,
                                  InputStream payloadStream,
-                                 @Context SecurityContext securityContext)
+                                 @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "grantUserPerms";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
@@ -153,7 +153,7 @@ public class PermsResource
       service.grantUserPermissions(rUser, systemId, userName, permsList, json);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -181,7 +181,7 @@ public class PermsResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response getUserPerms(@PathParam("systemId") String systemId,
                                @PathParam("userName") String userName,
-                               @Context SecurityContext securityContext)
+                               @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "getUserPerms";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
@@ -208,7 +208,7 @@ public class PermsResource
     String msg;
     try { perms = service.getUserPermissions(rUser, systemId, userName); }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -238,7 +238,7 @@ public class PermsResource
   public Response revokeUserPerm(@PathParam("systemId") String systemId,
                                  @PathParam("userName") String userName,
                                  @PathParam("permission") String permissionStr,
-                                 @Context SecurityContext securityContext)
+                                 @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "revokeUserPerm";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
@@ -276,7 +276,7 @@ public class PermsResource
       throw new BadRequestException(msg);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -305,7 +305,7 @@ public class PermsResource
   public Response revokeUserPerms(@PathParam("systemId") String systemId,
                                   @PathParam("userName") String userName,
                                   InputStream payloadStream,
-                                  @Context SecurityContext securityContext)
+                                  @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "revokeUserPerms";
     // ------------------------- Retrieve and validate thread context -------------------------
@@ -350,7 +350,7 @@ public class PermsResource
       service.revokeUserPermissions(rUser, systemId, userName, permsList, json);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
