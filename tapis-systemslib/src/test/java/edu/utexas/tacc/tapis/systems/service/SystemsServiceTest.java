@@ -38,6 +38,7 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 
+import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 import java.time.LocalDateTime;
@@ -1247,7 +1248,7 @@ public class SystemsServiceTest
     boolean pass;
     pass = false;
     try { svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1255,7 +1256,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     pass = false;
     try { svc.deleteUserCredential(rTestUser5, sysId, testUser5); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1289,7 +1290,7 @@ public class SystemsServiceTest
     svc.unshareSystemPublicly(rOwner1, sysId);
     pass = false;
     try { svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1297,7 +1298,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     pass = false;
     try { svc.deleteUserCredential(rTestUser5, sysId, testUser5); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1412,7 +1413,7 @@ public class SystemsServiceTest
     // CREATE - Deny user not owner/admin, deny service calling as itself
     boolean pass = false;
     try { svc.createSystem(rTestUser0, sys0, skipCredCheckTrue, rawDataEmptyJson); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1420,7 +1421,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     pass = false;
     try { svc.createSystem(rFilesSvcAsFiles, sys0, skipCredCheckTrue, rawDataEmptyJson); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1440,7 +1441,7 @@ public class SystemsServiceTest
     // READ - deny user not owner/admin and no READ or MODIFY access
     pass = false;
     try { svc.getSystem(rTestUser0, systemId, null, false, false, null, resolveEffUserFalse, sharedAppCtxFalse); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1450,7 +1451,7 @@ public class SystemsServiceTest
     // EXECUTE - deny user not owner/admin with READ but not EXECUTE
     pass = false;
     try { svc.getSystem(rTestUser3, systemId, null, true, false, null, resolveEffUserFalse, sharedAppCtxFalse); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1460,7 +1461,7 @@ public class SystemsServiceTest
     // MODIFY Deny user with no READ or MODIFY, deny user with only READ
     pass = false;
     try { svc.patchSystem(rTestUser0, systemId, patchSys, rawDataEmptyJson); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1468,7 +1469,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     pass = false;
     try { svc.patchSystem(rTestUser3, systemId, patchSys, rawDataEmptyJson); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1478,7 +1479,7 @@ public class SystemsServiceTest
     // DELETE - deny user not owner/admin
     pass = false;
     try { svc.deleteSystem(rTestUser3, systemId); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1488,7 +1489,7 @@ public class SystemsServiceTest
     // CHANGE_OWNER - deny user not owner/admin
     pass = false;
     try { svc.changeSystemOwner(rTestUser3, systemId, testUser2); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1498,7 +1499,7 @@ public class SystemsServiceTest
     // GET_PERMS - deny user not owner/admin and no READ or MODIFY access
     pass = false;
     try { svc.getUserPermissions(rTestUser0, systemId, owner1); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1508,7 +1509,7 @@ public class SystemsServiceTest
     // GRANT_PERMS - deny user not owner/admin
     pass = false;
     try { svc.grantUserPermissions(rTestUser3, systemId, testUser0, testPermsREADMODIFY, rawDataEmptyJson); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1518,7 +1519,7 @@ public class SystemsServiceTest
     // REVOKE_PERMS - deny user not owner/admin
     pass = false;
     try { svc.revokeUserPermissions(rTestUser3, systemId, owner1, testPermsREADMODIFY, rawDataEmptyJson); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1526,7 +1527,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     pass = false;
     try { svc.revokeUserPermissions(rFilesSvcOwner1, systemId, owner1, testPermsREADMODIFY, rawDataEmptyJson); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1536,7 +1537,7 @@ public class SystemsServiceTest
     // SET_CRED - deny user not owner/admin and not target user
     pass = false;
     try { svc.createUserCredential(rTestUser3, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmptyJson); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1546,7 +1547,7 @@ public class SystemsServiceTest
     // Services now allowed to modify, etc obo a user
 //    pass = false;
 //    try { svc.createUserCredential(rFilesSvcOwner1, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmtpyJson); }
-//    catch (NotAuthorizedException e)
+//    catch (ForbiddenException e)
 //    {
 //      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
 //      pass = true;
@@ -1556,7 +1557,7 @@ public class SystemsServiceTest
     // REMOVE_CRED - deny user not owner/admin and not target user
     pass = false;
     try { svc.deleteUserCredential(rTestUser3, systemId, owner1); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1564,7 +1565,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
 //    pass = false;
 //    try { svc.deleteUserCredential(rFilesSvcOwner1, systemId, owner1); }
-//    catch (NotAuthorizedException e)
+//    catch (ForbiddenException e)
 //    {
 //      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
 //      pass = true;
@@ -1574,7 +1575,7 @@ public class SystemsServiceTest
     // GET_CRED - deny user not owner/admin, deny owner - with special message
     pass = false;
     try { svc.getUserCredential(rTestUser3, systemId, owner1, null); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_GETCRED"));
       pass = true;
@@ -1582,7 +1583,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     pass = false;
     try { svc.getUserCredential(rOwner1, systemId, owner1, null); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_GETCRED"));
       pass = true;
@@ -1592,7 +1593,7 @@ public class SystemsServiceTest
     // User should not be able to impersonate another user.
     pass = false;
     try { svc.getSystem(rTestUser1, systemId, null, false, false, owner1, resolveEffUserFalse, sharedAppCtxFalse); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_IMPERSONATE"));
       pass = true;
@@ -1602,7 +1603,7 @@ public class SystemsServiceTest
     // When a service impersonates another user they should be denied if that user cannot read the system.
     pass = false;
     try { svc.getSystem(rFilesSvcTestUser3, systemId, null, false, false, impersonationIdTestUser9, resolveEffUserFalse, sharedAppCtxFalse); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
@@ -1612,7 +1613,7 @@ public class SystemsServiceTest
     // User should not be able to set sharedAppCtx
     pass = false;
     try { svc.getSystem(rTestUser1, systemId, null, false, false, impersonationIdNull, resolveEffUserFalse, sharedAppCtxTrue); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_SHAREDAPPCTX"));
       pass = true;
@@ -1621,7 +1622,7 @@ public class SystemsServiceTest
     // Apps service should not be able to set sharedAppCtx
     pass = false;
     try { svc.getSystem(rAppsSvcTestUser1, systemId, null, false, false, impersonationIdNull, resolveEffUserFalse, sharedAppCtxTrue); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_SHAREDAPPCTX"));
       pass = true;
@@ -1779,7 +1780,7 @@ public class SystemsServiceTest
     // CREATE - Deny user not owner/admin, deny service
     boolean pass = false;
     try { svc.createSchedulerProfile(rTestUser1, p1); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
       pass = true;
@@ -1787,7 +1788,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     pass = false;
     try { svc.createSchedulerProfile(rFilesSvcOwner1, p1); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
       pass = true;
@@ -1797,7 +1798,7 @@ public class SystemsServiceTest
     // DELETE - deny user not owner/admin, deny service
     pass = false;
     try { svc.deleteSchedulerProfile(rTestUser1, p0.getName()); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
       pass = true;
@@ -1805,7 +1806,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     pass = false;
     try { svc.deleteSchedulerProfile(rFilesSvcOwner1, p0.getName()); }
-    catch (NotAuthorizedException e)
+    catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
       pass = true;

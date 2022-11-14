@@ -1313,7 +1313,12 @@ public class SystemResource
       }
       catch (NotAuthorizedException e)
       {
-        msg = ApiUtils.getMsg("SYSAPI_DTN_NOT_AUTH", tSystem1.getDtnSystemId());
+        msg = ApiUtils.getMsg("SYSAPI_DTN_401", tSystem1.getDtnSystemId());
+        errMessages.add(msg);
+      }
+      catch (ForbiddenException e)
+      {
+        msg = ApiUtils.getMsg("SYSAPI_DTN_403", tSystem1.getDtnSystemId());
         errMessages.add(msg);
       }
       catch (Exception e)
