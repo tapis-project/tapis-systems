@@ -11,6 +11,7 @@ import java.util.TreeMap;
 import java.util.regex.Pattern;
 
 import javax.inject.Inject;
+import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 
@@ -204,11 +205,10 @@ public class SystemsServiceImpl implements SystemsService
    * @throws TapisException - for Tapis related exceptions
    * @throws IllegalStateException - system exists OR TSystem in invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public void createSystem(ResourceRequestUser rUser, TSystem system, boolean skipCredCheck, String rawData)
-          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException, NotAuthorizedException
+          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException
   {
     SystemOperation op = SystemOperation.create;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -366,12 +366,10 @@ public class SystemsServiceImpl implements SystemsService
    * @throws TapisException - for Tapis related exceptions
    * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - Resource not found
    */
   @Override
   public void patchSystem(ResourceRequestUser rUser, String systemId, PatchSystem patchSystem, String rawData)
-          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException
+          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException
   {
     SystemOperation op = SystemOperation.modify;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -428,12 +426,10 @@ public class SystemsServiceImpl implements SystemsService
    * @throws TapisException - for Tapis related exceptions
    * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - Resource not found
    */
   @Override
   public void putSystem(ResourceRequestUser rUser, TSystem putSystem, boolean skipCredCheck, String rawData)
-          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException
+          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException
   {
     SystemOperation op = SystemOperation.modify;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -532,14 +528,11 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting resource would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - Resource not found
    */
   @Override
   public int enableSystem(ResourceRequestUser rUser, String systemId)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException, IllegalArgumentException, TapisClientException
   {
     return updateEnabled(rUser, systemId, SystemOperation.enable);
   }
@@ -551,14 +544,11 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting resource would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - resource not found
    */
   @Override
   public int disableSystem(ResourceRequestUser rUser, String systemId)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException, IllegalArgumentException, TapisClientException
   {
     return updateEnabled(rUser, systemId, SystemOperation.disable);
   }
@@ -573,14 +563,11 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting resource would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - resource not found
    */
   @Override
   public int deleteSystem(ResourceRequestUser rUser, String systemId)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException, IllegalArgumentException, TapisClientException
   {
     SystemOperation op = SystemOperation.delete;
     // ---------------------------- Check inputs ------------------------------------
@@ -615,14 +602,11 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting resource would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - resource not found
    */
   @Override
   public int undeleteSystem(ResourceRequestUser rUser, String systemId)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException, IllegalArgumentException, TapisClientException
   {
     SystemOperation op = SystemOperation.undelete;
     // ---------------------------- Check inputs ------------------------------------
@@ -641,7 +625,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(owner)) {
       String msg = LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, systemId, op.name());
       _log.error(msg);
-      throw new IllegalStateException(msg);
+      throw new TapisException(msg);
     }
     // ------------------------- Check authorization -------------------------
     checkAuthOwnerKnown(rUser, op, systemId, owner);
@@ -664,14 +648,11 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - Resource not found
    */
   @Override
   public int changeSystemOwner(ResourceRequestUser rUser, String systemId, String newOwnerName)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException, IllegalArgumentException, TapisClientException
   {
     SystemOperation op = SystemOperation.changeOwner;
 
@@ -745,10 +726,9 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items deleted
    * @throws TapisException - for Tapis related exceptions
    * @throws TapisClientException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
    */
   int hardDeleteSystem(ResourceRequestUser rUser, String oboTenant, String systemId)
-          throws TapisException, TapisClientException, NotAuthorizedException
+          throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.hardDelete;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -777,10 +757,9 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @return Number of items deleted
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
    */
   int hardDeleteAllTestTenantResources(ResourceRequestUser rUser)
-          throws TapisException, TapisClientException, NotAuthorizedException
+          throws TapisException, TapisClientException
   {
     // For safety hard code the tenant name
     String oboTenant = "test";
@@ -800,11 +779,10 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - Name of the system
    * @return true if system exists and has not been deleted, false otherwise
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public boolean checkForSystem(ResourceRequestUser rUser, String systemId)
-          throws TapisException, NotAuthorizedException, TapisClientException
+          throws TapisException, TapisClientException
   {
     return checkForSystem(rUser, systemId, false);
   }
@@ -815,11 +793,10 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - Name of the system
    * @return true if system exists and has not been deleted, false otherwise
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public boolean checkForSystem(ResourceRequestUser rUser, String systemId, boolean includeDeleted)
-          throws TapisException, NotAuthorizedException, TapisClientException
+          throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -841,12 +818,10 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - Name of the system
    * @return true if enabled, false otherwise
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - Resource not found
    */
   @Override
   public boolean isEnabled(ResourceRequestUser rUser, String systemId)
-          throws TapisException, NotFoundException, NotAuthorizedException, TapisClientException
+          throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -877,12 +852,11 @@ public class SystemsServiceImpl implements SystemsService
    * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth will be skipped.
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod accMethod, boolean requireExecPerm,
                            boolean getCreds, String impersonationId, boolean resolveEffective, boolean sharedAppCtx)
-          throws TapisException, NotAuthorizedException, TapisClientException
+          throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -934,7 +908,7 @@ public class SystemsServiceImpl implements SystemsService
     if (requireExecPerm && !system.getCanExec())
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_NOTEXEC", rUser, systemId, op.name());
-      throw new NotAuthorizedException(msg, NO_CHALLENGE);
+      throw new ForbiddenException(msg);
     }
 
     // If requested resolve and set effectiveUserId in result
@@ -1271,11 +1245,10 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - Name of the system
    * @return - Owner or null if system not found or user not authorized
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public String getSystemOwner(ResourceRequestUser rUser,
-                               String systemId) throws TapisException, NotAuthorizedException, TapisClientException
+                               String systemId) throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1306,12 +1279,11 @@ public class SystemsServiceImpl implements SystemsService
    * @param permissions - list of permissions to be granted
    * @param rawData - Client provided text used to create the permissions list. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public void grantUserPermissions(ResourceRequestUser rUser, String systemId, String targetUser,
                                    Set<Permission> permissions, String rawData)
-          throws TapisException, NotAuthorizedException, TapisClientException
+          throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.grantPerms;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1389,12 +1361,11 @@ public class SystemsServiceImpl implements SystemsService
    * @param rawData - Client provided text used to create the permissions list. Saved in update record.
    * @return Number of items revoked
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public int revokeUserPermissions(ResourceRequestUser rUser, String systemId, String targetUser,
                                    Set<Permission> permissions, String rawData)
-          throws TapisException, NotAuthorizedException, TapisClientException
+          throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.revokePerms;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1470,19 +1441,19 @@ public class SystemsServiceImpl implements SystemsService
    * @param targetUser - Target user for operation
    * @return List of permissions
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public Set<Permission> getUserPermissions(ResourceRequestUser rUser, String systemId, String targetUser)
-          throws TapisException, NotAuthorizedException, TapisClientException
+          throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.getPerms;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    // If system does not exist or has been deleted then return null
-    if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false)) return null;
+    // If system does not exist or has been deleted then throw an exception
+    if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false))
+      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
     // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
@@ -1521,13 +1492,11 @@ public class SystemsServiceImpl implements SystemsService
    * @param skipCredCheck - Indicates if cred check for LINUX systems should happen
    * @param rawData - Client provided text used to create the credential - secrets should be scrubbed. Saved in update record.
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - Resource not found
    */
   @Override
   public void createUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, Credential credential,
                                    boolean skipCredCheck, String rawData)
-          throws TapisException, NotFoundException, NotAuthorizedException, IllegalStateException, TapisClientException
+          throws TapisException, IllegalStateException, TapisClientException
   {
     SystemOperation op = SystemOperation.setCred;
     // Check inputs. If anything null or empty throw an exception
@@ -1597,11 +1566,10 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - name of system
    * @param targetUser - Target user for operation
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public int deleteUserCredential(ResourceRequestUser rUser, String systemId, String targetUser)
-          throws TapisException, NotAuthorizedException, TapisClientException
+          throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.removeCred;
     // Check inputs. If anything null or empty throw an exception
@@ -1675,13 +1643,11 @@ public class SystemsServiceImpl implements SystemsService
    * @param authnMethod - (optional) return credentials for specified authn method instead of default authn method
    * @return populated instance or null if not found.
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - Resource not found
    */
   @Override
   public Credential getUserCredential(ResourceRequestUser rUser, String systemId, String targetUser,
                                       AuthnMethod authnMethod)
-          throws TapisException, TapisClientException, NotAuthorizedException, NotFoundException
+          throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.getCred;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1723,11 +1689,10 @@ public class SystemsServiceImpl implements SystemsService
    * @throws TapisException - for Tapis related exceptions
    * @throws IllegalStateException - resource exists OR is in invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile schedulerProfile)
-          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException, NotAuthorizedException
+          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException
   {
     SchedulerProfileOperation op = SchedulerProfileOperation.create;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1790,11 +1755,10 @@ public class SystemsServiceImpl implements SystemsService
    * @param name - Name of the profile
    * @return schedulerProfile or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public SchedulerProfile getSchedulerProfile(ResourceRequestUser rUser, String name)
-          throws TapisException, NotAuthorizedException
+          throws TapisException
   {
     SchedulerProfileOperation op = SchedulerProfileOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1809,11 +1773,10 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param name - name of profile
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public int deleteSchedulerProfile(ResourceRequestUser rUser, String name)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalArgumentException
+          throws TapisException, TapisClientException, IllegalArgumentException
   {
     SchedulerProfileOperation op = SchedulerProfileOperation.delete;
     // Check inputs. If anything null or empty throw an exception
@@ -1839,11 +1802,10 @@ public class SystemsServiceImpl implements SystemsService
    * @param name - Name of the profile
    * @return true if system exists and has not been deleted, false otherwise
    * @throws TapisException - for Tapis related exceptions
-   * @throws NotAuthorizedException - unauthorized
    */
   @Override
   public boolean checkForSchedulerProfile(ResourceRequestUser rUser, String name)
-          throws TapisException, NotAuthorizedException
+          throws TapisException
   {
     SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1854,37 +1816,26 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Get System Updates records for the System ID specified
-   * @throws TapisException
-   * @throws IllegalStateException
-   * @throws TapisClientException
-   * @throws NotAuthorizedException
+   * Get System history records for the System ID specified
    */
   @Override
   public List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
-          throws TapisException, NotAuthorizedException, IllegalStateException, TapisClientException {
-
+          throws TapisException, TapisClientException
+  {
     SystemOperation op = SystemOperation.read;
-
     // ------------------------- Check authorization -------------------------
     checkAuthOwnerUnkown(rUser, op, systemId);
-
     // ----------------- Retrieve system updates information (system history) --------------------
     List<SystemHistoryItem> systemHistory = dao.getSystemHistory(rUser.getOboTenantId(), systemId);
-
     return systemHistory;
   }
   
   /**
    * Get System share user IDs for the System ID specified
-   * @throws TapisException
-   * @throws IllegalStateException
-   * @throws TapisClientException
-   * @throws NotAuthorizedException
    */
   @Override
   public SystemShare getSystemShare(ResourceRequestUser rUser, String systemId)
-      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException
+      throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1934,16 +1885,11 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @param systemShare - User names
-   *
-   * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException 
-   * @throws TapisClientException 
-   * @throws NotAuthorizedException 
-   * @throws IllegalArgumentException - invalid parameter passed in
    */
   @Override
   public void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare)
-      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+      throws TapisException, TapisClientException
+  {
     updateUserShares(rUser, OP_SHARE, systemId, systemShare, false);
   }
   
@@ -1955,14 +1901,12 @@ public class SystemsServiceImpl implements SystemsService
    *
    * @throws TapisException - for Tapis related exceptions
    * @throws TapisClientException - for Tapis client related exceptions
-   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - Resource not found
    */
   @Override
   public void unshareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare)
-      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+      throws TapisException, TapisClientException
+  {
     updateUserShares(rUser, OP_UNSHARE, systemId, systemShare, false);
   }
   
@@ -1975,14 +1919,12 @@ public class SystemsServiceImpl implements SystemsService
    *
    * @throws TapisException - for Tapis related exceptions
    * @throws TapisClientException - for Tapis client related exceptions
-   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - Resource not found
    */
   @Override
   public void shareSystemPublicly(ResourceRequestUser rUser, String systemId) 
-      throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+      throws TapisException, TapisClientException
+  {
     updateUserShares(rUser, OP_SHARE, systemId, nullSystemShare, true);
   }
   
@@ -1993,14 +1935,12 @@ public class SystemsServiceImpl implements SystemsService
    *
    * @throws TapisException - for Tapis related exceptions
    * @throws TapisClientException - for Tapis client related exceptions
-   * @throws IllegalStateException - Resulting TSystem would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - Resource not found
    */
   @Override
   public void unshareSystemPublicly(ResourceRequestUser rUser, String systemId) 
-       throws TapisException, NotAuthorizedException, TapisClientException, IllegalStateException {
+       throws TapisException, TapisClientException
+  {
     updateUserShares(rUser, OP_UNSHARE, systemId, nullSystemShare, true);
   }
   
@@ -2017,13 +1957,10 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting resource would be in an invalid state
    * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - resource not found
    */
   private int updateEnabled(ResourceRequestUser rUser, String systemId, SystemOperation sysOp)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException, IllegalArgumentException, TapisClientException
   {
     // ---------------------------- Check inputs ------------------------------------
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -2055,13 +1992,9 @@ public class SystemsServiceImpl implements SystemsService
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
-   * @throws IllegalStateException - Resulting resource would be in an invalid state
-   * @throws IllegalArgumentException - invalid parameter passed in
-   * @throws NotAuthorizedException - unauthorized
-   * @throws NotFoundException - resource not found
    */
   private int updateDeleted(ResourceRequestUser rUser, String systemId, SystemOperation sysOp)
-          throws TapisException, IllegalStateException, IllegalArgumentException, NotAuthorizedException, NotFoundException, TapisClientException
+          throws TapisException
   {
     String oboTenant = rUser.getOboTenantId();
     // ----------------- Make update --------------------
@@ -2553,22 +2486,22 @@ public class SystemsServiceImpl implements SystemsService
    * @return name of owner
    */
   private String checkForOwnerPermUpdate(ResourceRequestUser rUser, String systemId, String targetOboUser, String opStr)
-          throws TapisException, NotAuthorizedException
+          throws TapisException
   {
-    // Look up owner. If not found then consider not authorized. Very unlikely at this point.
+    // Look up owner. If not found then it is an error
     String owner = dao.getSystemOwner(rUser.getOboTenantId(), systemId);
     if (StringUtils.isBlank(owner))
-        throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, opStr), NO_CHALLENGE);
+        throw new TapisException(LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, systemId, opStr));
     // If owner making the request and owner is the target user for the perm update then reject.
     if (owner.equals(rUser.getOboUserId()) && owner.equals(targetOboUser))
     {
-      // If it is a svc making request reject with no auth, if user making request reject with special message.
+      // If it is a svc making request reject with forbidden, if user making request reject with special message.
       // Need this check since svc not allowed to update perms but checkAuth happens after checkForOwnerPermUpdate.
       // Without this the op would be denied with a misleading message.
       // Unfortunately this means auth check for svc in 2 places but not clear how to avoid it.
       //   On the bright side it means at worst operation will be denied when maybe it should be allowed which is better
       //   than the other way around.
-      if (rUser.isServiceRequest()) throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, opStr), NO_CHALLENGE);
+      if (rUser.isServiceRequest()) throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, opStr));
       else throw new TapisException(LibUtils.getMsgAuth("SYSLIB_PERM_OWNER_UPDATE", rUser, systemId, opStr));
     }
     return owner;
@@ -2582,7 +2515,7 @@ public class SystemsServiceImpl implements SystemsService
     var systemIDs = new HashSet<String>();
     // Use implies to filter permissions returned. Without implies all permissions for apps, etc. are returned.
     String impliedBy = null;
-    String implies = String.format("system:%s:*:*", rUser.getOboTenantId());
+    String implies = String.format("%s:%s:*:*", PERM_SPEC_PREFIX, rUser.getOboTenantId());
     var userPerms = getSKClient().getUserPerms(rUser.getOboTenantId(), rUser.getOboUserId(), implies, impliedBy);
     // Check each perm to see if it allows user READ access.
     for (String userPerm : userPerms)
@@ -3070,7 +3003,7 @@ public class SystemsServiceImpl implements SystemsService
    * Check for case when owner is not known and no need for impersonationId, targetUser or perms
    */
   private void checkAuthOwnerUnkown(ResourceRequestUser rUser, SystemOperation op, String systemId)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+          throws TapisException, TapisClientException
   {
     checkAuth(rUser, op, systemId, nullOwner, nullTargetUser, nullPermSet, nullImpersonationId);
   }
@@ -3079,7 +3012,7 @@ public class SystemsServiceImpl implements SystemsService
    * Check for case when owner is known and no need for impersonationId, targetUser or perms
    */
   private void checkAuthOwnerKnown(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+          throws TapisException, TapisClientException
   {
     checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, nullImpersonationId);
   }
@@ -3093,11 +3026,10 @@ public class SystemsServiceImpl implements SystemsService
    * @param owner - app owner
    * @param targetUser - Target user for operation
    * @param perms - List of permissions for the revokePerm case
-   * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
                          String targetUser, Set<Permission> perms)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+          throws TapisException, TapisClientException
   {
     checkAuth(rUser, op, systemId, owner, targetUser, perms, nullImpersonationId);
   }
@@ -3124,11 +3056,10 @@ public class SystemsServiceImpl implements SystemsService
    * @param targetUser - Target user for operation
    * @param perms - List of permissions for the revokePerm case
    * @param impersonationId - for auth check use this user in place of oboUser
-   * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
                          String targetUser, Set<Permission> perms, String impersonationId)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+          throws TapisException, TapisClientException
   {
     // Check service and user requests separately to avoid confusing a service name with a username
     if (rUser.isServiceRequest())
@@ -3157,15 +3088,14 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param op - operation name
    * @param systemId - name of the system
-   * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkAuthSvc(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
                             String targetUser, Set<Permission> perms, String impersonationId)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+          throws TapisException, TapisClientException
   {
     // If ever called and not a svc request then fall back to denied
     if (!rUser.isServiceRequest())
-      throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
+      throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()));
 
     // This is a service request. The username will be the service name. E.g. files, jobs, streams, etc
     String svcName = rUser.getJwtUserId();
@@ -3177,8 +3107,7 @@ public class SystemsServiceImpl implements SystemsService
     {
       if (SVCLIST_GETCRED.contains(svcName)) return;
       // Not authorized, throw an exception
-      throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_GETCRED", rUser,
-              systemId, op.name()), NO_CHALLENGE);
+      throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_GETCRED", rUser, systemId, op.name()));
     }
 
     // Always allow read, execute, getPerms for a service calling as itself.
@@ -3215,11 +3144,10 @@ public class SystemsServiceImpl implements SystemsService
    * @param targetUser Target user for operation
    * @param perms - List of permissions for the revokePerm case
    * @param impersonationId - for auth check use this Id in place of oboUser
-   * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkAuthOboUser(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
                                 String targetUser, Set<Permission> perms, String impersonationId)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException
+          throws TapisException, TapisClientException
   {
     String oboTenant = rUser.getOboTenantId();
     String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
@@ -3232,16 +3160,16 @@ public class SystemsServiceImpl implements SystemsService
         break;
       case getCred:
         // Only some services allowed to get credentials. Never a user.
-        throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_GETCRED", rUser, systemId, op.name()), NO_CHALLENGE);
+        throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_GETCRED", rUser, systemId, op.name()));
     }
 
     // Remaining checks require owner. If no owner specified and owner cannot be determined then log an error and deny.
     if (StringUtils.isBlank(owner)) owner = dao.getSystemOwner(oboTenant, systemId);
     if (StringUtils.isBlank(owner))
     {
-      String msg = LibUtils.getMsgAuth("SYSLIB_UNAUTH_NO_OWNER", rUser, systemId, op.name());
+      String msg = LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, systemId, op.name());
       _log.error(msg);
-      throw new NotAuthorizedException(msg, NO_CHALLENGE);
+      throw new TapisException(msg);
     }
     switch(op) {
       case create:
@@ -3290,7 +3218,7 @@ public class SystemsServiceImpl implements SystemsService
         break;
     }
     // Not authorized, throw an exception
-    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()), NO_CHALLENGE);
+    throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()));
   }
    
   /**
@@ -3326,16 +3254,14 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param op - operation name
    * @param systemId - name of the system
-   * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkImpersonationAllowed(ResourceRequestUser rUser, SystemOperation op, String systemId, String impersonationId)
-          throws NotAuthorizedException
   {
     // If a service request the username will be the service name. E.g. files, jobs, streams, etc
     String svcName = rUser.getJwtUserId();
     if (!rUser.isServiceRequest() || !SVCLIST_IMPERSONATE.contains(svcName))
     {
-      throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_IMPERSONATE", rUser, systemId, op.name(), impersonationId), NO_CHALLENGE);
+      throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_IMPERSONATE", rUser, systemId, op.name(), impersonationId));
     }
     // An allowed service is impersonating, log it
     _log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_IMPERSONATE", rUser, systemId, op.name(), impersonationId));
@@ -3348,16 +3274,14 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param op - operation name
    * @param systemId - name of the system
-   * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkSharedAppCtxAllowed(ResourceRequestUser rUser, SystemOperation op, String systemId)
-          throws NotAuthorizedException
   {
     // If a service request the username will be the service name. E.g. files, jobs, streams, etc
     String svcName = rUser.getJwtUserId();
     if (!rUser.isServiceRequest() || !SVCLIST_SHAREDAPPCTX.contains(svcName))
     {
-      throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_SHAREDAPPCTX", rUser, systemId, op.name()), NO_CHALLENGE);
+      throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_SHAREDAPPCTX", rUser, systemId, op.name()));
     }
     // An allowed service is impersonating, log it
     _log.trace(LibUtils.getMsgAuth("SYSLIB_AUTH_SHAREDAPPCTX", rUser, systemId, op.name()));
@@ -3377,10 +3301,9 @@ public class SystemsServiceImpl implements SystemsService
    * @param op - operation name
    * @param name - name of the profile
    * @param owner - owner
-   * @throws NotAuthorizedException - user not authorized to perform operation
    */
   private void checkPrfAuth(ResourceRequestUser rUser, SchedulerProfileOperation op, String name, String owner)
-          throws TapisException, TapisClientException, NotAuthorizedException
+          throws TapisException, TapisClientException
   {
     // Anyone can read, including all services
     if (op == SchedulerProfileOperation.read) return;
@@ -3392,9 +3315,9 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(owner)) owner = dao.getSchedulerProfileOwner(oboTenant, name);
     if (StringUtils.isBlank(owner))
     {
-      String msg = LibUtils.getMsgAuth("SYSLIB_PRF_AUTH_NO_OWNER", rUser, name, op.name());
+      String msg = LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, name, op.name());
       _log.error(msg);
-      throw new NotAuthorizedException(msg, NO_CHALLENGE);
+      throw new TapisException(msg);
     }
 
     // Owner and Admin can create, delete
@@ -3405,7 +3328,7 @@ public class SystemsServiceImpl implements SystemsService
         break;
     }
     // Not authorized, throw an exception
-    throw new NotAuthorizedException(LibUtils.getMsgAuth("SYSLIB_PRF_UNAUTH", rUser, name, op.name()), NO_CHALLENGE);
+    throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_PRF_UNAUTH", rUser, name, op.name()));
   }
 
   /**

@@ -1,18 +1,5 @@
 package edu.utexas.tacc.tapis.systems.api.resources;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.inject.Inject;
-import javax.servlet.ServletContext;
-import org.glassfish.grizzly.http.server.Request;
-import javax.ws.rs.*;
-import javax.ws.rs.core.*;
-import javax.ws.rs.core.Response.Status;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -20,9 +7,22 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
+import javax.servlet.ServletContext;
+import javax.ws.rs.*;
+import javax.ws.rs.core.*;
+import javax.ws.rs.core.Response.Status;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.glassfish.grizzly.http.server.Request;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
+import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
+import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidator;
@@ -33,9 +33,9 @@ import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespBasic;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespNameArray;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultNameArray;
-import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
+import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 
@@ -109,7 +109,7 @@ public class PermsResource
   public Response grantUserPerms(@PathParam("systemId") String systemId,
                                  @PathParam("userName") String userName,
                                  InputStream payloadStream,
-                                 @Context SecurityContext securityContext)
+                                 @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "grantUserPerms";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
@@ -138,7 +138,7 @@ public class PermsResource
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_JSON_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // ------------------------- Extract and validate payload -------------------------
@@ -152,20 +152,22 @@ public class PermsResource
     {
       service.grantUserPermissions(rUser, systemId, userName, permsList, json);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
     String permsListStr = permsList.stream().map(Enum::name).collect(Collectors.joining(","));
     RespBasic resp1 = new RespBasic();
+    msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_GRANTED", rUser, systemId, userName, permsListStr);
     return Response.status(Status.CREATED)
-      .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_PERMS_GRANTED", rUser, systemId,
-                                                                       userName, permsListStr),
-                                                   PRETTY, resp1))
+      .entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp1))
       .build();
   }
 
@@ -179,7 +181,7 @@ public class PermsResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response getUserPerms(@PathParam("systemId") String systemId,
                                @PathParam("userName") String userName,
-                               @Context SecurityContext securityContext)
+                               @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "getUserPerms";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
@@ -205,21 +207,17 @@ public class PermsResource
     Set<Permission> perms;
     String msg;
     try { perms = service.getUserPermissions(rUser, systemId, userName); }
-    catch (NotFoundException e)
-    {
-      msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
-      _log.warn(msg);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
-    if (perms == null) perms = new HashSet<>();
     ResultNameArray names = new ResultNameArray();
     List<String> permNames = new ArrayList<>();
     for (Permission perm : perms) { permNames.add(perm.name()); }
@@ -240,7 +238,7 @@ public class PermsResource
   public Response revokeUserPerm(@PathParam("systemId") String systemId,
                                  @PathParam("userName") String userName,
                                  @PathParam("permission") String permissionStr,
-                                 @Context SecurityContext securityContext)
+                                 @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "revokeUserPerm";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
@@ -275,21 +273,23 @@ public class PermsResource
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_ENUM_ERROR", rUser, systemId, userName, permissionStr, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
     RespBasic resp1 = new RespBasic();
+    msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_REVOKED", rUser, systemId, userName, permissionStr);
     return Response.status(Status.CREATED)
-      .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_PERMS_REVOKED", rUser, systemId,
-                                                                       userName, permissionStr),
-                                                   PRETTY, resp1))
+      .entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp1))
       .build();
   }
 
@@ -305,7 +305,7 @@ public class PermsResource
   public Response revokeUserPerms(@PathParam("systemId") String systemId,
                                   @PathParam("userName") String userName,
                                   InputStream payloadStream,
-                                  @Context SecurityContext securityContext)
+                                  @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "revokeUserPerms";
     // ------------------------- Retrieve and validate thread context -------------------------
@@ -335,7 +335,7 @@ public class PermsResource
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_JSON_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // ------------------------- Extract and validate payload -------------------------
@@ -349,20 +349,22 @@ public class PermsResource
     {
       service.revokeUserPermissions(rUser, systemId, userName, permsList, json);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_ERROR", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
     String permsListStr = permsList.stream().map(Enum::name).collect(Collectors.joining(","));
     RespBasic resp1 = new RespBasic();
+    msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_REVOKED", rUser, systemId, userName, permsListStr);
     return Response.status(Status.CREATED)
-      .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_PERMS_REVOKED", rUser, systemId,
-                                                                       userName, permsListStr),
-                                                   PRETTY, resp1))
+      .entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp1))
       .build();
   }
 
@@ -390,7 +392,7 @@ public class PermsResource
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_JSON_INVALID", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     JsonObject obj = TapisGsonUtils.getGson().fromJson(json, JsonObject.class);
@@ -410,7 +412,7 @@ public class PermsResource
         {
           msg = ApiUtils.getMsgAuth("SYSAPI_PERMS_ENUM_ERROR", rUser, systemId, userName, permStr, e.getMessage());
           _log.error(msg, e);
-          return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+          throw new BadRequestException(msg);
         }
       }
     }
@@ -426,7 +428,7 @@ public class PermsResource
     if (msg != null)
     {
       _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
     else return null;
   }

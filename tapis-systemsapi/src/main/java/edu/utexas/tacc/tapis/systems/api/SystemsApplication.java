@@ -1,5 +1,16 @@
 package edu.utexas.tacc.tapis.systems.api;
 
+import java.net.URI;
+import javax.ws.rs.ApplicationPath;
+import org.apache.commons.lang3.StringUtils;
+import org.glassfish.hk2.api.ServiceLocator;
+import org.glassfish.hk2.utilities.binding.AbstractBinder;
+import org.glassfish.grizzly.http.server.HttpServer;
+import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
+import org.glassfish.jersey.internal.inject.InjectionManager;
+import org.glassfish.jersey.server.ApplicationHandler;
+import org.glassfish.jersey.server.ResourceConfig;
+
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
 import edu.utexas.tacc.tapis.shared.security.TenantManager;
@@ -7,8 +18,8 @@ import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.sharedapi.jaxrs.filters.JWTValidateRequestFilter;
 import edu.utexas.tacc.tapis.sharedapi.providers.ObjectMapperContextResolver;
-import edu.utexas.tacc.tapis.sharedapi.providers.TapisExceptionMapper;
 import edu.utexas.tacc.tapis.sharedapi.providers.ValidationExceptionMapper;
+import edu.utexas.tacc.tapis.systems.api.providers.SystemsExceptionMapper;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDaoImpl;
@@ -16,19 +27,6 @@ import edu.utexas.tacc.tapis.systems.service.SystemsService;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
 import edu.utexas.tacc.tapis.systems.service.ServiceClientsFactory;
 import edu.utexas.tacc.tapis.systems.service.ServiceContextFactory;
-
-import org.apache.commons.lang3.StringUtils;
-import org.glassfish.hk2.api.ServiceLocator;
-import org.glassfish.hk2.utilities.binding.AbstractBinder;
-import org.glassfish.grizzly.http.server.HttpServer;
-import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
-import org.glassfish.jersey.internal.inject.InjectionManager;
-import org.glassfish.jersey.jackson.JacksonFeature;
-import org.glassfish.jersey.server.ApplicationHandler;
-import org.glassfish.jersey.server.ResourceConfig;
-
-import java.net.URI;
-import javax.ws.rs.ApplicationPath;
 
 /*
  * Main startup class for the web application. Uses Jersey and Grizzly frameworks.
@@ -46,6 +44,8 @@ import javax.ws.rs.ApplicationPath;
  *     path set at the class level. See SystemResource.java, PermsResource.java, etc.
  *     This has been found to be a more robust scheme for keeping startup working for both
  *     running in an IDE and standalone.
+ *
+ * For all logging use println or similar so we do not have a dependency on a logging subsystem.
  */
 @ApplicationPath("/")
 public class SystemsApplication extends ResourceConfig
@@ -59,12 +59,16 @@ public class SystemsApplication extends ResourceConfig
   // For all logging use println or similar, so we do not have a dependency on a logging subsystem.
   public SystemsApplication()
   {
+    // Log our existence.
+    // Output version information on startup
+    System.out.println("**** Starting Systems Service. Version: " + TapisUtils.getTapisFullVersion() + " ****");
+
     // Needed for properly returning timestamps
     // Also allows for setting a breakpoint when response is being constructed.
     register(ObjectMapperContextResolver.class);
 
     // Register classes needed for returning a standard Tapis response for non-Tapis exceptions.
-    register(TapisExceptionMapper.class);
+    register(SystemsExceptionMapper.class);
     register(ValidationExceptionMapper.class);
 
     // We specify what packages JAX-RS should recursively scan to find annotations. By setting the value to the
@@ -120,12 +124,6 @@ public class SystemsApplication extends ResourceConfig
    */
   public static void main(String[] args) throws Exception
   {
-    // Log our existence.
-    // Output version information on startup
-    System.out.printf("**** Starting Systems Service. Version: %s ****%n", TapisUtils.getTapisFullVersion());
-    // Log our config
-    System.out.println(RuntimeParameters.getInstance().getRuntimeInfo());
-
     // If TAPIS_SERVICE_PORT set in env then use it.
     // Useful for starting service locally on a busy system where 8080 may not be available.
     String servicePort = System.getenv("TAPIS_SERVICE_PORT");

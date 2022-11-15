@@ -32,7 +32,6 @@ import org.slf4j.LoggerFactory;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 
-import javax.ws.rs.NotAuthorizedException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -149,8 +148,7 @@ public class MigrateJob
    * This is a one time migration for Tapis Systems version 1.1.5
    * Iterate over all tenants, all systems in a tenant and all users of a system
    */
-  private void migrateAllCredentialsToStaticDynamic()
-          throws TapisException, TapisClientException, NotAuthorizedException
+  private void migrateAllCredentialsToStaticDynamic() throws TapisException, TapisClientException
   {
     System.out.printf("%s START Migrating secrets to static/dynamic paths%n", msgPrefix);
     // We will need to call SK to find users of a system, remove secrets and re-write them to new paths.
