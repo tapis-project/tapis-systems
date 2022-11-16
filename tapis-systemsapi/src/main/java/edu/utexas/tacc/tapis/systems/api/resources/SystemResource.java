@@ -69,6 +69,7 @@ import edu.utexas.tacc.tapis.systems.api.responses.RespSystem;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystemHistory;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystems;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
+import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
@@ -133,7 +134,7 @@ public class SystemResource
   private static final String OP_UNDELETE = "undeleteSystem";
 
   // Always return a nicely formatted response
-  private static final boolean PRETTY = true;
+  public static final boolean PRETTY = true;
 
   // Top level summary attributes to be included by default in some cases.
   public static final List<String> SUMMARY_ATTRS =
@@ -258,10 +259,11 @@ public class SystemResource
 
     // Create a TSystem from the request
     TSystem tSystem = createTSystemFromPostRequest(rUser.getOboTenantId(), req, rawJson);
+    boolean creatingCreds = (tSystem.getAuthnCredential() != null);
 
     // Mask any secret info that might be contained in rawJson
     String scrubbedJson = rawJson;
-    if (tSystem.getAuthnCredential() != null) scrubbedJson = maskCredSecrets(rawJson);
+    if (creatingCreds) scrubbedJson = maskCredSecrets(rawJson);
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_CREATE_TRACE", rUser, scrubbedJson));
 
     // Fill in defaults and check constraints on TSystem attributes
@@ -274,7 +276,7 @@ public class SystemResource
     String systemId = tSystem.getId();
     try
     {
-      service.createSystem(rUser, tSystem, skipCredCheck, scrubbedJson);
+      tSystem = service.createSystem(rUser, tSystem, skipCredCheck, scrubbedJson);
     }
     catch (IllegalStateException e)
     {
@@ -316,7 +318,18 @@ public class SystemResource
       throw new WebApplicationException(msg);
     }
 
-    // ---------------------------- Success ------------------------------- 
+    // If credentials provided, and we are validating them, make sure they were OK.
+    // If validation failed then system was not created, and we need to report an error.
+    if (!skipCredCheck && creatingCreds)
+    {
+      // We only support registering credentials in the static effective user case, so in log messages report effUserId.
+      String userName = tSystem.getEffectiveUserId();
+      resp = ApiUtils.checkCredValidationResult(rUser, systemId, userName, tSystem.getAuthnCredential(),
+                                                tSystem.getDefaultAuthnMethod(), skipCredCheck);
+      if (resp != null) return resp;
+    }
+
+    // ---------------------------- Success -------------------------------
     // Success means the object was created.
     ResultResourceUrl respUrl = new ResultResourceUrl();
     respUrl.url = _request.getRequestURL().toString() + "/" + systemId;
@@ -525,6 +538,7 @@ public class SystemResource
 
     // Create a TSystem from the request
     TSystem putSystem = createTSystemFromPutRequest(rUser.getOboTenantId(), systemId, req, rawJson);
+    boolean creatingCreds = (putSystem.getAuthnCredential() != null);
 
     // Mask any secret info that might be contained in rawJson
     String scrubbedJson = rawJson;
@@ -538,7 +552,7 @@ public class SystemResource
     // ---------------------------- Make service call to update the system -------------------------------
     try
     {
-      service.putSystem(rUser, putSystem, skipCredCheck, scrubbedJson);
+      putSystem = service.putSystem(rUser, putSystem, skipCredCheck, scrubbedJson);
     }
     catch (IllegalStateException e)
     {
@@ -562,6 +576,17 @@ public class SystemResource
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg, e);
       throw new WebApplicationException(msg);
+    }
+
+    // If credentials provided, and we are validating them, make sure they were OK.
+    // If validation failed then system was not created, and we need to report an error.
+    if (!skipCredCheck && creatingCreds)
+    {
+      // We only support registering credentials in the static effective user case, so in log messages report effUserId.
+      String userName = putSystem.getEffectiveUserId();
+      resp = ApiUtils.checkCredValidationResult(rUser, systemId, userName, putSystem.getAuthnCredential(),
+                                                putSystem.getDefaultAuthnMethod(), skipCredCheck);
+      if (resp != null) return resp;
     }
 
     // ---------------------------- Success -------------------------------

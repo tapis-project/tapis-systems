@@ -39,7 +39,6 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 
 import javax.ws.rs.ForbiddenException;
-import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -252,7 +251,7 @@ public class SystemsServiceTest
     catch (Exception e)
     {
       String msg = e.getMessage();
-      Assert.assertTrue(msg.contains("SYSLIB_CRED_INVALID"));
+      Assert.assertTrue(msg.contains("SYSLIB_CRED_VALID_FAIL"));
     }
 
     // Using valid credentials should succeed.

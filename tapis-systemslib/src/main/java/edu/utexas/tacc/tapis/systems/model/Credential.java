@@ -11,8 +11,8 @@ import org.apache.commons.lang3.StringUtils;
  * Secrets are not persisted by the Systems Service. Actual secrets are managed by the Security Kernel.
  * The secret information will depend on the system type and authn method.
  *
- * Systems does store a mapping of tapis user to login user if they are different.
- * If a System has a static effectiveUserId then the there will be no mapping.
+ * Systems service does store a mapping of tapis user to login user if they are different.
+ * If a System has a static effectiveUserId then there will be no mapping.
  *
  * Immutable
  * This class is intended to represent an immutable object.
@@ -50,14 +50,30 @@ public final class Credential
   private final String accessKey; // Access key for when authnMethod is ACCESS_KEY
   private final String accessSecret; // Access secret for when authnMethod is ACCESS_KEY
   private final String certificate; // SSH certificate for authnMethod is CERT
+  private final Boolean validationResult; // Result of validation, if performed. null if no validation
+  private final String validationMsg; // Reason validation failed. Null if no validation or validation succeeded.
 
   /* ********************************************************************** */
   /*                           Constructors                                 */
   /* ********************************************************************** */
 
-  /**
-   * Simple constructor to populate all attributes
-   */
+  // Simple constructor to populate all attributes
+  public Credential(AuthnMethod authnMethod1, String loginUser1, String password1, String privateKey1,
+                    String publicKey1, String accessKey1, String accessSecret1, String cert1,
+                    Boolean validationResult1, String validationMsg1)
+  {
+    authnMethod = authnMethod1;
+    loginUser = loginUser1;
+    password = password1;
+    privateKey = privateKey1;
+    publicKey = publicKey1;
+    accessKey = accessKey1;
+    accessSecret = accessSecret1;
+    certificate = cert1;
+    validationResult = validationResult1;
+    validationMsg = validationMsg1;
+  }
+  // Simple constructor to populate all attributes except validationg result and message.
   public Credential(AuthnMethod authnMethod1, String loginUser1, String password1, String privateKey1,
                     String publicKey1, String accessKey1, String accessSecret1, String cert1)
   {
@@ -69,6 +85,8 @@ public final class Credential
     accessKey = accessKey1;
     accessSecret = accessSecret1;
     certificate = cert1;
+    validationResult = null;
+    validationMsg = null;
   }
 
   /* ********************************************************************** */
@@ -77,25 +95,25 @@ public final class Credential
   /**
    * Create a credential with secrets masked out
    */
-  public static Credential createMaskedCredential(Credential credential)
+  public static Credential createMaskedCredential(Credential cred)
   {
-    if (credential == null) return null;
+    if (cred == null) return null;
     String accessKey, accessSecret, password, privateKey, publicKey, cert;
-    accessKey = (!StringUtils.isBlank(credential.getAccessKey())) ? SECRETS_MASK : credential.getAccessKey();
-    accessSecret = (!StringUtils.isBlank(credential.getAccessSecret())) ? SECRETS_MASK : credential.getAccessSecret();
-    password = (!StringUtils.isBlank(credential.getPassword())) ? SECRETS_MASK : credential.getPassword();
-    privateKey = (!StringUtils.isBlank(credential.getPrivateKey())) ? SECRETS_MASK : credential.getPrivateKey();
-    publicKey = (!StringUtils.isBlank(credential.getPublicKey())) ? SECRETS_MASK : credential.getPublicKey();
-    cert = (!StringUtils.isBlank(credential.getCertificate())) ? SECRETS_MASK : credential.getCertificate();
-    return new Credential(credential.getAuthnMethod(), credential.getLoginUser(),
-                          password, privateKey, publicKey, accessKey, accessSecret, cert);
+    accessKey = (!StringUtils.isBlank(cred.getAccessKey())) ? SECRETS_MASK : cred.getAccessKey();
+    accessSecret = (!StringUtils.isBlank(cred.getAccessSecret())) ? SECRETS_MASK : cred.getAccessSecret();
+    password = (!StringUtils.isBlank(cred.getPassword())) ? SECRETS_MASK : cred.getPassword();
+    privateKey = (!StringUtils.isBlank(cred.getPrivateKey())) ? SECRETS_MASK : cred.getPrivateKey();
+    publicKey = (!StringUtils.isBlank(cred.getPublicKey())) ? SECRETS_MASK : cred.getPublicKey();
+    cert = (!StringUtils.isBlank(cred.getCertificate())) ? SECRETS_MASK : cred.getCertificate();
+    return new Credential(cred.getAuthnMethod(), cred.getLoginUser(), password, privateKey, publicKey,
+                          accessKey, accessSecret, cert, cred.getValidationResult(), cred.getValidationMsg());
   }
 
   /**
    * Check if private key is compatible with Tapis.
    * SSH key-pairs that have a private key starting with: --- BEGIN OPENSSH PRIVATE KEY ---
-   * cannot be used in in TapisV3. the Jsch library does not yet support them.
-   * Instead a private key starting with:{{ — BEGIN RSA PRIVATE KEY ---}}
+   * cannot be used in TapisV3. the Jsch library does not yet support them.
+   * Instead, a private key starting with:{{ — BEGIN RSA PRIVATE KEY ---}}
    * should be used. Recent openssh versions generate OPENSSH type keys.
    * To generate compatible keys one should use the option -m PEM with ssh-keygen, e.g.
    * ssh-keygen -t rsa -b 4096 -m PEM
@@ -120,6 +138,8 @@ public final class Credential
   public String getAccessKey() { return accessKey; }
   public String getAccessSecret() { return accessSecret; }
   public String getCertificate() { return certificate; }
+  public Boolean getValidationResult() { return validationResult; }
+  public String getValidationMsg() { return validationMsg; }
 
   @Override
   public String toString() {return TapisUtils.toString(this);}

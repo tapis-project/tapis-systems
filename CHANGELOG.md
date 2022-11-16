@@ -17,6 +17,7 @@ Incremental improvements and new preview features.
 ### New features:
 - Support having a dynamic *rootDir* property. Allow *apiUserId* and *effectiveUserId*. Attribute *rootDir* may start with *HOST_EVAL()*.
 - Rename getSystem query parameter from *resolveEffectiveUser* to *resolveEffective*. Apply it to *effectiveUserId* and *rootDir*.
+- Add endpoint for checking credentials.
 
 ### Bug fixes:
 - None.

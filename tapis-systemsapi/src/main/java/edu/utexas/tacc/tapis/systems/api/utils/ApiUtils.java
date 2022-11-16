@@ -1,24 +1,22 @@
 package edu.utexas.tacc.tapis.systems.api.utils;
 
+import java.text.MessageFormat;
+import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
+import javax.ws.rs.core.Response;
 import com.google.gson.JsonElement;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
+import edu.utexas.tacc.tapis.systems.model.Credential;
+import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.ws.rs.core.Response;
-import java.text.MessageFormat;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.ResourceBundle;
-import java.util.stream.Collectors;
+import static edu.utexas.tacc.tapis.systems.api.resources.SystemResource.PRETTY;
 
 /*
    Utility class containing general use static methods.
@@ -229,6 +227,36 @@ public class ApiUtils
     sb.append(System.lineSeparator());
     for (String msg : msgList) { sb.append("  ").append(msg).append(System.lineSeparator()); }
     return sb.toString();
+  }
+
+  /*
+   * Check that credentials are valid. Used by CredentialResource create and check endpoints as well as
+   *   SystemResource create and put endpoints.
+   */
+  public static Response checkCredValidationResult(ResourceRequestUser rUser, String systemId, String userName, Credential cred,
+                                                   AuthnMethod authnMethod, boolean skipCredCheck)
+  {
+    if (skipCredCheck) return null;
+
+    // If we are not given an authnMethod use the one in the credential if it is present.
+    // Used only for logging.
+    if (authnMethod == null && cred != null && cred.getAuthnMethod() != null) authnMethod = cred.getAuthnMethod();
+
+    // Call that validated credentials should never return null credential or null validationResult
+    if (cred == null || cred.getValidationResult() == null)
+    {
+      String msg = ApiUtils.getMsgAuth("SYSAPI_CRED_CHECK_ERROR", rUser, systemId, userName, authnMethod, "Invalid null return");
+      _log.error(msg);
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+    }
+
+    // If credential validation failed return BAD_REQUEST = 400
+    if (Boolean.FALSE.equals(cred.getValidationResult()))
+    {
+      String msg = ApiUtils.getMsgAuth("SYSAPI_CRED_VALID_FAIL", rUser, systemId, userName, authnMethod, cred.getValidationMsg());
+      return Response.status(Response.Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+    }
+    return null;
   }
 
 // NOTE: If this is ever used it will strip off the description
