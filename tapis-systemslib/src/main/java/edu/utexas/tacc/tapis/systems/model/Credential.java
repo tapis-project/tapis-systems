@@ -37,6 +37,8 @@ public final class Credential
   public static final String SK_KEY_ACCESS_KEY = "accessKey";
   public static final String SK_KEY_ACCESS_SECRET = "accessSecret";
 
+  // Default validation message
+  public static final String VALIDATION_MSG_DEFAULT = "Error. Validation message not updated";
 
   /* ********************************************************************** */
   /*                                 Fields                                 */
@@ -73,7 +75,8 @@ public final class Credential
     validationResult = validationResult1;
     validationMsg = validationMsg1;
   }
-  // Simple constructor to populate all attributes except validationg result and message.
+  // Simple constructor to populate all attributes except validation result and message.
+  // Validation result defaults to FALSE and validation message set to a default value.
   public Credential(AuthnMethod authnMethod1, String loginUser1, String password1, String privateKey1,
                     String publicKey1, String accessKey1, String accessSecret1, String cert1)
   {
@@ -85,8 +88,8 @@ public final class Credential
     accessKey = accessKey1;
     accessSecret = accessSecret1;
     certificate = cert1;
-    validationResult = null;
-    validationMsg = null;
+    validationResult = Boolean.FALSE;
+    validationMsg = VALIDATION_MSG_DEFAULT;
   }
 
   /* ********************************************************************** */

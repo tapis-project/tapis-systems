@@ -104,9 +104,6 @@ public interface SystemsService
   Credential checkUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
           throws TapisException, TapisClientException, IllegalStateException;
 
-  Credential checkUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
-          throws TapisException, TapisClientException, NotAuthorizedException, IllegalStateException;
-
   Credential getUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
           throws TapisException, TapisClientException;
 

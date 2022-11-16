@@ -2,6 +2,7 @@ package edu.utexas.tacc.tapis.systems.service;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -11,17 +12,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
-
 import javax.inject.Inject;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
+import javax.ws.rs.core.UriBuilder;
 
-import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
-import edu.utexas.tacc.tapis.systems.client.gen.model.SystemTypeEnum;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +40,8 @@ import edu.utexas.tacc.tapis.security.client.model.SKShareDeleteShareParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareGetSharesParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareHasPrivilegeParms;
 import edu.utexas.tacc.tapis.security.client.model.SecretType;
+import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
+import edu.utexas.tacc.tapis.systems.client.gen.model.SystemTypeEnum;
 import edu.utexas.tacc.tapis.systems.client.gen.model.TapisSystem;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
@@ -65,7 +65,6 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
-
 import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
@@ -136,7 +135,6 @@ public class SystemsServiceImpl implements SystemsService
   private static final String OP_UNSHARE = "unShare";
   private static final Set<String> publicUserSet = Collections.singleton(SKClient.PUBLIC_GRANTEE); // "~public"
   private static final String SYS_SHR_TYPE = "system";
-
 
   // ************************************************************************
   // *********************** Enums ******************************************
@@ -659,7 +657,7 @@ public class SystemsServiceImpl implements SystemsService
     // ---------------------------- Check inputs ------------------------------------
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(newOwnerName))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     String oboTenant = rUser.getOboTenantId();
 
@@ -733,7 +731,7 @@ public class SystemsServiceImpl implements SystemsService
     SystemOperation op = SystemOperation.hardDelete;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(oboTenant) ||  StringUtils.isBlank(systemId))
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     // If system does not exist then 0 changes
     TSystem system = dao.getSystem(oboTenant, systemId, true);
@@ -1288,7 +1286,7 @@ public class SystemsServiceImpl implements SystemsService
     SystemOperation op = SystemOperation.grantPerms;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     String oboTenant = rUser.getOboTenantId();
 
@@ -1370,7 +1368,7 @@ public class SystemsServiceImpl implements SystemsService
     SystemOperation op = SystemOperation.revokePerms;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     String oboTenant = rUser.getOboTenantId();
 
@@ -1449,7 +1447,7 @@ public class SystemsServiceImpl implements SystemsService
     SystemOperation op = SystemOperation.getPerms;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     // If system does not exist or has been deleted then throw an exception
     if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false))
@@ -1488,14 +1486,14 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @param targetUser - Target user for operation
-   * @param credential - list of permissions to be granted
+   * @param cred - Credentials to be stored
    * @param skipCredCheck - Indicates if cred check for LINUX systems should happen
    * @param rawData - Client provided text used to create the credential - secrets should be scrubbed. Saved in update record.
    * @return null if skipping credCheck, else checked credential with validation result set
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public Credential createUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, Credential credential,
+  public Credential createUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, Credential cred,
                                          boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, IllegalStateException
   {
@@ -1504,12 +1502,12 @@ public class SystemsServiceImpl implements SystemsService
 
     // Check inputs. If anything null or empty throw an exception
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser) || credential == null)
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser) || cred == null)
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     // Extract some attributes for convenience and clarity
     String oboTenant = rUser.getOboTenantId();
-    String loginUser = credential.getLoginUser();
+    String loginUser = cred.getLoginUser();
 
     // We will need some info from the system, so fetch it now.
     TSystem system = dao.getSystem(oboTenant, systemId);
@@ -1525,7 +1523,7 @@ public class SystemsServiceImpl implements SystemsService
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
     // If private SSH key is set check that we have a compatible key.
-    if (!StringUtils.isBlank(credential.getPrivateKey()) && !credential.isValidPrivateSshKey())
+    if (!StringUtils.isBlank(cred.getPrivateKey()) && !cred.isValidPrivateSshKey())
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2", rUser, systemId, targetUser);
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
@@ -1535,7 +1533,7 @@ public class SystemsServiceImpl implements SystemsService
     // If not skipping credential validation then do it now
     if (!skipCredCheck)
     {
-      retCred = verifyCredentials(rUser, system, credential, loginUser, system.getDefaultAuthnMethod());
+      retCred = verifyCredentials(rUser, system, cred, loginUser, system.getDefaultAuthnMethod());
       // If call returns null credential or null validation result then something went wrong.
       if (retCred == null || retCred.getValidationResult() == null) return retCred;
       // Check result. If validation failed return now.
@@ -1547,7 +1545,7 @@ public class SystemsServiceImpl implements SystemsService
     //   have been changed and reverting seems fraught with peril and not a good ROI.
     try
     {
-      createCredential(rUser, credential, systemId, targetUser, isStaticEffectiveUser);
+      createCredential(rUser, cred, systemId, targetUser, isStaticEffectiveUser);
     }
     // If tapis client exception then log error and convert to TapisException
     catch (TapisClientException tce)
@@ -1564,7 +1562,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Construct Json string representing the update, with actual secrets masked out
-    Credential maskedCredential = Credential.createMaskedCredential(credential);
+    Credential maskedCredential = Credential.createMaskedCredential(cred);
     // Get a complete and succinct description of the update.
     String changeDescription = LibUtils.getChangeDescriptionCredCreate(systemId, targetUser, skipCredCheck, maskedCredential);
     // Create a record of the update
@@ -1587,7 +1585,7 @@ public class SystemsServiceImpl implements SystemsService
     // Check inputs. If anything null or empty throw an exception
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     String oboTenant = rUser.getOboTenantId();
 
@@ -1655,6 +1653,8 @@ public class SystemsServiceImpl implements SystemsService
     SystemOperation op = SystemOperation.checkCred;
     // Check inputs. If anything null or empty throw an exception
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     String oboTenant = rUser.getOboTenantId();
     String oboUser = rUser.getOboUserId();
@@ -1662,8 +1662,7 @@ public class SystemsServiceImpl implements SystemsService
     // We will need some info from the system, so fetch it now.
     TSystem system = dao.getSystem(oboTenant, systemId);
     // If system does not exist or has been deleted then throw an exception
-    if (system == null)
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
     // ------------------------- Check authorization -------------------------
     checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
@@ -1736,7 +1735,7 @@ public class SystemsServiceImpl implements SystemsService
     SystemOperation op = SystemOperation.getCred;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     String oboTenant = rUser.getOboTenantId();
 
@@ -2213,346 +2212,6 @@ public class SystemsServiceImpl implements SystemsService
       _log.error(allErrors);
       throw new IllegalStateException(allErrors);
     }
-  }
-
-  /**
-   * Verify that effectiveUserId can connect to the system using provided credentials and authnMethod
-   * If loginUser is set then use it for connection,
-   * else if effectiveUserId is ${apUserId} then use rUser.oboUser for connection
-   * else use static effectiveUserId from TSystem for connection
-   *
-   * TSystem and Credential must be provided. If authnMethod not provided it is taken from the Credential.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param tSystem1 - the TSystem to check
-   * @param cred - credentials to check
-   * @param loginUser - host login user from mapping
-   * @param authnMethod - AuthnMethod to verify
-   * @throws IllegalStateException - if credentials not verified
-   */
-  private Credential verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential cred,
-                                       String loginUser, AuthnMethod authnMethod)
-          throws TapisException
-  {
-    Credential retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-                                        cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
-                                        cred.getCertificate());
-    // We must have the system and a set of credentials to check.
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (tSystem1 == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
-    if (cred == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_CRED1", rUser));
-
-    // If authnMethod not passed in fill in with default from system.
-    if (authnMethod == null) authnMethod = tSystem1.getDefaultAuthnMethod();
-    // Should always have an authnMethod by now, but just in case
-    if (authnMethod == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_CRED2", rUser));
-
-    // Determine user to check
-    // None of the public methods that call this support impersonation so use null for impersonationId
-    String effectiveUser;
-    if (!StringUtils.isBlank(loginUser)) effectiveUser = loginUser;
-    else effectiveUser = resolveEffectiveUserId(rUser, tSystem1, nullImpersonationId);
-
-    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-                                    effectiveUser, authnMethod.name()));
-    switch(authnMethod) {
-      case PASSWORD:
-        return verifyPassword(rUser, tSystem1, cred, effectiveUser);
-      case PKI_KEYS:
-        return verifyPkiKeys(rUser, tSystem1, cred, effectiveUser);
-      case ACCESS_KEY:
-        return verifyAccessKeys(rUser, tSystem1, cred, effectiveUser);
-    }
-    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-                                    effectiveUser, authnMethod.name()));
-    // If we get here it was an unsupported authnMethod, which in theory should never happen.
-    return retCred;
-
-//    // Attempt to connect to the system using each type of credential provided
-//    // Log error for each one that fails
-//    String msg = null;
-//    SSHConnection sshConnection = null;
-//
-//    // If password set then try it
-//    if (checkPassword)
-//    {
-//      try
-//      {
-//        _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY", rUser, tSystem1.getId(), effectiveUser, host, port, AuthnMethod.PASSWORD.name()));
-//        sshConnection = new SSHConnection(host, port, effectiveUser, credential.getPassword());
-//      }
-//      catch(TapisException e)
-//      {
-//        String eMsg = e.getMessage();
-//        if (eMsg != null && eMsg.contains(NO_MORE_AUTH_METHODS))
-//        {
-//          msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID", rUser, tSystem1.getId(), host, effectiveUser,
-//                                    AuthnMethod.PASSWORD.name());
-//        }
-//        else
-//        {
-//          msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, effectiveUser,
-//                                    AuthnMethod.PASSWORD.name(), eMsg);
-//        }
-//        _log.error(msg, e);
-//      }
-//      finally { if (sshConnection != null) sshConnection.close(); }
-//    }
-//
-//    // If ssh keys set then try it
-//    if (checkKeys)
-//    {
-//      try
-//      {
-//        _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY", rUser, tSystem1.getId(), effectiveUser, host, port, AuthnMethod.PKI_KEYS.name()));
-//        sshConnection = new SSHConnection(host, port, effectiveUser, credential.getPublicKey(), credential.getPrivateKey());
-//      }
-//      catch(TapisException e)
-//      {
-//        String eMsg = e.getMessage();
-//        if (eMsg != null && eMsg.contains(NO_MORE_AUTH_METHODS))
-//        {
-//          msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID", rUser, tSystem1.getId(), host, effectiveUser,
-//                                    AuthnMethod.PKI_KEYS.name());
-//        }
-//        else
-//        {
-//          msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, effectiveUser,
-//                                    AuthnMethod.PKI_KEYS.name(), eMsg);
-//        }
-//        _log.error(msg, e);
-//      }
-//      finally { if (sshConnection != null) sshConnection.close(); }
-//    }
-//
-//    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), effectiveUser, host, port));
-//
-//    // If there was an error then throw IllegalStateException
-//    if (msg != null)
-//    {
-//      throw new IllegalStateException(msg);
-//    }
-  }
-
-  /**
-//   * Verify credentials.
-//   * If loginUser is set then use it for connection,
-//   * else if effectiveUserId is ${apUserId} then use oboUser for connection
-//   * else use static effectiveUserId from TSystem for connection
-//   * @param rUser - ResourceRequestUser containing tenant, user and request info
-//   * @param tSystem1 - the TSystem to check
-//   * @param credential - credentials to check
-//   * @param authnMethod - check credentials for specified authn method
-//   * @throws IllegalStateException - if credentials not verified
-//   */
-//  private boolean verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential credential,
-//                                 AuthnMethod authnMethod)
-//          throws TapisException, IllegalStateException
-//  {
-//    // We must have the system and a set of credentials to check.
-//    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-//    if (tSystem1 == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
-//    if (credential == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_CRED1", rUser));
-//    if (authnMethod == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_CRED2", rUser));
-//
-//    // Determine user to check
-//    // None of the public methods that call this support impersonation so use null for impersonationId
-//    String effectiveUser = resolveEffectiveUserId(rUser, tSystem1, nullImpersonationId);
-//    if (!StringUtils.isBlank(credential.getLoginUser())) effectiveUser = credential.getLoginUser();
-//
-//    // Verify credential for specified authnMethod
-//    String host = tSystem1.getHost();
-//    int port = tSystem1.getPort();
-//    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY", rUser, tSystem1.getId(), effectiveUser, host, port, authnMethod.name()));
-//    switch(authnMethod) {
-//      case AuthnMethod.PASSWORD:
-//        verifyPassword();
-//        break;
-//      case AuthnMethod.PKI_KEYS:
-//        verifyPkiKeys();
-//        break;
-//      case AuthnMethod.ACCESS_KEY:
-//        verifyAccessKeys();
-//        break;
-//    }
-//
-//    // Determine authnMethod to check, either password or ssh keys
-//    // if neither provided then skip check
-//    // if both provided check depends on authnMethod
-//    boolean passwordSet = !StringUtils.isBlank(credential.getPassword());
-//    boolean sshKeysSet = (!StringUtils.isBlank(credential.getPublicKey()) && !StringUtils.isBlank(credential.getPublicKey()));
-//    if (!passwordSet && !sshKeysSet) return;
-//
-//    // Determine if we will check password, keys or both
-//    boolean checkPassword = false;
-//    boolean checkKeys = false;
-//    AuthnMethod authnMethod = credential.getAuthnMethod();
-//    if (passwordSet && (authnMethod == null || AuthnMethod.PASSWORD.equals(authnMethod))) checkPassword = true;
-//    if (sshKeysSet && (authnMethod == null || AuthnMethod.PKI_KEYS.equals(authnMethod))) checkKeys = true;
-//
-//    String host = tSystem1.getHost();
-//    int port = tSystem1.getPort();
-//    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), effectiveUser, host, port));
-//
-//    // Attempt to connect to the system using each type of credential provided
-//    // Log error for each one that fails
-//    String msg = null;
-//    SSHConnection sshConnection = null;
-//
-//    // If password set then try it
-//    if (checkPassword)
-//    {
-//      try
-//      {
-//        _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY", rUser, tSystem1.getId(), effectiveUser, host, port, AuthnMethod.PASSWORD.name()));
-//        sshConnection = new SSHConnection(host, port, effectiveUser, credential.getPassword());
-//      }
-//      catch(TapisException e)
-//      {
-//        String eMsg = e.getMessage();
-//        if (eMsg != null && eMsg.contains(NO_MORE_AUTH_METHODS))
-//        {
-//          msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID", rUser, tSystem1.getId(), host, effectiveUser,
-//                                    AuthnMethod.PASSWORD.name());
-//        }
-//        else
-//        {
-//          msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, effectiveUser,
-//                                    AuthnMethod.PASSWORD.name(), eMsg);
-//        }
-//        _log.error(msg, e);
-//      }
-//      finally { if (sshConnection != null) sshConnection.close(); }
-//    }
-//
-//    // If ssh keys set then try it
-//    if (checkKeys)
-//    {
-//      try
-//      {
-//        _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY", rUser, tSystem1.getId(), effectiveUser, host, port, AuthnMethod.PKI_KEYS.name()));
-//        sshConnection = new SSHConnection(host, port, effectiveUser, credential.getPublicKey(), credential.getPrivateKey());
-//      }
-//      catch(TapisException e)
-//      {
-//        String eMsg = e.getMessage();
-//        if (eMsg != null && eMsg.contains(NO_MORE_AUTH_METHODS))
-//        {
-//          msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID", rUser, tSystem1.getId(), host, effectiveUser,
-//                                    AuthnMethod.PKI_KEYS.name());
-//        }
-//        else
-//        {
-//          msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), host, effectiveUser,
-//                                    AuthnMethod.PKI_KEYS.name(), eMsg);
-//        }
-//        _log.error(msg, e);
-//      }
-//      finally { if (sshConnection != null) sshConnection.close(); }
-//    }
-//
-//    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), effectiveUser, host, port));
-//
-//    // If there was an error then throw IllegalStateException
-//    if (msg != null)
-//    {
-//      throw new IllegalStateException(msg);
-//    }
-//  }
-
-  /*
-   * Verify password authentication
-   */
-  private Credential verifyPassword(ResourceRequestUser rUser, TSystem tSystem1, Credential cred, String effectiveUser)
-  {
-    Credential retCred = cred;
-    String host = tSystem1.getHost();
-    int port = tSystem1.getPort();
-    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_PASSWORD", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-                                   effectiveUser, host, port));
-    String msg;
-    // Make sure we have what we need
-    if (StringUtils.isBlank(cred.getPassword()))
-    {
-      msg = LibUtils.getMsgAuth("SYSLIB_CRED_NO_CRED", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
-                                effectiveUser, AuthnMethod.PASSWORD.name());
-      // Log error? warning? throw exception?
-      _log.warn(msg);
-      retCred = new Credential(AuthnMethod.PASSWORD, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-                               cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
-                               Boolean.FALSE);
-    }
-    SSHConnection sshConnection = null;
-    try
-    {
-      sshConnection = new SSHConnection(host, port, effectiveUser, cred.getPassword());
-      retCred = new Credential(AuthnMethod.PASSWORD, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-                               cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
-                               Boolean.TRUE);
-    }
-    catch(TapisException e)
-    {
-      String eMsg = e.getMessage();
-      if (eMsg != null && eMsg.contains(NO_MORE_AUTH_METHODS))
-      {
-        msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
-                                  effectiveUser, AuthnMethod.PASSWORD.name());
-      }
-      else
-      {
-        msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
-                                  effectiveUser, AuthnMethod.PASSWORD.name(), eMsg);
-      }
-      _log.warn(msg, e);
-      retCred = new Credential(AuthnMethod.PASSWORD, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-              cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
-              Boolean.FALSE);
-    }
-    finally { if (sshConnection != null) sshConnection.close(); }
-    return retCred;
-  }
-
-  /*
-   * Verify PKI keys authentication
-   */
-  private Credential verifyPkiKeys(ResourceRequestUser rUser, TSystem tSystem1, Credential credential, String effectiveUser)
-  {
-    Credential retCred = null;
-    String host = tSystem1.getHost();
-    int port = tSystem1.getPort();
-    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_PKI", rUser, tSystem1.getId(), effectiveUser, host, port));
-    String msg;
-    SSHConnection sshConnection = null;
-    try
-    {
-      _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-                                     effectiveUser, host, port, AuthnMethod.PKI_KEYS.name()));
-      sshConnection = new SSHConnection(host, port, effectiveUser, credential.getPublicKey(), credential.getPrivateKey());
-    }
-    catch(TapisException e)
-    {
-      String eMsg = e.getMessage();
-      if (eMsg != null && eMsg.contains(NO_MORE_AUTH_METHODS))
-      {
-        msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
-                                  effectiveUser, AuthnMethod.PKI_KEYS.name());
-      }
-      else
-      {
-        msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
-                                  effectiveUser, AuthnMethod.PKI_KEYS.name(), eMsg);
-      }
-      _log.error(msg, e);
-    }
-    finally { if (sshConnection != null) sshConnection.close(); }
-    return retCred;
-  }
-
-  /*
-   * Verify PKI keys authentication
-   */
-  private Credential verifyAccessKeys(ResourceRequestUser rUser, TSystem tSystem1, Credential credential, String effectiveUser)
-  {
   }
 
   /**
@@ -3783,6 +3442,7 @@ public class SystemsServiceImpl implements SystemsService
                                        String loginUser, AuthnMethod authnMethod)
           throws TapisException
   {
+    // Create an initial cred as a fallback to return if there is an error.
     Credential retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
             cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
             cred.getCertificate());
@@ -4018,45 +3678,48 @@ public class SystemsServiceImpl implements SystemsService
     String systemId = tSystem1.getId();
     String host = tSystem1.getHost();
     int port = tSystem1.getPort();
-    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_PASSWORD", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-            effectiveUser, host, port));
     String msg;
     // Make sure we have what we need
     if (StringUtils.isBlank(cred.getPassword()))
     {
       msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op, systemId, effectiveUser, AuthnMethod.PASSWORD);
       retCred = new Credential(AuthnMethod.PASSWORD, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-              cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
-              Boolean.FALSE, msg);
+                               cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
+                               Boolean.FALSE, msg);
     }
     else
     {
+      _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_PASSWORD", rUser, tSystem1.getId(), tSystem1.getSystemType(),
+                                     effectiveUser, host, port));
+      // Make the connection attempt
       try (SSHConnection sshConnection = new SSHConnection(host, port, effectiveUser, cred.getPassword()))
       {
+        // No problem with connection. Set result to TRUE
         retCred = new Credential(AuthnMethod.PASSWORD, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
-                Boolean.TRUE, null);
+                                 cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
+                                 Boolean.TRUE, null);
       }
       catch (TapisException e)
       {
+        // There was a problem. Try to figure out why. Set result to FALSE
         String eMsg = e.getMessage();
         if (eMsg != null && eMsg.contains(NO_MORE_AUTH_METHODS))
         {
           msg = LibUtils.getMsgAuth("SYSLIB_CRED_VALID_FAIL", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
-                  effectiveUser, AuthnMethod.PASSWORD.name(), "Invalid password");
+                                    effectiveUser, AuthnMethod.PASSWORD.name(), "Invalid password");
         }
         else
         {
           msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
-                  effectiveUser, AuthnMethod.PASSWORD.name(), eMsg);
+                                    effectiveUser, AuthnMethod.PASSWORD.name(), eMsg);
         }
         retCred = new Credential(AuthnMethod.PASSWORD, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
-                Boolean.FALSE, msg);
+                                 cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
+                                 Boolean.FALSE, msg);
       }
     }
     _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-            effectiveUser, AuthnMethod.PASSWORD));
+                                   effectiveUser, AuthnMethod.PASSWORD));
     return retCred;
   }
 
@@ -4067,50 +3730,53 @@ public class SystemsServiceImpl implements SystemsService
   {
     String op = "verifyPKIKeys";
     _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-            effectiveUser, AuthnMethod.PKI_KEYS));
+                                   effectiveUser, AuthnMethod.PKI_KEYS));
     Credential retCred;
     String systemId = tSystem1.getId();
     String host = tSystem1.getHost();
     int port = tSystem1.getPort();
-    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_PKI", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-            effectiveUser, host, port));
     String msg;
     // Make sure we have what we need
     if (StringUtils.isBlank(cred.getPublicKey()) || StringUtils.isBlank(cred.getPrivateKey()))
     {
       msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op, systemId, effectiveUser, AuthnMethod.PASSWORD);
       retCred = new Credential(AuthnMethod.PKI_KEYS, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-              cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
-              Boolean.FALSE, msg);
+                               cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
+                               Boolean.FALSE, msg);
     }
     else
     {
+      _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_PKI", rUser, tSystem1.getId(), tSystem1.getSystemType(),
+                                     effectiveUser, host, port));
+      // Make the connection attempt
       try (SSHConnection sshConnection = new SSHConnection(host, port, effectiveUser, cred.getPublicKey(), cred.getPrivateKey()))
       {
+        // No problem with connection. Set result to TRUE
         retCred = new Credential(AuthnMethod.PKI_KEYS, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
-                Boolean.TRUE, null);
+                                 cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
+                                 Boolean.TRUE, null);
       }
       catch (TapisException e)
       {
+        // There was a problem. Try to figure out why. Set result to FALSE
         String eMsg = e.getMessage();
         if (eMsg != null && eMsg.contains(NO_MORE_AUTH_METHODS))
         {
           msg = LibUtils.getMsgAuth("SYSLIB_CRED_VALID_FAIL", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
-                  effectiveUser, AuthnMethod.PKI_KEYS.name());
+                                    effectiveUser, AuthnMethod.PKI_KEYS.name());
         }
         else
         {
           msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
-                  effectiveUser, AuthnMethod.PKI_KEYS.name(), eMsg);
+                                    effectiveUser, AuthnMethod.PKI_KEYS.name(), eMsg);
         }
         retCred = new Credential(AuthnMethod.PKI_KEYS, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
-                Boolean.FALSE, msg);
+                                 cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
+                                 Boolean.FALSE, msg);
       }
     }
     _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-            effectiveUser, AuthnMethod.PKI_KEYS));
+                                   effectiveUser, AuthnMethod.PKI_KEYS));
     return retCred;
   }
 
@@ -4121,60 +3787,42 @@ public class SystemsServiceImpl implements SystemsService
   {
     String op = "verifyAccessKey";
     _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-            effectiveUser, AuthnMethod.ACCESS_KEY));
+                                   effectiveUser, AuthnMethod.ACCESS_KEY));
     Credential retCred;
     String systemId = tSystem1.getId();
     String host = tSystem1.getHost();
     int port = tSystem1.getPort();
-    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_ACCESSKEY", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-            effectiveUser, host, port));
     String msg;
     // Make sure we have what we need
     if (StringUtils.isBlank(cred.getAccessKey()) || StringUtils.isBlank(cred.getAccessSecret()))
     {
       msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op, systemId, effectiveUser, AuthnMethod.ACCESS_KEY);
       retCred = new Credential(AuthnMethod.ACCESS_KEY, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-              cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
-              Boolean.FALSE, msg);
+                               cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
+                               Boolean.FALSE, msg);
     }
     else
     {
-//      try (SSHConnection sshConnection = new SSHConnection(host, port, effectiveUser, cred.getPublicKey(), cred.getPrivateKey()))
+      _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_ACCESSKEY", rUser, tSystem1.getId(), tSystem1.getSystemType(),
+                                     effectiveUser, host, port));
+      // Make the connection attempt
+//      try
 //      {
-//        retCred = new Credential(AuthnMethod.PKI_KEYS, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
+//        checkS3Connection();
+//        retCred = new Credential(AuthnMethod.ACCESS_KEY, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
 //                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
 //                Boolean.TRUE, null);
 //      }
 //      catch (TapisException e)
 //      {
-//        String eMsg = e.getMessage();
-//        if (eMsg != null && eMsg.contains(NO_MORE_AUTH_METHODS))
-//        {
-//          msg = LibUtils.getMsgAuth("SYSLIB_CRED_VALID_FAIL", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
-//                  effectiveUser, AuthnMethod.PKI_KEYS.name());
-//        }
-//        else
-//        {
-//          msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
-//                  effectiveUser, AuthnMethod.PKI_KEYS.name(), eMsg);
-//        }
-//        retCred = new Credential(AuthnMethod.PKI_KEYS, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-//                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
-//                Boolean.FALSE, msg);
 //      }
-      try
-      {
-        checkS3Connection();
-        retCred = new Credential(AuthnMethod.ACCESS_KEY, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
-                Boolean.TRUE, null);
-      }
-      catch (TapisException e)
-      {
-      }
     }
     _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
                                    effectiveUser, AuthnMethod.ACCESS_KEY));
+    // TODO
+    retCred = new Credential(AuthnMethod.ACCESS_KEY, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
+                             cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getCertificate(),
+                             Boolean.FALSE, "NOT IMPLEMENTED");
     return retCred;
   }
 
@@ -4183,90 +3831,120 @@ public class SystemsServiceImpl implements SystemsService
    */
   private void checkS3Connection(String oboTenant, String oboUser, TapisSystem system) throws TapisException
   {
-//      public S3DataClient(@NotNull String oboTenant1, @NotNull String oboUser1, @NotNull TapisSystem system1)
-//          throws IOException
-//    {
-      String bucket = system.getBucketName();
-      // Make sure we have a valid rootDir that is not null and does not have extra whitespace
-      String rootDir = (StringUtils.isBlank(system.getRootDir())) ? "" :  system.getRootDir();
+    // TODO
+    // following from tapis-files S3DataClient.java
+    /*
+  public S3DataClient(@NotNull String oboTenant1, @NotNull String oboUser1, @NotNull TapisSystem system1)
+          throws IOException
+  {
+    oboTenant = oboTenant1;
+    oboUser = oboUser1;
+    system = system1;
+    bucket = system.getBucketName();
+    // Make sure we have a valid rootDir that is not null and does not have extra whitespace
+    rootDir = (StringUtils.isBlank(system.getRootDir())) ? "" :  system.getRootDir();
 
-      // There are so many flavors of s3 URLs we have to do the gymnastics below.
+    // There are so many flavors of s3 URLs we have to do the gymnastics below.
+    try
+    {
+      String host = system.getHost();
+      int port = system.getPort() == null ? -1 : system.getPort();
+      String region = S3URLParser.getRegion(host);
+      URI endpoint = configEndpoint(host, port);
+      Region reg;
+
+      //For minio/other S3 compliant APIs, the region is not needed
+      if (region == null) reg = Region.US_EAST_1;
+      else reg = Region.of(region);
+
+      // If we do not have credentials it is an error
+      if (system.getAuthnCredential() == null)
+      {
+        String msg = LibUtils.getMsg("FILES_CLIENT_S3_ERR", oboTenant, oboUser, system.getId(), bucket, "No credentials");
+        log.warn(msg);
+        throw new IOException(msg);
+      }
+      String accessKey = system.getAuthnCredential().getAccessKey();
+      String accessSecret = system.getAuthnCredential().getAccessSecret();
+      // If access key or secret is blank it is an error
+      if (StringUtils.isBlank(accessKey))
+      {
+        String msg = LibUtils.getMsg("FILES_CLIENT_S3_ERR", oboTenant, oboUser, system.getId(), bucket, "Blank accessKey");
+        log.warn(msg);
+        throw new IOException(msg);
+      }
+      if (StringUtils.isBlank(accessSecret))
+      {
+        String msg = LibUtils.getMsg("FILES_CLIENT_S3_ERR", oboTenant, oboUser, system.getId(), bucket, "Blank accessSecret");
+        log.warn(msg);
+        throw new IOException(msg);
+      }
+      AwsCredentials credentials = null;
+      // We catch Exception here because AwsBasicCredentials.create() throws various exceptions.
       try
       {
-        String host = system.getHost();
-        String region = S3URLParser.getRegion(host); // TODO move S3URLParser to shared
-        URI endpoint = configEndpoint(host); // TODO Move configEnpoint to shared
-        Region reg;
-
-        //For minio/other S3 compliant APIs, the region is not needed
-        if (region == null) reg = Region.US_EAST_1;
-        else reg = Region.of(region);
-
-        // If we do not have credentials it is an error
-        if (system.getAuthnCredential() == null)
-        {
-          String msg = LibUtils.getMsg("FILES_CLIENT_S3_ERR", oboTenant, oboUser, system.getId(), bucket, "No credentials");
-          log.warn(msg);
-          throw new IOException(msg);
-        }
-        String accessKey = system.getAuthnCredential().getAccessKey();
-        String accessSecret = system.getAuthnCredential().getAccessSecret();
-        // If access key or secret is blank it is an error
-        if (StringUtils.isBlank(accessKey))
-        {
-          String msg = LibUtils.getMsg("FILES_CLIENT_S3_ERR", oboTenant, oboUser, system.getId(), bucket, "Blank accessKey");
-          log.warn(msg);
-          throw new IOException(msg);
-        }
-        if (StringUtils.isBlank(accessSecret))
-        {
-          String msg = LibUtils.getMsg("FILES_CLIENT_S3_ERR", oboTenant, oboUser, system.getId(), bucket, "Blank accessSecret");
-          log.warn(msg);
-          throw new IOException(msg);
-        }
-        AwsCredentials credentials = null;
-        // We catch Exception here because AwsBasicCredentials.create() throws various exceptions.
-        try
-        {
-          credentials = AwsBasicCredentials.create(accessKey, accessSecret);
-        }
-        catch (Exception e)
-        {
-          String msg = LibUtils.getMsg("FILES_CLIENT_S3_ERR", oboTenant, oboUser, system.getId(), bucket, e.getMessage());
-          log.warn(msg);
-          throw new IOException(msg);
-        }
-        // If AWS returned null for credentials we cannot go on
-        if (credentials == null)
-        {
-          String msg = LibUtils.getMsg("FILES_CLIENT_S3_ERR", oboTenant, oboUser, system.getId(), bucket,
-                  "AwsBasicCredentials.create returned null");
-          log.warn(msg);
-          throw new IOException(msg);
-        }
-        S3ClientBuilder builder = S3Client.builder()
-                .region(reg)
-                .credentialsProvider(StaticCredentialsProvider.create(credentials));
-
-        // Have to do the endpoint override if it is not a real AWS route, as in the case for a minio instance
-        if (!S3URLParser.isAWSUrl(host))
-        {
-          log.debug(LibUtils.getMsg("FILES_CLIENT_S3_EP_OVER", oboTenant, oboUser, system.getId(), bucket,
-                  reg.toString(), host, endpoint.toString()));
-          builder.endpointOverride(endpoint);
-        }
-        // Log info about client we are building
-        log.debug(LibUtils.getMsg("FILES_CLIENT_S3_BUILD", oboTenant, oboUser, system.getId(), bucket,
-                reg.toString(), host, endpoint.toString()));
-        // Build the client
-        client = builder.build();
+        credentials = AwsBasicCredentials.create(accessKey, accessSecret);
       }
       catch (Exception e)
       {
         String msg = LibUtils.getMsg("FILES_CLIENT_S3_ERR", oboTenant, oboUser, system.getId(), bucket, e.getMessage());
-        log.error(msg);
-        throw new IOException(msg, e);
+        log.warn(msg);
+        throw new IOException(msg);
       }
-      log.debug(LibUtils.getMsg("FILES_CLIENT_S3_BUILT", oboTenant, oboUser, system.getId(), bucket));
+      // If AWS returned null for credentials we cannot go on
+      if (credentials == null)
+      {
+        String msg = LibUtils.getMsg("FILES_CLIENT_S3_ERR", oboTenant, oboUser, system.getId(), bucket,
+                                    "AwsBasicCredentials.create returned null");
+        log.warn(msg);
+        throw new IOException(msg);
+      }
+      S3ClientBuilder builder = S3Client.builder()
+              .region(reg)
+              .credentialsProvider(StaticCredentialsProvider.create(credentials));
+
+      // Have to do the endpoint override if it is not a real AWS route, as in the case for a minio instance
+      if (!S3URLParser.isAWSUrl(host))
+      {
+        log.debug(LibUtils.getMsg("FILES_CLIENT_S3_EP_OVER", oboTenant, oboUser, system.getId(), bucket,
+                reg.toString(), host, endpoint.toString()));
+        builder.endpointOverride(endpoint);
+      }
+      // Log info about client we are building
+      log.debug(LibUtils.getMsg("FILES_CLIENT_S3_BUILD", oboTenant, oboUser, system.getId(), bucket,
+              reg.toString(), host, endpoint.toString()));
+      // Build the client
+      client = builder.build();
+    }
+    catch (Exception e)
+    {
+      String msg = LibUtils.getMsg("FILES_CLIENT_S3_ERR", oboTenant, oboUser, system.getId(), bucket, e.getMessage());
+      log.error(msg);
+      throw new IOException(msg, e);
+    }
+    log.debug(LibUtils.getMsg("FILES_CLIENT_S3_BUILT", oboTenant, oboUser, system.getId(), bucket));
+  }
+
+  **
+   * Build a URI using host, scheme, port
+   *
+   * @param host Host from the System
+   * @param port port from the System
+   * @return a URI
+   * @throws URISyntaxException on error
+   *
+    public URI configEndpoint(String host, int port) throws URISyntaxException
+    {
+      URI tmpURI = new URI(host);
+      // Build a URI setting host, scheme, port
+      UriBuilder uriBuilder = UriBuilder.fromUri("");
+      uriBuilder.host(tmpURI.getHost()).scheme(tmpURI.getScheme());
+      if (port > 0) uriBuilder.port(port);
+      if (StringUtils.isBlank(tmpURI.getHost())) uriBuilder.host(host);
+      //Make sure there is a scheme, and default to https if not.
+      if (StringUtils.isBlank(tmpURI.getScheme())) uriBuilder.scheme("https");
+      return uriBuilder.build();
+    }
+     */
     }
 }

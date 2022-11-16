@@ -230,12 +230,14 @@ public class ApiUtils
   }
 
   /*
-   * Check that credentials are valid. Used by CredentialResource create and check endpoints as well as
-   *   SystemResource create and put endpoints.
+   * Check that credentials are valid.
+   * If valid return null. If invalid build a bad request response and return it.
+   * Used by CredentialResource create and check endpoints as well as SystemResource create and put endpoints.
    */
   public static Response checkCredValidationResult(ResourceRequestUser rUser, String systemId, String userName, Credential cred,
                                                    AuthnMethod authnMethod, boolean skipCredCheck)
   {
+    // If skipping we are done
     if (skipCredCheck) return null;
 
     // If we are not given an authnMethod use the one in the credential if it is present.
