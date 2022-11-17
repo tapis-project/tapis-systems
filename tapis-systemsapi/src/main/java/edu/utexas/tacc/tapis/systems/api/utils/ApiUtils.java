@@ -252,11 +252,11 @@ public class ApiUtils
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
 
-    // If credential validation failed return BAD_REQUEST = 400
+    // If credential validation failed return UNAUTHORIZED = 401
     if (Boolean.FALSE.equals(cred.getValidationResult()))
     {
       String msg = ApiUtils.getMsgAuth("SYSAPI_CRED_VALID_FAIL", rUser, systemId, userName, authnMethod, cred.getValidationMsg());
-      return Response.status(Response.Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      return Response.status(Response.Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
     return null;
   }

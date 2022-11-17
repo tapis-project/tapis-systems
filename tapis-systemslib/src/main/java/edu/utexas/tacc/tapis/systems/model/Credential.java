@@ -145,5 +145,15 @@ public final class Credential
   public String getValidationMsg() { return validationMsg; }
 
   @Override
-  public String toString() {return TapisUtils.toString(this);}
+  public String toString()
+  {
+    String l = StringUtils.isBlank(loginUser) ? "<empty>" : loginUser;
+    String p = StringUtils.isBlank(password) ? "<empty>" : "*********";
+    String privKey = StringUtils.isBlank(privateKey) ? "<empty>" : "*********";
+    String pubKey = StringUtils.isBlank(publicKey) ? "<empty>" : "*********";
+    String aKey = StringUtils.isBlank(accessKey) ? "<empty>" : "*********";
+    String aSecret = StringUtils.isBlank(accessSecret) ? "<empty>" : "*********";
+    return String.format("Credential:%n  AuthnMethod: %s%n  loginUser: %s%n  password: %s%n  privateKey: %s%n  publicKey: %s%n  accessKey: %s%n  accessSecret: %s%n  validationResult: %B%n  validationMsg: %s%n",
+                          authnMethod, l, p, privKey, pubKey, aKey, aSecret, validationResult, validationMsg);
+  }
 }

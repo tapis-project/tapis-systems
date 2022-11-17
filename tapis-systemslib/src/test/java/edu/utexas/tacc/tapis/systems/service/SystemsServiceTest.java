@@ -225,9 +225,9 @@ public class SystemsServiceTest
   {
     TSystem sys0 = systems[34];
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
+    sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
     sys0.setHost(TAPIS_TEST_HOST_IP);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
-    // Fetch system without resolving rootDir. Returned rootDir should match original.
     TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveEffFalse, sharedAppCtxFalse);
     Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
     System.out.println("Found item: " + sys0.getId());
@@ -242,22 +242,37 @@ public class SystemsServiceTest
     }
     Credential cred0 = new Credential(AuthnMethod.PASSWORD, loginUser, "fakePassword", null, null, null, null, null);
 
-    // Using invalid credentials should fail with exception
-    try
-    {
-      svc.createUserCredential(rOwner1, sys0.getId(), targetUser, cred0, skipCredCheckFalse, rawDataEmptyJson);
-      Assert.fail("System createUserCred call should have thrown an exception when credentials are invalid");
-    }
-    catch (Exception e)
-    {
-      String msg = e.getMessage();
-      Assert.assertTrue(msg.contains("SYSLIB_CRED_VALID_FAIL"));
-    }
+    // Test create with invalid credentials
+    Credential checkedCred = svc.createUserCredential(rOwner1, sys0.getId(), targetUser, cred0, skipCredCheckFalse, rawDataEmptyJson);
+    Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
+
+    // Test check with invalid credentials
+    checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
+    Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
 
     // Using valid credentials should succeed.
     cred0 = new Credential(null, loginUser, testUser3P, null, null, null, null, null);
     sys0.setAuthnCredential(cred0);
-    svc.createUserCredential(rOwner1, sys0.getId(), targetUser, cred0, skipCredCheckFalse, rawDataEmptyJson);
+
+    // Test create and check with valid credentials
+    checkedCred = svc.createUserCredential(rOwner1, sys0.getId(), targetUser, cred0, skipCredCheckFalse, rawDataEmptyJson);
+    Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
+    checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
+    Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
+    checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PASSWORD);
+    Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
+
+    // Check with different authnMethod. Should throw NotAuthorized
+    try
+    {
+      checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PKI_KEYS);
+      Assert.fail("System checkUserCredential call should have thrown an exception when credentials do not exist");
+    }
+    catch (Exception e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_CRED_NOT_FOUND"));
+    }
   }
 
   // Test retrieving a system including default authn method

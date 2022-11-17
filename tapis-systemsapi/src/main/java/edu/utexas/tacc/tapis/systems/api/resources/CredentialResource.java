@@ -261,7 +261,7 @@ public class CredentialResource
   public Response checkUserCredential(@PathParam("systemId") String systemId,
                                       @PathParam("userName") String userName,
                                       @QueryParam("authnMethod") @DefaultValue("") String authnMethodStr,
-                                      @Context SecurityContext securityContext)
+                                      @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "checkUserCredential";
     // ------------------------- Retrieve and validate thread context -------------------------
@@ -303,6 +303,9 @@ public class CredentialResource
     {
       checkedCred = service.checkUserCredential(rUser, systemId, userName, authnMethod);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_CRED_CHECK_ERROR", rUser, systemId, userName, authnMethodStr, e.getMessage());
@@ -317,7 +320,7 @@ public class CredentialResource
     // Return Status.OK = 200
     RespBasic resp1 = new RespBasic();
     return Response.status(Status.OK)
-            .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_CRED_UPDATED", rUser, systemId, userName),
+            .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_CRED_OK", rUser, systemId, userName),
                     PRETTY, resp1))
             .build();
   }
