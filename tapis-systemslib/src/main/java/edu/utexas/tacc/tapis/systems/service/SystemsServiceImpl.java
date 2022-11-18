@@ -1,8 +1,5 @@
 package edu.utexas.tacc.tapis.systems.service;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -16,7 +13,6 @@ import javax.inject.Inject;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
-import javax.ws.rs.core.UriBuilder;
 
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -142,7 +138,9 @@ public class SystemsServiceImpl implements SystemsService
   // *********************** Enums ******************************************
   // ************************************************************************
   public enum AuthListType  {OWNED, SHARED_PUBLIC, ALL}
+  public enum ResolveType {ALL, NONE, ROOT_DIR, EFFECTIVE_USER}
   public static final AuthListType DEFAULT_LIST_TYPE = AuthListType.OWNED;
+  public static final ResolveType DEFAULT_RESOLVE_TYPE = ResolveType.ALL;
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -855,21 +853,33 @@ public class SystemsServiceImpl implements SystemsService
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
    * @param getCreds - flag indicating if credentials for effectiveUserId should be included
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
-   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
-   *                           else return values provided in system definition. By default, this is true.
+   * @param resolveType - Controls which dynamic attributes are resolved: ALL, NONE, ROOT_DIR, EFFECTIVE_USER
    * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth will be skipped.
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod accMethod, boolean requireExecPerm,
-                           boolean getCreds, String impersonationId, boolean resolveEffective, boolean sharedAppCtx)
+                           boolean getCreds, String impersonationId, String resolveType, boolean sharedAppCtx)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+
+    // Process resolveType.
+    // If none provided use the default
+    if (StringUtils.isBlank(resolveType)) resolveType = DEFAULT_RESOLVE_TYPE.name();
+    // Validate the enum (case insensitive).
+    resolveType = resolveType.toUpperCase();
+    if (!EnumUtils.isValidEnum(ResolveType.class, resolveType))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_RESOLVETYPE_ERROR", rUser, resolveType);
+      _log.error(msg);
+      throw new IllegalArgumentException(msg);
+    }
+    ResolveType resolveTypeEnum = ResolveType.valueOf(resolveType);
 
     // For clarity and convenience
     String oboTenant = rUser.getOboTenantId();
@@ -920,7 +930,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // If requested resolve and set effectiveUserId in result
-    if (resolveEffective)
+    if (ResolveType.ALL.equals(resolveTypeEnum) || ResolveType.EFFECTIVE_USER.equals(resolveTypeEnum))
     {
       String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, impersonationId);
       system.setEffectiveUserId(resolvedEffectiveUserId);
@@ -949,7 +959,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // If requested resolve and set rootDir in result
-    if (resolveEffective)
+    if (ResolveType.ALL.equals(resolveTypeEnum) || ResolveType.ROOT_DIR.equals(resolveTypeEnum))
     {
       String resolvedRootDir = resolveRootDir(rUser, system, impersonationId, isStaticEffectiveUser);
       system.setRootDir(resolvedRootDir);
@@ -1036,8 +1046,8 @@ public class SystemsServiceImpl implements SystemsService
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
-   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
-   *                         else always return values provided in system definition. By default, this is true.
+   * @param resolveEffectiveUser - If effectiveUserId is set to ${apiUserId} then resolve it, else return value
+   *                               provided in system definition. By default, this is true.
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return List of TSystem objects
@@ -1046,7 +1056,7 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList,
                                   int limit, List<OrderBy> orderByList, int skip, String startAfter,
-                                  boolean resolveEffective, boolean includeDeleted, String listType)
+                                  boolean resolveEffectiveUser, boolean includeDeleted, String listType)
           throws TapisException, TapisClientException
   {
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1102,13 +1112,12 @@ public class SystemsServiceImpl implements SystemsService
     List<TSystem> systems = dao.getSystems(rUser, verifiedSearchList, null,  limit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
 
-    if (resolveEffective)
+    if (resolveEffectiveUser)
     {
       for (TSystem system : systems)
       {
         boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
         system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
-        system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId, isStaticEffectiveUser));
       }
     }
     return systems;
@@ -1123,8 +1132,8 @@ public class SystemsServiceImpl implements SystemsService
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
-   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
-   *                         else always return values provided in system definition. By default, this is true.
+   * @param resolveEffectiveUser - If effectiveUserId is set to ${apiUserId} then resolve it, else return value
+   *                               provided in system definition. By default, this is true.
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return List of TSystem objects
@@ -1133,12 +1142,12 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser, String sqlSearchStr, int limit,
                                                    List<OrderBy> orderByList, int skip, String startAfter,
-                                                   boolean resolveEffective, boolean includeDeleted, String listType)
+                                                   boolean resolveEffectiveUser, boolean includeDeleted, String listType)
           throws TapisException, TapisClientException
   {
     // If search string is empty delegate to getSystems()
     if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip,
-                                                             startAfter, resolveEffective, includeDeleted, listType);
+                                                             startAfter, resolveEffectiveUser, includeDeleted, listType);
 
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
@@ -1190,13 +1199,12 @@ public class SystemsServiceImpl implements SystemsService
     // Get all allowed systems matching the search conditions
     List<TSystem> systems = dao.getSystems(rUser, null, searchAST, limit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
-    if (resolveEffective)
+    if (resolveEffectiveUser)
     {
       for (TSystem system : systems)
       {
         boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
         system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
-        system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId, isStaticEffectiveUser));
       }
     }
     return systems;
@@ -1207,13 +1215,13 @@ public class SystemsServiceImpl implements SystemsService
    * Use provided string containing a valid SQL where clause for the search.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param matchStr - string containing a valid SQL where clause
-   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
-   *                         else always return values provided in system definition. By default, this is true.
+   * @param resolveEffectiveUser - If effectiveUserId is set to ${apiUserId} then resolve it, else return value
+   *                               provided in system definition. By default, this is true.
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr, boolean resolveEffective)
+  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr, boolean resolveEffectiveUser)
           throws TapisException, TapisClientException
   {
     if (rUser == null)  throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1235,13 +1243,12 @@ public class SystemsServiceImpl implements SystemsService
     // Get all allowed systems matching the constraint conditions
     List<TSystem> systems = dao.getSystemsSatisfyingConstraints(rUser.getOboTenantId(), matchAST, allowedSysIDs);
 
-    if (resolveEffective)
+    if (resolveEffectiveUser)
     {
       for (TSystem system : systems)
       {
         boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
         system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
-        system.setRootDir(resolveRootDir(rUser, system, nullImpersonationId, isStaticEffectiveUser));
       }
     }
     return systems;

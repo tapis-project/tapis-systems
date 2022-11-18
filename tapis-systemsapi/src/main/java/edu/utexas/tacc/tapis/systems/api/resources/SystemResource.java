@@ -69,10 +69,10 @@ import edu.utexas.tacc.tapis.systems.api.responses.RespSystem;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystemHistory;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystems;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
-import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
+import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.ResolveType;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_EXEC_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_AUTHN_METHOD_FIELD;
@@ -686,8 +686,7 @@ public class SystemResource
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
    *                          resolving effectiveUserId
-   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
-   *                         else always return values provided in system definition. By default, this is true.
+   * @param resolve - Controls which dynamic attributes are resolved: ALL, NONE, ROOT_DIR, EFFECTIVE_USER
    * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth bypassed.
    * @param securityContext - user identity
    * @return Response with system object as the result
@@ -701,7 +700,7 @@ public class SystemResource
                             @QueryParam("requireExecPerm") @DefaultValue("false") boolean requireExecPerm,
                             @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
                             @QueryParam("impersonationId") String impersonationId,
-                            @QueryParam("resolveEffective") @DefaultValue("true") boolean resolveEffective,
+                            @QueryParam("resolve") @DefaultValue("ALL") String resolve,
                             @QueryParam("sharedAppCtx") @DefaultValue("false") boolean sharedAppCtx,
                             @Context SecurityContext securityContext) throws TapisClientException
   {
@@ -721,7 +720,7 @@ public class SystemResource
                                                    "requireExecPerm="+requireExecPerm,
                                                    "returnCredentials="+getCreds,
                                                    "impersonationId="+impersonationId,
-                                                   "resolveEffective="+resolveEffective,
+                                                   "resolve="+resolve,
                                                    "sharedAppCtx="+sharedAppCtx);
 
     // Check that authnMethodStr is valid if is passed in
@@ -741,7 +740,7 @@ public class SystemResource
     try
     {
       tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId,
-                                  resolveEffective, sharedAppCtx);
+                                  resolve, sharedAppCtx);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -767,8 +766,8 @@ public class SystemResource
    * NOTE: The query parameters search, limit, orderBy, skip, startAfter are all handled in the filter
    *       QueryParametersRequestFilter. No need to use @QueryParam here.
    * @param securityContext - user identity
-   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
-   *                         else always return values provided in system definition. By default, this is true.
+   * @param resolveEffectiveUser - If effectiveUserId is set to ${apiUserId} then resolve it, else return value
+   *                               provided in system definition. By default, this is true.
    * @param showDeleted - flag indicating resources marked as deleted should be included.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return - list of systems accessible by requester and matching search conditions.
@@ -777,7 +776,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getSystems(@Context SecurityContext securityContext,
-                             @QueryParam("resolveEffective") @DefaultValue("true") boolean resolveEffective,
+                             @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffectiveUser,
                              @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
                              @QueryParam("listType") @DefaultValue("OWNED") String listType) throws TapisClientException
   {
@@ -793,7 +792,7 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffective="+resolveEffective,"showDeleted="+showDeleted,
+                                                   "resolveEffectiveUser="+resolveEffectiveUser,"showDeleted="+showDeleted,
                                                    "listType="+listType);
 
     // ThreadContext designed to never return null for SearchParameters
@@ -803,7 +802,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffective, showDeleted, listType);
+      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffectiveUser, showDeleted, listType);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -821,8 +820,8 @@ public class SystemResource
    * searchSystemsQueryParameters
    * Dedicated search endpoint for System resource. Search conditions provided as query parameters.
    * @param securityContext - user identity
-   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
-   *                         else always return values provided in system definition. By default, this is true.
+   * @param resolveEffectiveUser - If effectiveUserId is set to ${apiUserId} then resolve it, else return value
+   *                               provided in system definition. By default, this is true.
    * @param showDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return - list of systems accessible by requester and matching search conditions.
@@ -832,7 +831,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsQueryParameters(@Context SecurityContext securityContext,
-                                               @QueryParam("resolveEffective") @DefaultValue("true") boolean resolveEffective,
+                                               @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffectiveUser,
                                                @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
                                                @QueryParam("listType") @DefaultValue("OWNED") String listType)
           throws TapisClientException
@@ -849,7 +848,7 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffective="+resolveEffective,"showDeleted="+showDeleted,
+                                                   "resolveEffectiveUser="+resolveEffectiveUser,"showDeleted="+showDeleted,
                                                    "listType="+listType);
     // Create search list based on query parameters
     // Note that some validation is done for each condition but the back end will handle translating LIKE wildcard
@@ -874,7 +873,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffective, showDeleted, listType);
+      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffectiveUser, showDeleted, listType);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -896,8 +895,8 @@ public class SystemResource
    * Request body contains an array of strings that are concatenated to form the full SQL-like search string.
    * @param payloadStream - request body
    * @param securityContext - user identity
-   * @param resolveEffective - If effectiveUserId is set to ${apiUserId} or rootDir is dynamic, then resolve them,
-   *                         else always return values provided in system definition. By default, this is true.
+   * @param resolveEffectiveUser - If effectiveUserId is set to ${apiUserId} then resolve it, else return value
+   *                               provided in system definition. By default, this is true.
    * @param showDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return - list of systems accessible by requester and matching search conditions.
@@ -908,7 +907,7 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsRequestBody(InputStream payloadStream,
                                            @Context SecurityContext securityContext,
-                                           @QueryParam("resolveEffective") @DefaultValue("true") boolean resolveEffective,
+                                           @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffectiveUser,
                                            @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
                                            @QueryParam("listType") @DefaultValue("OWNED") String listType) throws TapisClientException
   {
@@ -924,7 +923,7 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffective="+resolveEffective,"showDeleted="+showDeleted,
+                                                   "resolveEffectiveUser="+resolveEffectiveUser,"showDeleted="+showDeleted,
                                                    "listType="+listType);
 
     // ------------------------- Extract and validate payload -------------------------
@@ -970,7 +969,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, resolveEffective, showDeleted, listType);
+      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, resolveEffectiveUser, showDeleted, listType);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1331,7 +1330,8 @@ public class SystemResource
       TSystem dtnSystem = null;
       try
       {
-        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null, false, false);
+        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null,
+                                      ResolveType.NONE.name(), false);
       }
       catch (NotAuthorizedException e)
       {
@@ -1466,7 +1466,7 @@ public class SystemResource
     // If we need the count and there was a limit then we need to make a call
     // This is a separate call from getSystems() because unlike getSystems() we do not want to include the limit or skip,
     //   and we do not need to fetch all the data. One benefit is that the method is simpler and easier to follow
-    //   compared to attempting to fold everything into getApps().
+    //   compared to attempting to fold everything into getSystems().
     if (computeTotal && limit > 0)
     {
       totalCount = service.getSystemsTotalCount(rUser, searchList, orderByList, startAfter, showDeleted, listType);
