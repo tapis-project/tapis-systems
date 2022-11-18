@@ -2092,6 +2092,7 @@ public class SystemsServiceTest
   public void testShareSystem() throws Exception
   {
     TSystem sys0 = systems[29];
+    String sysId = sys0.getId();
     sys0.setOwner(testUser5);
     svc.createSystem(rTestUser5, sys0, skipCredCheckTrue, rawDataEmptyJson);
     
@@ -2105,11 +2106,11 @@ public class SystemsServiceTest
    systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
    
    // Service call
-   svc.shareSystem(rTestUser5, sys0.getId(), systemShare);
+   svc.shareSystem(rTestUser5, sysId, systemShare);
    
    // Test retrieval using specified authn method
-   SystemShare systemShareTest = svc.getSystemShare(rTestUser5, sys0.getId());
-   System.out.println("Found item: " + sys0.getId());
+   SystemShare systemShareTest = svc.getSystemShare(rTestUser5, sysId);
+   System.out.println("Found item: " + sysId);
 
    // Verify system share fields
    Assert.assertNotNull(systemShareTest, "System Share information found.");
@@ -2125,11 +2126,11 @@ public class SystemsServiceTest
    // **************************  Unsharing system  ***************************
    
    // Service call
-   svc.unshareSystem(rTestUser5, sys0.getId(), systemShare);
+   svc.unshareSystem(rTestUser5, sysId, systemShare);
    
    // Test retrieval using specified authn method
-   systemShareTest = svc.getSystemShare(rTestUser5, sys0.getId());
-   System.out.println("Found item: " + sys0.getId());
+   systemShareTest = svc.getSystemShare(rTestUser5, sysId);
+   System.out.println("Found item: " + sysId);
 
    // Verify system share fields
    Assert.assertNotNull(systemShareTest, "System Share information found.");
@@ -2143,27 +2144,35 @@ public class SystemsServiceTest
 
    // **************************  Sharing system publicly  ***************************
    // Service call
-   svc.shareSystemPublicly(rTestUser5, sys0.getId());
+   svc.shareSystemPublicly(rTestUser5, sysId);
    
    // Test retrieval using specified authn method
-   systemShareTest = svc.getSystemShare(rTestUser5, sys0.getId());
-   System.out.println("Found item: " + sys0.getId());
+   systemShareTest = svc.getSystemShare(rTestUser5, sysId);
+   System.out.println("Found item: " + sysId);
 
    // Verify system share fields
    Assert.assertNotNull(systemShareTest, "System Share information found.");
    Assert.assertTrue(systemShareTest.isPublic());
-   
-   // **************************  Unsharing system publicly  ***************************
+
+   // Verify that isPublic field is set correctly when fetching system.
+    TSystem tmpSys = svc.getSystem(rTestUser5, sysId, null, false, false, null, resolveTypeNONE, sharedAppCtxFalse);
+    Assert.assertTrue(tmpSys.isPublic());
+
+    // **************************  Unsharing system publicly  ***************************
    // Service call
-   svc.unshareSystemPublicly(rTestUser5, sys0.getId());
+   svc.unshareSystemPublicly(rTestUser5, sysId);
    
    // Test retrieval using specified authn method
-   systemShareTest = svc.getSystemShare(rTestUser5, sys0.getId());
-   System.out.println("Found item: " + sys0.getId());
+   systemShareTest = svc.getSystemShare(rTestUser5, sysId);
+   System.out.println("Found item: " + sysId);
 
    // Verify system share fields
    Assert.assertNotNull(systemShareTest, "System Share information found.");
    Assert.assertFalse(systemShareTest.isPublic());
+
+    // Verify that isPublic field is set correctly when fetching system
+    tmpSys = svc.getSystem(rTestUser5, sysId, null, false, false, null, resolveTypeNONE, sharedAppCtxFalse);
+    Assert.assertFalse(tmpSys.isPublic());
   }
  
  // ************************************************************************

@@ -243,6 +243,9 @@ public class SystemsServiceImpl implements SystemsService
     // Set flag indicating if effectiveUserId is static
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
+    // Before resolving rootDir, determine if it is dynamic
+    boolean isDynamicRootDir = isRootDirDynamic(system.getRootDir());
+
     // Set flag indicating if we will deal with credentials.
     // We only do that when credentials provided and effectiveUser is static
     Credential cred = system.getAuthnCredential();
@@ -350,6 +353,10 @@ public class SystemsServiceImpl implements SystemsService
       }
       throw e0;
     }
+    // Update dynamically computed flags.
+    system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), systemId));
+    system.setIsDynamicRootDir(isDynamicRootDir);
+    system.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
     return system;
   }
 
@@ -458,6 +465,8 @@ public class SystemsServiceImpl implements SystemsService
     // Set flag indicating if effectiveUserId is static
     boolean isStaticEffectiveUser = !effectiveUserId.equals(APIUSERID_VAR);
 
+    // Before resolving rootDir, determine if it is dynamic
+    boolean isDynamicRootDir = isRootDirDynamic(putSystem.getRootDir());
 
     // Set flag indicating if we will deal with credentials.
     // We only do that when credentials provided and effectiveUser is static
@@ -524,6 +533,11 @@ public class SystemsServiceImpl implements SystemsService
     // No distributed transactions so no distributed rollback needed
     // ------------------- Make Dao call to update the system -----------------------------------
     dao.putSystem(rUser, updatedTSystem, changeDescription, rawData);
+
+    // Update dynamically computed flags.
+    putSystem.setIsPublic(isSystemSharedPublic(rUser, putSystem.getTenant(), systemId));
+    putSystem.setIsDynamicRootDir(isDynamicRootDir);
+    putSystem.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
     return updatedTSystem;
   }
 
@@ -897,6 +911,8 @@ public class SystemsServiceImpl implements SystemsService
     // Determine the effectiveUser type, either static or dynamic
     // Secrets get stored on different paths based on this
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+    // Before resolving rootDir, determine if it is dynamic
+    boolean isDynamicRootDir = isRootDirDynamic(rootDir);
 
     // ------------------------- Check authorization -------------------------
     // If impersonationId supplied confirm that it is allowed
@@ -965,6 +981,10 @@ public class SystemsServiceImpl implements SystemsService
       system.setRootDir(resolvedRootDir);
     }
 
+    // Update dynamically computed flags.
+    system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), systemId));
+    system.setIsDynamicRootDir(isDynamicRootDir);
+    system.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
     return system;
   }
 
@@ -1112,13 +1132,13 @@ public class SystemsServiceImpl implements SystemsService
     List<TSystem> systems = dao.getSystems(rUser, verifiedSearchList, null,  limit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
 
-    if (resolveEffectiveUser)
+    // Update dynamically computed flags and resolve effUser as needed.
+    for (TSystem system : systems)
     {
-      for (TSystem system : systems)
-      {
-        boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
-        system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
-      }
+      system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), system.getId()));
+      system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
+      system.setIsDynamicRootDir(isRootDirDynamic(system.getRootDir()));
+      if (resolveEffectiveUser) system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
     }
     return systems;
   }
@@ -1199,13 +1219,13 @@ public class SystemsServiceImpl implements SystemsService
     // Get all allowed systems matching the search conditions
     List<TSystem> systems = dao.getSystems(rUser, null, searchAST, limit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
-    if (resolveEffectiveUser)
+    // Update dynamically computed flags and resolve effUser as needed.
+    for (TSystem system : systems)
     {
-      for (TSystem system : systems)
-      {
-        boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
-        system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
-      }
+      system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), system.getId()));
+      system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
+      system.setIsDynamicRootDir(isRootDirDynamic(system.getRootDir()));
+      if (resolveEffectiveUser) system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
     }
     return systems;
   }
@@ -1243,13 +1263,13 @@ public class SystemsServiceImpl implements SystemsService
     // Get all allowed systems matching the constraint conditions
     List<TSystem> systems = dao.getSystemsSatisfyingConstraints(rUser.getOboTenantId(), matchAST, allowedSysIDs);
 
-    if (resolveEffectiveUser)
+    // Update dynamically computed flags and resolve effUser as needed.
+    for (TSystem system : systems)
     {
-      for (TSystem system : systems)
-      {
-        boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
-        system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
-      }
+      system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), system.getId()));
+      system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
+      system.setIsDynamicRootDir(isRootDirDynamic(system.getRootDir()));
+      if (resolveEffectiveUser) system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
     }
     return systems;
   }
@@ -2362,6 +2382,7 @@ public class SystemsServiceImpl implements SystemsService
     tapisSystem.setDtnSystemId(s.getDtnSystemId());
     tapisSystem.setDtnMountPoint(s.getDtnMountPoint());
     tapisSystem.setDtnMountSourcePath(s.getDtnMountSourcePath());
+    tapisSystem.setIsPublic(s.isPublic());
     tapisSystem.setIsDtn(s.isDtn());
     tapisSystem.setCanExec(s.getCanExec());
 //    tapisSystem.setJobRuntimes(s.getJobRuntimes());
@@ -3359,6 +3380,22 @@ public class SystemsServiceImpl implements SystemsService
   // ************************************************************************
   // ****************** Private Methods for Sharing  ************************
   // ************************************************************************
+
+  /*
+   * Determine if a system is shared publicly
+   */
+  private boolean isSystemSharedPublic(ResourceRequestUser rUser, String tenant, String sysId)
+          throws TapisException, TapisClientException
+  {
+    // Create SKShareGetSharesParms needed for SK calls.
+    var skParms = new SKShareGetSharesParms();
+    skParms.setResourceType(SYS_SHR_TYPE);
+    skParms.setTenant(tenant);
+    skParms.setResourceId1(sysId);
+    skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
+    var skShares = getSKClient().getShares(skParms);
+    return (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
+  }
 
   /*
    * Common routine to update share/unshare for a list of users.

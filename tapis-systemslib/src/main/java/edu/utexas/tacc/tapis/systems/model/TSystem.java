@@ -82,6 +82,9 @@ public final class TSystem
   public static final String DTN_SYSTEM_ID_FIELD = "dtnSystemId";
   public static final String DTN_MOUNT_POINT_FIELD = "dtnMountPoint";
   public static final String DTN_MOUNT_SOURCE_PATH_FIELD = "dtnMountSourcePath";
+  public static final String IS_PUBLIC_FIELD = "isPublic";
+  public static final String IS_DYNAMIC_ROOT_DIR = "isDynamicRootDir";
+  public static final String IS_DYNAMIC_EFFECTIVE_USER = "isDynamicEffectiveUser";
   public static final String IS_DTN_FIELD = "isDtn";
   public static final String CAN_EXEC_FIELD = "canExec";
   public static final String CAN_RUN_BATCH_FIELD = "canRunBatch";
@@ -119,6 +122,9 @@ public final class TSystem
   public static final int DEFAULT_JOBMAXJOBS = -1;
   public static final int DEFAULT_JOBMAXJOBSPERUSER = -1;
   public static final boolean DEFAULT_CAN_RUN_BATCH = false;
+  public static final boolean DEFAULT_IS_PUBLIC = false;
+  public static final boolean DEFAULT_IS_DYNAMIC_ROOT_DIR = false;
+  public static final boolean DEFAULT_IS_DYNAMIC_EFFECTIVE_USER = false;
 
   // Validation pattern strings
   // ID Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
@@ -159,6 +165,10 @@ public final class TSystem
   // ************************************************************************
   // *********************** Fields *****************************************
   // ************************************************************************
+
+  private boolean isPublic = DEFAULT_IS_PUBLIC;
+  private boolean isDynamicRootDir = DEFAULT_IS_DYNAMIC_ROOT_DIR;
+  private boolean isDynamicEffectiveUser = DEFAULT_IS_DYNAMIC_EFFECTIVE_USER;
 
   // NOTE: In order to use jersey's SelectableEntityFilteringFeature fields cannot be final.
   private int seqId;         // Unique database sequence number
@@ -270,6 +280,9 @@ public final class TSystem
     importRefId = t.getImportRefId();
     uuid = t.getUuid();
     deleted = t.isDeleted();
+    isPublic = t.isPublic();
+    isDynamicRootDir = t.isDynamicRootDir();
+    isDynamicEffectiveUser = t.isDynamicEffectiveUser();
   }
 
   /**
@@ -378,6 +391,9 @@ public final class TSystem
     tags = (t.getTags() == null) ? EMPTY_STR_ARRAY : t.getTags().clone();
     notes = t.getNotes();
     importRefId = t.getImportRefId();
+    isPublic = t.isPublic();
+    isDynamicRootDir = t.isDynamicRootDir();
+    isDynamicEffectiveUser = t.isDynamicEffectiveUser();
   }
 
   // ************************************************************************
@@ -862,4 +878,11 @@ public final class TSystem
   public TSystem setUuid(UUID u) { uuid = u; return this; }
 
   public boolean isDeleted() { return deleted; }
+
+  public boolean isPublic() { return isPublic; }
+  public void setIsPublic(boolean b) { isPublic = b;  }
+  public boolean isDynamicRootDir() { return isDynamicRootDir; }
+  public void setIsDynamicRootDir(boolean b) { isDynamicRootDir = b;  }
+  public boolean isDynamicEffectiveUser() { return isDynamicEffectiveUser; }
+  public void setIsDynamicEffectiveUser(boolean b) { isDynamicEffectiveUser = b;  }
 }
