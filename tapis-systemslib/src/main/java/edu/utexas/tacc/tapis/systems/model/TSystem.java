@@ -485,6 +485,7 @@ public final class TSystem
    * Check for invalid attributes
    *   systemId, host
    *   For LINUX or IRODS rootDir must start with / or HOST_EVAL
+   *   If rootDir uses HOST_EVAL then system type must be LINUX
    */
   private void checkAttrValidity(List<String> errMessages)
   {
@@ -497,6 +498,10 @@ public final class TSystem
     {
       if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/")  && !rootDir.startsWith(HOST_EVAL))
         errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NOSLASH", systemType.name(), rootDir));
+    }
+    if (!SystemType.LINUX.equals(systemType) && rootDir.contains(HOST_EVAL))
+    {
+      errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NO_HOST_EVAL", systemType.name(), rootDir));
     }
   }
 
