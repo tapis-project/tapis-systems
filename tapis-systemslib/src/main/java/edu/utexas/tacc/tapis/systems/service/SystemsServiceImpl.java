@@ -911,6 +911,9 @@ public class SystemsServiceImpl implements SystemsService
     // Determine the effectiveUser type, either static or dynamic
     // Secrets get stored on different paths based on this
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+    // Determine the host login user. Not always needed, but at most 1 extra DB call for mapped loginUser
+    // And getting it now makes some of the code below a little cleaner and clearer.
+    String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, impersonationId);
     // Before resolving rootDir, determine if it is dynamic
     boolean isDynamicRootDir = isRootDirDynamic(rootDir);
 
@@ -945,10 +948,9 @@ public class SystemsServiceImpl implements SystemsService
       throw new ForbiddenException(msg);
     }
 
-    // If requested resolve and set effectiveUserId in result
+    // If requested set resolved effectiveUserId in result
     if (ResolveType.ALL.equals(resolveTypeEnum) || ResolveType.EFFECTIVE_USER.equals(resolveTypeEnum))
     {
-      String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, impersonationId);
       system.setEffectiveUserId(resolvedEffectiveUserId);
     }
 
@@ -977,7 +979,7 @@ public class SystemsServiceImpl implements SystemsService
     // If requested resolve and set rootDir in result
     if (ResolveType.ALL.equals(resolveTypeEnum) || ResolveType.ROOT_DIR.equals(resolveTypeEnum))
     {
-      String resolvedRootDir = resolveRootDir(rUser, system, impersonationId, isStaticEffectiveUser);
+      String resolvedRootDir = resolveRootDir(rUser, system, impersonationId, resolvedEffectiveUserId, isStaticEffectiveUser);
       system.setRootDir(resolvedRootDir);
     }
 
@@ -2308,9 +2310,11 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system - the system in question
    * @param impersonationId - use provided Tapis username instead of oboUser when resolving effectiveUserId
+   * @param resolvedEffectiveUser - host login user
+   * @param isStaticEffectiveUser - 
    * @return Resolved value for rootDir
    */
-  private String resolveRootDir(ResourceRequestUser rUser, TSystem system, String impersonationId,
+  private String resolveRootDir(ResourceRequestUser rUser, TSystem system, String impersonationId, String resolvedEffectiveUser,
                                 boolean isStaticEffectiveUser)
           throws TapisException
   {
@@ -2338,6 +2342,8 @@ public class SystemsServiceImpl implements SystemsService
 
     // MacroResolver requires a TapisSystem, so create a partially filled in TapisSystem from the TSystem
     TapisSystem tapisSystem = createTapisSystemFromTSystem(system, cred);
+    // Make sure TapisSystem has correct host login user. It is possible for effUser to still be unresolved.
+    tapisSystem.setEffectiveUserId(resolvedEffectiveUser);
 
     // Create list of macros: effectiveUserId, apiUserId
     var macros = new TreeMap<String,String>();
