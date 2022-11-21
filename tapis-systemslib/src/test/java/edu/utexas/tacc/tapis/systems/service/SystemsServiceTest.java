@@ -75,6 +75,7 @@ public class SystemsServiceTest
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
+  TSystem s3System1 = IntegrationUtils.makeS3System(testKey);
   TSystem[] systems = IntegrationUtils.makeSystems(numSystems, testKey);
   SchedulerProfile[] schedulerProfiles = IntegrationUtils.makeSchedulerProfiles(numSchedulerProfiles, testKey);
 
@@ -187,6 +188,7 @@ public class SystemsServiceTest
     {
       svcImpl.hardDeleteSystem(rAdminUser, tenantName, systems[i].getId());
     }
+    svcImpl.hardDeleteSystem(rAdminUser, tenantName, s3System1.getId());
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem2.getId());
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem1.getId());
 
@@ -219,9 +221,9 @@ public class SystemsServiceTest
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
   }
 
-  // Test credential verification
+  // Test credential verification for linux
   @Test
-  public void testCredCheck() throws Exception
+  public void testCredCheckLinux() throws Exception
   {
     TSystem sys0 = systems[34];
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
@@ -240,22 +242,21 @@ public class SystemsServiceTest
     {
       Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_PASSWORD_ENV_VAR);
     }
-    Credential cred0 = new Credential(AuthnMethod.PASSWORD, loginUser, "fakePassword", null, null, null, null, null);
+    Credential credFake = new Credential(AuthnMethod.PASSWORD, loginUser, "fakePassword", null, null, null, null, null);
+
+    // Cleanup any previous credentials
+    svc.deleteUserCredential(rOwner1, sys0.getId(), targetUser);
 
     // Test create with invalid credentials
-    Credential checkedCred = svc.createUserCredential(rOwner1, sys0.getId(), targetUser, cred0, skipCredCheckFalse, rawDataEmptyJson);
-    Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
-
-    // Test check with invalid credentials
-    checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
+    Credential checkedCred = svc.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
 
     // Using valid credentials should succeed.
-    cred0 = new Credential(null, loginUser, testUser3P, null, null, null, null, null);
-    sys0.setAuthnCredential(cred0);
+    Credential credGood = new Credential(null, loginUser, testUser3P, null, null, null, null, null);
+    sys0.setAuthnCredential(credGood);
 
     // Test create and check with valid credentials
-    checkedCred = svc.createUserCredential(rOwner1, sys0.getId(), targetUser, cred0, skipCredCheckFalse, rawDataEmptyJson);
+    checkedCred = svc.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
     checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
@@ -266,6 +267,62 @@ public class SystemsServiceTest
     try
     {
       checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PKI_KEYS);
+      Assert.fail("System checkUserCredential call should have thrown an exception when credentials do not exist");
+    }
+    catch (Exception e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_CRED_NOT_FOUND"));
+    }
+  }
+
+  // Test credential verification for S3 - local ceph server
+  @Test
+  public void testCredCheckS3() throws Exception
+  {
+    TSystem sys0 = s3System1;
+    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
+    sys0.setDefaultAuthnMethod(AuthnMethod.ACCESS_KEY);
+    sys0.setHost(TAPIS_TEST_S3_HOST);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveTypeNONE, sharedAppCtxFalse);
+    Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
+    System.out.println("Found item: " + sys0.getId());
+
+    String targetUser = owner1;
+    String loginUser = TAPIS_TEST_S3_HOST_LOGIN_USER;
+    // Get cred from environment -
+    String testS3Key = System.getenv(TAPIS_TEST_S3_KEY_ENV_VAR);
+    String testS3Secret = System.getenv(TAPIS_TEST_S3_SECRET_ENV_VAR);
+    if (StringUtils.isBlank(testS3Key) || StringUtils.isBlank(testS3Secret))
+    {
+      Assert.fail("Missing cred environment variable. Please set env variables: " + TAPIS_TEST_S3_KEY_ENV_VAR + " and " + TAPIS_TEST_S3_SECRET_ENV_VAR);
+    }
+    Credential credFake = new Credential(AuthnMethod.ACCESS_KEY, loginUser, null, null, null, "fakeAccessKey", "fakeAccessSecret", null);
+
+    // Cleanup any previous credentials
+    svc.deleteUserCredential(rOwner1, sys0.getId(), targetUser);
+
+    // Test create with invalid credentials
+    Credential checkedCred = svc.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, skipCredCheckFalse, rawDataEmptyJson);
+    Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
+
+    // Using valid credentials should succeed.
+    Credential credGood = new Credential(null, loginUser, null, null, null, testS3Key, testS3Secret, null);
+    sys0.setAuthnCredential(credGood);
+
+    // Test create and check with valid credentials
+    checkedCred = svc.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, skipCredCheckFalse, rawDataEmptyJson);
+    Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
+    checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
+    Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
+    checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.ACCESS_KEY);
+    Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
+
+    // Check with different authnMethod. Should throw NotAuthorized
+    try
+    {
+      checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PASSWORD);
       Assert.fail("System checkUserCredential call should have thrown an exception when credentials do not exist");
     }
     catch (Exception e)

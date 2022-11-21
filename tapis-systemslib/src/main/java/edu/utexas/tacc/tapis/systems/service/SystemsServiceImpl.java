@@ -23,6 +23,9 @@ import org.apache.sshd.sftp.common.SftpException;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.search.SearchUtils;
@@ -2393,7 +2396,7 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Build a client based TapisSystem from a TSystem for use by MacroResolver.
+   * Build a client based TapisSystem from a TSystem for use by MacroResolver and other shared code.
    * Need to fill in credentials and authn method if HOST_EVAL needs evaluation
    * NOTE: Following attributes are not set:
    *   created, updated, tags, notes, jobRuntimes, jobEnvVariables,
@@ -2413,7 +2416,7 @@ public class SystemsServiceImpl implements SystemsService
     tapisSystem.setHost(s.getHost());
     tapisSystem.setEnabled(s.isEnabled());
     tapisSystem.setEffectiveUserId(s.getEffectiveUserId());
-    tapisSystem.setAuthnCredential(buildAuthnCred(cred));
+    tapisSystem.setAuthnCredential(buildAuthnCred(cred, s.getDefaultAuthnMethod()));
     tapisSystem.setDefaultAuthnMethod(EnumUtils.getEnum(AuthnEnum.class, s.getDefaultAuthnMethod().name()));
     tapisSystem.setBucketName(s.getBucketName());
     tapisSystem.setRootDir(s.getRootDir());
@@ -2449,11 +2452,13 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   // Build a TapisSystem client credential based on the TSystem model credential
-  private static edu.utexas.tacc.tapis.systems.client.gen.model.Credential buildAuthnCred(Credential cred)
+  private static edu.utexas.tacc.tapis.systems.client.gen.model.Credential buildAuthnCred(Credential cred,
+                                                                                          AuthnMethod authnMethod)
   {
     if (cred == null) return null;
     var c = new edu.utexas.tacc.tapis.systems.client.gen.model.Credential();
-    var am = EnumUtils.getEnum(AuthnEnum.class, cred.getAuthnMethod().name());
+    // Convert the service enum to the client enum.
+    var am = EnumUtils.getEnum(AuthnEnum.class, authnMethod.name());
     c.setAuthnMethod(am);
     c.setAccessKey(cred.getAccessKey());
     c.setAccessSecret(cred.getAccessSecret());
@@ -3530,7 +3535,7 @@ public class SystemsServiceImpl implements SystemsService
    * else if effectiveUserId is ${apUserId} then use rUser.oboUser for connection
    * else use static effectiveUserId from TSystem for connection
    *
-   * TSystem and Credential must be provided. If authnMethod not provided it is taken from the Credential.
+   * TSystem and Credential must be provided. If authnMethod not provided it is taken from the System.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tSystem1 - the TSystem to check
@@ -3633,8 +3638,23 @@ public class SystemsServiceImpl implements SystemsService
           catch (TapisException e) { te = e; }
           break;
         case ACCESS_KEY:
-          try (S3Connection c = new S3Connection(host, port, bucket, effectiveUser, cred.getAccessKey(), cred.getAccessSecret())) { te = null; }
-          catch (TapisException e) { te = e; }
+          try (S3Connection c = new S3Connection(host, port, bucket, effectiveUser, cred.getAccessKey(), cred.getAccessSecret()))
+          {
+            // For S3 we need to actually try to use the connection to know that the credentials are valid.
+            String testKey = PathUtils.getAbsoluteKey(tSystem1.getRootDir(), "thisKeyIsUnlikelyToExistButIfItDoesThatIsOkay");
+            S3Client client = c.getClient();
+            try
+            {
+              HeadObjectRequest req = HeadObjectRequest.builder().bucket(bucket).key(testKey).build();
+              client.headObject(req);
+            }
+            catch (NoSuchKeyException ex) { /* This indicates credentials are valid */ }
+            catch (Exception e) { throw new TapisException(e.getMessage()); }
+          }
+          catch (TapisException e)
+          {
+            te = e;
+          }
           break;
         default:
           // We should never get here, but just in case fail the verification
@@ -3717,70 +3737,73 @@ public class SystemsServiceImpl implements SystemsService
     TapisSSH tapisSSH = new TapisSSH(tapisSystem);
     SSHSftpClient sftpClient;
     SSHConnection conn = null;
+    // Wrap in a try, so we can close the connection at the end.
     try
     {
       conn = tapisSSH.getConnection();
-      sftpClient = conn.getSftpClient();
-    }
-    catch (IOException e)
-    {
-      msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR1", rUser, systemId, systemType, host, effUser, rootDir, e.getMessage());
-      throw new TapisException(msg);
-    }
-    finally { if (conn != null) conn.close(); }
-
-    // We have a connection and an SFTP client. Use it to get info on the path
-    SftpClient.Attributes attrs = null;
-    try
-    {
-      // rootDir should already be a normalized absolute path. No need to process it further.
-      // Get info on the target path.
-      attrs = sftpClient.stat(rootDir);
-    }
-    catch (IOException e)
-    {
-      // Path does not exist or there was an SFTP client error. Figure out which.
-      // If due to NotFound then we need to create it.
-      if (e.getMessage().toLowerCase().contains(NO_SUCH_FILE))
+      try {sftpClient = conn.getSftpClient();}
+      catch (IOException e)
       {
-        msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_NONE", rUser, systemId, systemType, host, effUser, rootDir);
-        _log.debug(msg);
+        msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR1", rUser, systemId, systemType, host, effUser, rootDir, e.getMessage());
+        throw new TapisException(msg);
       }
-      else
+      // We have a connection and an SFTP client. Use it to get info on the path
+      SftpClient.Attributes attrs = null;
+      try
+      {
+        // rootDir should already be a normalized absolute path. No need to process it further.
+        // Get info on the target path.
+        attrs = sftpClient.stat(rootDir);
+      }
+      catch (IOException e)
+      {
+        // Path does not exist or there was an SFTP client error. Figure out which.
+        // If due to NotFound then we need to create it.
+        if (e.getMessage().toLowerCase().contains(NO_SUCH_FILE))
+        {
+          msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_NONE", rUser, systemId, systemType, host, effUser, rootDir);
+          _log.debug(msg);
+        }
+        else
+        {
+          msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR3", rUser, systemId, systemType, host, effUser, rootDir, e.getMessage());
+          throw new TapisException(msg);
+        }
+      }
+      // If path exists, check it. If it is a directory we are done.
+      if (attrs != null && attrs.isDirectory())
+      {
+        msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_EXISTS", rUser, systemId, systemType, host, effUser, rootDir);
+        _log.debug(msg);
+        return;
+      }
+      // If it exists and is a file then it is an error.
+      if (attrs != null && !attrs.isDirectory())
+      {
+        msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR2", rUser, systemId, systemType, host, effUser, rootDir);
+        throw new TapisException(msg);
+      }
+      //
+      // rootDir does not exist, time to create it
+      //
+      try
+      {
+        Path tmpPath = Paths.get("/");
+        // Walk the path parts creating directories
+        for (Path part : Paths.get(rootDir))
+        {
+          tmpPath = tmpPath.resolve(part);
+          try {sftpClient.mkdir(tmpPath.toString());} catch (SftpException ignored) {}
+        }
+      }
+      catch (IOException e)
       {
         msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR3", rUser, systemId, systemType, host, effUser, rootDir, e.getMessage());
-        if (conn != null) conn.close();
         throw new TapisException(msg);
       }
     }
-    // We found the path. Check it.
-    if (attrs != null && attrs.isDirectory())
-    {
-      msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_EXISTS", rUser, systemId, systemType, host, effUser, rootDir);
-      _log.debug(msg);
-      if (conn != null) conn.close();
-      return;
-    }
-    // If it exists and is a file then it is an error.
-    if (attrs != null &&  !attrs.isDirectory())
-    {
-      msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR2", rUser, systemId, systemType, host, effUser, rootDir);
-      if (conn != null) conn.close();
-      throw new TapisException(msg);
-    }
-
-    // Create the directory
-    try
-    {
-      Path tmpPath = Paths.get("/");
-      // Walk the path parts creating directories
-      for (Path part: Paths.get(rootDir))
-      {
-        tmpPath = tmpPath.resolve(part);
-        try { sftpClient.mkdir(tmpPath.toString()); } catch (SftpException ignored) {}
-      }
-    }
-    catch (IOException e)
+    catch (TapisException e) { throw e; }
+    catch (Exception e)
     {
       msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR3", rUser, systemId, systemType, host, effUser, rootDir, e.getMessage());
       throw new TapisException(msg);
