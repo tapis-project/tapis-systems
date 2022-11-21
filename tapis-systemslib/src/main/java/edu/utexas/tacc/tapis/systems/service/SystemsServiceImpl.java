@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
+import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
@@ -26,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.search.SearchUtils;
@@ -47,6 +49,7 @@ import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
 import edu.utexas.tacc.tapis.systems.client.gen.model.TapisSystem;
 import edu.utexas.tacc.tapis.systems.client.gen.model.SystemTypeEnum;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
+import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisSSHAuthException;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.s3.S3Connection;
@@ -100,7 +103,7 @@ public class SystemsServiceImpl implements SystemsService
   // ************************************************************************
 
   // Tracing.
-  private static final Logger _log = LoggerFactory.getLogger(SystemsServiceImpl.class);
+  private static final Logger log = LoggerFactory.getLogger(SystemsServiceImpl.class);
 
   // Permspec format for systems is "system:<tenant>:<perm_list>:<system_id>"
   public static final String PERM_SPEC_TEMPLATE = "system:%s:%s:%s";
@@ -225,7 +228,7 @@ public class SystemsServiceImpl implements SystemsService
     SystemOperation op = SystemOperation.create;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (system == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
-    _log.trace(LibUtils.getMsgAuth("SYSLIB_CREATE_TRACE", rUser, rawData));
+    log.trace(LibUtils.getMsgAuth("SYSLIB_CREATE_TRACE", rUser, rawData));
 
     // Extract some attributes for convenience and clarity.
     // NOTE: do not do this for effectiveUserId since it may be ${owner} and get resolved below.
@@ -351,23 +354,23 @@ public class SystemsServiceImpl implements SystemsService
       // Something went wrong. Attempt to undo all changes and then re-throw the exception
       // Log error
       String msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ROLLBACK", rUser, systemId, e0.getMessage());
-      _log.error(msg);
+      log.error(msg);
 
       // Rollback
       // Remove system from DB
       if (itemCreated) try {dao.hardDeleteSystem(tenant, systemId); }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "hardDelete", e.getMessage()));}
+      catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "hardDelete", e.getMessage()));}
       // Remove perms
       // Consider using a notification instead (jira cic-3071)
       try { getSKClient().revokeUserPermission(tenant, system.getOwner(), filesPermSpec);  }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
+      catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
       // Remove creds
       if (manageCredentials)
       {
         // Use private internal method instead of public API to skip auth and other checks not needed here.
         // Note that we only manageCredentials for the static case and for the static case targetUser=effectiveUserId
         try { deleteCredential(rUser, systemId, system.getEffectiveUserId(), isStaticEffectiveUser); }
-        catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "deleteCred", e.getMessage()));}
+        catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "deleteCred", e.getMessage()));}
       }
       throw e0;
     }
@@ -431,7 +434,7 @@ public class SystemsServiceImpl implements SystemsService
     String changeDescription = LibUtils.getChangeDescriptionSystemUpdate(origTSystem, patchedTSystem, patchSystem);
     if (StringUtils.isBlank(changeDescription))
     {
-      _log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, "PATCH", systemId));
+      log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, "PATCH", systemId));
       return;
     }
 
@@ -543,7 +546,7 @@ public class SystemsServiceImpl implements SystemsService
     String changeDescription = LibUtils.getChangeDescriptionSystemUpdate(origTSystem, updatedTSystem, null);
     if (StringUtils.isBlank(changeDescription))
     {
-      _log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, "PUT", systemId));
+      log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, "PUT", systemId));
       return updatedTSystem;
     }
 
@@ -662,7 +665,7 @@ public class SystemsServiceImpl implements SystemsService
     String owner = dao.getSystemOwner(oboTenant, systemId);
     if (StringUtils.isBlank(owner)) {
       String msg = LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, systemId, op.name());
-      _log.error(msg);
+      log.error(msg);
       throw new TapisException(msg);
     }
     // ------------------------- Check authorization -------------------------
@@ -742,12 +745,12 @@ public class SystemsServiceImpl implements SystemsService
     catch (Exception e0)
     {
       // Something went wrong. Attempt to undo all changes and then re-throw the exception
-      try { dao.updateSystemOwner(rUser, systemId, newOwnerName, oldOwnerName); } catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "updateOwner", e.getMessage()));}
+      try { dao.updateSystemOwner(rUser, systemId, newOwnerName, oldOwnerName); } catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "updateOwner", e.getMessage()));}
       // Consider using a notification instead(jira cic-3071)
       try { getSKClient().revokeUserPermission(oboTenant, newOwnerName, filesPermSpec); }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
+      catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
       try { getSKClient().grantUserPermission(oboTenant, oldOwnerName, filesPermSpec); }
-      catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPermF1", e.getMessage()));}
+      catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPermF1", e.getMessage()));}
       throw e0;
     }
     return 1;
@@ -908,7 +911,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!EnumUtils.isValidEnum(ResolveType.class, resolveType))
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_RESOLVETYPE_ERROR", rUser, resolveType);
-      _log.error(msg);
+      log.error(msg);
       throw new IllegalArgumentException(msg);
     }
     ResolveType resolveTypeEnum = ResolveType.valueOf(resolveType);
@@ -1034,7 +1037,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!EnumUtils.isValidEnum(AuthListType.class, listType))
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_LISTTYPE_ERROR", rUser, listType);
-      _log.error(msg);
+      log.error(msg);
       throw new IllegalArgumentException(msg);
     }
     AuthListType listTypeEnum = AuthListType.valueOf(listType);
@@ -1059,7 +1062,7 @@ public class SystemsServiceImpl implements SystemsService
       catch (Exception e)
       {
         String msg = LibUtils.getMsgAuth("SYSLIB_SEARCH_ERROR", rUser, e.getMessage());
-        _log.error(msg, e);
+        log.error(msg, e);
         throw new IllegalArgumentException(msg);
       }
     }
@@ -1109,7 +1112,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!EnumUtils.isValidEnum(AuthListType.class, listType))
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_LISTTYPE_ERROR", rUser, listType);
-      _log.error(msg);
+      log.error(msg);
       throw new IllegalArgumentException(msg);
     }
     AuthListType listTypeEnum = AuthListType.valueOf(listType);
@@ -1134,7 +1137,7 @@ public class SystemsServiceImpl implements SystemsService
       catch (Exception e)
       {
         String msg = LibUtils.getMsgAuth("SYSLIB_SEARCH_ERROR", rUser, e.getMessage());
-        _log.error(msg, e);
+        log.error(msg, e);
         throw new IllegalArgumentException(msg);
       }
     }
@@ -1199,7 +1202,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!EnumUtils.isValidEnum(AuthListType.class, listType))
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_LISTTYPE_ERROR", rUser, listType);
-      _log.error(msg);
+      log.error(msg);
       throw new IllegalArgumentException(msg);
     }
     AuthListType listTypeEnum = AuthListType.valueOf(listType);
@@ -1223,7 +1226,7 @@ public class SystemsServiceImpl implements SystemsService
     catch (Exception e)
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_SEARCH_ERROR", rUser, e.getMessage());
-      _log.error(msg, e);
+      log.error(msg, e);
       throw new IllegalArgumentException(msg);
     }
 
@@ -1276,7 +1279,7 @@ public class SystemsServiceImpl implements SystemsService
     catch (Exception e)
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_MATCH_ERROR", rUser, e.getMessage());
-      _log.error(msg, e);
+      log.error(msg, e);
       throw new IllegalArgumentException(msg);
     }
 
@@ -1386,13 +1389,13 @@ public class SystemsServiceImpl implements SystemsService
       // Rollback
       // Something went wrong. Attempt to undo all changes and then re-throw the exception
       String msg = LibUtils.getMsgAuth("SYSLIB_PERM_ERROR_ROLLBACK", rUser, systemId, tce.getMessage());
-      _log.error(msg);
+      log.error(msg);
 
       // Revoke permissions that may have been granted.
       for (String permSpec : permSpecSet)
       {
         try { getSKClient().revokeUserPermission(oboTenant, targetUser, permSpec); }
-        catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePerm", e.getMessage()));}
+        catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePerm", e.getMessage()));}
       }
 
       // Convert to TapisException and re-throw
@@ -1464,7 +1467,7 @@ public class SystemsServiceImpl implements SystemsService
       // Rollback
       // Something went wrong. Attempt to undo all changes and then re-throw the exception
       String msg = LibUtils.getMsgAuth("SYSLIB_PERM_ERROR_ROLLBACK", rUser, systemId, tce.getMessage());
-      _log.error(msg);
+      log.error(msg);
 
       // Grant permissions that may have been revoked and that the user previously held.
       for (Permission perm : permissions)
@@ -1473,7 +1476,7 @@ public class SystemsServiceImpl implements SystemsService
         {
           String permSpec = getPermSpecStr(oboTenant, systemId, perm);
           try { getSKClient().grantUserPermission(oboTenant, targetUser, permSpec); }
-          catch (Exception e) {_log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPerm", e.getMessage()));}
+          catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPerm", e.getMessage()));}
         }
       }
 
@@ -1614,7 +1617,7 @@ public class SystemsServiceImpl implements SystemsService
     // If tapis client exception then log error and convert to TapisException
     catch (TapisClientException tce)
     {
-      _log.error(tce.toString());
+      log.error(tce.toString());
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
     }
 
@@ -1690,7 +1693,7 @@ public class SystemsServiceImpl implements SystemsService
     // If tapis client exception then log error and convert to TapisException
     catch (TapisClientException tce)
     {
-      _log.error(tce.toString());
+      log.error(tce.toString());
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
     }
 
@@ -1864,7 +1867,7 @@ public class SystemsServiceImpl implements SystemsService
     if (schedulerProfile == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_PROFILE", rUser));
     // Construct Json string representing the resource about to be created
     String createJsonStr = TapisGsonUtils.getGson().toJson(schedulerProfile);
-    _log.trace(LibUtils.getMsgAuth("SYSLIB_CREATE_TRACE", rUser, createJsonStr));
+    log.trace(LibUtils.getMsgAuth("SYSLIB_CREATE_TRACE", rUser, createJsonStr));
     String oboTenant = schedulerProfile.getTenant();
     String schedProfileName = schedulerProfile.getName();
 
@@ -2245,7 +2248,7 @@ public class SystemsServiceImpl implements SystemsService
       catch (TapisException e)
       {
         msg = LibUtils.getMsg("SYSLIB_DTN_CHECK_ERROR", tSystem1.getDtnSystemId(), e.getMessage());
-        _log.error(msg, e);
+        log.error(msg, e);
         errMessages.add(msg);
       }
       if (dtnSystem == null)
@@ -2265,7 +2268,7 @@ public class SystemsServiceImpl implements SystemsService
     {
       // Construct message reporting all errors
       String allErrors = getListOfErrors(rUser, tSystem1.getId(), errMessages);
-      _log.error(allErrors);
+      log.error(allErrors);
       throw new IllegalStateException(allErrors);
     }
   }
@@ -2291,7 +2294,7 @@ public class SystemsServiceImpl implements SystemsService
     {
       // Construct message reporting all errors
       String allErrors = getListOfErrors(rUser, profile1.getName(), errMessages);
-      _log.error(allErrors);
+      log.error(allErrors);
       throw new IllegalStateException(allErrors);
     }
   }
@@ -2599,7 +2602,7 @@ public class SystemsServiceImpl implements SystemsService
         {
           // Log a warning and remove the permission
           String msg = LibUtils.getMsgAuth("SYSLIB_PERM_ORPHAN", rUser, permFields[3]);
-          _log.warn(msg);
+          log.warn(msg);
           removeOrphanedSKPerms(permFields[3], rUser.getOboTenantId());
         }
       }
@@ -2772,7 +2775,7 @@ public class SystemsServiceImpl implements SystemsService
     catch (TapisClientException tce)
     {
       // If tapis client exception then log error but continue so null is returned.
-      _log.warn(tce.toString());
+      log.warn(tce.toString());
       credential = null;
     }
     return credential;
@@ -2880,26 +2883,26 @@ public class SystemsServiceImpl implements SystemsService
     boolean secretNotFound = true;
     sMetaParms.setKeyType(KeyType.password);
     try { getSKClient().readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { _log.trace(e.getMessage()); }
+    catch (Exception e) { log.trace(e.getMessage()); }
     sMetaParms.setKeyType(KeyType.sshkey);
     try { getSKClient().readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { _log.trace(e.getMessage()); }
+    catch (Exception e) { log.trace(e.getMessage()); }
     sMetaParms.setKeyType(KeyType.accesskey);
     try { getSKClient().readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { _log.trace(e.getMessage()); }
+    catch (Exception e) { log.trace(e.getMessage()); }
     if (secretNotFound) return 0;
 
     // Construct basic SK secret parameters and attempt to destroy each type of secret.
     // If destroy attempt throws an exception then log a message and continue.
     sMetaParms.setKeyType(KeyType.password);
     try { getSKClient().destroySecretMeta(sMetaParms); }
-    catch (Exception e) { _log.trace(e.getMessage()); }
+    catch (Exception e) { log.trace(e.getMessage()); }
     sMetaParms.setKeyType(KeyType.sshkey);
     try { getSKClient().destroySecretMeta(sMetaParms); }
-    catch (Exception e) { _log.trace(e.getMessage()); }
+    catch (Exception e) { log.trace(e.getMessage()); }
     sMetaParms.setKeyType(KeyType.accesskey);
     try { getSKClient().destroySecretMeta(sMetaParms); }
-    catch (Exception e) { _log.trace(e.getMessage()); }
+    catch (Exception e) { log.trace(e.getMessage()); }
     return 1;
   }
 
@@ -3227,7 +3230,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(owner))
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, systemId, op.name());
-      _log.error(msg);
+      log.error(msg);
       throw new TapisException(msg);
     }
     switch(op) {
@@ -3324,7 +3327,7 @@ public class SystemsServiceImpl implements SystemsService
       throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_IMPERSONATE", rUser, systemId, op.name(), impersonationId));
     }
     // An allowed service is impersonating, log it
-    _log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_IMPERSONATE", rUser, systemId, op.name(), impersonationId));
+    log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_IMPERSONATE", rUser, systemId, op.name(), impersonationId));
   }
 
   /**
@@ -3344,7 +3347,7 @@ public class SystemsServiceImpl implements SystemsService
       throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_SHAREDAPPCTX", rUser, systemId, op.name()));
     }
     // An allowed service is impersonating, log it
-    _log.trace(LibUtils.getMsgAuth("SYSLIB_AUTH_SHAREDAPPCTX", rUser, systemId, op.name()));
+    log.trace(LibUtils.getMsgAuth("SYSLIB_AUTH_SHAREDAPPCTX", rUser, systemId, op.name()));
   }
 
   /**
@@ -3376,7 +3379,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(owner))
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, name, op.name());
-      _log.error(msg);
+      log.error(msg);
       throw new TapisException(msg);
     }
 
@@ -3589,7 +3592,7 @@ public class SystemsServiceImpl implements SystemsService
   private Credential verifyConnection(ResourceRequestUser rUser, TSystem tSystem1, AuthnMethod authnMethod,
                                       Credential cred, String effectiveUser)
   {
-    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), tSystem1.getSystemType(),
+    log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), tSystem1.getSystemType(),
                                    effectiveUser, authnMethod));
     Credential retCred;
     String systemId = tSystem1.getId();
@@ -3624,18 +3627,22 @@ public class SystemsServiceImpl implements SystemsService
     else
     {
       // Make the connection attempt
-      _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_CONN", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-                                     effectiveUser, host, port, authnMethod));
+      // Try to handle as many exceptions as we can. For this reason, in each case there is a final catch of Exception
+      //   which is re-thrown as a TapisException.
+      log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_CONN", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
+                                     effectiveUser, port, authnMethod));
       TapisException te = null;
       switch(authnMethod)
       {
         case PASSWORD:
           try (SSHConnection c = new SSHConnection(host, port, effectiveUser, cred.getPassword())) { te = null; }
           catch (TapisException e) { te = e; }
+          catch (Exception e) { te = new TapisException(e.getMessage(), e); }
           break;
         case PKI_KEYS:
           try (SSHConnection c = new SSHConnection(host, port, effectiveUser, cred.getPublicKey(), cred.getPrivateKey())) { te = null; }
           catch (TapisException e) { te = e; }
+          catch (Exception e) { te = new TapisException(e.getMessage(), e); }
           break;
         case ACCESS_KEY:
           try (S3Connection c = new S3Connection(host, port, bucket, effectiveUser, cred.getAccessKey(), cred.getAccessSecret()))
@@ -3649,7 +3656,9 @@ public class SystemsServiceImpl implements SystemsService
               client.headObject(req);
             }
             catch (NoSuchKeyException ex) { /* This indicates credentials are valid */ }
-            catch (Exception e) { throw new TapisException(e.getMessage()); }
+            // An S3 exception containing a status of 403 indicates invalid credentials?
+            catch (S3Exception e) { throw new TapisException(e.getMessage(), e); }
+            catch (Exception e) { throw new TapisException(e.getMessage(), e); }
           }
           catch (TapisException e)
           {
@@ -3674,17 +3683,27 @@ public class SystemsServiceImpl implements SystemsService
       }
       else
       {
+        //
         // There was a problem. Try to figure out why. Set result to FALSE
+        //
+        Throwable cause = te.getCause();
         String eMsg = te.getMessage();
-        // This is a special message for SSH connections.
-        if (eMsg != null && eMsg.contains(NO_MORE_AUTH_METHODS))
+        if (te instanceof TapisSSHAuthException && cause != null && cause.getMessage().contains(NO_MORE_AUTH_METHODS))
         {
+          // There was a special message in an SSH connection exception indicating credentials invalid.
           msg = LibUtils.getMsgAuth("SYSLIB_CRED_VALID_FAIL", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
-                                    effectiveUser, authnMethod, "Invalid credentials");
+                                    effectiveUser, authnMethod, cause.getMessage());
+        }
+        else if (cause instanceof S3Exception && Status.FORBIDDEN.getStatusCode() == ((S3Exception) cause).statusCode())
+        {
+          // S3 connections return status of 403 when credentials invalid.
+          msg = LibUtils.getMsgAuth("SYSLIB_CRED_VALID_FAIL", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
+                  effectiveUser, authnMethod, cause.getMessage());
         }
         else
         {
-          // TODO/TBD: Are there any special messages for S3? Any others for SSH?
+          // There was a general connection failure that we do not specifically detect.
+          // Are there any other special messages for S3 or SSH?
           msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
                                     effectiveUser, authnMethod, eMsg);
         }
@@ -3693,7 +3712,7 @@ public class SystemsServiceImpl implements SystemsService
                                  Boolean.FALSE, msg);
       }
     }
-    _log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
+    log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
                                    effectiveUser, authnMethod));
     return retCred;
   }
@@ -3762,7 +3781,7 @@ public class SystemsServiceImpl implements SystemsService
         if (e.getMessage().toLowerCase().contains(NO_SUCH_FILE))
         {
           msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_NONE", rUser, systemId, systemType, host, effUser, rootDir);
-          _log.debug(msg);
+          log.debug(msg);
         }
         else
         {
@@ -3774,7 +3793,7 @@ public class SystemsServiceImpl implements SystemsService
       if (attrs != null && attrs.isDirectory())
       {
         msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_EXISTS", rUser, systemId, systemType, host, effUser, rootDir);
-        _log.debug(msg);
+        log.debug(msg);
         return;
       }
       // If it exists and is a file then it is an error.
@@ -3812,6 +3831,6 @@ public class SystemsServiceImpl implements SystemsService
 
     // rootDir was created.
     msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_DONE", rUser, systemId, systemType, host, effUser, rootDir);
-    _log.debug(msg);
+    log.debug(msg);
   }
 }
