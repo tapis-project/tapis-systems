@@ -629,7 +629,7 @@ public class SystemsServiceTest
   @Test
   public void testGetSystemResolveRootDir() throws Exception
   {
-    String rootDir = "HOST_EVAL($HOME)/${apiUserId}/test/${effectiveUserId}";
+    String rootDir = "HOST_EVAL($HOME)/test/${effectiveUserId}";
     TSystem sys0 = systems[33];
     sys0.setHost(TAPIS_TEST_HOST_IP);
     sys0.setRootDir(rootDir);
@@ -659,7 +659,7 @@ public class SystemsServiceTest
     // Fetch system with resolving rootDir. Returned rootDir should have been updated.
     tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveTypeALL, sharedAppCtxFalse);
     // Update original definition, so we can use the checkCommon method.
-    String resolvedRootDir = String.format("/home/%s/%s/test/%s", loginUser, owner1, loginUser);
+    String resolvedRootDir = String.format("/home/%s/test/%s", loginUser, loginUser);
     sys0.setRootDir(resolvedRootDir);
     sys0.setEffectiveUserId(loginUser);
     checkCommonSysAttrs(sys0, tmpSys);

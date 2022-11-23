@@ -2332,14 +2332,13 @@ public class SystemsServiceImpl implements SystemsService
 
   /*
    * Determine if rootDir is dynamic.
-   * Dynamic if it contains the pattern HOST_EVAL($variable), the string "${effectiveUserId}"
-   *    or the string "${apiUserId}"
+   * Dynamic if it contains the pattern HOST_EVAL($variable) or the string "${effectiveUserId}"
    */
   private static boolean isRootDirDynamic(String rootDir)
   {
     if (StringUtils.isBlank(rootDir)) return false;
 
-    return rootDir.matches(PATTERN_STR_HOST_EVAL) || rootDir.contains(EFFUSERID_VAR) || rootDir.contains(APIUSERID_VAR);
+    return rootDir.matches(PATTERN_STR_HOST_EVAL) || rootDir.contains(EFFUSERID_VAR);
   }
 
   /**
@@ -2386,10 +2385,9 @@ public class SystemsServiceImpl implements SystemsService
     // Make sure TapisSystem has correct host login user. It is possible for effUser to still be unresolved.
     tapisSystem.setEffectiveUserId(resolvedEffectiveUser);
 
-    // Create list of macros: effectiveUserId, apiUserId
+    // Create list of macros: effectiveUserId
     var macros = new TreeMap<String,String>();
-    macros.put(EFFUSERID_STR, system.getEffectiveUserId());
-    macros.put(APIUSERID_STR, oboOrImpersonatedUser);
+    macros.put(EFFUSERID_STR, resolvedEffectiveUser);
 
     // Resolve HOST_EVAL and other macros
     MacroResolver macroResolver = new MacroResolver(tapisSystem, macros);
