@@ -72,6 +72,7 @@ import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
+import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.ResolveType;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_EXEC_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_AUTHN_METHOD_FIELD;
@@ -133,7 +134,7 @@ public class SystemResource
   private static final String OP_UNDELETE = "undeleteSystem";
 
   // Always return a nicely formatted response
-  private static final boolean PRETTY = true;
+  public static final boolean PRETTY = true;
 
   // Top level summary attributes to be included by default in some cases.
   public static final List<String> SUMMARY_ATTRS =
@@ -177,7 +178,7 @@ public class SystemResource
    * request body. If effective user is dynamic (i.e. ${apiUserId}) then credentials may not be provided.
    * The Systems service does not store the secrets, they are persisted in the Security Kernel.
    *
-   * By default any credentials provided for LINUX type systems are verified. Use query parameter
+   * By default, any credentials provided for LINUX type systems are verified. Use query parameter
    * skipCredentialCheck=true to bypass initial verification of credentials.
    *
    * Note that certain attributes in the request body (such as tenant) are allowed but ignored so that the JSON
@@ -258,15 +259,16 @@ public class SystemResource
 
     // Create a TSystem from the request
     TSystem tSystem = createTSystemFromPostRequest(rUser.getOboTenantId(), req, rawJson);
+    boolean creatingCreds = (tSystem.getAuthnCredential() != null);
 
     // Mask any secret info that might be contained in rawJson
     String scrubbedJson = rawJson;
-    if (tSystem.getAuthnCredential() != null) scrubbedJson = maskCredSecrets(rawJson);
+    if (creatingCreds) scrubbedJson = maskCredSecrets(rawJson);
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_CREATE_TRACE", rUser, scrubbedJson));
 
     // Fill in defaults and check constraints on TSystem attributes
     tSystem.setDefaults();
-    resp = validateTSystem(tSystem, rUser);
+    resp = validateTSystemAtCreate(tSystem, rUser);
     if (resp != null) return resp;
 
     // ---------------------------- Make service call to create the system -------------------------------
@@ -274,7 +276,7 @@ public class SystemResource
     String systemId = tSystem.getId();
     try
     {
-      service.createSystem(rUser, tSystem, skipCredCheck, scrubbedJson);
+      tSystem = service.createSystem(rUser, tSystem, skipCredCheck, scrubbedJson);
     }
     catch (IllegalStateException e)
     {
@@ -316,7 +318,18 @@ public class SystemResource
       throw new WebApplicationException(msg);
     }
 
-    // ---------------------------- Success ------------------------------- 
+    // If credentials provided, and we are validating them, make sure they were OK.
+    // If validation failed then system was not created, and we need to report an error.
+    if (!skipCredCheck && creatingCreds)
+    {
+      // We only support registering credentials in the static effective user case, so in log messages report effUserId.
+      String userName = tSystem.getEffectiveUserId();
+      resp = ApiUtils.checkCredValidationResult(rUser, systemId, userName, tSystem.getAuthnCredential(),
+                                                tSystem.getDefaultAuthnMethod(), skipCredCheck);
+      if (resp != null) return resp;
+    }
+
+    // ---------------------------- Success -------------------------------
     // Success means the object was created.
     ResultResourceUrl respUrl = new ResultResourceUrl();
     respUrl.url = _request.getRequestURL().toString() + "/" + systemId;
@@ -453,7 +466,7 @@ public class SystemResource
    *      rootDir
    *      isDtn
    *      canExec
-   *  Note that the following attributes may be modified using other endpoints: owner, enabled and authnCredential.
+   *  Note that the following attributes may be modified using other endpoints: owner, enabled, deleted, authnCredential
    *
    * @param systemId - name of the system
    * @param payloadStream - request body
@@ -525,6 +538,7 @@ public class SystemResource
 
     // Create a TSystem from the request
     TSystem putSystem = createTSystemFromPutRequest(rUser.getOboTenantId(), systemId, req, rawJson);
+    boolean creatingCreds = (putSystem.getAuthnCredential() != null);
 
     // Mask any secret info that might be contained in rawJson
     String scrubbedJson = rawJson;
@@ -538,7 +552,7 @@ public class SystemResource
     // ---------------------------- Make service call to update the system -------------------------------
     try
     {
-      service.putSystem(rUser, putSystem, skipCredCheck, scrubbedJson);
+      putSystem = service.putSystem(rUser, putSystem, skipCredCheck, scrubbedJson);
     }
     catch (IllegalStateException e)
     {
@@ -562,6 +576,17 @@ public class SystemResource
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg, e);
       throw new WebApplicationException(msg);
+    }
+
+    // If credentials provided, and we are validating them, make sure they were OK.
+    // If validation failed then system was not created, and we need to report an error.
+    if (!skipCredCheck && creatingCreds)
+    {
+      // We only support registering credentials in the static effective user case, so in log messages report effUserId.
+      String userName = putSystem.getEffectiveUserId();
+      resp = ApiUtils.checkCredValidationResult(rUser, systemId, userName, putSystem.getAuthnCredential(),
+                                                putSystem.getDefaultAuthnMethod(), skipCredCheck);
+      if (resp != null) return resp;
     }
 
     // ---------------------------- Success -------------------------------
@@ -661,8 +686,7 @@ public class SystemResource
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
    *                          resolving effectiveUserId
-   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is true.
+   * @param resolve - Controls which dynamic attributes are resolved: ALL, NONE, ROOT_DIR, EFFECTIVE_USER
    * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth bypassed.
    * @param securityContext - user identity
    * @return Response with system object as the result
@@ -676,7 +700,7 @@ public class SystemResource
                             @QueryParam("requireExecPerm") @DefaultValue("false") boolean requireExecPerm,
                             @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
                             @QueryParam("impersonationId") String impersonationId,
-                            @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
+                            @QueryParam("resolve") @DefaultValue("ALL") String resolve,
                             @QueryParam("sharedAppCtx") @DefaultValue("false") boolean sharedAppCtx,
                             @Context SecurityContext securityContext) throws TapisClientException
   {
@@ -696,7 +720,7 @@ public class SystemResource
                                                    "requireExecPerm="+requireExecPerm,
                                                    "returnCredentials="+getCreds,
                                                    "impersonationId="+impersonationId,
-                                                   "resolveEffectiveUser="+resolveEffUser,
+                                                   "resolve="+resolve,
                                                    "sharedAppCtx="+sharedAppCtx);
 
     // Check that authnMethodStr is valid if is passed in
@@ -716,7 +740,7 @@ public class SystemResource
     try
     {
       tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId,
-                                  resolveEffUser, sharedAppCtx);
+                                  resolve, sharedAppCtx);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -742,9 +766,9 @@ public class SystemResource
    * NOTE: The query parameters search, limit, orderBy, skip, startAfter are all handled in the filter
    *       QueryParametersRequestFilter. No need to use @QueryParam here.
    * @param securityContext - user identity
-   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is true.
-   * @param showDeleted - whether to included resources that have been marked as deleted.
+   * @param resolveEffectiveUser - If effectiveUserId is set to ${apiUserId} then resolve it, else return value
+   *                               provided in system definition. By default, this is true.
+   * @param showDeleted - flag indicating resources marked as deleted should be included.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return - list of systems accessible by requester and matching search conditions.
    */
@@ -752,10 +776,9 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getSystems(@Context SecurityContext securityContext,
-                             @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
+                             @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffectiveUser,
                              @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
                              @QueryParam("listType") @DefaultValue("OWNED") String listType) throws TapisClientException
-
   {
     String opName = "getSystems";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -769,7 +792,7 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffectiveUser="+resolveEffUser, "showDeleted="+showDeleted,
+                                                   "resolveEffectiveUser="+resolveEffectiveUser,"showDeleted="+showDeleted,
                                                    "listType="+listType);
 
     // ThreadContext designed to never return null for SearchParameters
@@ -779,7 +802,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffUser, showDeleted, listType);
+      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffectiveUser, showDeleted, listType);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -797,8 +820,8 @@ public class SystemResource
    * searchSystemsQueryParameters
    * Dedicated search endpoint for System resource. Search conditions provided as query parameters.
    * @param securityContext - user identity
-   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is true.
+   * @param resolveEffectiveUser - If effectiveUserId is set to ${apiUserId} then resolve it, else return value
+   *                               provided in system definition. By default, this is true.
    * @param showDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return - list of systems accessible by requester and matching search conditions.
@@ -808,7 +831,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsQueryParameters(@Context SecurityContext securityContext,
-                                               @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
+                                               @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffectiveUser,
                                                @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
                                                @QueryParam("listType") @DefaultValue("OWNED") String listType)
           throws TapisClientException
@@ -825,9 +848,8 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffectiveUser="+resolveEffUser, "showDeleted="+showDeleted,
+                                                   "resolveEffectiveUser="+resolveEffectiveUser,"showDeleted="+showDeleted,
                                                    "listType="+listType);
-
     // Create search list based on query parameters
     // Note that some validation is done for each condition but the back end will handle translating LIKE wildcard
     //   characters (* and !) and deal with escaped characters.
@@ -851,7 +873,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffUser, showDeleted, listType);
+      successResponse = getSearchResponse(rUser, null, srchParms, resolveEffectiveUser, showDeleted, listType);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -873,8 +895,8 @@ public class SystemResource
    * Request body contains an array of strings that are concatenated to form the full SQL-like search string.
    * @param payloadStream - request body
    * @param securityContext - user identity
-   * @param resolveEffUser - If effectiveUserId is set to ${apiUserId} then resolve it, else always return value
-   *                         provided in system definition. By default, this is true.
+   * @param resolveEffectiveUser - If effectiveUserId is set to ${apiUserId} then resolve it, else return value
+   *                               provided in system definition. By default, this is true.
    * @param showDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return - list of systems accessible by requester and matching search conditions.
@@ -885,10 +907,9 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsRequestBody(InputStream payloadStream,
                                            @Context SecurityContext securityContext,
-                                           @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffUser,
+                                           @QueryParam("resolveEffectiveUser") @DefaultValue("true") boolean resolveEffectiveUser,
                                            @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
-                                           @QueryParam("listType") @DefaultValue("OWNED") String listType)
-          throws TapisClientException
+                                           @QueryParam("listType") @DefaultValue("OWNED") String listType) throws TapisClientException
   {
     String opName = "searchSystemsPost";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -902,7 +923,7 @@ public class SystemResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "resolveEffectiveUser="+resolveEffUser, "showDeleted="+showDeleted,
+                                                   "resolveEffectiveUser="+resolveEffectiveUser,"showDeleted="+showDeleted,
                                                    "listType="+listType);
 
     // ------------------------- Extract and validate payload -------------------------
@@ -948,7 +969,7 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, resolveEffUser, showDeleted, listType);
+      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, resolveEffectiveUser, showDeleted, listType);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1267,18 +1288,18 @@ public class SystemResource
     Object notes = extractNotes(rawJson);
 
     // NOTE: Following attributes are not updatable and must be filled in on service side.
-    TSystem.SystemType systemType = null;
-    String owner = null;
-    boolean enabled = true;
-    String bucketName = null;
-    String rootDir = null;
-    boolean isDtn = false;
-    boolean canExec = true;
-    var tSystem = new TSystem(-1, tenantId, systemId, req.description, systemType, owner, req.host,
-            enabled, req.effectiveUserId, req.defaultAuthnMethod, bucketName, rootDir,
+    TSystem.SystemType systemTypeNull = null;
+    String ownerNull = null;
+    boolean enabledTrue = true;
+    String bucketNameNull = null;
+    String rootDirNull = null;
+    boolean isDtnFalse = false;
+    boolean canExecTrue = true;
+    var tSystem = new TSystem(-1, tenantId, systemId, req.description, systemTypeNull, ownerNull, req.host,
+            enabledTrue, req.effectiveUserId, req.defaultAuthnMethod, bucketNameNull, rootDirNull,
             req.port, req.useProxy, req.proxyHost, req.proxyPort,
-            req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, isDtn,
-            canExec, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
+            req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, isDtnFalse,
+            canExecTrue, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
             req.canRunBatch, req.mpiCmd, req.batchScheduler, req.batchLogicalQueues, req.batchDefaultLogicalQueue,
             req.batchSchedulerProfile, req.jobCapabilities, req.tags, notes, req.importRefId, null, false, null, null);
     tSystem.setAuthnCredential(req.authnCredential);
@@ -1286,7 +1307,7 @@ public class SystemResource
   }
 
   /**
-   * Fill in defaults and check restrictions on TSystem attributes
+   * Check restrictions on TSystem attributes
    * Use TSystem method to check internal consistency of attributes.
    * If DTN is used verify that dtnSystemId exists with isDtn = true
    * Collect and report as many errors as possible, so they can all be fixed before next attempt
@@ -1294,7 +1315,7 @@ public class SystemResource
    *
    * @return null if OK or error Response
    */
-  private Response validateTSystem(TSystem tSystem1, ResourceRequestUser rUser)
+  private Response validateTSystemAtCreate(TSystem tSystem1, ResourceRequestUser rUser)
   {
     String msg;
 
@@ -1309,7 +1330,8 @@ public class SystemResource
       TSystem dtnSystem = null;
       try
       {
-        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null, false, false);
+        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null,
+                                      ResolveType.NONE.name(), false);
       }
       catch (NotAuthorizedException e)
       {
@@ -1444,7 +1466,7 @@ public class SystemResource
     // If we need the count and there was a limit then we need to make a call
     // This is a separate call from getSystems() because unlike getSystems() we do not want to include the limit or skip,
     //   and we do not need to fetch all the data. One benefit is that the method is simpler and easier to follow
-    //   compared to attempting to fold everything into getApps().
+    //   compared to attempting to fold everything into getSystems().
     if (computeTotal && limit > 0)
     {
       totalCount = service.getSystemsTotalCount(rUser, searchList, orderByList, startAfter, showDeleted, listType);

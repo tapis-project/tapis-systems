@@ -26,13 +26,13 @@ public interface SystemsService
 {
   // ------------------------- Systems -------------------------------------
   // -----------------------------------------------------------------------
-  void createSystem(ResourceRequestUser rUser, TSystem system, boolean skipCredCheck, String rawData)
+  TSystem createSystem(ResourceRequestUser rUser, TSystem system, boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException;
 
   void patchSystem(ResourceRequestUser rUser, String systemId, PatchSystem patchSystem, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException;
 
-  void putSystem(ResourceRequestUser rUser, TSystem putSystem, boolean skipCredCheck, String rawData)
+  TSystem putSystem(ResourceRequestUser rUser, TSystem putSystem, boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException;
 
   int enableSystem(ResourceRequestUser rUser, String systemId)
@@ -60,7 +60,7 @@ public interface SystemsService
           throws TapisException, TapisClientException;
 
   TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod authnMethod, boolean requireExecPerm,
-                    boolean getCreds, String impersonationId, boolean resolveEffectiveUser, boolean sharedAppCtx)
+                    boolean getCreds, String impersonationId, String resolveType, boolean sharedAppCtx)
           throws TapisException, TapisClientException;
 
   int getSystemsTotalCount(ResourceRequestUser rUser, List<String> searchList, List<OrderBy> orderByList,
@@ -75,7 +75,7 @@ public interface SystemsService
                                         boolean resolveEffectiveUser, boolean includeDeleted, String listType)
           throws TapisException, TapisClientException;
 
-  List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr)
+  List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr, boolean resolveEffectiveUser)
           throws TapisException, TapisClientException;
 
   String getSystemOwner(ResourceRequestUser rUser, String systemId)
@@ -94,11 +94,14 @@ public interface SystemsService
 
   // ---------------------------- Credentials ------------------------------
   // -----------------------------------------------------------------------
-  void createUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, Credential credential,
+  Credential createUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, Credential credential,
                             boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, IllegalStateException;
 
   int deleteUserCredential(ResourceRequestUser rUser, String systemId, String targetUser)
+          throws TapisException, TapisClientException, IllegalStateException;
+
+  Credential checkUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
           throws TapisException, TapisClientException, IllegalStateException;
 
   Credential getUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)

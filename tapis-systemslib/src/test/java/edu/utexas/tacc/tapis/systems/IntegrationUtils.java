@@ -44,10 +44,11 @@ public final class IntegrationUtils
   public static final String filesSvcName = "files";
   public static final String jobsSvcName = "jobs";
   public static final String appsSvcName = "apps";
-  public static final String adminUser = "testadmin";
 
+  // Various usernames
   // NOTE: Continue to use the fake users owner1, owner2 since some operations involve modifying credentials
   //       Although it should not be a problem because credentials are stored for each system it is best to be safe.
+  public static final String adminUser = "testadmin";
   public static final String owner1 = "owner1";
   public static final String owner2 = "owner2";
   public static final String owner3 = "owner3";
@@ -68,6 +69,22 @@ public final class IntegrationUtils
   public static final String impersonationIdTestUser9 = "testuser9";
   public static final String impersonationIdNull = null;
   public static final String apiUser = "testApiUser";
+
+  // Properties for one of the Tapis v3 test VMs
+  public static final String TAPIS_TEST_HOST_LOGIN_USER = testUser3;
+  public static final String TAPIS_TEST_PASSWORD_ENV_VAR = "TAPIS_VM_TESTUSER3_PASSWORD";
+  public static final String TAPIS_TEST_HOST_IP = "129.114.35.53";
+  public static final String TAPIS_TEST_S3_KEY_ENV_VAR = "TAPIS_S3_SCBLACK_KEY";
+  public static final String TAPIS_TEST_S3_SECRET_ENV_VAR = "TAPIS_S3_SCBLACK_SECRET";
+  public static final String TAPIS_TEST_S3_ROOTDIR = "";
+//  public static final String TAPIS_TEST_S3_HOST = "tapisdemotest2.s3.amazonaws.com";
+//  public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "tapisdemo2";
+//  public static final String TAPIS_TEST_S3_BUCKET = "tapisdemotest2";
+  public static final String TAPIS_TEST_S3_HOST = "cics3.tacc.utexas.edu";
+  public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "scblack";
+  public static final String TAPIS_TEST_S3_BUCKET = "smoketest";
+
+
   public static final String sysNamePrefix = "TestSys";
   public static final String schedProfileNamePrefix = "TestSchedProfile";
   public static final String description1 = "System description 1";
@@ -98,6 +115,7 @@ public final class IntegrationUtils
   public static final String rootDir2 = "/root/dir2";
   public static TSystem dtnSystem1;
   public static TSystem dtnSystem2;
+  public static final String s3SystemId1 = "test-s3-system1";
   public static final String dtnSystemId1 = "test-dtn-system1";
   public static final String dtnSystemId2 = "test-dtn-system2";
   public static final String dtnSystemIdNull = null;
@@ -170,6 +188,7 @@ public final class IntegrationUtils
 
   public static final Protocol prot1 = new Protocol(AuthnMethod.PKI_KEYS, 22, false, "", 0);
   public static final Protocol prot2 = new Protocol(AuthnMethod.PASSWORD, 0, true, "localhost",2222);
+  public static final Protocol protS3 = new Protocol(AuthnMethod.ACCESS_KEY, 0, false, "localhost",2222);
   public static final String rawDataEmptyJson = "{}";
 
   // Job Runtimes
@@ -225,6 +244,10 @@ public final class IntegrationUtils
   public static final boolean showDeletedTrue = true;
   public static final boolean resolveEffUserTrue = true;
   public static final boolean resolveEffUserFalse = false;
+  public static final String resolveTypeALL = "ALL";
+  public static final String resolveTypeNONE = "NONE";
+  public static final String resolveTypeROOT_DIR = "ROOT_DIR";
+  public static final String resolveTypeEFF_USER = "EFFECTIVE_USER";
   public static final boolean sharedAppCtxTrue = true;
   public static final boolean sharedAppCtxFalse = false;
   public static final Instant createdNull = null;
@@ -448,6 +471,23 @@ public final class IntegrationUtils
             dtnSystemIdNull, dtnMountPoint2, dtnMountSourcePathNull, jobRuntimes2, jobWorkingDirNull, jobEnvVariablesNull,
             jobMaxJobsNull, jobMaxJobsPerUser2, canRunBatchNull, mpiCmd2, batchSchedulerNull, logicalQueueListNull,
             batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull, tagsNull, notesNull, importRefIdNull);
+  }
+
+  /**
+   * Create an S3 system
+   */
+  public static TSystem makeS3System(String key)
+  {
+    String s3SystemName1 = sysNamePrefix+key+s3SystemId1;
+
+    return new TSystem(-1, tenantName, s3SystemName1 , "S3 System1 for tests", TSystem.SystemType.S3, owner1,
+            TAPIS_TEST_S3_HOST, isEnabledTrue, TAPIS_TEST_S3_HOST_LOGIN_USER, protS3.getAuthnMethod(),
+            TAPIS_TEST_S3_BUCKET, TAPIS_TEST_S3_ROOTDIR,
+            protS3.getPort(), protS3.isUseProxy(), protS3.getProxyHost(), protS3.getProxyPort(),
+            dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnFalse,
+            canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
+            canRunBatchFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
+            capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
   }
 
   /**

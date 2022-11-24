@@ -10,6 +10,21 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.2.8 - 2022-11-??
+
+Incremental improvements and new preview features.
+
+### New features:
+- Support having a dynamic *rootDir* property. Attribute *rootDir* may start with *HOST_EVAL()* and may contain *${effectiveUserId}*.
+- For a dynamic *rootDir*, create the resolved *rootDir* on the system host as needed during the credential registration process.
+- Add support for getSystem *resolve* query parameter. Options are *ALL*, *NONE*, *ROOT_DIR*, *EFFECTIVE_USER*.
+- Add attributes returned for getSystem: *isPublic*, *isDynamicEffectiveUser*, *isDynamicRootDir*.
+- Add endpoint for checking credentials.
+
+### Bug fixes:
+- None.
+
+---------------------------------------------------------------------------
 ## 1.2.7 - 2022-11-14
 
 Incremental improvements and new preview features.
