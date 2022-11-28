@@ -1022,6 +1022,16 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     sys0.setRootDir(rootDir1);
+    pass = false;
+    sys0.setRootDir("");
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_NOROOTDIR"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(rootDir1);
 
     // SchedulerProfile must exist.
     pass = false;

@@ -9,6 +9,7 @@ import java.util.UUID;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.apache.commons.lang3.StringUtils;
 
@@ -401,7 +402,7 @@ public final class TSystem
   // ************************************************************************
 
   /**
-   * Set defaults for a TSystem
+   * Set defaults for a TSystem for attributes: owner, effectiveUserId, tags, notes
    */
   public void setDefaults()
   {
