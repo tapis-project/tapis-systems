@@ -247,7 +247,7 @@ public final class IntegrationUtils
   public static final String resolveTypeNONE = "NONE";
   public static final String resolveTypeROOT_DIR = "ROOT_DIR";
   public static final String resolveTypeEFF_USER = "EFFECTIVE_USER";
-  public static final String sharedAppCtxOwner = testUser0;
+  public static final String sharedAppCtxOwner = owner1;
   public static final String sharedAppCtxNull = null;
   public static final Instant createdNull = null;
   public static final Instant updatedNull = null;

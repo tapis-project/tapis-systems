@@ -904,13 +904,13 @@ public class SystemsServiceImpl implements SystemsService
    * @param getCreds - flag indicating if credentials for effectiveUserId should be included
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @param resolveType - Controls which dynamic attributes are resolved: ALL, NONE, ROOT_DIR, EFFECTIVE_USER
-   * @param sharedAppCtx - Share grantor for the case of a shared application context.
+   * @param sharedAppCtxGrantor - Share grantor for the case of a shared application context.
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod accMethod, boolean requireExecPerm,
-                           boolean getCreds, String impersonationId, String resolveType, String sharedAppCtx)
+                           boolean getCreds, String impersonationId, String resolveType, String sharedAppCtxGrantor)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
@@ -958,7 +958,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!StringUtils.isBlank(impersonationId)) checkImpersonationAllowed(rUser, op, systemId, impersonationId);
 
     // If sharedAppCtx set confirm it is allowed
-    if (!StringUtils.isBlank(sharedAppCtx)) checkSharedAppCtxAllowed(rUser, op, systemId);
+    if (!StringUtils.isBlank(sharedAppCtxGrantor)) checkSharedAppCtxAllowed(rUser, op, systemId);
 
     // getSystem auth check:
     // Call checkAuth
@@ -966,16 +966,16 @@ public class SystemsServiceImpl implements SystemsService
     //   - if svc not calling as itself do the normal checks using oboUserOrImpersonationId.
     // If not skipping auth then check auth - this can throw ForbiddenException
     // So no need to update permitted. It is not needed after this and checkAuth throws exception if not permitted.
-    checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtx);
+    checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
 
     // If caller asks for credentials, explicitly check auth now
     // That way we can call private getCredential and not have overhead of getUserCredential().
-    if (getCreds) checkAuth(rUser, SystemOperation.getCred, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtx);
+    if (getCreds) checkAuth(rUser, SystemOperation.getCred, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
 
     // If flag is set to also require EXECUTE perm then make explicit auth call to make sure user has exec perm
     if (requireExecPerm)
     {
-      checkAuth(rUser, SystemOperation.execute, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtx);
+      checkAuth(rUser, SystemOperation.execute, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
     }
 
     // If flag is set to also require EXECUTE perm then system must support execute
@@ -3316,14 +3316,14 @@ public class SystemsServiceImpl implements SystemsService
    * Return true if allowed, false if not allowed
    */
   private boolean checkAuthReadExecIncludeSharing(ResourceRequestUser rUser, String systemId, SystemOperation op,
-                                                  String owner, String oboOrImpersonatedUser, String shareGrantor)
+                                                  String owner, String oboOrImpersonatedUser, String sharedAppCtxGrantor)
           throws TapisException, TapisClientException
   {
     String oboTenant = rUser.getOboTenantId();
-    boolean inSharedAppCtx = !StringUtils.isBlank(shareGrantor);
+    boolean inSharedAppCtx = !StringUtils.isBlank(sharedAppCtxGrantor);
     // Start with owner checks. If owner then no need for calls to SK.
     // If obo user is owner or in shared context and share grantor is owner then allow.
-    if (oboOrImpersonatedUser.equals(owner) || (inSharedAppCtx && shareGrantor.equals(owner))) return true;
+    if (oboOrImpersonatedUser.equals(owner) || (inSharedAppCtx && sharedAppCtxGrantor.equals(owner))) return true;
 
     // Figure out which perms to check. Those for READ or those for EXECUTE
     Permission sharePerm = Permission.READ;
@@ -3344,8 +3344,8 @@ public class SystemsServiceImpl implements SystemsService
     //    share grantor has fine-grained permissions, system is shared with grantor
     // NOTE: share grantor is not given tenant admin authorizations
     if (inSharedAppCtx &&
-        (isPermittedAny(rUser, oboTenant, shareGrantor, systemId, anyPerms) ||
-         isSystemSharedWithUser(rUser, systemId, shareGrantor, sharePerm))) return true;
+        (isPermittedAny(rUser, oboTenant, sharedAppCtxGrantor, systemId, anyPerms) ||
+         isSystemSharedWithUser(rUser, systemId, sharedAppCtxGrantor, sharePerm))) return true;
     // Not authorized, return false
     return false;
   }

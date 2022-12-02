@@ -67,7 +67,8 @@ public class SystemsServiceTest
   private ResourceRequestUser rOwner1, rOwner3, rOwner4, rOwner5, rOwner6,
           rTestUser0, rTestUser1, rTestUser2, rTestUser3, rTestUser4, rTestUser5,
           rAdminUser, rSystemsSvc, rAppsSvcTestUser1, rFilesSvcAsFiles,
-          rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rFilesSvcTestUser5, rJobsSvcTestUser1;
+          rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rFilesSvcTestUser5,
+          rJobsSvcTestUser1, rJobsSvcOwner1;
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
@@ -145,6 +146,8 @@ public class SystemsServiceTest
                                                    null, testUser5, tenantName, null, null, null));
     rJobsSvcTestUser1 = new ResourceRequestUser(new AuthenticatedUser(jobsSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                 null, testUser1, tenantName, null, null, null));
+    rJobsSvcOwner1 = new ResourceRequestUser(new AuthenticatedUser(jobsSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
+                                             null, owner1, tenantName, null, null, null));
     rAppsSvcTestUser1 = new ResourceRequestUser(new AuthenticatedUser(appsSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                 null, testUser1, tenantName, null, null, null));
 
@@ -1800,7 +1803,7 @@ public class SystemsServiceTest
     // Files should be allowed to impersonate another user
     svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, owner1, resolveTypeNONE, sharedAppCtxNull);
     // Jobs and Files should be allowed to set sharedAppCtx
-    svc.getSystem(rJobsSvcTestUser1, sys0.getId(), null, false, false, impersonationIdNull, resolveTypeNONE, sharedAppCtxOwner);
+    svc.getSystem(rJobsSvcOwner1, sys0.getId(), null, false, false, impersonationIdNull, resolveTypeNONE, sharedAppCtxOwner);
     svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, impersonationIdNull, resolveTypeNONE, sharedAppCtxOwner);
 
     // When a service impersonates another user it should be allowed if sharedAppCtx set to true even if normally denied.
