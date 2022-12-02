@@ -60,7 +60,7 @@ public interface SystemsService
           throws TapisException, TapisClientException;
 
   TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod authnMethod, boolean requireExecPerm,
-                    boolean getCreds, String impersonationId, String resolveType, boolean sharedAppCtx)
+                    boolean getCreds, String impersonationId, String resolveType, String sharedAppCtx)
           throws TapisException, TapisClientException;
 
   int getSystemsTotalCount(ResourceRequestUser rUser, List<String> searchList, List<OrderBy> orderByList,
