@@ -687,7 +687,7 @@ public class SystemResource
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
    *                          resolving effectiveUserId
    * @param resolve - Controls which dynamic attributes are resolved: ALL, NONE, ROOT_DIR, EFFECTIVE_USER
-   * @param sharedAppCtx - Share grantor for the case of a shared application context.
+   * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth bypassed.
    * @param securityContext - user identity
    * @return Response with system object as the result
    */
@@ -701,7 +701,7 @@ public class SystemResource
                             @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
                             @QueryParam("impersonationId") String impersonationId,
                             @QueryParam("resolve") @DefaultValue("ALL") String resolve,
-                            @QueryParam("sharedAppCtx") String sharedAppCtx,
+                            @QueryParam("sharedAppCtx") @DefaultValue("false") boolean sharedAppCtx,
                             @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "getSystem";
@@ -1331,7 +1331,7 @@ public class SystemResource
       try
       {
         dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null,
-                                      ResolveType.NONE.name(), null);
+                                      ResolveType.NONE.name(), false);
       }
       catch (NotAuthorizedException e)
       {

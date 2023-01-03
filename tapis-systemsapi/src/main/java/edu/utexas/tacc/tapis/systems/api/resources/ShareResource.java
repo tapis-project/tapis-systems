@@ -123,7 +123,7 @@ public class ShareResource
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
-    //RespAbstract resp1;
+    // Make the service call
     SystemShare systemShare;
     try
     {

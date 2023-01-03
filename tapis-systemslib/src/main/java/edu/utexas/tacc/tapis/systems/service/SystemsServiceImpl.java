@@ -904,13 +904,13 @@ public class SystemsServiceImpl implements SystemsService
    * @param getCreds - flag indicating if credentials for effectiveUserId should be included
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @param resolveType - Controls which dynamic attributes are resolved: ALL, NONE, ROOT_DIR, EFFECTIVE_USER
-   * @param sharedAppCtxGrantor - Share grantor for the case of a shared application context.
+   * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth will be skipped.
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod accMethod, boolean requireExecPerm,
-                           boolean getCreds, String impersonationId, String resolveType, String sharedAppCtxGrantor)
+                           boolean getCreds, String impersonationId, String resolveType, boolean sharedAppCtx)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
@@ -957,25 +957,25 @@ public class SystemsServiceImpl implements SystemsService
     // If impersonationId supplied confirm that it is allowed
     if (!StringUtils.isBlank(impersonationId)) checkImpersonationAllowed(rUser, op, systemId, impersonationId);
 
-    // If sharedAppCtx set confirm it is allowed
-    if (!StringUtils.isBlank(sharedAppCtxGrantor)) checkSharedAppCtxAllowed(rUser, op, systemId);
+    // If sharedAppCtx set, confirm that it is allowed
+    if (sharedAppCtx) checkSharedAppCtxAllowed(rUser, op, systemId);
 
     // getSystem auth check:
     // Call checkAuth
     //   - always allow a service calling as itself to read/execute a system.
     //   - if svc not calling as itself do the normal checks using oboUserOrImpersonationId.
-    // If not skipping auth then check auth - this can throw ForbiddenException
-    // So no need to update permitted. It is not needed after this and checkAuth throws exception if not permitted.
-    checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
+    //   - as always make sure auth checks are skipped if svc passes in sharedAppCtx=true.
+    // If not skipping auth then check auth
+    if (!sharedAppCtx) checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, impersonationId);
 
     // If caller asks for credentials, explicitly check auth now
     // That way we can call private getCredential and not have overhead of getUserCredential().
-    if (getCreds) checkAuth(rUser, SystemOperation.getCred, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
+    if (getCreds) checkAuth(rUser, SystemOperation.getCred, systemId, owner, nullTargetUser, nullPermSet, impersonationId);
 
     // If flag is set to also require EXECUTE perm then make explicit auth call to make sure user has exec perm
-    if (requireExecPerm)
+    if (!sharedAppCtx && requireExecPerm)
     {
-      checkAuth(rUser, SystemOperation.execute, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
+      checkAuth(rUser, SystemOperation.execute, systemId, owner, nullTargetUser, nullPermSet, impersonationId);
     }
 
     // If flag is set to also require EXECUTE perm then system must support execute
@@ -3102,7 +3102,7 @@ public class SystemsServiceImpl implements SystemsService
   private void checkAuthOwnerUnkown(ResourceRequestUser rUser, SystemOperation op, String systemId)
           throws TapisException, TapisClientException
   {
-    checkAuth(rUser, op, systemId, nullOwner, nullTargetUser, nullPermSet, nullImpersonationId, nullSharedAppCtx);
+    checkAuth(rUser, op, systemId, nullOwner, nullTargetUser, nullPermSet, nullImpersonationId);
   }
 
   /*
@@ -3111,7 +3111,7 @@ public class SystemsServiceImpl implements SystemsService
   private void checkAuthOwnerKnown(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner)
           throws TapisException, TapisClientException
   {
-    checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, nullImpersonationId, nullSharedAppCtx);
+    checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, nullImpersonationId);
   }
 
 
@@ -3128,7 +3128,7 @@ public class SystemsServiceImpl implements SystemsService
                          String targetUser, Set<Permission> perms)
           throws TapisException, TapisClientException
   {
-    checkAuth(rUser, op, systemId, owner, targetUser, perms, nullImpersonationId, nullSharedAppCtx);
+    checkAuth(rUser, op, systemId, owner, targetUser, perms, nullImpersonationId);
   }
 
   /**
@@ -3155,19 +3155,19 @@ public class SystemsServiceImpl implements SystemsService
    * @param impersonationId - for auth check use this user in place of oboUser
    */
   private void checkAuth(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
-                         String targetUser, Set<Permission> perms, String impersonationId, String sharedAppCtx)
+                         String targetUser, Set<Permission> perms, String impersonationId)
           throws TapisException, TapisClientException
   {
     // Check service and user requests separately to avoid confusing a service name with a username
     if (rUser.isServiceRequest())
     {
       // NOTE: This call will do a final checkAuthOboUser() if no special cases apply.
-      checkAuthSvc(rUser, op, systemId, owner, targetUser, perms, impersonationId, sharedAppCtx);
+      checkAuthSvc(rUser, op, systemId, owner, targetUser, perms, impersonationId);
     }
     else
     {
       // This is an OboUser check
-      checkAuthOboUser(rUser, op, systemId, owner, targetUser, perms, impersonationId, sharedAppCtx);
+      checkAuthOboUser(rUser, op, systemId, owner, targetUser, perms, impersonationId);
     }
   }
 
@@ -3187,7 +3187,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - name of the system
    */
   private void checkAuthSvc(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
-                            String targetUser, Set<Permission> perms, String impersonationId, String sharedAppCtx)
+                            String targetUser, Set<Permission> perms, String impersonationId)
           throws TapisException, TapisClientException
   {
     // If ever called and not a svc request then fall back to denied
@@ -3213,7 +3213,7 @@ public class SystemsServiceImpl implements SystemsService
 
    // No more special cases. Do the standard auth check
    // Some services, such as Jobs, count on Systems to check auth for OboUserOrImpersonationId
-   checkAuthOboUser(rUser, op, systemId, owner, targetUser, perms, impersonationId, sharedAppCtx);
+   checkAuthOboUser(rUser, op, systemId, owner, targetUser, perms, impersonationId);
   }
 
   /**
@@ -3243,7 +3243,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param impersonationId - for auth check use this Id in place of oboUser
    */
   private void checkAuthOboUser(ResourceRequestUser rUser, SystemOperation op, String systemId, String owner,
-                                String targetUser, Set<Permission> perms, String impersonationId, String sharedAppCtx)
+                                String targetUser, Set<Permission> perms, String impersonationId)
           throws TapisException, TapisClientException
   {
     String oboTenant = rUser.getOboTenantId();
@@ -3279,9 +3279,12 @@ public class SystemsServiceImpl implements SystemsService
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser)) return;
         break;
       case read:
-        // Sharing support makes check complicated. Use separate method.
-        if (checkAuthReadExecIncludeSharing(rUser, systemId, op, owner, oboOrImpersonatedUser, sharedAppCtx)) return;
-        break;
+    	   if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
+                    isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS) ||
+                    isSystemSharedWithUser(rUser, systemId, oboOrImpersonatedUser, Permission.READ))
+              return;
+            break;
+
       case getPerms:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
             isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS)) return;
@@ -3291,8 +3294,10 @@ public class SystemsServiceImpl implements SystemsService
             isPermitted(rUser, oboTenant, oboOrImpersonatedUser, systemId, Permission.MODIFY)) return;
         break;
       case execute:
-        // Sharing support makes check complicated. Use separate method.
-        if (checkAuthReadExecIncludeSharing(rUser, systemId, op, owner, oboOrImpersonatedUser, sharedAppCtx)) return;
+        if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
+                isPermitted(rUser, oboTenant, oboOrImpersonatedUser, systemId, Permission.EXECUTE) ||
+                isSystemSharedWithUser(rUser, systemId, oboOrImpersonatedUser, Permission.EXECUTE))
+          return;
         break;
       case revokePerms:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
@@ -3552,7 +3557,7 @@ public class SystemsServiceImpl implements SystemsService
     // We need owner to check auth and if system not there cannot find owner.
     if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
-    checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet, nullImpersonationId, nullSharedAppCtx);
+    checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet, nullImpersonationId);
 
     switch (shareOpName)
     {
