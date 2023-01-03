@@ -241,12 +241,6 @@ public final class IntegrationUtils
   public static final boolean isDeletedFalse = false;
   public static final boolean showDeletedFalse = false;
   public static final boolean showDeletedTrue = true;
-  public static final boolean resolveEffUserTrue = true;
-  public static final boolean resolveEffUserFalse = false;
-  public static final String resolveTypeALL = "ALL";
-  public static final String resolveTypeNONE = "NONE";
-  public static final String resolveTypeROOT_DIR = "ROOT_DIR";
-  public static final String resolveTypeEFF_USER = "EFFECTIVE_USER";
   public static final boolean sharedAppCtxTrue = true;
   public static final boolean sharedAppCtxFalse = false;
   public static final String sharedAppCtxOwner = owner1;
