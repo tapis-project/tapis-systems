@@ -1,5 +1,16 @@
 package edu.utexas.tacc.tapis.systems;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import org.jooq.tools.StringUtils;
+import org.testng.Assert;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
@@ -16,18 +27,6 @@ import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
-import org.jooq.tools.StringUtils;
-import org.testng.Assert;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 
 /*
  * Utilities and data for integration testing
@@ -242,14 +241,10 @@ public final class IntegrationUtils
   public static final boolean isDeletedFalse = false;
   public static final boolean showDeletedFalse = false;
   public static final boolean showDeletedTrue = true;
-  public static final boolean resolveEffUserTrue = true;
-  public static final boolean resolveEffUserFalse = false;
-  public static final String resolveTypeALL = "ALL";
-  public static final String resolveTypeNONE = "NONE";
-  public static final String resolveTypeROOT_DIR = "ROOT_DIR";
-  public static final String resolveTypeEFF_USER = "EFFECTIVE_USER";
   public static final boolean sharedAppCtxTrue = true;
   public static final boolean sharedAppCtxFalse = false;
+  public static final String sharedAppCtxOwner = owner1;
+  public static final String sharedAppCtxNull = null;
   public static final Instant createdNull = null;
   public static final Instant updatedNull = null;
   public static final int qMaxJobs = -1;

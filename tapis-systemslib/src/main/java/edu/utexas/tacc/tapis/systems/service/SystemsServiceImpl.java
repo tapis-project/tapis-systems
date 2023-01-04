@@ -83,7 +83,6 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_STR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFUSERID_STR;
@@ -111,6 +110,7 @@ public class SystemsServiceImpl implements SystemsService
   
   private static final Set<Permission> ALL_PERMS = new HashSet<>(Set.of(Permission.READ, Permission.MODIFY, Permission.EXECUTE));
   private static final Set<Permission> READMODIFY_PERMS = new HashSet<>(Set.of(Permission.READ, Permission.MODIFY));
+  private static final Set<Permission> EXECUTE_PERMS = new HashSet<>(Set.of(Permission.EXECUTE));
 
   private static final String SERVICE_NAME = TapisConstants.SERVICE_NAME_SYSTEMS;
   private static final String FILES_SERVICE = TapisConstants.SERVICE_NAME_FILES;
@@ -138,6 +138,7 @@ public class SystemsServiceImpl implements SystemsService
   // Named and typed null values to make it clear what is being passed in to a method
   private static final String nullOwner = null;
   private static final String nullImpersonationId = null;
+  private static final String nullSharedAppCtx = null;
   private static final String nullTargetUser = null;
   private static final Set<Permission> nullPermSet = null;
   private static final SystemShare nullSystemShare = null;
@@ -153,9 +154,7 @@ public class SystemsServiceImpl implements SystemsService
   // *********************** Enums ******************************************
   // ************************************************************************
   public enum AuthListType  {OWNED, SHARED_PUBLIC, ALL}
-  public enum ResolveType {ALL, NONE, ROOT_DIR, EFFECTIVE_USER}
   public static final AuthListType DEFAULT_LIST_TYPE = AuthListType.OWNED;
-  public static final ResolveType DEFAULT_RESOLVE_TYPE = ResolveType.ALL;
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -902,33 +901,19 @@ public class SystemsServiceImpl implements SystemsService
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
    * @param getCreds - flag indicating if credentials for effectiveUserId should be included
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
-   * @param resolveType - Controls which dynamic attributes are resolved: ALL, NONE, ROOT_DIR, EFFECTIVE_USER
    * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth will be skipped.
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod accMethod, boolean requireExecPerm,
-                           boolean getCreds, String impersonationId, String resolveType, boolean sharedAppCtx)
+                           boolean getCreds, String impersonationId, boolean sharedAppCtx)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
-
-    // Process resolveType.
-    // If none provided use the default
-    if (StringUtils.isBlank(resolveType)) resolveType = DEFAULT_RESOLVE_TYPE.name();
-    // Validate the enum (case insensitive).
-    resolveType = resolveType.toUpperCase();
-    if (!EnumUtils.isValidEnum(ResolveType.class, resolveType))
-    {
-      String msg = LibUtils.getMsgAuth("SYSLIB_RESOLVETYPE_ERROR", rUser, resolveType);
-      log.error(msg);
-      throw new IllegalArgumentException(msg);
-    }
-    ResolveType resolveTypeEnum = ResolveType.valueOf(resolveType);
 
     // For clarity and convenience
     String oboTenant = rUser.getOboTenantId();
@@ -947,7 +932,7 @@ public class SystemsServiceImpl implements SystemsService
     // Secrets get stored on different paths based on this
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
     // Determine the host login user. Not always needed, but at most 1 extra DB call for mapped loginUser
-    // And getting it now makes some of the code below a little cleaner and clearer.
+    // And getting it now makes some code below a little cleaner and clearer.
     String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, impersonationId);
     // Before resolving rootDir, determine if it is dynamic
     boolean isDynamicRootDir = isRootDirDynamic(rootDir);
@@ -960,6 +945,7 @@ public class SystemsServiceImpl implements SystemsService
     if (sharedAppCtx) checkSharedAppCtxAllowed(rUser, op, systemId);
 
     // getSystem auth check:
+    // Call checkAuth
     //   - always allow a service calling as itself to read/execute a system.
     //   - if svc not calling as itself do the normal checks using oboUserOrImpersonationId.
     //   - as always make sure auth checks are skipped if svc passes in sharedAppCtx=true.
@@ -983,11 +969,7 @@ public class SystemsServiceImpl implements SystemsService
       throw new ForbiddenException(msg);
     }
 
-    // If requested set resolved effectiveUserId in result
-    if (ResolveType.ALL.equals(resolveTypeEnum) || ResolveType.EFFECTIVE_USER.equals(resolveTypeEnum))
-    {
-      system.setEffectiveUserId(resolvedEffectiveUserId);
-    }
+    system.setEffectiveUserId(resolvedEffectiveUserId);
 
     // If credentials are requested, fetch them now.
     // Note that resolved effectiveUserId not used to look up credentials.
@@ -1009,13 +991,6 @@ public class SystemsServiceImpl implements SystemsService
       // Use private internal method instead of public API to skip auth and other checks not needed here.
       Credential cred = getCredential(rUser, system, credTargetUser, tmpAccMethod, isStaticEffectiveUser);
       system.setAuthnCredential(cred);
-    }
-
-    // If requested resolve and set rootDir in result
-    if (ResolveType.ALL.equals(resolveTypeEnum) || ResolveType.ROOT_DIR.equals(resolveTypeEnum))
-    {
-      String resolvedRootDir = resolveRootDir(rUser, system, impersonationId, resolvedEffectiveUserId, isStaticEffectiveUser);
-      system.setRootDir(resolvedRootDir);
     }
 
     // Update dynamically computed flags.
@@ -1103,8 +1078,6 @@ public class SystemsServiceImpl implements SystemsService
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
-   * @param resolveEffectiveUser - If effectiveUserId is set to ${apiUserId} then resolve it, else return value
-   *                               provided in system definition. By default, this is true.
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return List of TSystem objects
@@ -1113,7 +1086,7 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList,
                                   int limit, List<OrderBy> orderByList, int skip, String startAfter,
-                                  boolean resolveEffectiveUser, boolean includeDeleted, String listType)
+                                  boolean includeDeleted, String listType)
           throws TapisException, TapisClientException
   {
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1175,7 +1148,7 @@ public class SystemsServiceImpl implements SystemsService
       system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), system.getId()));
       system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
       system.setIsDynamicRootDir(isRootDirDynamic(system.getRootDir()));
-      if (resolveEffectiveUser) system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
+      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
     }
     return systems;
   }
@@ -1189,8 +1162,6 @@ public class SystemsServiceImpl implements SystemsService
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param skip - number of results to skip (may not be used with startAfter)
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
-   * @param resolveEffectiveUser - If effectiveUserId is set to ${apiUserId} then resolve it, else return value
-   *                               provided in system definition. By default, this is true.
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return List of TSystem objects
@@ -1199,12 +1170,12 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser, String sqlSearchStr, int limit,
                                                    List<OrderBy> orderByList, int skip, String startAfter,
-                                                   boolean resolveEffectiveUser, boolean includeDeleted, String listType)
+                                                   boolean includeDeleted, String listType)
           throws TapisException, TapisClientException
   {
     // If search string is empty delegate to getSystems()
     if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip,
-                                                             startAfter, resolveEffectiveUser, includeDeleted, listType);
+                                                             startAfter, includeDeleted, listType);
 
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
@@ -1262,7 +1233,7 @@ public class SystemsServiceImpl implements SystemsService
       system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), system.getId()));
       system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
       system.setIsDynamicRootDir(isRootDirDynamic(system.getRootDir()));
-      if (resolveEffectiveUser) system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
+      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
     }
     return systems;
   }
@@ -1272,13 +1243,11 @@ public class SystemsServiceImpl implements SystemsService
    * Use provided string containing a valid SQL where clause for the search.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param matchStr - string containing a valid SQL where clause
-   * @param resolveEffectiveUser - If effectiveUserId is set to ${apiUserId} then resolve it, else return value
-   *                               provided in system definition. By default, this is true.
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr, boolean resolveEffectiveUser)
+  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr)
           throws TapisException, TapisClientException
   {
     if (rUser == null)  throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1306,7 +1275,7 @@ public class SystemsServiceImpl implements SystemsService
       system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), system.getId()));
       system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
       system.setIsDynamicRootDir(isRootDirDynamic(system.getRootDir()));
-      if (resolveEffectiveUser) system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
+      system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
     }
     return systems;
   }
@@ -2378,7 +2347,6 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Determine the resolved rootDir for static and dynamic cases.
-   * NOTE: This method should only be called when resolveEffective == true
    * Resolving rootDir may involve remote call to system host, so do that only if needed
    * If HOST_EVAL is present, call will be made to system host, credentials will be fetched.
    *
@@ -3207,7 +3175,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Always allow read, execute, getPerms for a service calling as itself.
     if ((op == SystemOperation.read || op == SystemOperation.execute || op == SystemOperation.getPerms) &&
-            (svcName.equals(rUser.getOboUserId()) && svcTenant.equals(rUser.getOboTenantId()))) return;
+        (svcName.equals(rUser.getOboUserId()) && svcTenant.equals(rUser.getOboTenantId()))) return;
 
    // No more special cases. Do the standard auth check
    // Some services, such as Jobs, count on Systems to check auth for OboUserOrImpersonationId
@@ -3285,13 +3253,11 @@ public class SystemsServiceImpl implements SystemsService
 
       case getPerms:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
-                isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS))
-          return;
+            isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS)) return;
         break;
       case modify:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
-                isPermitted(rUser, oboTenant, oboOrImpersonatedUser, systemId, Permission.MODIFY))
-          return;
+            isPermitted(rUser, oboTenant, oboOrImpersonatedUser, systemId, Permission.MODIFY)) return;
         break;
       case execute:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
@@ -3301,8 +3267,7 @@ public class SystemsServiceImpl implements SystemsService
         break;
       case revokePerms:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
-                (oboOrImpersonatedUser.equals(targetUser) && allowUserRevokePerm(rUser, systemId, perms)))
-          return;
+            (oboOrImpersonatedUser.equals(targetUser) && allowUserRevokePerm(rUser, systemId, perms))) return;
         break;
       case setCred:
       case removeCred:
@@ -3316,7 +3281,46 @@ public class SystemsServiceImpl implements SystemsService
     // Not authorized, throw an exception
     throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()));
   }
-   
+
+  /*
+   * Check for READ or EXEC auth for obo user including checks involving share grantor in the case of a shared app context.
+   * Return true if allowed, false if not allowed
+   */
+  private boolean checkAuthReadExecIncludeSharing(ResourceRequestUser rUser, String systemId, SystemOperation op,
+                                                  String owner, String oboOrImpersonatedUser, String sharedAppCtxGrantor)
+          throws TapisException, TapisClientException
+  {
+    String oboTenant = rUser.getOboTenantId();
+    boolean inSharedAppCtx = !StringUtils.isBlank(sharedAppCtxGrantor);
+    // Start with owner checks. If owner then no need for calls to SK.
+    // If obo user is owner or in shared context and share grantor is owner then allow.
+    if (oboOrImpersonatedUser.equals(owner) || (inSharedAppCtx && sharedAppCtxGrantor.equals(owner))) return true;
+
+    // Figure out which perms to check. Those for READ or those for EXECUTE
+    Permission sharePerm = Permission.READ;
+    Set<Permission> anyPerms = READMODIFY_PERMS;
+    if (SystemOperation.execute.equals(op))
+    {
+      sharePerm = Permission.EXECUTE;
+      anyPerms = EXECUTE_PERMS;
+    }
+    // If obo user is allowed for any of usual reasons then allow.
+    // Allowed if:
+    //    obo is admin, obo has fined-grained permissions, system is shared with obo
+    if (hasAdminRole(rUser) || isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, anyPerms) ||
+        isSystemSharedWithUser(rUser, systemId, oboOrImpersonatedUser, sharePerm)) return true;
+
+    // If in shared app context and share grantor has access then allow.
+    // Allowed if:
+    //    share grantor has fine-grained permissions, system is shared with grantor
+    // NOTE: share grantor is not given tenant admin authorizations
+    if (inSharedAppCtx &&
+        (isPermittedAny(rUser, oboTenant, sharedAppCtxGrantor, systemId, anyPerms) ||
+         isSystemSharedWithUser(rUser, systemId, sharedAppCtxGrantor, sharePerm))) return true;
+    // Not authorized, return false
+    return false;
+  }
+
   /**
    * 
    * Check if the system is shared with the user.
@@ -3483,6 +3487,7 @@ public class SystemsServiceImpl implements SystemsService
   /*
    * Common routine to update share/unshare for a list of users.
    * Can be used to mark a system publicly shared with all users in tenant including "~public" in the set of users.
+   * Sharing and unsharing always involves privileges READ and EXECUTE.
    *
    * @param rUser - Resource request user
    * @param shareOpName - Operation type: share/unshare

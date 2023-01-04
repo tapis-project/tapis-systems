@@ -728,7 +728,8 @@ public final class TSystem
   private boolean isValidHost(String host)
   {
     // First check for valid IP address, then for valid domain name
-    if (DomainValidator.getInstance().isValid(host) || InetAddressValidator.getInstance().isValid(host)) return true;
+    boolean allowLocal = true;
+    if (DomainValidator.getInstance(allowLocal).isValid(host) || InetAddressValidator.getInstance().isValid(host)) return true;
     else return false;
   }
 
