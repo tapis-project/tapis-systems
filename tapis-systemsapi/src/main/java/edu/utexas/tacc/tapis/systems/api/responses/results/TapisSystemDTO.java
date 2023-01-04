@@ -35,7 +35,6 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.ID_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.IMPORT_REF_ID;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_DTN_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_DYNAMIC_EFFECTIVE_USER;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_DYNAMIC_ROOT_DIR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_PUBLIC_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_CAPABILITIES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_ENV_VARIABLES_FIELD;
@@ -68,7 +67,6 @@ public final class TapisSystemDTO
   private static final Gson gson = TapisGsonUtils.getGson();
 
   public boolean isPublic;
-  public boolean isDynamicRootDir;
   public boolean isDynamicEffectiveUser;
 
   public String tenant;
@@ -160,7 +158,6 @@ public final class TapisSystemDTO
     if (jobMaxJobs < 0) jobMaxJobs = Integer.MAX_VALUE;
     if (jobMaxJobsPerUser < 0) jobMaxJobsPerUser = Integer.MAX_VALUE;
     isPublic = s.isPublic();
-    isDynamicRootDir = s.isDynamicRootDir();
     isDynamicEffectiveUser = s.isDynamicEffectiveUser();
   }
 
@@ -269,7 +266,6 @@ public final class TapisSystemDTO
       case CREATED_FIELD -> jsonObject.addProperty(CREATED_FIELD, created.toString());
       case UPDATED_FIELD -> jsonObject.addProperty(UPDATED_FIELD, updated.toString());
       case IS_PUBLIC_FIELD -> jsonObject.addProperty(IS_PUBLIC_FIELD, Boolean.toString(isPublic));
-      case IS_DYNAMIC_ROOT_DIR -> jsonObject.addProperty(IS_DYNAMIC_ROOT_DIR, Boolean.toString(isDynamicRootDir));
       case IS_DYNAMIC_EFFECTIVE_USER -> jsonObject.addProperty(IS_DYNAMIC_EFFECTIVE_USER, Boolean.toString(isDynamicEffectiveUser));
     }
   }

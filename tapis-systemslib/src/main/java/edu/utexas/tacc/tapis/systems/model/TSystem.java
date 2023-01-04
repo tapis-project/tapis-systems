@@ -6,17 +6,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.apache.commons.lang3.StringUtils;
-
-import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
-import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import org.apache.commons.validator.routines.DomainValidator;
 import org.apache.commons.validator.routines.InetAddressValidator;
+
+import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
+import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
+import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
 /*
  * Tapis System representing a server or collection of servers exposed through a
@@ -84,7 +83,6 @@ public final class TSystem
   public static final String DTN_MOUNT_POINT_FIELD = "dtnMountPoint";
   public static final String DTN_MOUNT_SOURCE_PATH_FIELD = "dtnMountSourcePath";
   public static final String IS_PUBLIC_FIELD = "isPublic";
-  public static final String IS_DYNAMIC_ROOT_DIR = "isDynamicRootDir";
   public static final String IS_DYNAMIC_EFFECTIVE_USER = "isDynamicEffectiveUser";
   public static final String IS_DTN_FIELD = "isDtn";
   public static final String CAN_EXEC_FIELD = "canExec";
@@ -124,7 +122,6 @@ public final class TSystem
   public static final int DEFAULT_JOBMAXJOBSPERUSER = -1;
   public static final boolean DEFAULT_CAN_RUN_BATCH = false;
   public static final boolean DEFAULT_IS_PUBLIC = false;
-  public static final boolean DEFAULT_IS_DYNAMIC_ROOT_DIR = false;
   public static final boolean DEFAULT_IS_DYNAMIC_EFFECTIVE_USER = false;
 
   // Validation pattern strings
@@ -168,7 +165,6 @@ public final class TSystem
   // ************************************************************************
 
   private boolean isPublic = DEFAULT_IS_PUBLIC;
-  private boolean isDynamicRootDir = DEFAULT_IS_DYNAMIC_ROOT_DIR;
   private boolean isDynamicEffectiveUser = DEFAULT_IS_DYNAMIC_EFFECTIVE_USER;
 
   // NOTE: In order to use jersey's SelectableEntityFilteringFeature fields cannot be final.
@@ -282,7 +278,6 @@ public final class TSystem
     uuid = t.getUuid();
     deleted = t.isDeleted();
     isPublic = t.isPublic();
-    isDynamicRootDir = t.isDynamicRootDir();
     isDynamicEffectiveUser = t.isDynamicEffectiveUser();
   }
 
@@ -393,7 +388,6 @@ public final class TSystem
     notes = t.getNotes();
     importRefId = t.getImportRefId();
     isPublic = t.isPublic();
-    isDynamicRootDir = t.isDynamicRootDir();
     isDynamicEffectiveUser = t.isDynamicEffectiveUser();
   }
 
@@ -485,8 +479,9 @@ public final class TSystem
   /**
    * Check for invalid attributes
    *   systemId, host
-   *   For LINUX or IRODS rootDir must start with / or HOST_EVAL
-   *   If rootDir uses HOST_EVAL then system type must be LINUX
+   *   For LINUX or IRODS rootDir must start with /
+   *TODO/TBD   For LINUX or IRODS rootDir must start with / or HOST_EVAL
+   *TODO/TBD   If rootDir uses HOST_EVAL then system type must be LINUX
    */
   private void checkAttrValidity(List<String> errMessages)
   {
@@ -497,12 +492,14 @@ public final class TSystem
 
     if (SystemType.LINUX.equals(systemType) || SystemType.IRODS.equals(systemType))
     {
-      if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/")  && !rootDir.startsWith(HOST_EVAL))
-        errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NOSLASH", systemType.name(), rootDir));
-    }
-    if (!SystemType.LINUX.equals(systemType) && rootDir.contains(HOST_EVAL))
-    {
-      errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NO_HOST_EVAL", systemType.name(), rootDir));
+      if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/"))
+        errMessages.add(LibUtils.getMsg("SYSLIB_LINUX_ROOTDIR_NOSLASH", rootDir));
+//TODO/TBD      if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/")  && !rootDir.startsWith(HOST_EVAL))
+//TODO/TBD        errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NOSLASH", systemType.name(), rootDir));
+//TODO/TBD    }
+//TODO/TBD    if (!SystemType.LINUX.equals(systemType) && rootDir.contains(HOST_EVAL))
+//TODO/TBD    {
+//TODO/TBD      errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NO_HOST_EVAL", systemType.name(), rootDir));
     }
   }
 
@@ -663,7 +660,7 @@ public final class TSystem
    * Check misc attribute restrictions
    *  If systemType is LINUX or IRODS then:
    *           - rootDir is required
-   *           - if rootDir contains HOST_EVAL then it must meet certain criteria
+   * TODO/TBD           - if rootDir contains HOST_EVAL then it must meet certain criteria
    *  If systemType is IRODS then port is required.
    *  effectiveUserId is restricted.
    *  If effectiveUserId is dynamic then providing credentials is disallowed
@@ -671,24 +668,29 @@ public final class TSystem
    */
   private void checkAttrMisc(List<String> errMessages)
   {
-    // LINUX and IRODS systems require rootDir and if dynamic must meet certain criteria
-    if (systemType == SystemType.LINUX || systemType == SystemType.IRODS)
+    // LINUX and IRODS systems require rootDir
+    if ((systemType == SystemType.LINUX || systemType == SystemType.IRODS) && StringUtils.isBlank(rootDir))
     {
-      if (StringUtils.isBlank(rootDir)) errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR", systemType.name()));
-      // If rootDir contains HOST_EVAL then must have only 1 occurrence of HOST_EVAL,
-      //    and it must follow a certain pattern: "HOST_EVAL($variable)"
-      if (rootDir != null && rootDir.contains(HOST_EVAL))
-      {
-        if (StringUtils.countMatches(rootDir, HOST_EVAL) != 1)
-        {
-          errMessages.add(LibUtils.getMsg("SYSLIB_HOSTEVAL_MULTIPLE", rootDir));
-        }
-        if (!rootDir.matches(PATTERN_STR_HOST_EVAL))
-        {
-          errMessages.add(LibUtils.getMsg("SYSLIB_HOSTEVAL_ERR", rootDir));
-        }
-      }
+      errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR", systemType.name()));
     }
+//TODO/TBD    // LINUX and IRODS systems require rootDir and if dynamic must meet certain criteria
+//TODO/TBD    if (systemType == SystemType.LINUX || systemType == SystemType.IRODS)
+//TODO/TBD    {
+//TODO/TBD      if (StringUtils.isBlank(rootDir)) errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR", systemType.name()));
+//TODO/TBD      // If rootDir contains HOST_EVAL then must have only 1 occurrence of HOST_EVAL,
+//TODO/TBD      //    and it must follow a certain pattern: "HOST_EVAL($variable)"
+//TODO/TBD      if (rootDir != null && rootDir.contains(HOST_EVAL))
+//TODO/TBD      {
+//TODO/TBD        if (StringUtils.countMatches(rootDir, HOST_EVAL) != 1)
+//TODO/TBD        {
+//TODO/TBD          errMessages.add(LibUtils.getMsg("SYSLIB_HOSTEVAL_MULTIPLE", rootDir));
+//TODO/TBD        }
+//TODO/TBD        if (!rootDir.matches(PATTERN_STR_HOST_EVAL))
+//TODO/TBD        {
+//TODO/TBD          errMessages.add(LibUtils.getMsg("SYSLIB_HOSTEVAL_ERR", rootDir));
+//TODO/TBD        }
+//TODO/TBD      }
+//TODO/TBD    }
 
     // IRODS systems require port
     if (systemType == SystemType.IRODS && !isValidPort(port))
@@ -888,8 +890,6 @@ public final class TSystem
 
   public boolean isPublic() { return isPublic; }
   public void setIsPublic(boolean b) { isPublic = b;  }
-  public boolean isDynamicRootDir() { return isDynamicRootDir; }
-  public void setIsDynamicRootDir(boolean b) { isDynamicRootDir = b;  }
   public boolean isDynamicEffectiveUser() { return isDynamicEffectiveUser; }
   public void setIsDynamicEffectiveUser(boolean b) { isDynamicEffectiveUser = b;  }
 }
