@@ -267,15 +267,18 @@ public class SystemsServiceImpl implements SystemsService
     // Determine if effectiveUserId is static
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
-    // Determine if rootDir is dynamic
-    boolean isDynamicRootDir = isRootDirDynamic(system.getRootDir());
-
-    // If rootDir is not dynamic then normalize it
-    if (!isDynamicRootDir)
-    {
-      String normalizedRootDir = PathUtils.getAbsolutePath("/", system.getRootDir()).toString();
-      system.setRootDir(normalizedRootDir);
-    }
+// TODO: Update when dynamic rootDir is supported via parent-child.
+    String normalizedRootDir = PathUtils.getAbsolutePath("/", system.getRootDir()).toString();
+    system.setRootDir(normalizedRootDir);
+//    // Determine if rootDir is dynamic
+//    boolean isDynamicRootDir = isRootDirDynamic(system.getRootDir());
+//
+//    // If rootDir is not dynamic then normalize it
+//    if (!isDynamicRootDir)
+//    {
+//      String normalizedRootDir = PathUtils.getAbsolutePath("/", system.getRootDir()).toString();
+//      system.setRootDir(normalizedRootDir);
+//    }
     // Set flag indicating if we will deal with credentials.
     // We only do that when credentials provided and effectiveUser is static
     Credential cred = system.getAuthnCredential();
@@ -380,7 +383,6 @@ public class SystemsServiceImpl implements SystemsService
     }
     // Update dynamically computed flags.
     system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), systemId));
-    system.setIsDynamicRootDir(isDynamicRootDir);
     system.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
     return system;
   }
@@ -499,8 +501,9 @@ public class SystemsServiceImpl implements SystemsService
     // Set flag indicating if effectiveUserId is static
     boolean isStaticEffectiveUser = !effectiveUserId.equals(APIUSERID_VAR);
 
+// TODO update when dynamic rootDir is supported via parent-child
     // Before resolving rootDir, determine if it is dynamic
-    boolean isDynamicRootDir = isRootDirDynamic(putSystem.getRootDir());
+//    boolean isDynamicRootDir = isRootDirDynamic(putSystem.getRootDir());
 
     // Set flag indicating if we will deal with credentials.
     // We only do that when credentials provided and effectiveUser is static
@@ -570,7 +573,6 @@ public class SystemsServiceImpl implements SystemsService
 
     // Update dynamically computed flags.
     putSystem.setIsPublic(isSystemSharedPublic(rUser, putSystem.getTenant(), systemId));
-    putSystem.setIsDynamicRootDir(isDynamicRootDir);
     putSystem.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
     return updatedTSystem;
   }
@@ -934,8 +936,6 @@ public class SystemsServiceImpl implements SystemsService
     // Determine the host login user. Not always needed, but at most 1 extra DB call for mapped loginUser
     // And getting it now makes some code below a little cleaner and clearer.
     String resolvedEffectiveUserId = resolveEffectiveUserId(rUser, system, impersonationId);
-    // Before resolving rootDir, determine if it is dynamic
-    boolean isDynamicRootDir = isRootDirDynamic(rootDir);
 
     // ------------------------- Check authorization -------------------------
     // If impersonationId supplied confirm that it is allowed
@@ -995,7 +995,6 @@ public class SystemsServiceImpl implements SystemsService
 
     // Update dynamically computed flags.
     system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), systemId));
-    system.setIsDynamicRootDir(isDynamicRootDir);
     system.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
     return system;
   }
@@ -1147,7 +1146,6 @@ public class SystemsServiceImpl implements SystemsService
     {
       system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), system.getId()));
       system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
-      system.setIsDynamicRootDir(isRootDirDynamic(system.getRootDir()));
       system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
     }
     return systems;
@@ -1231,8 +1229,6 @@ public class SystemsServiceImpl implements SystemsService
     for (TSystem system : systems)
     {
       system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), system.getId()));
-      system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
-      system.setIsDynamicRootDir(isRootDirDynamic(system.getRootDir()));
       system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
     }
     return systems;
@@ -1274,7 +1270,6 @@ public class SystemsServiceImpl implements SystemsService
     {
       system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), system.getId()));
       system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
-      system.setIsDynamicRootDir(isRootDirDynamic(system.getRootDir()));
       system.setEffectiveUserId(resolveEffectiveUserId(rUser, system, nullImpersonationId));
     }
     return systems;
@@ -1524,9 +1519,6 @@ public class SystemsServiceImpl implements SystemsService
    * For a dynamic TSystem (effUsr=$apiUsr) if targetUser is not the same as the Tapis user and a loginUser has been
    * provided then a loginUser mapping is created.
    *
-   * If the system has a dynamic *rootDir* and *skipCredCheck* is false, then create the resolved *rootDir* on
-   *   the system host.
-   *
    * System must exist and not be deleted.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
@@ -1611,22 +1603,23 @@ public class SystemsServiceImpl implements SystemsService
       dao.createOrUpdateLoginUserMapping(rUser.getOboTenantId(), systemId, targetUser, loginUser);
     }
 
+    // TODO/TBD: will we still need anything like this once we support dynamic rootDir via parent-child?
     // If it is LINUX with a dynamic rootDir, and we have not skipped the cred check, then we check for and
     //   possibly create the rootDir
-    if (isRootDirDynamic(system.getRootDir()) && !skipCredCheck && SystemType.LINUX.equals(systemType))
-    {
-      // Determine effectiveUser
-      // None of the public methods that call this support impersonation so use null for impersonationId
-      String effectiveUser;
-      if (!StringUtils.isBlank(loginUser)) effectiveUser = loginUser;
-      else effectiveUser = resolveEffectiveUserId(rUser, system, nullImpersonationId);
-      String rootDir = resolveRootDir(rUser, system, nullImpersonationId, effectiveUser, isStaticEffectiveUser);
-      // Update values in the system object. They will be used when creating the dir
-      system.setAuthnCredential(cred);
-      system.setEffectiveUserId(effectiveUser);
-      system.setRootDir(rootDir);
-      createDynamicRootDir(rUser, system);
-    }
+//    if (isRootDirDynamic(system.getRootDir()) && !skipCredCheck && SystemType.LINUX.equals(systemType))
+//    {
+//      // Determine effectiveUser
+//      // None of the public methods that call this support impersonation so use null for impersonationId
+//      String effectiveUser;
+//      if (!StringUtils.isBlank(loginUser)) effectiveUser = loginUser;
+//      else effectiveUser = resolveEffectiveUserId(rUser, system, nullImpersonationId);
+//      String rootDir = resolveRootDir(rUser, system, nullImpersonationId, effectiveUser, isStaticEffectiveUser);
+//      // Update values in the system object. They will be used when creating the dir
+//      system.setAuthnCredential(cred);
+//      system.setEffectiveUserId(effectiveUser);
+//      system.setRootDir(rootDir);
+//      createDynamicRootDir(rUser, system);
+//    }
 
     // Construct Json string representing the update, with actual secrets masked out
     Credential maskedCredential = Credential.createMaskedCredential(cred);
@@ -2341,68 +2334,71 @@ public class SystemsServiceImpl implements SystemsService
   private static boolean isRootDirDynamic(String rootDir)
   {
     if (StringUtils.isBlank(rootDir)) return false;
-
+// TODO/TBD: remove EFFUSERID_VAR. Once we support dynamic rootDir as a one-time step when creating child via parent-child support
+//           allowing for $effectiveUserId in a dynamic rootDir seems not very useful. Seems reasonable/preferable to have users
+//           supply the actual effective user at create time.
     return rootDir.matches(PATTERN_STR_HOST_EVAL) || rootDir.contains(EFFUSERID_VAR);
   }
 
-  /**
-   * Determine the resolved rootDir for static and dynamic cases.
-   * Resolving rootDir may involve remote call to system host, so do that only if needed
-   * If HOST_EVAL is present, call will be made to system host, credentials will be fetched.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param system - the system in question
-   * @param impersonationId - use provided Tapis username instead of oboUser when resolving effectiveUserId
-   * @param resolvedEffectiveUser - host login user
-   * @param isStaticEffectiveUser - 
-   * @return Resolved value for rootDir
-   */
-  private String resolveRootDir(ResourceRequestUser rUser, TSystem system, String impersonationId, String resolvedEffectiveUser,
-                                boolean isStaticEffectiveUser)
-          throws TapisException
-  {
-    String rootDir = system.getRootDir();
-    String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
-    boolean rootDirIsDynamic = isRootDirDynamic(rootDir);
-
-    // If not dynamic we are done.
-    if (StringUtils.isBlank(rootDir) || !rootDirIsDynamic) return rootDir;
-
-    Credential cred = null;
-    // If necessary fetch the credentials
-    if (rootDir.matches(PATTERN_STR_HOST_EVAL))
-    {
-      // Determine targetUser for fetching credential.
-      //   If static use effectiveUserId, else use oboOrImpersonatedUser
-      String credTargetUser;
-      if (isStaticEffectiveUser)
-        credTargetUser = system.getEffectiveUserId();
-      else
-        credTargetUser = oboOrImpersonatedUser;
-      // Use private internal method instead of public API to skip auth and other checks not needed here.
-      cred = getCredential(rUser, system, credTargetUser, system.getDefaultAuthnMethod(), isStaticEffectiveUser);
-    }
-
-    // MacroResolver requires a TapisSystem, so create a partially filled in TapisSystem from the TSystem
-    TapisSystem tapisSystem = createTapisSystemFromTSystem(system, cred);
-    // Make sure TapisSystem has correct host login user. It is possible for effUser to still be unresolved.
-    tapisSystem.setEffectiveUserId(resolvedEffectiveUser);
-
-    // Create list of macros: effectiveUserId
-    var macros = new TreeMap<String,String>();
-    macros.put(EFFUSERID_STR, resolvedEffectiveUser);
-
-    // Resolve HOST_EVAL and other macros
-    MacroResolver macroResolver = new MacroResolver(tapisSystem, macros);
-    String resolvedRootDir = macroResolver.resolve(rootDir);
-    String normalizedRootDir = PathUtils.getRelativePath(resolvedRootDir).toString();
-    return normalizedRootDir;
-  }
+// TODO: Update when dynamic rootDir is supported via parent-child.
+//  /**
+//   * Determine the resolved rootDir for static and dynamic cases.
+//   * Resolving rootDir may involve remote call to system host, so do that only if needed
+//   * If HOST_EVAL is present, call will be made to system host, credentials will be fetched.
+//   *
+//   * @param rUser - ResourceRequestUser containing tenant, user and request info
+//   * @param system - the system in question
+//   * @param impersonationId - use provided Tapis username instead of oboUser when resolving effectiveUserId
+//   * @param resolvedEffectiveUser - host login user
+//   * @param isStaticEffectiveUser -
+//   * @return Resolved value for rootDir
+//   */
+//  private String resolveRootDir(ResourceRequestUser rUser, TSystem system, String impersonationId, String resolvedEffectiveUser,
+//                                boolean isStaticEffectiveUser)
+//          throws TapisException
+//  {
+//    String rootDir = system.getRootDir();
+//    String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
+//    boolean rootDirIsDynamic = isRootDirDynamic(rootDir);
+//
+//    // If not dynamic we are done.
+//    if (StringUtils.isBlank(rootDir) || !rootDirIsDynamic) return rootDir;
+//
+//    Credential cred = null;
+//    // If necessary fetch the credentials
+//    if (rootDir.matches(PATTERN_STR_HOST_EVAL))
+//    {
+//      // Determine targetUser for fetching credential.
+//      //   If static use effectiveUserId, else use oboOrImpersonatedUser
+//      String credTargetUser;
+//      if (isStaticEffectiveUser)
+//        credTargetUser = system.getEffectiveUserId();
+//      else
+//        credTargetUser = oboOrImpersonatedUser;
+//      // Use private internal method instead of public API to skip auth and other checks not needed here.
+//      cred = getCredential(rUser, system, credTargetUser, system.getDefaultAuthnMethod(), isStaticEffectiveUser);
+//    }
+//
+//    // MacroResolver requires a TapisSystem, so create a partially filled in TapisSystem from the TSystem
+//    TapisSystem tapisSystem = createTapisSystemFromTSystem(system, cred);
+//    // Make sure TapisSystem has correct host login user. It is possible for effUser to still be unresolved.
+//    tapisSystem.setEffectiveUserId(resolvedEffectiveUser);
+//
+//    // Create list of macros: effectiveUserId
+//    var macros = new TreeMap<String,String>();
+//    macros.put(EFFUSERID_STR, resolvedEffectiveUser);
+//
+//    // Resolve HOST_EVAL and other macros
+//    MacroResolver macroResolver = new MacroResolver(tapisSystem, macros);
+//    String resolvedRootDir = macroResolver.resolve(rootDir);
+//    String normalizedRootDir = PathUtils.getRelativePath(resolvedRootDir).toString();
+//    return normalizedRootDir;
+//  }
 
   /**
    * Build a client based TapisSystem from a TSystem for use by MacroResolver and other shared code.
    * Need to fill in credentials and authn method if HOST_EVAL needs evaluation
-   * NOTE: Following attributes are not set:
+   * NOTE: Following attributes are not needed and so are not set:
    *   created, updated, tags, notes, jobRuntimes, jobEnvVariables,
    *   batchScheduler, batchLogicalQueues, jobCapabilities
    * @param s - a TSystem
@@ -3755,120 +3751,121 @@ public class SystemsServiceImpl implements SystemsService
     return retCred;
   }
 
-  /**
-   * Use provided system to check target rootDir and create it if necessary.
-   * TSystem must have updated values for credential, effectiveUser and rootDir
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param system - the TSystem to check, with updated values for credential, effUser and rootDir
-   */
-  private void createDynamicRootDir(ResourceRequestUser rUser, TSystem system) throws TapisException
-  {
-    String opName = "createDynamicRootDir";
-    // We must have the system and credentials to check.
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (system == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
-    if (system.getAuthnCredential() == null)
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_CRED1", rUser));
-
-    AuthnMethod authnMethod = system.getDefaultAuthnMethod();
-    // Should always have an authnMethod by now, but just in case
-    if (authnMethod == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_CRED2", rUser));
-
-    SystemType systemType = system.getSystemType();
-    String systemId = system.getId();
-    String host = system.getHost();
-    String rootDir = system.getRootDir();
-    String effUser = system.getEffectiveUserId();
-    Credential cred = system.getAuthnCredential();
-    String msg;
-    // This is only supported for LINUX systems
-    if (!SystemType.LINUX.equals(systemType))
-    {
-      msg = LibUtils.getMsgAuth("SYSLIB_OP_NOT_SUPPORTED", rUser, opName, systemId, systemType);
-      throw new TapisException(msg);
-    }
-    // Shared code requires a TapisSystem, so create a partially filled in TapisSystem from the TSystem
-    TapisSystem tapisSystem = createTapisSystemFromTSystem(system, cred);
-    // Use shared code to construct an SFTP client.
-    TapisSSH tapisSSH = new TapisSSH(tapisSystem);
-    SSHSftpClient sftpClient;
-    SSHConnection conn = null;
-    // Wrap in a try, so we can close the connection at the end.
-    try
-    {
-      conn = tapisSSH.getConnection();
-      try {sftpClient = conn.getSftpClient();}
-      catch (IOException e)
-      {
-        msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR1", rUser, systemId, systemType, host, effUser, rootDir, e.getMessage());
-        throw new TapisException(msg);
-      }
-      // We have a connection and an SFTP client. Use it to get info on the path
-      SftpClient.Attributes attrs = null;
-      try
-      {
-        // rootDir should already be a normalized absolute path. No need to process it further.
-        // Get info on the target path.
-        attrs = sftpClient.stat(rootDir);
-      }
-      catch (IOException e)
-      {
-        // Path does not exist or there was an SFTP client error. Figure out which.
-        // If due to NotFound then we need to create it.
-        if (e.getMessage().toLowerCase().contains(NO_SUCH_FILE))
-        {
-          msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_NONE", rUser, systemId, systemType, host, effUser, rootDir);
-          log.debug(msg);
-        }
-        else
-        {
-          msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR3", rUser, systemId, systemType, host, effUser, rootDir, e.getMessage());
-          throw new TapisException(msg);
-        }
-      }
-      // If path exists, check it. If it is a directory we are done.
-      if (attrs != null && attrs.isDirectory())
-      {
-        msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_EXISTS", rUser, systemId, systemType, host, effUser, rootDir);
-        log.debug(msg);
-        return;
-      }
-      // If it exists and is a file then it is an error.
-      if (attrs != null && !attrs.isDirectory())
-      {
-        msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR2", rUser, systemId, systemType, host, effUser, rootDir);
-        throw new TapisException(msg);
-      }
-      //
-      // rootDir does not exist, time to create it
-      //
-      try
-      {
-        Path tmpPath = Paths.get("/");
-        // Walk the path parts creating directories
-        for (Path part : Paths.get(rootDir))
-        {
-          tmpPath = tmpPath.resolve(part);
-          try {sftpClient.mkdir(tmpPath.toString());} catch (SftpException ignored) {}
-        }
-      }
-      catch (IOException e)
-      {
-        msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR3", rUser, systemId, systemType, host, effUser, rootDir, e.getMessage());
-        throw new TapisException(msg);
-      }
-    }
-    catch (TapisException e) { throw e; }
-    catch (Exception e)
-    {
-      msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR3", rUser, systemId, systemType, host, effUser, rootDir, e.getMessage());
-      throw new TapisException(msg);
-    }
-    finally { if (conn != null) conn.close(); }
-
-    // rootDir was created.
-    msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_DONE", rUser, systemId, systemType, host, effUser, rootDir);
-    log.debug(msg);
-  }
+// TODO: Update or remove when dynamic rootDir is supported via parent-child.
+//  /**
+//   * Use provided system to check target rootDir and create it if necessary.
+//   * TSystem must have updated values for credential, effectiveUser and rootDir
+//   *
+//   * @param rUser - ResourceRequestUser containing tenant, user and request info
+//   * @param system - the TSystem to check, with updated values for credential, effUser and rootDir
+//   */
+//  private void createDynamicRootDir(ResourceRequestUser rUser, TSystem system) throws TapisException
+//  {
+//    String opName = "createDynamicRootDir";
+//    // We must have the system and credentials to check.
+//    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+//    if (system == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+//    if (system.getAuthnCredential() == null)
+//      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_CRED1", rUser));
+//
+//    AuthnMethod authnMethod = system.getDefaultAuthnMethod();
+//    // Should always have an authnMethod by now, but just in case
+//    if (authnMethod == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_CRED2", rUser));
+//
+//    SystemType systemType = system.getSystemType();
+//    String systemId = system.getId();
+//    String host = system.getHost();
+//    String rootDir = system.getRootDir();
+//    String effUser = system.getEffectiveUserId();
+//    Credential cred = system.getAuthnCredential();
+//    String msg;
+//    // This is only supported for LINUX systems
+//    if (!SystemType.LINUX.equals(systemType))
+//    {
+//      msg = LibUtils.getMsgAuth("SYSLIB_OP_NOT_SUPPORTED", rUser, opName, systemId, systemType);
+//      throw new TapisException(msg);
+//    }
+//    // Shared code requires a TapisSystem, so create a partially filled in TapisSystem from the TSystem
+//    TapisSystem tapisSystem = createTapisSystemFromTSystem(system, cred);
+//    // Use shared code to construct an SFTP client.
+//    TapisSSH tapisSSH = new TapisSSH(tapisSystem);
+//    SSHSftpClient sftpClient;
+//    SSHConnection conn = null;
+//    // Wrap in a try, so we can close the connection at the end.
+//    try
+//    {
+//      conn = tapisSSH.getConnection();
+//      try {sftpClient = conn.getSftpClient();}
+//      catch (IOException e)
+//      {
+//        msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR1", rUser, systemId, systemType, host, effUser, rootDir, e.getMessage());
+//        throw new TapisException(msg);
+//      }
+//      // We have a connection and an SFTP client. Use it to get info on the path
+//      SftpClient.Attributes attrs = null;
+//      try
+//      {
+//        // rootDir should already be a normalized absolute path. No need to process it further.
+//        // Get info on the target path.
+//        attrs = sftpClient.stat(rootDir);
+//      }
+//      catch (IOException e)
+//      {
+//        // Path does not exist or there was an SFTP client error. Figure out which.
+//        // If due to NotFound then we need to create it.
+//        if (e.getMessage().toLowerCase().contains(NO_SUCH_FILE))
+//        {
+//          msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_NONE", rUser, systemId, systemType, host, effUser, rootDir);
+//          log.debug(msg);
+//        }
+//        else
+//        {
+//          msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR3", rUser, systemId, systemType, host, effUser, rootDir, e.getMessage());
+//          throw new TapisException(msg);
+//        }
+//      }
+//      // If path exists, check it. If it is a directory we are done.
+//      if (attrs != null && attrs.isDirectory())
+//      {
+//        msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_EXISTS", rUser, systemId, systemType, host, effUser, rootDir);
+//        log.debug(msg);
+//        return;
+//      }
+//      // If it exists and is a file then it is an error.
+//      if (attrs != null && !attrs.isDirectory())
+//      {
+//        msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR2", rUser, systemId, systemType, host, effUser, rootDir);
+//        throw new TapisException(msg);
+//      }
+//      //
+//      // rootDir does not exist, time to create it
+//      //
+//      try
+//      {
+//        Path tmpPath = Paths.get("/");
+//        // Walk the path parts creating directories
+//        for (Path part : Paths.get(rootDir))
+//        {
+//          tmpPath = tmpPath.resolve(part);
+//          try {sftpClient.mkdir(tmpPath.toString());} catch (SftpException ignored) {}
+//        }
+//      }
+//      catch (IOException e)
+//      {
+//        msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR3", rUser, systemId, systemType, host, effUser, rootDir, e.getMessage());
+//        throw new TapisException(msg);
+//      }
+//    }
+//    catch (TapisException e) { throw e; }
+//    catch (Exception e)
+//    {
+//      msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_ERR3", rUser, systemId, systemType, host, effUser, rootDir, e.getMessage());
+//      throw new TapisException(msg);
+//    }
+//    finally { if (conn != null) conn.close(); }
+//
+//    // rootDir was created.
+//    msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ROOT_DONE", rUser, systemId, systemType, host, effUser, rootDir);
+//    log.debug(msg);
+//  }
 }

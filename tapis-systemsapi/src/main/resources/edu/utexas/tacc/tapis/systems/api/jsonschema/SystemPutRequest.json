@@ -52,7 +52,6 @@
     "notes": { "type": "object" },
     "importRefId": { "type": ["string", "null"] },
     "isPublic": { "type": "boolean" },
-    "isDynamicRootDir": { "type": "boolean" },
     "isDynamicEffectiveUser": { "type": "boolean" },
     "tenant": { "type":  "string" },
     "uuid": { "type":  "string" },
