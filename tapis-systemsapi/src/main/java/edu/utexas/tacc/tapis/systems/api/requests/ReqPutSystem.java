@@ -38,6 +38,7 @@ public final class ReqPutSystem
   public String dtnMountPoint;
   public String dtnMountSourcePath;
   public boolean canRunBatch;
+  public boolean enableCmdPrefix;
   public String mpiCmd;
   public List<JobRuntime> jobRuntimes;
   public String jobWorkingDir;

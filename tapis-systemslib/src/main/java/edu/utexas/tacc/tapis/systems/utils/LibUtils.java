@@ -40,6 +40,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_MOUNT_SOURCE_PATH_
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_SYSTEM_ID_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFECTIVE_USER_ID_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.ENABLED_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.ENABLE_CMD_PREFIX_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_DTN_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_CAPABILITIES_FIELD;
@@ -314,6 +315,8 @@ public class LibUtils
       {noChanges=false;addChange(jo, CAN_EXEC_FIELD, o.getCanExec(), n.getCanExec());}
     if (!Objects.equals(o.getCanRunBatch(),n.getCanRunBatch()))
       {noChanges=false;addChange(jo, CAN_RUN_BATCH_FIELD, o.getCanRunBatch(), n.getCanRunBatch());}
+    if (!Objects.equals(o.isEnableCmdPrefix(),n.isEnableCmdPrefix()))
+      {noChanges=false;addChange(jo, ENABLE_CMD_PREFIX_FIELD, o.isEnableCmdPrefix(), n.isEnableCmdPrefix());}
     if (!Objects.equals(o.getMpiCmd(),n.getMpiCmd()))
       {noChanges=false;addChange(jo, MPI_CMD_FIELD, o.getMpiCmd(), n.getMpiCmd());}
     if (!Objects.equals(o.getJobWorkingDir(),n.getJobWorkingDir()))

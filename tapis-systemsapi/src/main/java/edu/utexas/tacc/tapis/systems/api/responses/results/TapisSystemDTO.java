@@ -30,6 +30,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_MOUNT_SOURCE_PATH_
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_SYSTEM_ID_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFECTIVE_USER_ID_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.ENABLED_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.ENABLE_CMD_PREFIX_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.ID_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.IMPORT_REF_ID;
@@ -91,6 +92,7 @@ public final class TapisSystemDTO
   public boolean isDtn;
   public boolean canExec;
   public boolean canRunBatch;
+  public boolean enableCmdPrefix;
   public String mpiCmd;
   public List<JobRuntime> jobRuntimes;
   public String jobWorkingDir;
@@ -135,6 +137,7 @@ public final class TapisSystemDTO
     isDtn = s.isDtn();
     canExec = s.getCanExec();
     canRunBatch = s.getCanRunBatch();
+    enableCmdPrefix = s.isEnableCmdPrefix();
     mpiCmd = s.getMpiCmd();
     jobRuntimes = s.getJobRuntimes();
     jobEnvVariables = s.getJobEnvVariables();
@@ -244,6 +247,7 @@ public final class TapisSystemDTO
       case IS_DTN_FIELD -> jsonObject.addProperty(IS_DTN_FIELD, Boolean.toString(isDtn));
       case CAN_EXEC_FIELD -> jsonObject.addProperty(CAN_EXEC_FIELD, Boolean.toString(canExec));
       case CAN_RUN_BATCH_FIELD -> jsonObject.addProperty(CAN_RUN_BATCH_FIELD, Boolean.toString(canRunBatch));
+      case ENABLE_CMD_PREFIX_FIELD -> jsonObject.addProperty(ENABLE_CMD_PREFIX_FIELD, Boolean.toString(enableCmdPrefix));
       case MPI_CMD_FIELD -> jsonObject.addProperty(MPI_CMD_FIELD, mpiCmd);
       case JOB_RUNTIMES_FIELD -> jsonObject.add(JOB_RUNTIMES_FIELD, gson.toJsonTree(jobRuntimes));
       case JOB_WORKING_DIR_FIELD -> jsonObject.addProperty(JOB_WORKING_DIR_FIELD, jobWorkingDir);
