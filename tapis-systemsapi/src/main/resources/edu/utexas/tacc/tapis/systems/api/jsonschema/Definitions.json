@@ -26,7 +26,8 @@
     "additionalProperties": false,
     "properties": {
       "key": { "type": "string", "minLength": 1 },
-      "value": { "type": "string", "default": "" }
+      "value": { "type": ["string", "null"], "default": "" },
+      "description": { "type": ["string", "null"], "default": "", "maxLength": 2048 }
     }
   },
   "LogicalQueue": {
@@ -82,6 +83,7 @@
     "type": ["object", "null"],
     "additionalProperties": false,
     "properties": {
+      "loginUser": { "type":  "string" },
       "password": { "type":  "string" },
       "privateKey": { "type":  "string" },
       "publicKey": { "type":  "string" },

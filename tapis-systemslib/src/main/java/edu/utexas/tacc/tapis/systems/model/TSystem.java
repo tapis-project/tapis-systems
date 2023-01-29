@@ -6,16 +6,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.apache.commons.lang3.StringUtils;
-
-import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
-import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import org.apache.commons.validator.routines.DomainValidator;
 import org.apache.commons.validator.routines.InetAddressValidator;
+
+import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
+import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
+import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
 /*
  * Tapis System representing a server or collection of servers exposed through a
@@ -40,14 +40,26 @@ public final class TSystem
   public static final Set<String> RESERVED_ID_SET = new HashSet<>(Set.of("HEALTHCHECK", "READYCHECK", "SEARCH",
                                                                          "SCHEDULERPROFILE"));
 
+  // Set of attributes (i.e. column names) not supported in searches
+  public static final Set<String> SEARCH_ATTRS_UNSUPPORTED =
+          new HashSet<>(Set.of("authn_credential", "job_runtimes", "job_env_variables", "batch_logical_queues",
+                               "notes", "job_capabilities"));
+
   public static final String PERMISSION_WILDCARD = "*";
-  // Allowed substitution variables
-  public static final String APIUSERID_VAR = "${apiUserId}";
+
+  //
+  public static final String APIUSERID_STR = "apiUserId";
+  public static final String EFFUSERID_STR = "effectiveUserId";
+
+  // Substitution variables
+  public static final String APIUSERID_VAR = String.format("${%s}", APIUSERID_STR);
+  public static final String EFFUSERID_VAR = String.format("${%s}", EFFUSERID_STR);
   public static final String OWNER_VAR = "${owner}";
   public static final String TENANT_VAR = "${tenant}";
-  public static final String EFFUSERID_VAR = "${effectiveUserId}";
+  public static final String HOST_EVAL = "HOST_EVAL";
 
   private static final String[] ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
+  private static final String[] ROOTDIR_VARS = {OWNER_VAR, TENANT_VAR};
 
   // Attribute names, also used as field names in Json
   public static final String TENANT_FIELD = "tenant";
@@ -58,7 +70,7 @@ public final class TSystem
   public static final String HOST_FIELD = "host";
   public static final String ENABLED_FIELD = "enabled";
   public static final String DELETED_FIELD = "deleted";
-  public static final String EFFECTIVE_USER_ID_FIELD = "effectiveUserId";
+  public static final String EFFECTIVE_USER_ID_FIELD = EFFUSERID_STR;
   public static final String DEFAULT_AUTHN_METHOD_FIELD = "defaultAuthnMethod";
   public static final String AUTHN_CREDENTIAL_FIELD = "authnCredential";
   public static final String BUCKET_NAME_FIELD = "bucketName";
@@ -70,6 +82,8 @@ public final class TSystem
   public static final String DTN_SYSTEM_ID_FIELD = "dtnSystemId";
   public static final String DTN_MOUNT_POINT_FIELD = "dtnMountPoint";
   public static final String DTN_MOUNT_SOURCE_PATH_FIELD = "dtnMountSourcePath";
+  public static final String IS_PUBLIC_FIELD = "isPublic";
+  public static final String IS_DYNAMIC_EFFECTIVE_USER = "isDynamicEffectiveUser";
   public static final String IS_DTN_FIELD = "isDtn";
   public static final String CAN_EXEC_FIELD = "canExec";
   public static final String CAN_RUN_BATCH_FIELD = "canRunBatch";
@@ -106,10 +120,18 @@ public final class TSystem
   public static final int DEFAULT_PROXYPORT = -1;
   public static final int DEFAULT_JOBMAXJOBS = -1;
   public static final int DEFAULT_JOBMAXJOBSPERUSER = -1;
+  public static final boolean DEFAULT_CAN_RUN_BATCH = false;
+  public static final boolean DEFAULT_IS_PUBLIC = false;
+  public static final boolean DEFAULT_IS_DYNAMIC_EFFECTIVE_USER = false;
 
-  // Validation patterns
-  //ID Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
-  public static final String PATTERN_VALID_ID = "^[a-zA-Z]([a-zA-Z0-9]|[-\\._~])*";
+  // Validation pattern strings
+  // ID Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
+  public static final String PATTERN_STR_VALID_ID = "^[a-zA-Z]([a-zA-Z0-9]|[-\\._~])*";
+
+  // If rootDir contains HOST_EVAL then rootDir must match a certain pattern at start: "HOST_EVAL($VARIABLE)...
+  // Web search indicates for linux, env var names should start with single alpha/underscore followed by 0 or more alphanum/underscore
+  // Must start with "HOST_EVAL($", followed by 1 alpha/underscore followed by 0 or more alphanum/underscore followed by ")"
+  public static final String PATTERN_STR_HOST_EVAL = "^HOST_EVAL\\(\\$[a-zA-Z_]+([a-zA-Z0-9_])*\\)(.*)";
 
   // Validation constants
   public static final Integer MAX_ID_LEN = 80;
@@ -133,8 +155,8 @@ public final class TSystem
   // ************************************************************************
   public enum SystemType {LINUX, S3, IRODS, GLOBUS}
   public enum SystemOperation {create, read, modify, execute, delete, undelete, hardDelete, changeOwner, enable, disable,
-                               getPerms, grantPerms, revokePerms, setCred, removeCred, getCred, getGlobusAuthInfo,
-                               setAccessRefreshTokens}
+                               getPerms, grantPerms, revokePerms, setCred, removeCred, getCred, checkCred,
+                               getGlobusAuthInfo, setAccessRefreshTokens}
   public enum Permission {READ, MODIFY, EXECUTE}
   public enum AuthnMethod {PASSWORD, PKI_KEYS, ACCESS_KEY, TOKEN, CERT}
   public enum SchedulerType {SLURM, CONDOR, PBS, SGE, UGE, TORQUE}
@@ -142,6 +164,9 @@ public final class TSystem
   // ************************************************************************
   // *********************** Fields *****************************************
   // ************************************************************************
+
+  private boolean isPublic = DEFAULT_IS_PUBLIC;
+  private boolean isDynamicEffectiveUser = DEFAULT_IS_DYNAMIC_EFFECTIVE_USER;
 
   // NOTE: In order to use jersey's SelectableEntityFilteringFeature fields cannot be final.
   private int seqId;         // Unique database sequence number
@@ -253,6 +278,8 @@ public final class TSystem
     importRefId = t.getImportRefId();
     uuid = t.getUuid();
     deleted = t.isDeleted();
+    isPublic = t.isPublic();
+    isDynamicEffectiveUser = t.isDynamicEffectiveUser();
   }
 
   /**
@@ -361,6 +388,8 @@ public final class TSystem
     tags = (t.getTags() == null) ? EMPTY_STR_ARRAY : t.getTags().clone();
     notes = t.getNotes();
     importRefId = t.getImportRefId();
+    isPublic = t.isPublic();
+    isDynamicEffectiveUser = t.isDynamicEffectiveUser();
   }
 
   // ************************************************************************
@@ -368,7 +397,7 @@ public final class TSystem
   // ************************************************************************
 
   /**
-   * Set defaults for a TSystem
+   * Set defaults for a TSystem for attributes: owner, effectiveUserId, tags, notes
    */
   public void setDefaults()
   {
@@ -385,18 +414,24 @@ public final class TSystem
   /**
    * Resolve variables for TSystem attributes
    */
-  public void resolveVariablesAtCreate(String apiUserId)
+  public void resolveVariablesAtCreate(String oboUser)
   {
-    // Resolve owner if necessary. If empty or "${apiUserId}" then fill in with apiUser.
-    if (StringUtils.isBlank(owner) || owner.equalsIgnoreCase(APIUSERID_VAR)) setOwner(apiUserId);
+    // Resolve owner if necessary. If empty or "${apiUserId}" then fill in with oboUser.
+    if (StringUtils.isBlank(owner) || owner.equalsIgnoreCase(APIUSERID_VAR)) setOwner(oboUser);
+
+    // Handle case where effectiveUserId is "${owner}". Only at create time does this need resolving.
+    // When this method is done effectiveUserId should be either "${apiUserId} or a static string with no
+    //   Tapis Systems variables to resolve.
+    if (OWNER_VAR.equals(effectiveUserId)) setEffectiveUserId(owner);
 
     // Perform variable substitutions that happen at create time: bucketName, rootDir, jobWorkingDir
-    // NOTE: effectiveUserId is not processed. Var reference is retained and substitution done as needed when system is retrieved.
     //    ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
-    String[] allVarSubstitutions = {apiUserId, owner, tenant};
+    //    ROOTDIR_VARS = {OWNER_VAR, TENANT_VAR};
+    String[] allVarSubstitutions = {oboUser, owner, tenant};
+    String[] rootDirVarSubstitutions = {owner, tenant};
     setBucketName(StringUtils.replaceEach(bucketName, ALL_VARS, allVarSubstitutions));
-    setRootDir(StringUtils.replaceEach(rootDir, ALL_VARS, allVarSubstitutions));
     setJobWorkingDir(StringUtils.replaceEach(jobWorkingDir, ALL_VARS, allVarSubstitutions));
+    setRootDir(StringUtils.replaceEach(rootDir, ROOTDIR_VARS, rootDirVarSubstitutions));
   }
 
   /**
@@ -424,7 +459,7 @@ public final class TSystem
    * Validate an ID string.
    * Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
    */
-  public static boolean isValidId(String id) { return id.matches(PATTERN_VALID_ID); }
+  public static boolean isValidId(String id) { return id.matches(PATTERN_STR_VALID_ID); }
 
   // ************************************************************************
   // *********************** Private methods *********************************
@@ -445,7 +480,9 @@ public final class TSystem
   /**
    * Check for invalid attributes
    *   systemId, host
-   *   rootDir must start with /
+   *   For LINUX or IRODS rootDir must start with /
+   *TODO/TBD   For LINUX or IRODS rootDir must start with / or HOST_EVAL
+   *TODO/TBD   If rootDir uses HOST_EVAL then system type must be LINUX
    */
   private void checkAttrValidity(List<String> errMessages)
   {
@@ -454,8 +491,17 @@ public final class TSystem
     if (!StringUtils.isBlank(host) && !isValidHost(host))
       errMessages.add(LibUtils.getMsg(INVALID_STR_ATTR, HOST_FIELD, host));
 
-    if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/"))
-      errMessages.add(LibUtils.getMsg("SYSLIB_LINUX_ROOTDIR_NOSLASH", rootDir));
+    if (SystemType.LINUX.equals(systemType) || SystemType.IRODS.equals(systemType))
+    {
+      if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/"))
+        errMessages.add(LibUtils.getMsg("SYSLIB_LINUX_ROOTDIR_NOSLASH", rootDir));
+//TODO/TBD      if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/")  && !rootDir.startsWith(HOST_EVAL))
+//TODO/TBD        errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NOSLASH", systemType.name(), rootDir));
+//TODO/TBD    }
+//TODO/TBD    if (!SystemType.LINUX.equals(systemType) && rootDir.contains(HOST_EVAL))
+//TODO/TBD    {
+//TODO/TBD      errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NO_HOST_EVAL", systemType.name(), rootDir));
+    }
   }
 
   /**
@@ -613,7 +659,9 @@ public final class TSystem
 
   /**
    * Check misc attribute restrictions
-   *  If systemType is LINUX or IRODS then rootDir is required.
+   *  If systemType is LINUX or IRODS then:
+   *           - rootDir is required
+   * TODO/TBD           - if rootDir contains HOST_EVAL then it must meet certain criteria
    *  If systemType is IRODS then port is required.
    *  effectiveUserId is restricted.
    *  If effectiveUserId is dynamic then providing credentials is disallowed
@@ -626,6 +674,24 @@ public final class TSystem
     {
       errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR", systemType.name()));
     }
+//TODO/TBD    // LINUX and IRODS systems require rootDir and if dynamic must meet certain criteria
+//TODO/TBD    if (systemType == SystemType.LINUX || systemType == SystemType.IRODS)
+//TODO/TBD    {
+//TODO/TBD      if (StringUtils.isBlank(rootDir)) errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR", systemType.name()));
+//TODO/TBD      // If rootDir contains HOST_EVAL then must have only 1 occurrence of HOST_EVAL,
+//TODO/TBD      //    and it must follow a certain pattern: "HOST_EVAL($variable)"
+//TODO/TBD      if (rootDir != null && rootDir.contains(HOST_EVAL))
+//TODO/TBD      {
+//TODO/TBD        if (StringUtils.countMatches(rootDir, HOST_EVAL) != 1)
+//TODO/TBD        {
+//TODO/TBD          errMessages.add(LibUtils.getMsg("SYSLIB_HOSTEVAL_MULTIPLE", rootDir));
+//TODO/TBD        }
+//TODO/TBD        if (!rootDir.matches(PATTERN_STR_HOST_EVAL))
+//TODO/TBD        {
+//TODO/TBD          errMessages.add(LibUtils.getMsg("SYSLIB_HOSTEVAL_ERR", rootDir));
+//TODO/TBD        }
+//TODO/TBD      }
+//TODO/TBD    }
 
     // IRODS systems require port
     if (systemType == SystemType.IRODS && !isValidPort(port))
@@ -665,7 +731,8 @@ public final class TSystem
   private boolean isValidHost(String host)
   {
     // First check for valid IP address, then for valid domain name
-    if (DomainValidator.getInstance().isValid(host) || InetAddressValidator.getInstance().isValid(host)) return true;
+    boolean allowLocal = true;
+    if (DomainValidator.getInstance(allowLocal).isValid(host) || InetAddressValidator.getInstance().isValid(host)) return true;
     else return false;
   }
 
@@ -821,4 +888,9 @@ public final class TSystem
   public TSystem setUuid(UUID u) { uuid = u; return this; }
 
   public boolean isDeleted() { return deleted; }
+
+  public boolean isPublic() { return isPublic; }
+  public void setIsPublic(boolean b) { isPublic = b;  }
+  public boolean isDynamicEffectiveUser() { return isDynamicEffectiveUser; }
+  public void setIsDynamicEffectiveUser(boolean b) { isDynamicEffectiveUser = b;  }
 }

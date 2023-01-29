@@ -1,5 +1,16 @@
 package edu.utexas.tacc.tapis.systems;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import org.jooq.tools.StringUtils;
+import org.testng.Assert;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
@@ -15,18 +26,7 @@ import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
-import org.jooq.tools.StringUtils;
-import org.testng.Assert;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
 
 /*
  * Utilities and data for integration testing
@@ -41,23 +41,54 @@ public final class IntegrationUtils
   public static final String tenantName = "dev";
   public static final String svcName = "systems";
   public static final String filesSvcName = "files";
-  public static final String adminUser = "testadmin";
+  public static final String jobsSvcName = "jobs";
+  public static final String appsSvcName = "apps";
 
+  // Various usernames
   // NOTE: Continue to use the fake users owner1, owner2 since some operations involve modifying credentials
   //       Although it should not be a problem because credentials are stored for each system it is best to be safe.
+  public static final String adminUser = "testadmin";
   public static final String owner1 = "owner1";
   public static final String owner2 = "owner2";
+  public static final String owner3 = "owner3";
+  public static final String owner4 = "owner4";
+  public static final String owner5 = "owner5";
+  public static final String owner6 = "owner6";
+  public static final String owner7 = "owner7";
   public static final String ownerNull = null;
+  public static final String loginUser1 = "loginUser1";
   public static final String testUser0 = "testuser0";
   public static final String testUser1 = "testuser1";
   public static final String testUser2 = "testuser2";
   public static final String testUser3 = "testuser3";
   public static final String testUser4 = "testuser4";
+  public static final String testUser5 = "testuser5";
+  public static final String testUser4LinuxUser = "testuser4LinuxUser";
+  public static final String testUser5LinuxUser = "testuser5LinuxUser";
+  public static final String impersonationIdTestUser9 = "testuser9";
+  public static final String impersonationIdNull = null;
   public static final String apiUser = "testApiUser";
+
+  // Properties for one of the Tapis v3 test VMs
+  public static final String TAPIS_TEST_HOST_LOGIN_USER = testUser3;
+  public static final String TAPIS_TEST_PASSWORD_ENV_VAR = "TAPIS_VM_TESTUSER3_PASSWORD";
+  public static final String TAPIS_TEST_HOST_IP = "129.114.35.53";
+  public static final String TAPIS_TEST_S3_KEY_ENV_VAR = "TAPIS_S3_SCBLACK_KEY";
+  public static final String TAPIS_TEST_S3_SECRET_ENV_VAR = "TAPIS_S3_SCBLACK_SECRET";
+  public static final String TAPIS_TEST_S3_ROOTDIR = "";
+//  public static final String TAPIS_TEST_S3_HOST = "tapisdemotest2.s3.amazonaws.com";
+//  public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "tapisdemo2";
+//  public static final String TAPIS_TEST_S3_BUCKET = "tapisdemotest2";
+  public static final String TAPIS_TEST_S3_HOST = "cics3.tacc.utexas.edu";
+  public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "scblack";
+  public static final String TAPIS_TEST_S3_BUCKET = "smoketest";
+
+
   public static final String sysNamePrefix = "TestSys";
   public static final String schedProfileNamePrefix = "TestSchedProfile";
   public static final String description1 = "System description 1";
   public static final String description2 = "System description 2";
+  public static final String description3 = "System description 3";
   public static final String hostname2 = "my.system2.org";
   public static final String hostnameNull = null;
   public static final String effectiveUserId1 = "effUsr1";
@@ -74,12 +105,16 @@ public final class IntegrationUtils
   public static final boolean canExecFalse = false;
   public static final boolean skipCredCheckTrue = true;
   public static final boolean skipCredCheckFalse = false;
+  public static final boolean getCredsTrue = true;
+  public static final boolean getCredsFalse = false;
+  public static final boolean requireExecPermFalse = false;
   public static final String hostPatchedId = "patched.system.org";
   public static final String hostMinimalId = "minimal.system.org";
   public static final String rootDir1 = "/root/dir1";
   public static final String rootDir2 = "/root/dir2";
   public static TSystem dtnSystem1;
   public static TSystem dtnSystem2;
+  public static final String s3SystemId1 = "test-s3-system1";
   public static final String dtnSystemId1 = "test-dtn-system1";
   public static final String dtnSystemId2 = "test-dtn-system2";
   public static final String dtnSystemIdNull = null;
@@ -103,21 +138,21 @@ public final class IntegrationUtils
   public static final String batchSchedulerProfile2 = "schedProfile2";
   public static final String batchSchedulerProfileNull = null;
   public static final String noSuchSchedulerProfile = "noSuchSchedulerProfile";
-  public static final KeyValuePair kv1 = new KeyValuePair("a","b");
-  public static final KeyValuePair kv2 = new KeyValuePair("HOME","/home/testuser2");
-  public static final KeyValuePair kv3 = new KeyValuePair("TMP","/tmp");
   public static final List<KeyValuePair> jobEnvVariables1 =
-          new ArrayList<>(List.of(new KeyValuePair("a1","b1"),
-                                  new KeyValuePair("HOME","/home/testuser1"),
-                                  new KeyValuePair("TMP","/tmp1")));
+          new ArrayList<>(List.of(new KeyValuePair("a1","b1", null),
+                                  new KeyValuePair("HOME","/home/testuser1", ""),
+                                  new KeyValuePair("TMP","/tmp1", "my keyvalue pair")));
   public static final List<KeyValuePair> jobEnvVariables2 =
-          new ArrayList<>(List.of(new KeyValuePair("a2","b2"),
-                                  new KeyValuePair("HOME","/home/testuser2"),
+          new ArrayList<>(List.of(new KeyValuePair("a2","b2", "my 2nd key-value pair"),
+                                  new KeyValuePair("HOME","/home/testuser2", null),
                                  new KeyValuePair("TMP","/tmp2")));
+  public static final List<KeyValuePair> jobEnvVariables3 =
+          new ArrayList<>(List.of(new KeyValuePair("a3","b3"),
+                  new KeyValuePair("HOME","/home/testuser3", "third one"),
+                  new KeyValuePair("TMP","/tmp3",
+                          "Send money. Stop. 3rd tmp kv pair with longer description just to test things out. Stop."),
+                  new KeyValuePair("TMP2","/tmp3a")));
   public static final List<KeyValuePair> jobEnvVariablesNull = null;
-//  public static final String[] jobEnvVariables1 = {"a1=b1", "HOME=/home/testuser1", "TMP=/tmp1"};
-//  public static final String[] jobEnvVariables2 = {"a2=b2", "HOME=/home/testuser2", "TMP=/tmp2"};
-//  public static final String[] jobEnvVariablesNull = null;
   public static final SchedulerType batchSchedulerNull = null;
   public static final String queueNameNull = null;
   public static final boolean canRunBatchTrue = true;
@@ -128,15 +163,21 @@ public final class IntegrationUtils
   public static final String mpiCmdNull = null;
   public static final int jobMaxJobs1 = 1;
   public static final int jobMaxJobs2 = 2;
+  public static final int jobMaxJobs3 = 3;
   public static final Integer jobMaxJobsNull = null;
   public static final int jobMaxJobsPerUser1 = 1;
   public static final int jobMaxJobsPerUser2 = 2;
-  public static final String[] tags1 = {"value1", "value2", "a",
+  public static final String tagVal1 = "value1";
+  public static final String tagVal2 = "value2";
+  public static final String tagVal3Space = "value 3";
+  public static final String tagValNotThere = "no such tag value";
+  public static final String[] tags1 = {tagVal1, tagVal2, tagVal3Space, "a",
     "Long tag (1 3 2) special chars [_ $ - & * % @ + = ! ^ ? < > , . ( ) { } / \\ | ]. Backslashes must be escaped."};
-  public static final String[] tags2 = {"value3", "value4"};
+  public static final String[] tags2 = {"value4", "value5"};
+  public static final String[] tags3 = {tagVal1};
   public static final String[] tagsNull = null;
-  public static final Object notes1 = TapisGsonUtils.getGson().fromJson("{\"project\": \"myproj1\", \"testdata\": \"abc1\"}", JsonObject.class);
-  public static final Object notes2 = TapisGsonUtils.getGson().fromJson("{\"project\": \"myproj2\", \"testdata\": \"abc2\"}", JsonObject.class);
+  public static final Object notes1 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj1\", \"testdata\": \"abc 1\"}", JsonObject.class);
+  public static final Object notes2 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj2\", \"testdata\": \"abc 2\"}", JsonObject.class);
   public static final JsonObject notesObj1 = (JsonObject) notes1;
   public static final Object notesNull = null;
 
@@ -146,7 +187,8 @@ public final class IntegrationUtils
 
   public static final Protocol prot1 = new Protocol(AuthnMethod.PKI_KEYS, 22, false, "", 0);
   public static final Protocol prot2 = new Protocol(AuthnMethod.PASSWORD, 0, true, "localhost",2222);
-  public static final String scrubbedJson = "{}";
+  public static final Protocol protS3 = new Protocol(AuthnMethod.ACCESS_KEY, 0, false, "localhost",2222);
+  public static final String rawDataEmptyJson = "{}";
 
   // Job Runtimes
   public static final JobRuntime runtimeA1 = new JobRuntime(JobRuntime.RuntimeType.DOCKER, "0.0.1A1");
@@ -199,6 +241,12 @@ public final class IntegrationUtils
   public static final boolean isDeletedFalse = false;
   public static final boolean showDeletedFalse = false;
   public static final boolean showDeletedTrue = true;
+  public static final boolean resolveEffUserTrue = true;
+  public static final boolean resolveEffUserFalse = false;
+  public static final boolean sharedAppCtxTrue = true;
+  public static final boolean sharedAppCtxFalse = false;
+  public static final String sharedAppCtxOwner = owner1;
+  public static final String sharedAppCtxNull = null;
   public static final Instant createdNull = null;
   public static final Instant updatedNull = null;
   public static final int qMaxJobs = -1;
@@ -207,6 +255,8 @@ public final class IntegrationUtils
   public static final int qMaxCoresPerNode = -1;
   public static final int qMaxMemoryMB = -1;
   public static final int qMaxMinutes = -1;
+
+  public static final String listTypeNull = null;
 
   public static final List<OrderBy> orderByListNull = null;
   public static final List<OrderBy> orderByListAsc = Collections.singletonList(OrderBy.fromString("id(asc)"));
@@ -225,7 +275,9 @@ public final class IntegrationUtils
   public static final String invalidPublicSshKey = "testPubSshKey";
 
   public static final Credential credInvalidPrivateSshKey =
-          new Credential(null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null, null, null);
+          new Credential(null, null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null, null, null);
+  public static final Credential credNoLoginUser =
+          new Credential(null, null, "fakePassword", null, null, null, null, null, null, null);
 
   // Permissions
   public static final Set<TSystem.Permission> testPermsREADMODIFY = new HashSet<>(Set.of(TSystem.Permission.READ, TSystem.Permission.MODIFY));
@@ -242,6 +294,9 @@ public final class IntegrationUtils
   public static final List<String> orderByDirEmptyList = Arrays.asList("");
   public static final int skipZero = 0;
   public static final String startAferEmpty = "";
+  public static final SystemsServiceImpl.AuthListType listTypeOwned = SystemsServiceImpl.AuthListType.OWNED;
+  public static final SystemsServiceImpl.AuthListType listTypeAll = SystemsServiceImpl.AuthListType.ALL;
+  public static final SystemsServiceImpl.AuthListType listTypePublic = SystemsServiceImpl.AuthListType.SHARED_PUBLIC;
 
   /**
    * Create first DTN System
@@ -271,7 +326,7 @@ public final class IntegrationUtils
   {
     String dtnSystemName2 = sysNamePrefix+key+dtnSystemId2;
 
-    // Create DTN systems for other systems to reference. Otherwise some system definitions are not valid.
+    // Create DTN systems for other systems to reference. Otherwise, some system definitions are not valid.
     return new TSystem(-1, tenantName, dtnSystemName2, "DTN System2 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn2", prot2.getAuthnMethod(), "bucketDtn2", "/root/dtn2",
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
@@ -296,7 +351,7 @@ public final class IntegrationUtils
     String dtnSystemName1 = sysNamePrefix+key+dtnSystemId1;
     String dtnSystemName2 = sysNamePrefix+key+dtnSystemId2;
 
-    // Create DTN systems for other systems to reference. Otherwise some system definitions are not valid.
+    // Create DTN systems for other systems to reference. Otherwise, some system definitions are not valid.
     dtnSystem1 = new TSystem(-1, tenantName, dtnSystemName1 , "DTN System1 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn1", prot1.getAuthnMethod(), "bucketDtn1", "/root/dtn1",
             prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
@@ -413,6 +468,23 @@ public final class IntegrationUtils
             dtnSystemIdNull, dtnMountPoint2, dtnMountSourcePathNull, jobRuntimes2, jobWorkingDirNull, jobEnvVariablesNull,
             jobMaxJobsNull, jobMaxJobsPerUser2, canRunBatchNull, mpiCmd2, batchSchedulerNull, logicalQueueListNull,
             batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull, tagsNull, notesNull, importRefIdNull);
+  }
+
+  /**
+   * Create an S3 system
+   */
+  public static TSystem makeS3System(String key)
+  {
+    String s3SystemName1 = sysNamePrefix+key+s3SystemId1;
+
+    return new TSystem(-1, tenantName, s3SystemName1 , "S3 System1 for tests", TSystem.SystemType.S3, owner1,
+            TAPIS_TEST_S3_HOST, isEnabledTrue, TAPIS_TEST_S3_HOST_LOGIN_USER, protS3.getAuthnMethod(),
+            TAPIS_TEST_S3_BUCKET, TAPIS_TEST_S3_ROOTDIR,
+            protS3.getPort(), protS3.isUseProxy(), protS3.getProxyHost(), protS3.getProxyPort(),
+            dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnFalse,
+            canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
+            canRunBatchFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
+            capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
   }
 
   /**

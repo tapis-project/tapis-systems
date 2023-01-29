@@ -7,8 +7,10 @@ import java.util.Collections;
 import java.util.List;
 import javax.inject.Inject;
 import javax.servlet.ServletContext;
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
+import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
@@ -19,6 +21,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Application;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.HttpHeaders;
@@ -35,17 +38,16 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 
-import edu.utexas.tacc.tapis.sharedapi.responses.RespAbstract;
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.search.SearchUtils;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters;
+import edu.utexas.tacc.tapis.sharedapi.responses.RespAbstract;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespBoolean;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultBoolean;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
-
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
@@ -70,7 +72,6 @@ import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
-
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_EXEC_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_AUTHN_METHOD_FIELD;
@@ -84,10 +85,12 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.SYSTEM_TYPE_FIELD;
 
 /*
  * JAX-RS REST resource for a Tapis System (edu.utexas.tacc.tapis.systems.model.TSystem)
+ *
+ * These methods should do the minimal amount of validation and processing of incoming requests and
+ *   then make the service method call.
+ * One reason for this is the service methods are much easier to test.
  * jax-rs annotations map HTTP verb + endpoint to method invocation and map query parameters.
- * NOTE: Annotations for generating OpenAPI specification not currently used.
- *       Please see openapi-systems repo file SystemsAPI.yaml
- *       and note at top of SystemsResource.java
+ *  NOTE: For OpenAPI spec please see repo openapi-systems, file SystemsAPI.yaml
  */
 @Path("/v3/systems")
 public class SystemResource
@@ -130,7 +133,7 @@ public class SystemResource
   private static final String OP_UNDELETE = "undeleteSystem";
 
   // Always return a nicely formatted response
-  private static final boolean PRETTY = true;
+  public static final boolean PRETTY = true;
 
   // Top level summary attributes to be included by default in some cases.
   public static final List<String> SUMMARY_ATTRS =
@@ -155,7 +158,7 @@ public class SystemResource
 
   // **************** Inject Services using HK2 ****************
   @Inject
-  private SystemsService systemsService;
+  private SystemsService service;
 
   private final String className = getClass().getSimpleName();
 
@@ -165,6 +168,27 @@ public class SystemResource
 
   /**
    * Create a system
+   * Create a system using a request body. System name must be unique within a tenant and can be composed of
+   * alphanumeric characters and the following special characters [-._~].
+   * Name must begin with an alphabetic character and can be no more than 80 characters in length.
+   * Description is optional with a maximum length of 2048 characters.
+   *
+   * If effectiveUserId is static then credentials may be optionally provided in the authnCredential attribute of the
+   * request body. If effective user is dynamic (i.e. ${apiUserId}) then credentials may not be provided.
+   * The Systems service does not store the secrets, they are persisted in the Security Kernel.
+   *
+   * By default, any credentials provided for LINUX type systems are verified. Use query parameter
+   * skipCredentialCheck=true to bypass initial verification of credentials.
+   *
+   * Note that certain attributes in the request body (such as tenant) are allowed but ignored so that the JSON
+   * result returned by a GET may be modified and used when making a POST request to create a system.
+   * The attributes that are allowed but ignored are
+   *
+   *   - tenant
+   *   - uuid
+   *   - deleted
+   *   - created
+   *   - updated
    * @param payloadStream - request body
    * @param securityContext - user identity
    * @return response containing reference to created object
@@ -174,12 +198,12 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response createSystem(InputStream payloadStream,
                                @QueryParam("skipCredentialCheck") @DefaultValue("false") boolean skipCredCheck,
-                               @Context SecurityContext securityContext)
+                               @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "createSystem";
-    // Note that although the following approximately 30 line block of code is very similar for many endpoints the slight
-    //   variations and use of fetched data makes it difficult to refactor into common routines. Common routines
-    //   might make the code even more complex and difficult to follow.
+    // Note that although the following approximately 30 line block of code is very similar for many endpoints the
+    //   slight variations and use of fetched data makes it difficult to refactor into common routines.
+    // Common routines might make the code even more complex and difficult to follow.
 
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -204,7 +228,7 @@ public class SystemResource
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
     // Create validator specification and validate the json against the schema
     JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, FILE_SYSTEM_CREATE_REQUEST);
@@ -213,37 +237,37 @@ public class SystemResource
     {
       msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
-
-    ReqPostSystem req;
     // ------------------------- Create a TSystem from the json and validate constraints -------------------------
+    ReqPostSystem req;
     try { req = TapisGsonUtils.getGson().fromJson(rawJson, ReqPostSystem.class); }
     catch (JsonSyntaxException e)
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
     // If req is null that is an unrecoverable error
     if (req == null)
     {
       msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, "N/A", "ReqPostSystem == null");
       _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // Create a TSystem from the request
     TSystem tSystem = createTSystemFromPostRequest(rUser.getOboTenantId(), req, rawJson);
+    boolean creatingCreds = (tSystem.getAuthnCredential() != null);
 
     // Mask any secret info that might be contained in rawJson
     String scrubbedJson = rawJson;
-    if (tSystem.getAuthnCredential() != null) scrubbedJson = maskCredSecrets(rawJson);
+    if (creatingCreds) scrubbedJson = maskCredSecrets(rawJson);
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_CREATE_TRACE", rUser, scrubbedJson));
 
     // Fill in defaults and check constraints on TSystem attributes
     tSystem.setDefaults();
-    resp = validateTSystem(tSystem, rUser);
+    resp = validateTSystemAtCreate(tSystem, rUser);
     if (resp != null) return resp;
 
     // ---------------------------- Make service call to create the system -------------------------------
@@ -251,7 +275,7 @@ public class SystemResource
     String systemId = tSystem.getId();
     try
     {
-      systemsService.createSystem(rUser, tSystem, skipCredCheck, scrubbedJson);
+      tSystem = service.createSystem(rUser, tSystem, skipCredCheck, scrubbedJson);
     }
     catch (IllegalStateException e)
     {
@@ -262,19 +286,18 @@ public class SystemResource
         _log.warn(msg);
         return Response.status(Status.CONFLICT).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
       }
-      else if (e.getMessage().contains(LIB_UNAUTH))
+      else if (e.getMessage().contains("SYSLIB_CREATE_RESERVED"))
       {
-        // IllegalStateException with msg containing SYS_UNAUTH indicates operation not authorized for apiUser - return 401
-        msg = ApiUtils.getMsgAuth(API_UNAUTH, rUser, systemId, opName);
+        msg = ApiUtils.getMsgAuth("SYSAPI_CREATE_RESERVED", rUser, systemId);
         _log.warn(msg);
-        return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+        return Response.status(Status.CONFLICT).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
       }
       else
       {
         // IllegalStateException indicates an Invalid TSystem was passed in
         msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, systemId, e.getMessage());
         _log.error(msg);
-        return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+        throw new BadRequestException(msg);
       }
     }
     catch (IllegalArgumentException e)
@@ -282,16 +305,30 @@ public class SystemResource
       // IllegalArgumentException indicates somehow a bad argument made it this far
       msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, systemId, e.getMessage());
       _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, systemId, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
-    // ---------------------------- Success ------------------------------- 
+    // If credentials provided, and we are validating them, make sure they were OK.
+    // If validation failed then system was not created, and we need to report an error.
+    if (!skipCredCheck && creatingCreds)
+    {
+      // We only support registering credentials in the static effective user case, so in log messages report effUserId.
+      String userName = tSystem.getEffectiveUserId();
+      resp = ApiUtils.checkCredValidationResult(rUser, systemId, userName, tSystem.getAuthnCredential(),
+                                                tSystem.getDefaultAuthnMethod(), skipCredCheck);
+      if (resp != null) return resp;
+    }
+
+    // ---------------------------- Success -------------------------------
     // Success means the object was created.
     ResultResourceUrl respUrl = new ResultResourceUrl();
     respUrl.url = _request.getRequestURL().toString() + "/" + systemId;
@@ -312,7 +349,7 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response patchSystem(@PathParam("systemId") String systemId,
                               InputStream payloadStream,
-                              @Context SecurityContext securityContext)
+                              @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "patchSystem";
     // ------------------------- Retrieve and validate thread context -------------------------
@@ -337,7 +374,7 @@ public class SystemResource
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
     // Create validator specification and validate the json against the schema
     JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, FILE_SYSTEM_UPDATE_REQUEST);
@@ -346,7 +383,7 @@ public class SystemResource
     {
       msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // ------------------------- Create a PatchSystem from the json and validate constraints -------------------------
@@ -356,7 +393,7 @@ public class SystemResource
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_PATCH_TRACE", rUser, rawJson));
@@ -371,43 +408,30 @@ public class SystemResource
     // ---------------------------- Make service call to update the system -------------------------------
     try
     {
-      systemsService.patchSystem(rUser, systemId, patchSystem, rawJson);
-    }
-    catch (NotFoundException e)
-    {
-      msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
-      _log.warn(msg);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      service.patchSystem(rUser, systemId, patchSystem, rawJson);
     }
     catch (IllegalStateException e)
     {
-      if (e.getMessage().contains(LIB_UNAUTH))
-      {
-        // IllegalStateException with msg containing SYS_UNAUTH indicates operation not authorized for apiUser - return 401
-        msg = ApiUtils.getMsgAuth(API_UNAUTH, rUser, systemId, opName);
-        _log.warn(msg);
-        return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
-      else
-      {
-        // IllegalStateException indicates an Invalid PatchSystem was passed in
-        msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
-        _log.error(msg);
-        return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
+      // IllegalStateException indicates an Invalid PatchSystem was passed in
+      msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
+      _log.error(msg);
+      throw new BadRequestException(msg);
     }
     catch (IllegalArgumentException e)
     {
       // IllegalArgumentException indicates somehow a bad argument made it this far
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
@@ -419,7 +443,30 @@ public class SystemResource
   }
 
   /**
-   * Update all updatable attributes of a system
+   * Update all updatable attributes of a system using a request body identical to POST. System must exist.
+   *
+   * Note that although the attribute authnCredential is allowed, it is ignored as discussed in the next paragraph.
+   * Certain attributes in the request body (such as tenant) are allowed but ignored so that the JSON result returned
+   *   by a GET may be modified and used when making a PUT request to update a system.
+   *
+   *   The attributes that are allowed but ignored for both PUT and POST are
+   *      tenant
+   *      uuid
+   *      deleted
+   *      created
+   *      updated
+   *  In addition for a PUT operation the following attributes are allowed but ignored
+   *      id
+   *      systemType
+   *      owner
+   *      enabled
+   *      authnCredential
+   *      bucketName
+   *      rootDir
+   *      isDtn
+   *      canExec
+   *  Note that the following attributes may be modified using other endpoints: owner, enabled, deleted, authnCredential
+   *
    * @param systemId - name of the system
    * @param payloadStream - request body
    * @param securityContext - user identity
@@ -432,7 +479,7 @@ public class SystemResource
   public Response putSystem(@PathParam("systemId") String systemId,
                             @QueryParam("skipCredentialCheck") @DefaultValue("false") boolean skipCredCheck,
                             InputStream payloadStream,
-                            @Context SecurityContext securityContext)
+                            @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "putSystem";
     // ------------------------- Retrieve and validate thread context -------------------------
@@ -457,7 +504,7 @@ public class SystemResource
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
     // Create validator specification and validate the json against the schema
     // NOTE that CREATE and PUT are very similar schemas.
@@ -468,7 +515,7 @@ public class SystemResource
     {
       msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // ------------------------- Create a System from the json and validate constraints -------------------------
@@ -478,18 +525,19 @@ public class SystemResource
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
     // If req is null that is an unrecoverable error
     if (req == null)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_UPDATE_ERROR", rUser, systemId, opName, "ReqPutSystem == null");
       _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // Create a TSystem from the request
     TSystem putSystem = createTSystemFromPutRequest(rUser.getOboTenantId(), systemId, req, rawJson);
+    boolean creatingCreds = (putSystem.getAuthnCredential() != null);
 
     // Mask any secret info that might be contained in rawJson
     String scrubbedJson = rawJson;
@@ -503,43 +551,41 @@ public class SystemResource
     // ---------------------------- Make service call to update the system -------------------------------
     try
     {
-      systemsService.putSystem(rUser, putSystem, skipCredCheck, scrubbedJson);
-    }
-    catch (NotFoundException e)
-    {
-      msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
-      _log.warn(msg);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      putSystem = service.putSystem(rUser, putSystem, skipCredCheck, scrubbedJson);
     }
     catch (IllegalStateException e)
     {
-      if (e.getMessage().contains(LIB_UNAUTH))
-      {
-        // IllegalStateException with msg containing SYS_UNAUTH indicates operation not authorized for apiUser - return 401
-        msg = ApiUtils.getMsgAuth(API_UNAUTH, rUser, systemId, opName);
-        _log.warn(msg);
-        return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
-      else
-      {
-        // IllegalStateException indicates an Invalid PutSystem was passed in
-        msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
-        _log.error(msg);
-        return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
+      // IllegalStateException indicates an Invalid PutSystem was passed in
+      msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
+      _log.error(msg);
+      throw new BadRequestException(msg);
     }
     catch (IllegalArgumentException e)
     {
       // IllegalArgumentException indicates somehow a bad argument made it this far
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
+    }
+
+    // If credentials provided, and we are validating them, make sure they were OK.
+    // If validation failed then system was not created, and we need to report an error.
+    if (!skipCredCheck && creatingCreds)
+    {
+      // We only support registering credentials in the static effective user case, so in log messages report effUserId.
+      String userName = putSystem.getEffectiveUserId();
+      resp = ApiUtils.checkCredValidationResult(rUser, systemId, userName, putSystem.getAuthnCredential(),
+                                                putSystem.getDefaultAuthnMethod(), skipCredCheck);
+      if (resp != null) return resp;
     }
 
     // ---------------------------- Success -------------------------------
@@ -561,7 +607,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response enableSystem(@PathParam("systemId") String systemId,
-                               @Context SecurityContext securityContext)
+                               @Context SecurityContext securityContext) throws TapisClientException
   {
     return postSystemSingleUpdate(OP_ENABLE, systemId, null, securityContext);
   }
@@ -577,7 +623,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response disableSystem(@PathParam("systemId") String systemId,
-                                @Context SecurityContext securityContext)
+                                @Context SecurityContext securityContext) throws TapisClientException
   {
     return postSystemSingleUpdate(OP_DISABLE, systemId, null, securityContext);
   }
@@ -593,7 +639,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response deleteSystem(@PathParam("systemId") String systemId,
-                               @Context SecurityContext securityContext)
+                               @Context SecurityContext securityContext) throws TapisClientException
   {
     return postSystemSingleUpdate(OP_DELETE, systemId, null, securityContext);
   }
@@ -609,7 +655,7 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response undeleteSystem(@PathParam("systemId") String systemId,
-                                 @Context SecurityContext securityContext)
+                                 @Context SecurityContext securityContext) throws TapisClientException
   {
     return postSystemSingleUpdate(OP_UNDELETE, systemId, null, securityContext);
   }
@@ -627,7 +673,7 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response changeSystemOwner(@PathParam("systemId") String systemId,
                                     @PathParam("userName") String userName,
-                                    @Context SecurityContext securityContext)
+                                    @Context SecurityContext securityContext) throws TapisClientException
   {
     return postSystemSingleUpdate(OP_CHANGEOWNER, systemId, userName, securityContext);
   }
@@ -635,9 +681,11 @@ public class SystemResource
   /**
    * getSystem
    * @param systemId - name of the system
-   * @param getCreds - should credentials of effectiveUser be included
    * @param authnMethodStr - authn method to use instead of default
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
+   * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
+   *                          resolving effectiveUserId
+   * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth bypassed.
    * @param securityContext - user identity
    * @return Response with system object as the result
    */
@@ -646,10 +694,12 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getSystem(@PathParam("systemId") String systemId,
-                            @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
                             @QueryParam("authnMethod") @DefaultValue("") String authnMethodStr,
                             @QueryParam("requireExecPerm") @DefaultValue("false") boolean requireExecPerm,
-                            @Context SecurityContext securityContext)
+                            @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
+                            @QueryParam("impersonationId") String impersonationId,
+                            @QueryParam("sharedAppCtx") @DefaultValue("false") boolean sharedAppCtx,
+                            @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "getSystem";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -662,8 +712,12 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId, "returnCredentials="+getCreds,
-                                          "authnMethod="+authnMethodStr, "requireExecPerm="+requireExecPerm);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+                                                   "systemId="+systemId, "authnMethod="+authnMethodStr,
+                                                   "requireExecPerm="+requireExecPerm,
+                                                   "returnCredentials="+getCreds,
+                                                   "impersonationId="+impersonationId,
+                                                   "sharedAppCtx="+sharedAppCtx);
 
     // Check that authnMethodStr is valid if is passed in
     AuthnMethod authnMethod = null;
@@ -672,29 +726,28 @@ public class SystemResource
     {
       String msg = ApiUtils.getMsgAuth("SYSAPI_ACCMETHOD_ENUM_ERROR", rUser, systemId, authnMethodStr, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     List<String> selectList = threadContext.getSearchParameters().getSelectList();
 
+    // ---------------------------- Make service call -------------------------------
     TSystem tSystem;
     try
     {
-      tSystem = systemsService.getSystem(rUser, systemId, getCreds, authnMethod, requireExecPerm);
+      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId, sharedAppCtx);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
       _log.error(msg, e);
-      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
-
     // Resource was not found.
-    if (tSystem == null)
-    {
-      String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
+    if (tSystem == null) throw new NotFoundException(ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
     // ---------------------------- Success -------------------------------
     // Success means we retrieved the system information.
@@ -703,122 +756,21 @@ public class SystemResource
   }
 
   /**
-   * getHistory
-   * @param systemId - name of the system
-   * @param securityContext - user identity
-   * @return Response with system history object as the result
-   */
-  @GET
-  @Path("{systemId}/history")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response getHistory(@PathParam("systemId") String systemId,
-                            @Context SecurityContext securityContext)
-  {
-    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
-    // Utility method returns null if all OK and appropriate error response if there was a problem.
-    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
-    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
-    if (resp != null) return resp;
-
-    // Create a user that collects together tenant, user and request information needed by the service call
-    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
-
-    //RespAbstract resp1;
-    List<SystemHistoryItem> systemHistory;
-    
-    try
-    {
-      // Retrieve system history List
-    	systemHistory = systemsService.getSystemHistory(rUser, systemId);
-    }
-    catch (Exception e)
-    {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
-      _log.error(msg, e);
-      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
-    
-    // System not found
-    if (systemHistory == null || systemHistory.size()==0) {
-   	 String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
-   	  _log.warn(msg);
-   	  return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
-    
-    // ---------------------------- Success -------------------------------
-    // Success means we retrieved the system history information.
-    RespSystemHistory resp1 = new RespSystemHistory(systemHistory);
-    return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "SystemHistory", systemId), resp1);
-  }
-  
-  /**
-   * isEnabled
-   * Check if resource is enabled.
-   * @param systemId - name of system
-   * @param securityContext - user identity
-   * @return Response with boolean result
-   */
-  @GET
-  @Path("{systemId}/isEnabled")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response isEnabled(@PathParam("systemId") String systemId,
-                            @Context SecurityContext securityContext)
-  {
-    String opName = "isEnabled";
-    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
-    // Utility method returns null if all OK and appropriate error response if there was a problem.
-    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
-    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
-    if (resp != null) return resp;
-
-    // Create a user that collects together tenant, user and request information needed by the service call
-    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
-
-    // Trace this request.
-    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
-
-    boolean isEnabled;
-    try
-    {
-      isEnabled = systemsService.isEnabled(rUser, systemId);
-    }
-    catch (NotFoundException e)
-    {
-      String msg = ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
-      _log.warn(msg);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
-    catch (Exception e)
-    {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
-      _log.error(msg, e);
-      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-    }
-
-    // ---------------------------- Success -------------------------------
-    // Success means we made the check
-    ResultBoolean respResult = new ResultBoolean();
-    respResult.aBool = isEnabled;
-    RespBoolean resp1 = new RespBoolean(respResult);
-    return createSuccessResponse(Status.OK, MsgUtils.getMsg("TAPIS_FOUND", "System", systemId), resp1);
-  }
-
-  /**
    * getSystems
    * Retrieve all systems accessible by requester and matching any search conditions provided.
    * NOTE: The query parameters search, limit, orderBy, skip, startAfter are all handled in the filter
    *       QueryParametersRequestFilter. No need to use @QueryParam here.
    * @param securityContext - user identity
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param showDeleted - flag indicating resources marked as deleted should be included.
+   * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @GET
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getSystems(@Context SecurityContext securityContext,
-                             @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
+                             @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
+                             @QueryParam("listType") @DefaultValue("OWNED") String listType) throws TapisClientException
   {
     String opName = "getSystems";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -831,7 +783,8 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "showDeleted="+showDeleted);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+                                                   "listType="+listType);
 
     // ThreadContext designed to never return null for SearchParameters
     SearchParameters srchParms = threadContext.getSearchParameters();
@@ -840,13 +793,16 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted);
+      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       String msg = ApiUtils.getMsgAuth(SELECT_ERR, rUser, e.getMessage());
       _log.error(msg, e);
-      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
     return successResponse;
   }
@@ -855,7 +811,8 @@ public class SystemResource
    * searchSystemsQueryParameters
    * Dedicated search endpoint for System resource. Search conditions provided as query parameters.
    * @param securityContext - user identity
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param showDeleted - whether to included resources that have been marked as deleted.
+   * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @GET
@@ -863,7 +820,9 @@ public class SystemResource
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsQueryParameters(@Context SecurityContext securityContext,
-                                               @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
+                                               @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
+                                               @QueryParam("listType") @DefaultValue("OWNED") String listType)
+          throws TapisClientException
   {
     String opName = "searchSystemsGet";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -876,8 +835,8 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "showDeleted="+showDeleted);
-
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+                                                   "listType="+listType);
     // Create search list based on query parameters
     // Note that some validation is done for each condition but the back end will handle translating LIKE wildcard
     //   characters (* and !) and deal with escaped characters.
@@ -886,11 +845,11 @@ public class SystemResource
     {
       searchList = SearchUtils.buildListFromQueryParms(_uriInfo.getQueryParameters());
     }
-    catch (Exception e)
+    catch (IllegalArgumentException e)
     {
       String msg = ApiUtils.getMsgAuth("SYSAPI_SEARCH_ERROR", rUser, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Response.Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // ThreadContext designed to never return null for SearchParameters
@@ -901,13 +860,16 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted);
+      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       String msg = ApiUtils.getMsgAuth(SELECT_ERR, rUser, e.getMessage());
       _log.error(msg, e);
-      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
@@ -920,7 +882,8 @@ public class SystemResource
    * Request body contains an array of strings that are concatenated to form the full SQL-like search string.
    * @param payloadStream - request body
    * @param securityContext - user identity
-   * @param showDeleted - whether or not to included resources that have been marked as deleted.
+   * @param showDeleted - whether to included resources that have been marked as deleted.
+   * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @POST
@@ -929,7 +892,8 @@ public class SystemResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsRequestBody(InputStream payloadStream,
                                            @Context SecurityContext securityContext,
-                                           @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted)
+                                           @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
+                                           @QueryParam("listType") @DefaultValue("OWNED") String listType) throws TapisClientException
   {
     String opName = "searchSystemsPost";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -942,7 +906,8 @@ public class SystemResource
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "showDeleted="+showDeleted);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+                                                   "listType="+listType);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -953,7 +918,7 @@ public class SystemResource
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
     // Create validator specification and validate the json against the schema
     JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, FILE_SYSTEM_SEARCH_REQUEST);
@@ -962,7 +927,7 @@ public class SystemResource
     {
       msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // Construct final SQL-like search string using the json
@@ -977,7 +942,7 @@ public class SystemResource
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
 
     // ThreadContext designed to never return null for SearchParameters
@@ -987,13 +952,16 @@ public class SystemResource
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, showDeleted);
+      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, showDeleted, listType);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth(SELECT_ERR, rUser, e.getMessage());
       _log.error(msg, e);
-      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
@@ -1013,7 +981,7 @@ public class SystemResource
 //  @Consumes(MediaType.APPLICATION_JSON)
 //  @Produces(MediaType.APPLICATION_JSON)
 //  public Response matchConstraints(InputStream payloadStream,
-//                                   @Context SecurityContext securityContext)
+//                                   @Context SecurityContext securityContext) throws TapisClientException
 //  {
 //    String opName = "matchConstraints";
 //    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -1037,7 +1005,7 @@ public class SystemResource
 //    {
 //      msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
 //      _log.error(msg, e);
-//      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+//      throw new BadRequestException(msg);
 //    }
 //    // Create validator specification and validate the json against the schema
 //    JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, FILE_SYSTEM_MATCH_REQUEST);
@@ -1046,7 +1014,7 @@ public class SystemResource
 //    {
 //      msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
 //      _log.error(msg, e);
-//      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+//      throw new BadRequestException(msg);
 //    }
 //
 //    // Construct final SQL-like search string using the json
@@ -1061,7 +1029,7 @@ public class SystemResource
 //    {
 //      msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
 //      _log.error(msg, e);
-//      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+//      throw new BadRequestException(msg);
 //    }
 //
 //    // ------------------------- Retrieve records -----------------------------
@@ -1069,11 +1037,14 @@ public class SystemResource
 //    try {
 //      systems = systemsService.getSystemsSatisfyingConstraints(rUser, matchStr);
 //    }
+//  // Pass through not found or not auth to let exception mapper handle it.
+//    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+//  // As final fallback
 //    catch (Exception e)
 //    {
 //      msg = ApiUtils.getMsgAuth(SELECT_ERR, rUser, e.getMessage());
 //      _log.error(msg, e);
-//      return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+//      throw new WebApplicationException(msg);
 //    }
 //
 //    if (systems == null) systems = Collections.emptyList();
@@ -1083,6 +1054,106 @@ public class SystemResource
 //    String itemCountStr = String.format(SYS_CNT_STR, systems.size());
 //    return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, SYSTEMS_SVC, itemCountStr), resp1);
 //  }
+
+  /**
+   * getHistory
+   * @param systemId - name of the system
+   * @param securityContext - user identity
+   * @return Response with system history object as the result
+   */
+  @GET
+  @Path("{systemId}/history")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getHistory(@PathParam("systemId") String systemId,
+                             @Context SecurityContext securityContext) throws TapisClientException
+  {
+    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
+    // Utility method returns null if all OK and appropriate error response if there was a problem.
+    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
+    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    if (resp != null) return resp;
+
+    // Create a user that collects together tenant, user and request information needed by the service call
+    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    //RespAbstract resp1;
+    List<SystemHistoryItem> systemHistory;
+
+    try
+    {
+      // Retrieve system history List
+      systemHistory = service.getSystemHistory(rUser, systemId);
+    }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
+    catch (Exception e)
+    {
+      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
+      _log.error(msg, e);
+      throw new WebApplicationException(msg);
+    }
+
+    // System or history not found
+    if (systemHistory == null || systemHistory.size()==0)
+      throw new NotFoundException(ApiUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+
+    // ---------------------------- Success -------------------------------
+    // Success means we retrieved the system history information.
+    RespSystemHistory resp1 = new RespSystemHistory(systemHistory);
+    return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "SystemHistory", systemId), resp1);
+  }
+
+  /**
+   * isEnabled
+   * Check if resource is enabled.
+   * @param systemId - name of system
+   * @param securityContext - user identity
+   * @return Response with boolean result
+   */
+  @GET
+  @Path("{systemId}/isEnabled")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response isEnabled(@PathParam("systemId") String systemId,
+                            @Context SecurityContext securityContext) throws TapisClientException
+  {
+    String opName = "isEnabled";
+    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
+    // Utility method returns null if all OK and appropriate error response if there was a problem.
+    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
+    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    if (resp != null) return resp;
+
+    // Create a user that collects together tenant, user and request information needed by the service call
+    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
+
+    boolean isEnabled;
+    try
+    {
+      isEnabled = service.isEnabled(rUser, systemId);
+    }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
+    catch (Exception e)
+    {
+      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
+      _log.error(msg, e);
+      throw new WebApplicationException(msg);
+    }
+
+    // ---------------------------- Success -------------------------------
+    // Success means we made the check
+    ResultBoolean respResult = new ResultBoolean();
+    respResult.aBool = isEnabled;
+    RespBoolean resp1 = new RespBoolean(respResult);
+    return createSuccessResponse(Status.OK, MsgUtils.getMsg("TAPIS_FOUND", "System", systemId), resp1);
+  }
 
   /* **************************************************************************** */
   /*                                Private Methods                               */
@@ -1099,6 +1170,7 @@ public class SystemResource
    */
   private Response postSystemSingleUpdate(String opName, String systemId, String userName,
                                           SecurityContext securityContext)
+          throws TapisClientException
   {
     // ------------------------- Retrieve and validate thread context -------------------------
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -1126,51 +1198,38 @@ public class SystemResource
     try
     {
       if (OP_ENABLE.equals(opName))
-        changeCount = systemsService.enableSystem(rUser, systemId);
+        changeCount = service.enableSystem(rUser, systemId);
       else if (OP_DISABLE.equals(opName))
-        changeCount = systemsService.disableSystem(rUser, systemId);
+        changeCount = service.disableSystem(rUser, systemId);
       else if (OP_DELETE.equals(opName))
-        changeCount = systemsService.deleteSystem(rUser, systemId);
+        changeCount = service.deleteSystem(rUser, systemId);
       else if (OP_UNDELETE.equals(opName))
-        changeCount = systemsService.undeleteSystem(rUser, systemId);
+        changeCount = service.undeleteSystem(rUser, systemId);
       else
-        changeCount = systemsService.changeSystemOwner(rUser, systemId, userName);
-    }
-    catch (NotFoundException e)
-    {
-      msg = ApiUtils.getMsgAuth("SYSAPI_NOT_FOUND", rUser, systemId);
-      _log.warn(msg);
-      return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+        changeCount = service.changeSystemOwner(rUser, systemId, userName);
     }
     catch (IllegalStateException e)
     {
-      if (e.getMessage().contains("SYSLIB_UNAUTH"))
-      {
-        // IllegalStateException with msg containing SYS_UNAUTH indicates operation not authorized for apiUser - return 401
-        msg = ApiUtils.getMsgAuth("SYSAPI_SYS_UNAUTH", rUser, systemId, opName);
-        _log.warn(msg);
-        return Response.status(Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
-      else
-      {
-        // IllegalStateException indicates an Invalid PatchSystem was passed in
-        msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
-        _log.error(msg);
-        return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
-      }
+      // IllegalStateException indicates an Invalid PatchSystem was passed in
+      msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
+      _log.error(msg);
+      throw new BadRequestException(msg);
     }
     catch (IllegalArgumentException e)
     {
       // IllegalArgumentException indicates somehow a bad argument made it this far
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new BadRequestException(msg);
     }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
     catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg, e);
-      return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+      throw new WebApplicationException(msg);
     }
 
     // ---------------------------- Success -------------------------------
@@ -1212,18 +1271,18 @@ public class SystemResource
     Object notes = extractNotes(rawJson);
 
     // NOTE: Following attributes are not updatable and must be filled in on service side.
-    TSystem.SystemType systemType = null;
-    String owner = null;
-    boolean enabled = true;
-    String bucketName = null;
-    String rootDir = null;
-    boolean isDtn = false;
-    boolean canExec = true;
-    var tSystem = new TSystem(-1, tenantId, systemId, req.description, systemType, owner, req.host,
-            enabled, req.effectiveUserId, req.defaultAuthnMethod, bucketName, rootDir,
+    TSystem.SystemType systemTypeNull = null;
+    String ownerNull = null;
+    boolean enabledTrue = true;
+    String bucketNameNull = null;
+    String rootDirNull = null;
+    boolean isDtnFalse = false;
+    boolean canExecTrue = true;
+    var tSystem = new TSystem(-1, tenantId, systemId, req.description, systemTypeNull, ownerNull, req.host,
+            enabledTrue, req.effectiveUserId, req.defaultAuthnMethod, bucketNameNull, rootDirNull,
             req.port, req.useProxy, req.proxyHost, req.proxyPort,
-            req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, isDtn,
-            canExec, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
+            req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, isDtnFalse,
+            canExecTrue, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
             req.canRunBatch, req.mpiCmd, req.batchScheduler, req.batchLogicalQueues, req.batchDefaultLogicalQueue,
             req.batchSchedulerProfile, req.jobCapabilities, req.tags, notes, req.importRefId, null, false, null, null);
     tSystem.setAuthnCredential(req.authnCredential);
@@ -1231,15 +1290,15 @@ public class SystemResource
   }
 
   /**
-   * Fill in defaults and check restrictions on TSystem attributes
+   * Check restrictions on TSystem attributes
    * Use TSystem method to check internal consistency of attributes.
    * If DTN is used verify that dtnSystemId exists with isDtn = true
-   * Collect and report as many errors as possible so they can all be fixed before next attempt
-   * NOTE: JsonSchema validation should handle some of these checks but we check here again for robustness.
+   * Collect and report as many errors as possible, so they can all be fixed before next attempt
+   * NOTE: JsonSchema validation should handle some of these checks, but we check here again for robustness.
    *
    * @return null if OK or error Response
    */
-  private Response validateTSystem(TSystem tSystem1, ResourceRequestUser rUser)
+  private Response validateTSystemAtCreate(TSystem tSystem1, ResourceRequestUser rUser)
   {
     String msg;
 
@@ -1254,14 +1313,19 @@ public class SystemResource
       TSystem dtnSystem = null;
       try
       {
-        dtnSystem = systemsService.getSystem(rUser, tSystem1.getDtnSystemId(), false, null, false);
+        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null, false);
       }
       catch (NotAuthorizedException e)
       {
-        msg = ApiUtils.getMsg("SYSAPI_DTN_NOT_AUTH", tSystem1.getDtnSystemId());
+        msg = ApiUtils.getMsg("SYSAPI_DTN_401", tSystem1.getDtnSystemId());
         errMessages.add(msg);
       }
-      catch (TapisClientException | TapisException e)
+      catch (ForbiddenException e)
+      {
+        msg = ApiUtils.getMsg("SYSAPI_DTN_403", tSystem1.getDtnSystemId());
+        errMessages.add(msg);
+      }
+      catch (Exception e)
       {
         msg = ApiUtils.getMsg("SYSAPI_DTN_CHECK_ERROR", tSystem1.getDtnSystemId(), e.getMessage());
         _log.error(msg, e);
@@ -1285,17 +1349,20 @@ public class SystemResource
       // Construct message reporting all errors
       String allErrors = ApiUtils.getListOfErrors(errMessages, rUser, tSystem1.getId());
       _log.error(allErrors);
-      return Response.status(Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(allErrors, PRETTY)).build();
+      throw new BadRequestException(allErrors);
     }
     return null;
   }
 
   /**
    * Extract notes from the incoming json
+   * This explicit method to extract is needed because notes is an unstructured object and other seemingly simpler
+   * approaches caused problems with the json marshalling. This method ensures notes end up as a JsonObject rather
+   * than a LinkedTreeMap.
    */
-  private static Object extractNotes(String rawJson)
+  private static JsonObject extractNotes(String rawJson)
   {
-    Object notes = null;
+    JsonObject notes = null;
     // Check inputs
     if (StringUtils.isBlank(rawJson)) return notes;
     // Turn the request string into a json object and extract the notes object
@@ -1348,9 +1415,9 @@ public class SystemResource
    *  srchParms must be non-null
    *  One of srchParms.searchList or sqlSearchStr must be non-null
    */
-  private Response getSearchResponse(ResourceRequestUser rUser, String sqlSearchStr,
-                                     SearchParameters srchParms, boolean showDeleted)
-          throws Exception
+  private Response getSearchResponse(ResourceRequestUser rUser, String sqlSearchStr, SearchParameters srchParms,
+                                     boolean showDeleted, String listType)
+          throws TapisException, TapisClientException
   {
     RespAbstract resp1;
     List<TSystem> systems;
@@ -1371,20 +1438,21 @@ public class SystemResource
     List<OrderBy> orderByList = srchParms.getOrderByList();
 
     if (StringUtils.isBlank(sqlSearchStr))
-      systems = systemsService.getSystems(rUser, searchList, limit, orderByList, skip,
-                                          startAfter, showDeleted);
+      systems = service.getSystems(rUser, searchList, limit, orderByList, skip, startAfter, showDeleted, listType);
     else
-      systems = systemsService.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit,
-                                                           orderByList, skip, startAfter, showDeleted);
+      systems = service.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit, orderByList, skip, startAfter,
+                                                    showDeleted, listType);
     if (systems == null) systems = Collections.emptyList();
     itemCountStr = String.format(SYS_CNT_STR, systems.size());
     if (computeTotal && limit <= 0) totalCount = systems.size();
 
     // If we need the count and there was a limit then we need to make a call
+    // This is a separate call from getSystems() because unlike getSystems() we do not want to include the limit or skip,
+    //   and we do not need to fetch all the data. One benefit is that the method is simpler and easier to follow
+    //   compared to attempting to fold everything into getSystems().
     if (computeTotal && limit > 0)
     {
-      totalCount = systemsService.getSystemsTotalCount(rUser, searchList, orderByList,
-                                                       startAfter, showDeleted);
+      totalCount = service.getSystemsTotalCount(rUser, searchList, orderByList, startAfter, showDeleted, listType);
     }
 
     // ---------------------------- Success -------------------------------

@@ -18,8 +18,10 @@ import static edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters.DEFAULT_
 import static edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters.DEFAULT_SKIP;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.apiUser;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.gson;
+import static edu.utexas.tacc.tapis.systems.IntegrationUtils.listTypeOwned;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.orderByListNull;
-import static edu.utexas.tacc.tapis.systems.IntegrationUtils.scrubbedJson;
+import static edu.utexas.tacc.tapis.systems.IntegrationUtils.owner1;
+import static edu.utexas.tacc.tapis.systems.IntegrationUtils.rawDataEmptyJson;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.searchASTNull;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.setOfIDsNull;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.showDeletedFalse;
@@ -35,7 +37,7 @@ import static org.testng.Assert.assertEquals;
 public class ShowDeletedDaoTest
 {
   private SystemsDaoImpl dao;
-  private ResourceRequestUser rUser;
+  private ResourceRequestUser rUser, rOwner;
 
   // Test data
   private static final String testKey = "SrchDel";
@@ -54,13 +56,15 @@ public class ShowDeletedDaoTest
     // Initialize authenticated user
     rUser = new ResourceRequestUser(new AuthenticatedUser(apiUser, tenantName, TapisThreadContext.AccountType.user.name(),
                                                           null, apiUser, tenantName, null, null, null));
+    rOwner = new ResourceRequestUser(new AuthenticatedUser(owner1, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                            null, owner1, tenantName, null, null, null));
 
     // Cleanup anything leftover from previous failed run
     teardown();
 
     for (TSystem sys : systems)
     {
-      boolean itemCreated = dao.createSystem(rUser, sys, gson.toJson(sys), scrubbedJson);
+      boolean itemCreated = dao.createSystem(rOwner, sys, gson.toJson(sys), rawDataEmptyJson);
       Assert.assertTrue(itemCreated, "Item not created, id: " + sys.getId());
     }
   }
@@ -94,37 +98,38 @@ public class ShowDeletedDaoTest
 
     // None deleted yet so should have all systems
     // First check counts. showDeleted = true or false should have total number of systems.
-    int count = dao.getSystemsCount(tenantName, searchListAll, searchASTNull, setOfIDsNull, orderByListNull,
-                                    startAfterNull, showDeletedFalse);
+    int count = dao.getSystemsCount(rOwner, searchListAll, searchASTNull, orderByListNull, startAfterNull,
+                                    showDeletedFalse, listTypeOwned, setOfIDsNull, setOfIDsNull);
     assertEquals(count, numSystems, "Incorrect count for getSystemsCount/showDel=false before delete of system");
-    count = dao.getSystemsCount(tenantName, searchListAll, searchASTNull, setOfIDsNull, orderByListNull,
-                                startAfterNull, showDeletedTrue);
+    count = dao.getSystemsCount(rOwner, searchListAll, searchASTNull, orderByListNull, startAfterNull, showDeletedTrue,
+                                listTypeOwned, setOfIDsNull, setOfIDsNull);
     assertEquals(count, numSystems, "Incorrect count for getSystemsCount/showDel=true before delete of system");
     // Check retrieving all systems
-    List<TSystem> searchResults = dao.getSystems(tenantName, searchListAll, searchASTNull, setOfIDsNull, DEFAULT_LIMIT,
-                                                 orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse);
+    List<TSystem> searchResults = dao.getSystems(rOwner, searchListAll, searchASTNull, DEFAULT_LIMIT,
+                                                 orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse,
+                                                 listTypeOwned, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems, "Incorrect result count for getSystems/showDel=false");
-    searchResults = dao.getSystems(tenantName, searchListAll, searchASTNull, setOfIDsNull, DEFAULT_LIMIT,
-                                   orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedTrue);
+    searchResults = dao.getSystems(rOwner, searchListAll, searchASTNull, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP,
+                                   startAfterNull, showDeletedTrue, listTypeOwned, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems, "Incorrect result count for getSystems/showDel=true");
 
     // Now delete a system
-    dao.updateDeleted(rUser, tenantName, sys0Id, true);
+    dao.updateDeleted(rOwner, tenantName, sys0Id, true);
 
     // First check counts. showDeleted = false should return 1 less than total.
-    count = dao.getSystemsCount(tenantName, searchListAll, searchASTNull, setOfIDsNull, orderByListNull,
-                                startAfterNull, showDeletedFalse);
+    count = dao.getSystemsCount(rOwner, searchListAll, searchASTNull, orderByListNull,
+                                startAfterNull, showDeletedFalse, listTypeOwned, setOfIDsNull, setOfIDsNull);
     assertEquals(count, numSystems-1, "Incorrect count for getSystemsCount/showDel=false after delete of system");
-    count = dao.getSystemsCount(tenantName, searchListAll, searchASTNull, setOfIDsNull, orderByListNull,
-                                startAfterNull, showDeletedTrue);
+    count = dao.getSystemsCount(rOwner, searchListAll, searchASTNull, orderByListNull, startAfterNull, showDeletedTrue,
+                                listTypeOwned, setOfIDsNull, setOfIDsNull);
     assertEquals(count, numSystems, "Incorrect count for getSystemsCount/showDel=true after delete of system");
 
     // Check retrieving all systems
-    searchResults = dao.getSystems(tenantName, searchListAll, searchASTNull, setOfIDsNull, DEFAULT_LIMIT,
-                                   orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse);
+    searchResults = dao.getSystems(rOwner, searchListAll, searchASTNull, DEFAULT_LIMIT, orderByListNull,
+                                   DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeOwned, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems-1, "Incorrect result count for getSystems/showDel=false after delete of system");
-    searchResults = dao.getSystems(tenantName, searchListAll, searchASTNull, setOfIDsNull, DEFAULT_LIMIT,
-                                   orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedTrue);
+    searchResults = dao.getSystems(rOwner, searchListAll, searchASTNull, DEFAULT_LIMIT, orderByListNull,
+                                   DEFAULT_SKIP, startAfterNull, showDeletedTrue, listTypeOwned, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems, "Incorrect result count for getSystems/showDel=true after delete of system");
   }
 

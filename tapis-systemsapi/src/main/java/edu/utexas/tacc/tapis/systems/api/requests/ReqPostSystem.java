@@ -12,6 +12,7 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
 
 import java.util.List;
 
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_CAN_RUN_BATCH;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_ENABLED;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_JOBENV_VARIABLES;
@@ -50,7 +51,7 @@ public final class ReqPostSystem
   public String dtnMountSourcePath;
   public boolean isDtn;
   public boolean canExec;
-  public boolean canRunBatch;
+  public boolean canRunBatch = DEFAULT_CAN_RUN_BATCH;
   public String mpiCmd;
   public List<JobRuntime> jobRuntimes;
   public String jobWorkingDir;

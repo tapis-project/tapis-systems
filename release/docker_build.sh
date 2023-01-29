@@ -1,6 +1,6 @@
 #!/bin/sh
 # Build and optionally push docker image for Systems service
-# This is the job run in Jenkins as part of job TapisJava->3_ManualBuildDeploy->systems
+# This is the script run in Jenkins as part of job TapisJava->3_ManualBuildDeploy->systems
 # Environment name must be passed in as first argument
 # Existing docker login is used for push
 # Docker image is created with a unique tag: tapis/<SVC_NAME>-<ENV>-<VER>-<COMMIT>-<YYYYmmddHHMM>
@@ -21,19 +21,19 @@ ENV=$1
 
 # Check number of arguments
 if [ $# -lt 1 -o $# -gt 2 ]; then
-  echo $USAGE
+  echo "$USAGE"
   exit 1
 fi
 
 # Check that env name is valid
 if [ "$ENV" != "dev" -a "$ENV" != "staging" -a "$ENV" != "prod" ]; then
-  echo $USAGE
+  echo "$USAGE"
   exit 1
 fi
 
 # Check second arg
 if [ $# -eq 2 -a "x$2" != "x-push" ]; then
-  echo $USAGE
+  echo "$USAGE"
   exit 1
 fi
 

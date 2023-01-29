@@ -1,0 +1,63 @@
+# Tapis Systems Migrate Job
+
+Files:
+  README_migratejob - this file
+  migratejob-dryrun.yml - k8s file for dry-run of migrate job
+  migratejob-dryrun.sh  - script to launch k8s dry-run job
+  migratejob-apply.yml - k8s file for run of migrate job with changes applied
+  migratejob-apply.sh  - script to launch k8s migrate job with changes applied
+  systems-config.yml - snapshot of service config file from DEV environment. Used in scripts.
+
+NOTE: These files are being kept in the tapis-systems repo for now so they are backed up
+      and version controlled. In future they possibly should go into tapis-deployer repo.
+
+This directory contains kubernetes deployment files and other files for running an on-demand job
+to perform java based non-DB migration steps for the Tapis Systems service.
+ 
+Process and files are based on tapis-kube/skadmin
+
+There is no burnup/burndown since it will be a k8s job only run on-demand.
+
+The job starts up in the same manner as the Systems service api application.
+Typically it is run only once, although significant effort should be made to
+ensure that each incarnation of this job is idempotent since it may have to
+be run more than once if there are issues.
+
+In general the Systems service api should be shut down before running this job but that
+may not always be true depending on the migration steps.
+
+The job output (the logs) should be checked to confirm there were no errors.
+
+Following env variables must be set:
+  TAPIS_SITE_ID
+  TAPIS_SERVICE_PASSWORD
+  TAPIS_TENANT_SVC_BASEURL
+  TAPIS_DB_JDBC_URL
+  TAPIS_DB_USER
+  TAPIS_DB_PASSWORD
+Following services from a running tapis3 are required: tenants, tokens, security-kernel
+
+
+Version 1.2.0
+===============
+The initial version of this job is for Tapis Systems version 1.2.0 or possibly
+later if version 1.2.0 is never installed and the old version is pre-1.2.0 and
+the new version is post-1.2.0.  
+It migrates all Systems secrets to a path that include "static" or "dynamic" in the path name.
+The job makes calls to the Systems DB, Tenants and SK.
+NOTES:
+* It is not necesarry to shut down the service when running this job.
+* This version of the migration job has been run in dryrun mode against Systems version
+  1.1.3 and 1.2.0 with no errors.
+* This version has been successfully tested in DEV and STG environments.
+
+## Running the job
+
+To make a dry-run of the job use migratejob-dryrun.sh
+
+Check the logs to make sure all went all.
+
+If you need to re-run the job delete the current job first using kubectl delete -f migratejob-dryrun.yml
+
+To run and apply changes use migratejob-apply.sh
+

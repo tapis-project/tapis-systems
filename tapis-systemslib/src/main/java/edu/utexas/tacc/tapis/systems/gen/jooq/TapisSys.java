@@ -8,12 +8,12 @@ import edu.utexas.tacc.tapis.systems.gen.jooq.tables.FlywaySchemaHistory;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemUpdates;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.Systems;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsLoginUser;
 
 import java.util.Arrays;
 import java.util.List;
 
 import org.jooq.Catalog;
-import org.jooq.Sequence;
 import org.jooq.Table;
 import org.jooq.impl.SchemaImpl;
 
@@ -52,6 +52,11 @@ public class TapisSys extends SchemaImpl {
     public final Systems SYSTEMS = Systems.SYSTEMS;
 
     /**
+     * The table <code>tapis_sys.systems_login_user</code>.
+     */
+    public final SystemsLoginUser SYSTEMS_LOGIN_USER = SystemsLoginUser.SYSTEMS_LOGIN_USER;
+
+    /**
      * No further instances allowed
      */
     private TapisSys() {
@@ -65,18 +70,13 @@ public class TapisSys extends SchemaImpl {
     }
 
     @Override
-    public final List<Sequence<?>> getSequences() {
-        return Arrays.<Sequence<?>>asList(
-            Sequences.SYSTEM_UPDATES_SEQ_ID_SEQ,
-            Sequences.SYSTEMS_SEQ_ID_SEQ);
-    }
-
-    @Override
     public final List<Table<?>> getTables() {
-        return Arrays.<Table<?>>asList(
+        return Arrays.asList(
             FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY,
             SchedulerProfiles.SCHEDULER_PROFILES,
             SystemUpdates.SYSTEM_UPDATES,
-            Systems.SYSTEMS);
+            Systems.SYSTEMS,
+            SystemsLoginUser.SYSTEMS_LOGIN_USER
+        );
     }
 }
