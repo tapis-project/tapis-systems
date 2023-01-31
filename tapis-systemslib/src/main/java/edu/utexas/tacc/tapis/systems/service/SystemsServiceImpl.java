@@ -17,10 +17,6 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
-
-import edu.utexas.tacc.tapis.globusproxy.client.GlobusProxyClient;
-import edu.utexas.tacc.tapis.globusproxy.client.gen.model.AuthTokens;
-import edu.utexas.tacc.tapis.globusproxy.client.gen.model.ResultGlobusAuthInfo;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sshd.sftp.client.SftpClient;
@@ -82,6 +78,11 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemType;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+
+import edu.utexas.tacc.tapis.globusproxy.client.GlobusProxyClient;
+import edu.utexas.tacc.tapis.globusproxy.client.gen.model.AuthTokens;
+import edu.utexas.tacc.tapis.globusproxy.client.gen.model.ResultGlobusAuthInfo;
+
 import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_TOKEN;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_REFRESH_TOKEN;
@@ -95,7 +96,6 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.PATTERN_STR_HOST_EVAL;
-
 
 /*
  * Service level methods for Systems.
@@ -2970,7 +2970,6 @@ public class SystemsServiceImpl implements SystemsService
     {
       dataMap = new HashMap<>();
       // TODO - update SK? type is defined in client, but any updates needed for SK service?
-// TODO      sParms.setKeyType(KeyType.token);
       sParms.setKeyType(KeyType.token);
       dataMap.put(SK_KEY_ACCESS_TOKEN, credential.getAccessToken());
       dataMap.put(SK_KEY_REFRESH_TOKEN, credential.getRefreshToken());
