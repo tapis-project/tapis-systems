@@ -30,6 +30,9 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
+import edu.utexas.tacc.tapis.globusproxy.client.GlobusProxyClient;
+import edu.utexas.tacc.tapis.globusproxy.client.gen.model.AuthTokens;
+import edu.utexas.tacc.tapis.globusproxy.client.gen.model.ResultGlobusAuthInfo;
 import edu.utexas.tacc.tapis.search.SearchUtils;
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
 import edu.utexas.tacc.tapis.search.parser.ASTParser;
@@ -45,9 +48,6 @@ import edu.utexas.tacc.tapis.security.client.model.SKShareDeleteShareParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareGetSharesParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareHasPrivilegeParms;
 import edu.utexas.tacc.tapis.security.client.model.SecretType;
-import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
-import edu.utexas.tacc.tapis.systems.client.gen.model.TapisSystem;
-import edu.utexas.tacc.tapis.systems.client.gen.model.SystemTypeEnum;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisSSHAuthException;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
@@ -63,6 +63,9 @@ import edu.utexas.tacc.tapis.shared.utils.MacroResolver;
 import edu.utexas.tacc.tapis.shared.utils.PathUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
+import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
+import edu.utexas.tacc.tapis.systems.client.gen.model.TapisSystem;
+import edu.utexas.tacc.tapis.systems.client.gen.model.SystemTypeEnum;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.Credential;
@@ -78,11 +81,6 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemType;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
-
-import edu.utexas.tacc.tapis.globusproxy.client.GlobusProxyClient;
-import edu.utexas.tacc.tapis.globusproxy.client.gen.model.AuthTokens;
-import edu.utexas.tacc.tapis.globusproxy.client.gen.model.ResultGlobusAuthInfo;
-
 import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_TOKEN;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_REFRESH_TOKEN;
@@ -1847,19 +1845,17 @@ public class SystemsServiceImpl implements SystemsService
     // Get clientId configured for Tapis. If none throw an exception
     String clientId = RuntimeParameters.getInstance().getGlobusClientId();
     if (StringUtils.isBlank(clientId))
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser));
-
-    GlobusAuthInfo globusAuthInfo;
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
 
     // Call Tapis GlobusProxy service and create a GlobusAuthInfo from the client response;
     ResultGlobusAuthInfo r = getGlobusProxyClient(rUser).getAuthInfo(clientId);
-    globusAuthInfo = new GlobusAuthInfo(r.getUrl(), r.getSessionId());
+    GlobusAuthInfo globusAuthInfo = new GlobusAuthInfo(r.getUrl(), r.getSessionId());
     return globusAuthInfo;
   }
 
   /**
    * Given a Tapis system, user and Globus auth code generate a pair of access
-   * and refresh tokens. Then same them to SK for the given user and system.
+   * and refresh tokens. Then save them to SK for the given user and system.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - Id of system
@@ -1878,37 +1874,36 @@ public class SystemsServiceImpl implements SystemsService
 
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName) || StringUtils.isBlank(authCode)
         || StringUtils.isBlank(sessionId))
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_GLOBUS_TOKENS", rUser));
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_GLOBUS_TOKENS", rUser, systemId,
+                                                             userName, authCode, sessionId));
 
     // Get clientId configured for Tapis. If none throw an exception
     String clientId = RuntimeParameters.getInstance().getGlobusClientId();
     if (StringUtils.isBlank(clientId))
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser));
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
 
-    String resourceTenantId = rUser.getOboTenantId();
-
+    // We will need info from system, so fetch it now
     // If system does not exist or has been deleted then throw an exception
-    if (!dao.checkForSystem(resourceTenantId, systemId, false))
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, false);
+    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
     // ------------------------- Check service level authorization -------------------------
-    checkAuth(rUser, op, systemId, null, userName, null);
+    checkAuth(rUser, op, systemId, system.getOwner(), userName, null);
 
     // Call Tapis GlobuxProxy service to get tokens
     AuthTokens authTokens = getGlobusProxyClient(rUser).getTokens(clientId, sessionId, authCode);
     String accessToken = authTokens.getAccessToken();
     String refreshToken = authTokens.getRefreshToken();
 
-    // Call SK to store tokens
-    // Create credential
-    // If this throws an exception we do not try to rollback. Attempting to track which secrets
-    //   have been changed and reverting seems fraught with peril and not a good ROI.
-    var skClient = getSKClient();
+    // Determine the effectiveUser type, either static or dynamic
+    // Secrets get stored on different paths based on this
+    boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+
+    // Create credential and save to SK
     Credential credential = new Credential(null, null, null, null, null, null, null, accessToken, refreshToken, null);
     try
     {
-      //TODO isStatic = false?
-      createCredential(rUser, credential, systemId, userName, false);
+      createCredential(rUser, credential, systemId, userName, isStaticEffectiveUser);
     }
     // If tapis client exception then log error and convert to TapisException
     catch (TapisClientException tce)
@@ -2969,7 +2964,6 @@ public class SystemsServiceImpl implements SystemsService
     if (!StringUtils.isBlank(credential.getAccessToken()) && !StringUtils.isBlank(credential.getRefreshToken()))
     {
       dataMap = new HashMap<>();
-      // TODO - update SK? type is defined in client, but any updates needed for SK service?
       sParms.setKeyType(KeyType.token);
       dataMap.put(SK_KEY_ACCESS_TOKEN, credential.getAccessToken());
       dataMap.put(SK_KEY_REFRESH_TOKEN, credential.getRefreshToken());
