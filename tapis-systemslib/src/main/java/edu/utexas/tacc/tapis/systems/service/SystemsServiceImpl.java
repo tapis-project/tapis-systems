@@ -637,10 +637,8 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    String oboTenant = rUser.getOboTenantId();
-
     // System must exist
-    TSystem system = dao.getSystem(oboTenant, systemId, true);
+    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, true);
     if (system == null)
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
@@ -923,12 +921,11 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    // For clarity and convenience
-    String oboTenant = rUser.getOboTenantId();
+    // Allow for option of impersonation. Auth checked below.
     String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
 
     // We will need info from system, so fetch it now
-    TSystem system = dao.getSystem(oboTenant, systemId);
+    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
     // We need owner to check auth and if system not there cannot find owner, so return null if no system.
     if (system == null) return null;
 
@@ -1606,7 +1603,7 @@ public class SystemsServiceImpl implements SystemsService
     //   then record the mapping
     if (!isStaticEffectiveUser && !StringUtils.isBlank(loginUser) && !targetUser.equals(loginUser))
     {
-      dao.createOrUpdateLoginUserMapping(rUser.getOboTenantId(), systemId, targetUser, loginUser);
+      dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, loginUser);
     }
 
     // TODO/TBD: will we still need anything like this once we support dynamic rootDir via parent-child?
@@ -1653,10 +1650,8 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
-    String oboTenant = rUser.getOboTenantId();
-
     int changeCount = 0;
-    TSystem system = dao.getSystem(oboTenant, systemId);
+    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
     // If system does not exist or has been deleted then return 0 changes
     if (system == null) return changeCount;
 
@@ -2085,10 +2080,8 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    String oboTenant = rUser.getOboTenantId();
-
     // We will need info from system, so fetch it now
-    TSystem system = dao.getSystem(oboTenant, systemId);
+    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
     // We need owner to check auth and if system not there cannot find owner, so return null if no system.
     if (system == null) return null;
 
@@ -2716,18 +2709,15 @@ public class SystemsServiceImpl implements SystemsService
           throws TapisException, TapisClientException
   {
     var systemIDs = new HashSet<String>();
-    // Extract various names for convenience
-    String oboTenantId = rUser.getOboTenantId();
-    String oboUserId = rUser.getOboUserId();
 
     // ------------------- Make a call to retrieve share info -----------------------
     // Create SKShareGetSharesParms needed for SK calls.
     var skParms = new SKShareGetSharesParms();
     skParms.setResourceType(SYS_SHR_TYPE);
-    skParms.setTenant(oboTenantId);
+    skParms.setTenant(rUser.getOboTenantId());
     // Set grantee based on whether we want just public or not.
     if (publicOnly) skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
-    else skParms.setGrantee(oboUserId);
+    else skParms.setGrantee(rUser.getOboUserId());
 
     // Call SK to get all shared with oboUser and add them to the set
     var skShares = getSKClient().getShares(skParms);
@@ -2968,7 +2958,7 @@ public class SystemsServiceImpl implements SystemsService
       dataMap.put(SK_KEY_ACCESS_TOKEN, credential.getAccessToken());
       dataMap.put(SK_KEY_REFRESH_TOKEN, credential.getRefreshToken());
       sParms.setData(dataMap);
-      getSKClient().writeSecret(rUser.getOboTenantId(), rUser.getOboUserId(), sParms);
+      getSKClient().writeSecret(oboTenant, oboUser, sParms);
     }
     // NOTE if necessary handle ssh certificate when supported
   }
@@ -3668,10 +3658,8 @@ public class SystemsServiceImpl implements SystemsService
       userList = publicUserSet; // "~public"
     }
 
-    String oboTenant = rUser.getOboTenantId();
-
     // We will need info from system, so fetch it now
-    TSystem system = dao.getSystem(oboTenant, systemId);
+    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
     // We need owner to check auth and if system not there cannot find owner.
     if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
