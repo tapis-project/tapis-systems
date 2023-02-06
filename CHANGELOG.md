@@ -15,7 +15,7 @@ https://tapis-project.github.io/live-docs
 Incremental improvements and new preview features.
 
 ### New features:
-- 
+- Added enableCmdPrefix to Systems.  This can be used to enable/disable command prefix for jobs.
 
 ### Bug fixes:
 - Update sharedAppCtx to represent app share grantor.
