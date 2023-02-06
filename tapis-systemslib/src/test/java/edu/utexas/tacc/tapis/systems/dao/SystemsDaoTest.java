@@ -321,8 +321,9 @@ public class SystemsDaoTest
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, isDtnFalse,
             canExecTrue, jobRuntimes1, "jobWorkDir", jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1,
-            canRunBatchTrue, mpiCmd1, batchScheduler1, logicalQueueList1, "batchDefaultLogicalQueue", batchSchedulerProfile1,
-            capList1, tags1, notes1, importRefIdNull, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            canRunBatchTrue, enableCmdPrefixTrue, mpiCmd1, batchScheduler1, logicalQueueList1,
+            "batchDefaultLogicalQueue", batchSchedulerProfile1, capList1, tags1, notes1,
+            importRefIdNull, uuidNull, isDeletedFalse, createdNull, updatedNull);
     // Make sure system does not exist
     Assert.assertFalse(dao.checkForSystem(tenantName, fakeSystemName, true));
     Assert.assertFalse(dao.checkForSystem(tenantName, fakeSystemName, false));

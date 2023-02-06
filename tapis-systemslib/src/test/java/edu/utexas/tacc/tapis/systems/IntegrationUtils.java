@@ -158,6 +158,9 @@ public final class IntegrationUtils
   public static final boolean canRunBatchTrue = true;
   public static final boolean canRunBatchFalse = false;
   public static final Boolean canRunBatchNull = null;
+  public static final boolean enableCmdPrefixTrue = true;
+  public static final boolean enableCmdPrefixFalse = false;
+  public static final Boolean enableCmdPrefixNull = null;
   public static final String mpiCmd1 = "mpirun1";
   public static final String mpiCmd2 = "mpirun2";
   public static final String mpiCmdNull = null;
@@ -313,8 +316,8 @@ public final class IntegrationUtils
             prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
-            canRunBatchFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
-            capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
+            batchSchedulerProfileNull, capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
   }
 
   /**
@@ -332,8 +335,8 @@ public final class IntegrationUtils
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs2, jobMaxJobsPerUser2,
-            canRunBatchFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
-            capListNull, tags2, notes2, importRefId2, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
+            batchSchedulerProfileNull, capListNull, tags2, notes2, importRefId2, uuidNull, isDeletedFalse, createdNull, updatedNull);
   }
 
   /**
@@ -357,15 +360,15 @@ public final class IntegrationUtils
             prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
-            canRunBatchFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
-            capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
+            batchSchedulerProfileNull, capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
     dtnSystem2 = new TSystem(-1, tenantName, dtnSystemName2, "DTN System2 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn2", prot2.getAuthnMethod(), "bucketDtn2", "/root/dtn2",
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs2, jobMaxJobsPerUser2,
-            canRunBatchFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
-            capListNull, tags2, notes2, importRefId2, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            canRunBatchFalse, enableCmdPrefixTrue, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
+            batchSchedulerProfileNull, capListNull, tags2, notes2, importRefId2, uuidNull, isDeletedFalse, createdNull, updatedNull);
     for (int i = 0; i < n; i++)
     {
       // Suffix which should be unique for each system within each integration test
@@ -379,8 +382,8 @@ public final class IntegrationUtils
               prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
               dtnSystem1.getId(), dtnMountPoint1, dtnMountSourcePath1, isDtnFalse,
               canExecTrue, jobRuntimes1, "jobWorkDir"+suffix, jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1,
-              canRunBatchTrue, mpiCmd1, batchScheduler1, logicalQueueList1, queueA1.getName(), batchSchedulerProfile1,
-              capList1, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
+              canRunBatchTrue, enableCmdPrefixTrue, mpiCmd1, batchScheduler1, logicalQueueList1, queueA1.getName(),
+              batchSchedulerProfile1, capList1, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
       systems[i].setJobRuntimes(jobRuntimes1);
       systems[i].setBatchLogicalQueues(logicalQueueList1);
       systems[i].setJobCapabilities(capList1);
@@ -403,9 +406,9 @@ public final class IntegrationUtils
               hostMinimalId, isEnabledTrue, effectiveUserIdNull, tSys.getDefaultAuthnMethod(), null, rootDir1,
               prot1.getPort(), prot1.isUseProxy(), null, prot1.getProxyPort(), null, null, null, isDtnFalse,
               canExecFalse, jobRuntimesNull, null, null, jobMaxJobs1, jobMaxJobsPerUser1,
-              canRunBatchFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, batchDefaultLogicalQueueNull,
-              batchSchedulerProfileNull, capListNull,
-              tagsNull, notesNull, importRefIdNull, uuidNull, isDeletedFalse, createdNull, updatedNull);
+              canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull,
+              batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull, tagsNull, notesNull,
+              importRefIdNull, uuidNull, isDeletedFalse, createdNull, updatedNull);
     }
     else
     {
@@ -413,8 +416,8 @@ public final class IntegrationUtils
               hostMinimalId, isEnabledTrue, effectiveUserIdNull, tSys.getDefaultAuthnMethod(), null, rootDir1,
               prot1.getPort(), prot1.isUseProxy(), null, prot1.getProxyPort(), null, null, null, isDtnFalse,
               canExecFalse, jobRuntimesNull, null, null, jobMaxJobs1, jobMaxJobsPerUser1,
-              canRunBatchFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, batchDefaultLogicalQueueNull,
-              batchSchedulerProfileNull, capListNull,
+              canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull,
+              batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull,
               tagsNull, notesNull, importRefIdNull, uuidNull, isDeletedFalse, null, null);
     }
   }
@@ -433,8 +436,8 @@ public final class IntegrationUtils
                        prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
                        sysNamePrefix+key+dtnSystemId2, dtnMountPoint2, dtnMountSourcePath2, system.isDtn(),
                        system.getCanExec(), jobRuntimes2, jobWorkingDir2, jobEnvVariables2, jobMaxJobs2,
-                       jobMaxJobsPerUser2, canRunBatchTrue, mpiCmd2, batchScheduler2, logicalQueueList2,
-                       batchDefaultLogicalQueue2, batchSchedulerProfile2,
+                       jobMaxJobsPerUser2, canRunBatchTrue, enableCmdPrefixTrue, mpiCmd2, batchScheduler2,
+                       logicalQueueList2, batchDefaultLogicalQueue2, batchSchedulerProfile2,
                        capList2, tags2, notes2, importRefId2, null, false, null, null);
     putSys.setBatchLogicalQueues(logicalQueueList2);
     putSys.setJobRuntimes(jobRuntimes2);
@@ -453,7 +456,7 @@ public final class IntegrationUtils
     return new PatchSystem(description2, hostname2, effectiveUserId2,
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             sysNamePrefix+key+dtnSystemId2, dtnMountPoint2, dtnMountSourcePath2, jobRuntimes2, jobWorkingDir2,
-            jobEnvVariables2, jobMaxJobs2, jobMaxJobsPerUser2, canRunBatchTrue, mpiCmd2, batchScheduler2,
+            jobEnvVariables2, jobMaxJobs2, jobMaxJobsPerUser2, canRunBatchTrue, enableCmdPrefixTrue, mpiCmd2, batchScheduler2,
             logicalQueueList2, batchDefaultLogicalQueue2, batchSchedulerProfile2, capList2, tags2, notes2, importRefId2);
   }
 
@@ -466,7 +469,7 @@ public final class IntegrationUtils
     return new PatchSystem(description2, hostnameNull, effectiveUserIdNull,
             prot2.getAuthnMethod(), portNull, userProxyNull, proxyHostNull, proxyPortNull,
             dtnSystemIdNull, dtnMountPoint2, dtnMountSourcePathNull, jobRuntimes2, jobWorkingDirNull, jobEnvVariablesNull,
-            jobMaxJobsNull, jobMaxJobsPerUser2, canRunBatchNull, mpiCmd2, batchSchedulerNull, logicalQueueListNull,
+            jobMaxJobsNull, jobMaxJobsPerUser2, canRunBatchNull, enableCmdPrefixTrue, mpiCmd2, batchSchedulerNull, logicalQueueListNull,
             batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull, tagsNull, notesNull, importRefIdNull);
   }
 
@@ -483,7 +486,7 @@ public final class IntegrationUtils
             protS3.getPort(), protS3.isUseProxy(), protS3.getProxyHost(), protS3.getProxyPort(),
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnFalse,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
-            canRunBatchFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
+            canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
             capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
   }
 

@@ -15,6 +15,7 @@ import java.util.List;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_CAN_RUN_BATCH;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_ENABLED;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_ENABLE_CMD_PREFIX;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_JOBENV_VARIABLES;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_JOBMAXJOBS;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_JOBMAXJOBSPERUSER;
@@ -52,6 +53,7 @@ public final class ReqPostSystem
   public boolean isDtn;
   public boolean canExec;
   public boolean canRunBatch = DEFAULT_CAN_RUN_BATCH;
+  public boolean enableCmdPrefix = DEFAULT_ENABLE_CMD_PREFIX;
   public String mpiCmd;
   public List<JobRuntime> jobRuntimes;
   public String jobWorkingDir;
