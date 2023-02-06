@@ -184,11 +184,6 @@ public class Systems extends TableImpl<SystemsRecord> {
     public final TableField<SystemsRecord, Boolean> CAN_RUN_BATCH = createField(DSL.name("can_run_batch"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "Flag indicating if system supports running jobs using a batch scheduler.");
 
     /**
-     * The column <code>tapis_sys.systems.enable_cmd_prefix</code>. Flag indicating
-     * if system supports using a command prefix.
-     */
-    public final TableField<SystemsRecord, Boolean> ENABLE_CMD_PREFIX = createField(DSL.name("enable_cmd_prefix"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "Flag indicating if system supports using a command prefix.");
-    /**
      * The column <code>tapis_sys.systems.mpi_cmd</code>.
      */
     public final TableField<SystemsRecord, String> MPI_CMD = createField(DSL.name("mpi_cmd"), SQLDataType.CLOB, this, "");
@@ -295,6 +290,11 @@ public class Systems extends TableImpl<SystemsRecord> {
      * record was last updated
      */
     public final TableField<SystemsRecord, LocalDateTime> UPDATED = createField(DSL.name("updated"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("timezone('utc'::text, now())", SQLDataType.LOCALDATETIME)), this, "UTC time for when record was last updated");
+
+    /**
+     * The column <code>tapis_sys.systems.enable_cmd_prefix</code>.
+     */
+    public final TableField<SystemsRecord, Boolean> ENABLE_CMD_PREFIX = createField(DSL.name("enable_cmd_prefix"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "");
 
     private Systems(Name alias, Table<SystemsRecord> aliased) {
         this(alias, aliased, null);
