@@ -6,7 +6,7 @@
   <parent>
     <groupId>edu.utexas.tacc.tapis</groupId>
     <artifactId>tapis-systems</artifactId>
-    <version>1.2.8</version>
+    <version>1.2.9</version>
   </parent>
   
   <artifactId>tapis-systemslib</artifactId>
@@ -153,6 +153,10 @@
   <!--   Then unless flyway will be making the updates make sure the DB at   -->
   <!--     db.url has the correct schema. May need to drop the current       -->
   <!--     the schema if flyway is still on V001__init.sql                   -->
+  <!--   To drop the schema:                                                 -->
+  <!--     DROP SCHEMA IF EXISTS tapis_sys CASCADE;                          -->
+  <!--     CREATE SCHEMA IF NOT EXISTS tapis_sys AUTHORIZATION tapis_sys;    -->
+  <!--     ALTER ROLE tapis_sys SET search_path = 'tapis_sys';               -->
   <!-- Finally run:                                                          -->
   <!--   cd lib                                                              -->
   <!--   mvn clean install -Pdb-update                                       -->

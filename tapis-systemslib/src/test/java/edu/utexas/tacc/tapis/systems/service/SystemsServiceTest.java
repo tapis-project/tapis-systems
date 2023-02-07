@@ -1232,7 +1232,7 @@ public class SystemsServiceTest
     // Patch the system
     String rawDataPatch = "{\"effectiveUserId\": \"testuser5LinuxUser\"}";
     PatchSystem patchSystem = new PatchSystem(null, null, testUser5LinuxUser, null, null, null, null, null, null, null, null,
-                              null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+                              null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
     // Retrieve with resolve of effUser, effUser should be static value
     tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, sharedAppCtxFalse);
@@ -1265,7 +1265,7 @@ public class SystemsServiceTest
     // Patch the system
     rawDataPatch = "{\"effectiveUserId\": \"${apiUserId}\"}";
     patchSystem = new PatchSystem(null, null, TSystem.APIUSERID_VAR, null, null, null, null, null, null, null, null,
-                                  null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+                                  null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
     // Retrieve with resolve, check effUser
     tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, sharedAppCtxFalse);
@@ -1537,7 +1537,7 @@ public class SystemsServiceTest
     PatchSystem patchSys = new PatchSystem("description PATCHED", "hostPATCHED", "effUserPATCHED",
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, jobRuntimes1, jobWorkingDir1, jobEnvVariables1, jobMaxJobs1,
-            jobMaxJobsPerUser1, canRunBatchTrue, mpiCmd1, batchScheduler1, logicalQueueList1,
+            jobMaxJobsPerUser1, canRunBatchTrue, enableCmdPrefixTrue, mpiCmd1, batchScheduler1, logicalQueueList1,
             batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2, importRefId2);
 
     // CREATE - Deny user not owner/admin, deny service calling as itself

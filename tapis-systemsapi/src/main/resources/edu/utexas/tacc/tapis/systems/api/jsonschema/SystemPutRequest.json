@@ -27,6 +27,7 @@
     "isDtn": { "type": "boolean" },
     "canExec": { "type": "boolean" },
     "canRunBatch": { "type": "boolean", "default": false },
+    "enableCmdPrefix": { "type": "boolean", "default": false },
     "mpiCmd": { "type": ["string", "null"], "maxLength": 126 },
     "jobRuntimes": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/JobRuntimeList" },
     "jobWorkingDir": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/DirPath" },
