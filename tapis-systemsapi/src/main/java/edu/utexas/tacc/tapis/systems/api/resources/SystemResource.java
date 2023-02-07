@@ -1255,8 +1255,8 @@ public class SystemResource
                        req.port, req.useProxy, req.proxyHost, req.proxyPort,
                        req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, req.isDtn,
                        req.canExec, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs,
-                       req.jobMaxJobsPerUser, req.canRunBatch, req.mpiCmd, req.batchScheduler, req.batchLogicalQueues,
-                       req.batchDefaultLogicalQueue, req.batchSchedulerProfile, req.jobCapabilities,
+                       req.jobMaxJobsPerUser, req.canRunBatch, req.enableCmdPrefix, req.mpiCmd, req.batchScheduler,
+                       req.batchLogicalQueues, req.batchDefaultLogicalQueue, req.batchSchedulerProfile, req.jobCapabilities,
                        req.tags, notes, req.importRefId, null, false, null, null);
     tSystem.setAuthnCredential(req.authnCredential);
     return tSystem;
@@ -1283,7 +1283,7 @@ public class SystemResource
             req.port, req.useProxy, req.proxyHost, req.proxyPort,
             req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, isDtnFalse,
             canExecTrue, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
-            req.canRunBatch, req.mpiCmd, req.batchScheduler, req.batchLogicalQueues, req.batchDefaultLogicalQueue,
+            req.canRunBatch, req.enableCmdPrefix, req.mpiCmd, req.batchScheduler, req.batchLogicalQueues, req.batchDefaultLogicalQueue,
             req.batchSchedulerProfile, req.jobCapabilities, req.tags, notes, req.importRefId, null, false, null, null);
     tSystem.setAuthnCredential(req.authnCredential);
     return tSystem;

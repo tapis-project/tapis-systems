@@ -291,6 +291,11 @@ public class Systems extends TableImpl<SystemsRecord> {
      */
     public final TableField<SystemsRecord, LocalDateTime> UPDATED = createField(DSL.name("updated"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("timezone('utc'::text, now())", SQLDataType.LOCALDATETIME)), this, "UTC time for when record was last updated");
 
+    /**
+     * The column <code>tapis_sys.systems.enable_cmd_prefix</code>.
+     */
+    public final TableField<SystemsRecord, Boolean> ENABLE_CMD_PREFIX = createField(DSL.name("enable_cmd_prefix"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "");
+
     private Systems(Name alias, Table<SystemsRecord> aliased) {
         this(alias, aliased, null);
     }

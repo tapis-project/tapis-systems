@@ -654,6 +654,20 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
         return (LocalDateTime) get(39);
     }
 
+    /**
+     * Setter for <code>tapis_sys.systems.enable_cmd_prefix</code>.
+     */
+    public void setEnableCmdPrefix(Boolean value) {
+        set(40, value);
+    }
+
+    /**
+     * Getter for <code>tapis_sys.systems.enable_cmd_prefix</code>.
+     */
+    public Boolean getEnableCmdPrefix() {
+        return (Boolean) get(40);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -677,7 +691,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     /**
      * Create a detached, initialised SystemsRecord
      */
-    public SystemsRecord(Integer seqId, String tenant, String id, String description, SystemType systemType, String owner, String host, Boolean enabled, String effectiveUserId, AuthnMethod defaultAuthnMethod, String bucketName, String rootDir, Integer port, Boolean useProxy, String proxyHost, Integer proxyPort, String dtnSystemId, String dtnMountPoint, String dtnMountSourcePath, Boolean isDtn, Boolean canExec, Boolean canRunBatch, String mpiCmd, JsonElement jobRuntimes, String jobWorkingDir, JsonElement jobEnvVariables, Integer jobMaxJobs, Integer jobMaxJobsPerUser, SchedulerType batchScheduler, JsonElement batchLogicalQueues, String batchDefaultLogicalQueue, String batchSchedulerProfile, JsonElement jobCapabilities, String[] tags, JsonElement notes, String importRefId, UUID uuid, Boolean deleted, LocalDateTime created, LocalDateTime updated) {
+    public SystemsRecord(Integer seqId, String tenant, String id, String description, SystemType systemType, String owner, String host, Boolean enabled, String effectiveUserId, AuthnMethod defaultAuthnMethod, String bucketName, String rootDir, Integer port, Boolean useProxy, String proxyHost, Integer proxyPort, String dtnSystemId, String dtnMountPoint, String dtnMountSourcePath, Boolean isDtn, Boolean canExec, Boolean canRunBatch, String mpiCmd, JsonElement jobRuntimes, String jobWorkingDir, JsonElement jobEnvVariables, Integer jobMaxJobs, Integer jobMaxJobsPerUser, SchedulerType batchScheduler, JsonElement batchLogicalQueues, String batchDefaultLogicalQueue, String batchSchedulerProfile, JsonElement jobCapabilities, String[] tags, JsonElement notes, String importRefId, UUID uuid, Boolean deleted, LocalDateTime created, LocalDateTime updated, Boolean enableCmdPrefix) {
         super(Systems.SYSTEMS);
 
         setSeqId(seqId);
@@ -720,5 +734,6 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
         setDeleted(deleted);
         setCreated(created);
         setUpdated(updated);
+        setEnableCmdPrefix(enableCmdPrefix);
     }
 }

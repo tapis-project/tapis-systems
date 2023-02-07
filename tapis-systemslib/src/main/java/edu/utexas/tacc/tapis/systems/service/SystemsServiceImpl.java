@@ -3153,6 +3153,7 @@ public class SystemsServiceImpl implements SystemsService
     if (p.getJobMaxJobs() != null) p1.setJobMaxJobs(p.getJobMaxJobs());
     if (p.getJobMaxJobsPerUser() != null) p1.setJobMaxJobsPerUser(p.getJobMaxJobsPerUser());
     if (p.getCanRunBatch() != null) p1.setCanRunBatch(p.getCanRunBatch());
+    if (p.getEnableCmdPrefix() != null) p1.setEnableCmdPrefix(p.getEnableCmdPrefix());
     if (p.getMpiCmd() != null) p1.setMpiCmd(p.getMpiCmd());
     if (p.getBatchScheduler() != null) p1.setBatchScheduler(p.getBatchScheduler());
     if (p.getBatchLogicalQueues() != null) p1.setBatchLogicalQueues(p.getBatchLogicalQueues());

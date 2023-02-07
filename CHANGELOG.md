@@ -20,15 +20,15 @@ Add support for Globus type systems.
     - GET  /v3/systems/credential/{systemId}/globus/authUrl
     - POST /v3/systems/credential/{systemId}/globus/{authCode}/tokens/{userName}
 
-## 1.2.9 - 2023-??-??
+## 1.2.9 - 2023-02-06
 
 Incremental improvements and new preview features.
 
 ### New features:
-- 
+- Added enableCmdPrefix to Systems. This can be used to enable/disable command prefix for jobs.
 
 ### Bug fixes:
-- Update sharedAppCtx to represent app share grantor.
+- None
 
 ---------------------------------------------------------------------------
 ## 1.2.8 - 2023-01-10
@@ -41,7 +41,7 @@ Incremental improvements and new preview features.
 - Add endpoint for checking credentials.
 
 ### Bug fixes:
-- None.
+- None
 
 ---------------------------------------------------------------------------
 ## 1.2.7 - 2022-11-14
@@ -86,7 +86,7 @@ Incremental improvements and new preview features.
 - Support sharedAppCtx for getSystem. Allowed for Jobs and Files services.
 
 ### Bug fixes:
-- None.
+- None
 
 ---------------------------------------------------------------------------
 ## 1.2.3 - 2022-07-22
@@ -233,7 +233,7 @@ Incremental improvements.
  - Source code cleanup and refactoring.
 
 ### Bug fixes:
-- None.
+- None
 
 ---------------------------------------------------------------------------
 ## 1.0.0 - 2021-07-16
@@ -248,4 +248,4 @@ as well as management of Tapis System user credentials and permissions.
 - Initial release.
 
 ### Bug fixes:
-- None.
+- None
