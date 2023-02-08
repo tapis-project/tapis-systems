@@ -50,7 +50,6 @@ import edu.utexas.tacc.tapis.systems.api.responses.RespGlobusAuthUrl;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.GlobusAuthInfo;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 import static edu.utexas.tacc.tapis.systems.api.resources.SystemResource.PRETTY;
@@ -479,7 +478,8 @@ public class CredentialResource
   @Path("/globus/authUrl")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getGlobusAuthUrl(@Context SecurityContext securityContext)
+  public Response getGlobusAuthUrl(@QueryParam("clientId") @DefaultValue("") String clientId,
+                                   @Context SecurityContext securityContext)
   {
     String opName = "getGlobusAuthUrl";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
@@ -493,7 +493,7 @@ public class CredentialResource
 
     // Trace this request.
     if (_log.isTraceEnabled())
-      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString());
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "clientId="+clientId);
 
     // ------------------------- Perform the operation -------------------------
     // Make the service call to get the globus auth url
@@ -501,7 +501,7 @@ public class CredentialResource
     String msg;
     try
     {
-      globusAuthInfo = service.getGlobusAuthInfo(rUser);
+      globusAuthInfo = service.getGlobusAuthInfo(rUser, clientId);
     }
     catch (Exception e)
     {
@@ -541,6 +541,7 @@ public class CredentialResource
                                        @PathParam("userName") String userName,
                                        @PathParam("authCode") String authCode,
                                        @PathParam("sessionId") String sessionId,
+                                       @QueryParam("clientId") @DefaultValue("") String clientId,
                                        @Context SecurityContext securityContext)
   {
     String opName = "generateGlobusTokens";
@@ -554,9 +555,11 @@ public class CredentialResource
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
+    String ac = !StringUtils.isBlank(authCode) ? "***" : "<empty>";
     // Trace this request.
     if (_log.isTraceEnabled())
-      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,"userName="+userName);
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+                          "systemId="+systemId,"userName="+userName,"authCode="+ac,"sessionId="+sessionId,"clientId="+clientId);
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
@@ -567,7 +570,7 @@ public class CredentialResource
     // Make the service call to create or update the credential
     try
     {
-      service.generateAndSaveGlobusTokens(rUser, systemId, userName, authCode, sessionId);
+      service.generateAndSaveGlobusTokens(rUser, systemId, userName, authCode, sessionId, clientId);
     }
     catch (Exception e)
     {

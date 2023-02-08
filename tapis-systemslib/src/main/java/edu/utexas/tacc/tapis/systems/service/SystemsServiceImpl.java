@@ -1,8 +1,5 @@
 package edu.utexas.tacc.tapis.systems.service;
 
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -10,7 +7,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.ws.rs.core.Response.Status;
@@ -19,8 +15,6 @@ import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.sshd.sftp.client.SftpClient;
-import org.apache.sshd.sftp.common.SftpException;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,13 +47,10 @@ import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisSSHAuthException
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.s3.S3Connection;
-import edu.utexas.tacc.tapis.shared.ssh.apache.system.TapisSSH;
-import edu.utexas.tacc.tapis.shared.ssh.apache.SSHSftpClient;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
 import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
-import edu.utexas.tacc.tapis.shared.utils.MacroResolver;
 import edu.utexas.tacc.tapis.shared.utils.PathUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
@@ -341,7 +332,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Get SK client now. If we cannot get this rollback not needed.
     // Note that we still need to call getSKClient each time because it refreshes the svc jwt as needed.
-    getSKClient();
+    getSKClient(rUser);
     try
     {
       // ------------------- Make Dao call to persist the system -----------------------------------
@@ -350,7 +341,7 @@ public class SystemsServiceImpl implements SystemsService
       // ------------------- Add permissions -----------------------------
       // Consider using a notification instead (jira cic-3071)
       // Give owner files service related permission for root directory
-      getSKClient().grantUserPermission(tenant, system.getOwner(), filesPermSpec);
+      getSKClient(rUser).grantUserPermission(tenant, system.getOwner(), filesPermSpec);
 
       // ------------------- Store credentials -----------------------------------
       // Store credentials in Security Kernel if cred provided and effectiveUser is static
@@ -375,7 +366,7 @@ public class SystemsServiceImpl implements SystemsService
       catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "hardDelete", e.getMessage()));}
       // Remove perms
       // Consider using a notification instead (jira cic-3071)
-      try { getSKClient().revokeUserPermission(tenant, system.getOwner(), filesPermSpec);  }
+      try { getSKClient(rUser).revokeUserPermission(tenant, system.getOwner(), filesPermSpec);  }
       catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
       // Remove creds
       if (manageCredentials)
@@ -694,7 +685,7 @@ public class SystemsServiceImpl implements SystemsService
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
     // Consider using a notification instead (jira cic-3071)
     // Give owner files service related permission for root directory
-    getSKClient().grantUserPermission(oboTenant, owner, filesPermSpec);
+    getSKClient(rUser).grantUserPermission(oboTenant, owner, filesPermSpec);
 
     // Update deleted attribute
     return updateDeleted(rUser, systemId, op);
@@ -741,7 +732,7 @@ public class SystemsServiceImpl implements SystemsService
     // Use try/catch to roll back any changes in case of failure.
     // Get SK client now. If we cannot get this rollback not needed.
     // Note that we still need to call getSKClient each time because it refreshes the svc jwt as needed.
-    getSKClient();
+    getSKClient(rUser);
     String systemsPermSpec = getPermSpecAllStr(oboTenant, systemId);
     // Consider using a notification instead (jira cic-3071)
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
@@ -751,10 +742,10 @@ public class SystemsServiceImpl implements SystemsService
       dao.updateSystemOwner(rUser, systemId, oldOwnerName, newOwnerName);
       // Consider using a notification instead (jira cic-3071)
       // Give new owner files service related permission for root directory
-      getSKClient().grantUserPermission(oboTenant, newOwnerName, filesPermSpec);
+      getSKClient(rUser).grantUserPermission(oboTenant, newOwnerName, filesPermSpec);
 
       // Remove permissions from old owner
-      getSKClient().revokeUserPermission(oboTenant, oldOwnerName, filesPermSpec);
+      getSKClient(rUser).revokeUserPermission(oboTenant, oldOwnerName, filesPermSpec);
 
       // Get a complete and succinct description of the update.
       String changeDescription = LibUtils.getChangeDescriptionUpdateOwner(systemId, oldOwnerName, newOwnerName);
@@ -766,9 +757,9 @@ public class SystemsServiceImpl implements SystemsService
       // Something went wrong. Attempt to undo all changes and then re-throw the exception
       try { dao.updateSystemOwner(rUser, systemId, newOwnerName, oldOwnerName); } catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "updateOwner", e.getMessage()));}
       // Consider using a notification instead(jira cic-3071)
-      try { getSKClient().revokeUserPermission(oboTenant, newOwnerName, filesPermSpec); }
+      try { getSKClient(rUser).revokeUserPermission(oboTenant, newOwnerName, filesPermSpec); }
       catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
-      try { getSKClient().grantUserPermission(oboTenant, oldOwnerName, filesPermSpec); }
+      try { getSKClient(rUser).grantUserPermission(oboTenant, oldOwnerName, filesPermSpec); }
       catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPermF1", e.getMessage()));}
       throw e0;
     }
@@ -1362,7 +1353,7 @@ public class SystemsServiceImpl implements SystemsService
       // Assign perms to user. SK creates a default role for the user
       for (String permSpec : permSpecSet)
       {
-        getSKClient().grantUserPermission(oboTenant, targetUser, permSpec);
+        getSKClient(rUser).grantUserPermission(oboTenant, targetUser, permSpec);
       }
     }
     catch (TapisClientException tce)
@@ -1375,7 +1366,7 @@ public class SystemsServiceImpl implements SystemsService
       // Revoke permissions that may have been granted.
       for (String permSpec : permSpecSet)
       {
-        try { getSKClient().revokeUserPermission(oboTenant, targetUser, permSpec); }
+        try { getSKClient(rUser).revokeUserPermission(oboTenant, targetUser, permSpec); }
         catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePerm", e.getMessage()));}
       }
 
@@ -1436,12 +1427,12 @@ public class SystemsServiceImpl implements SystemsService
 
     int changeCount;
     // Determine current set of user permissions
-    var userPermSet = getUserPermSet(targetUser, oboTenant, systemId);
+    var userPermSet = getUserPermSet(rUser, targetUser, oboTenant, systemId);
 
     try
     {
       // Revoke perms
-      changeCount = revokePermissions(oboTenant, systemId, targetUser, permissions);
+      changeCount = revokePermissions(rUser, oboTenant, systemId, targetUser, permissions);
     }
     catch (TapisClientException tce)
     {
@@ -1456,7 +1447,7 @@ public class SystemsServiceImpl implements SystemsService
         if (userPermSet.contains(perm))
         {
           String permSpec = getPermSpecStr(oboTenant, systemId, perm);
-          try { getSKClient().grantUserPermission(oboTenant, targetUser, permSpec); }
+          try { getSKClient(rUser).grantUserPermission(oboTenant, targetUser, permSpec); }
           catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPerm", e.getMessage()));}
         }
       }
@@ -1498,7 +1489,7 @@ public class SystemsServiceImpl implements SystemsService
     checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
 
     // Use Security Kernel client to check for each permission in the enum list
-    return getUserPermSet(targetUser, rUser.getOboTenantId(), systemId);
+    return getUserPermSet(rUser, targetUser, rUser.getOboTenantId(), systemId);
   }
 
   // -----------------------------------------------------------------------
@@ -1825,27 +1816,38 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Obtain a URL+SessionId that can be used to obtain a Globus Native App Authorization Code.
-   * The clientId must be configured as a runtime setting.
+   * The clientId must be configured as a runtime setting or provided by caller.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param clientId1 - optional globus client Id to use when fetching URL
    * @return URL to be used for obtaining a Globus Native App Authorization Code
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser) throws TapisException, TapisClientException
+  public GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser, String clientId1)
+          throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.getGlobusAuthInfo;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
     // Get clientId configured for Tapis. If none throw an exception
     String clientId = RuntimeParameters.getInstance().getGlobusClientId();
+    if (!StringUtils.isBlank(clientId1)) clientId = clientId1;
     if (StringUtils.isBlank(clientId))
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
 
     // Call Tapis GlobusProxy service and create a GlobusAuthInfo from the client response;
     ResultGlobusAuthInfo r = getGlobusProxyClient(rUser).getAuthInfo(clientId);
-    GlobusAuthInfo globusAuthInfo = new GlobusAuthInfo(r.getUrl(), r.getSessionId());
-    return globusAuthInfo;
+
+    // Check that we got something reasonable.
+    if (r == null) throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL", rUser, op.name()));
+    if (StringUtils.isBlank(r.getUrl()) || StringUtils.isBlank(r.getSessionId()))
+    {
+      String url = StringUtils.isBlank(r.getUrl()) ? "<empty>" : r.getUrl();
+      String sessId = StringUtils.isBlank(r.getSessionId()) ? "<empty>" : r.getSessionId();
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NO_URL", rUser, url, sessId));
+    }
+    return new GlobusAuthInfo(r.getUrl(), r.getSessionId());
   }
 
   /**
@@ -1857,11 +1859,12 @@ public class SystemsServiceImpl implements SystemsService
    * @param userName - Target user for operation
    * @param authCode - Globus Native App Authorization Code
    * @param sessionId - Id tracking the oauth2 flow started with the call to getGlobusAuthInfo
+   * @param clientId1 - optional globus client Id to use
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName,
-                                          String authCode, String sessionId)
+                                          String authCode, String sessionId, String clientId1)
           throws NotFoundException, TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.setAccessRefreshTokens;
@@ -1869,11 +1872,12 @@ public class SystemsServiceImpl implements SystemsService
 
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName) || StringUtils.isBlank(authCode)
         || StringUtils.isBlank(sessionId))
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_GLOBUS_TOKENS", rUser, systemId,
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_TOKENS", rUser, systemId,
                                                              userName, authCode, sessionId));
 
     // Get clientId configured for Tapis. If none throw an exception
     String clientId = RuntimeParameters.getInstance().getGlobusClientId();
+    if (!StringUtils.isBlank(clientId1)) clientId = clientId1;
     if (StringUtils.isBlank(clientId))
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
 
@@ -1886,7 +1890,10 @@ public class SystemsServiceImpl implements SystemsService
     checkAuth(rUser, op, systemId, system.getOwner(), userName, null);
 
     // Call Tapis GlobuxProxy service to get tokens
-    AuthTokens authTokens = getGlobusProxyClient(rUser).getTokens(clientId, sessionId, authCode);
+    GlobusProxyClient globusClient = getGlobusProxyClient(rUser);
+    AuthTokens authTokens = globusClient.getTokens(clientId, sessionId, authCode);
+    // Check that we got something reasonable.
+    if (authTokens == null) throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL", rUser, op.name()));
     String accessToken = authTokens.getAccessToken();
     String refreshToken = authTokens.getRefreshToken();
 
@@ -2097,13 +2104,13 @@ public class SystemsServiceImpl implements SystemsService
     
     // First determine if system is publicly shared. Search for share to grantee ~public
     skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
-    var skShares = getSKClient().getShares(skParms);
+    var skShares = getSKClient(rUser).getShares(skParms);
     // Set isPublic based on result.
     boolean isPublic = (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
     // Now get all the users with whom the system has been shared
     skParms.setGrantee(null);
     skParms.setIncludePublicGrantees(false);
-    skShares = getSKClient().getShares(skParms);
+    skShares = getSKClient(rUser).getShares(skParms);
     if (skShares != null && skShares.getShares() != null)
     {
       for (SkShare skShare : skShares.getShares())
@@ -2269,17 +2276,23 @@ public class SystemsServiceImpl implements SystemsService
    * @return SK client
    * @throws TapisException - for Tapis related exceptions
    */
-  private SKClient getSKClient() throws TapisException
+  private SKClient getSKClient(ResourceRequestUser rUser) throws TapisException
   {
+    SKClient skClient;
     String oboUser = getServiceUserId();
     String oboTenant = getServiceTenantId();
-    
-    try { return serviceClients.getClient(oboUser, oboTenant, SKClient.class); }
+    try { skClient = serviceClients.getClient(oboUser, oboTenant, SKClient.class); }
     catch (Exception e)
     {
       String msg = MsgUtils.getMsg("TAPIS_CLIENT_NOT_FOUND", TapisConstants.SERVICE_NAME_SECURITY, oboTenant, oboUser);
       throw new TapisException(msg, e);
     }
+    if (skClient == null)
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_SVC_CLIENT_NULL", rUser, TapisConstants.SERVICE_NAME_SECURITY, oboTenant, oboUser);
+      throw new TapisException(msg);
+    }
+    return skClient;
   }
 
   /**
@@ -2571,14 +2584,14 @@ public class SystemsServiceImpl implements SystemsService
    * @param systemId - Id of resource
    * @return - Set of Permissions for the user
    */
-  private Set<Permission> getUserPermSet(String userName, String oboTenant, String systemId)
+  private Set<Permission> getUserPermSet(ResourceRequestUser rUser, String userName, String oboTenant, String systemId)
           throws TapisClientException, TapisException
   {
     var userPerms = new HashSet<Permission>();
     for (Permission perm : Permission.values())
     {
       String permSpec = String.format(PERM_SPEC_TEMPLATE, oboTenant, perm.name(), systemId);
-      if (getSKClient().isPermitted(oboTenant, userName, permSpec)) userPerms.add(perm);
+      if (getSKClient(rUser).isPermitted(oboTenant, userName, permSpec)) userPerms.add(perm);
     }
     return userPerms;
   }
@@ -2669,7 +2682,7 @@ public class SystemsServiceImpl implements SystemsService
     // Use implies to filter permissions returned. Without implies all permissions for apps, etc. are returned.
     String impliedBy = null;
     String implies = String.format("%s:%s:*:*", PERM_SPEC_PREFIX, rUser.getOboTenantId());
-    var userPerms = getSKClient().getUserPerms(rUser.getOboTenantId(), rUser.getOboUserId(), implies, impliedBy);
+    var userPerms = getSKClient(rUser).getUserPerms(rUser.getOboTenantId(), rUser.getOboUserId(), implies, impliedBy);
 
     // Check each perm to see if it allows user READ access.
     for (String userPerm : userPerms)
@@ -2695,7 +2708,7 @@ public class SystemsServiceImpl implements SystemsService
           // Log a warning and remove the permission
           String msg = LibUtils.getMsgAuth("SYSLIB_PERM_ORPHAN", rUser, permFields[3]);
           log.warn(msg);
-          removeOrphanedSKPerms(permFields[3], rUser.getOboTenantId());
+          removeOrphanedSKPerms(rUser, permFields[3], rUser.getOboTenantId());
         }
       }
     }
@@ -2720,7 +2733,7 @@ public class SystemsServiceImpl implements SystemsService
     else skParms.setGrantee(rUser.getOboUserId());
 
     // Call SK to get all shared with oboUser and add them to the set
-    var skShares = getSKClient().getShares(skParms);
+    var skShares = getSKClient(rUser).getShares(skParms);
     if (skShares != null && skShares.getShares() != null)
     {
       for (SkShare skShare : skShares.getShares())
@@ -2743,7 +2756,7 @@ public class SystemsServiceImpl implements SystemsService
     String tenantName = (StringUtils.isBlank(tenantToCheck) ? rUser.getJwtTenantId() : tenantToCheck);
     String userName = (StringUtils.isBlank(userToCheck) ? rUser.getJwtUserId() : userToCheck);
     String permSpecStr = getPermSpecStr(tenantName, systemId, perm);
-    return getSKClient().isPermitted(tenantName, userName, permSpecStr);
+    return getSKClient(rUser).isPermitted(tenantName, userName, permSpecStr);
   }
 
   /**
@@ -2761,7 +2774,7 @@ public class SystemsServiceImpl implements SystemsService
     for (Permission perm : perms) {
       permSpecs.add(getPermSpecStr(tenantName, systemId, perm));
     }
-    return getSKClient().isPermittedAny(tenantName, userName, permSpecs.toArray(TSystem.EMPTY_STR_ARRAY));
+    return getSKClient(rUser).isPermittedAny(tenantName, userName, permSpecs.toArray(TSystem.EMPTY_STR_ARRAY));
   }
 
   /**
@@ -2828,7 +2841,7 @@ public class SystemsServiceImpl implements SystemsService
       else if (authnMethod.equals(AuthnMethod.CERT))sParms.setKeyType(KeyType.cert);
 
       // Retrieve the secrets
-      SkSecret skSecret = getSKClient().readSecret(sParms);
+      SkSecret skSecret = getSKClient(rUser).readSecret(sParms);
       if (skSecret == null) return null;
       var dataMap = skSecret.getSecretMap();
       if (dataMap == null) return null;
@@ -2928,7 +2941,7 @@ public class SystemsServiceImpl implements SystemsService
       sParms.setData(dataMap);
       // First 2 parameters correspond to tenant and user from request payload
       // Tenant is used in constructing full path for secret, user is not used.
-      getSKClient().writeSecret(oboTenant, oboUser, sParms);
+      getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
     }
     // Store PKI keys if both present
     if (!StringUtils.isBlank(credential.getPublicKey()) && !StringUtils.isBlank(credential.getPublicKey()))
@@ -2938,7 +2951,7 @@ public class SystemsServiceImpl implements SystemsService
       dataMap.put(SK_KEY_PUBLIC_KEY, credential.getPublicKey());
       dataMap.put(SK_KEY_PRIVATE_KEY, credential.getPrivateKey());
       sParms.setData(dataMap);
-      getSKClient().writeSecret(oboTenant, oboUser, sParms);
+      getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
     }
     // Store Access key and secret if both present
     if (!StringUtils.isBlank(credential.getAccessKey()) && !StringUtils.isBlank(credential.getAccessSecret()))
@@ -2948,7 +2961,7 @@ public class SystemsServiceImpl implements SystemsService
       dataMap.put(SK_KEY_ACCESS_KEY, credential.getAccessKey());
       dataMap.put(SK_KEY_ACCESS_SECRET, credential.getAccessSecret());
       sParms.setData(dataMap);
-      getSKClient().writeSecret(oboTenant, oboUser, sParms);
+      getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
     }
     // Store Access token and Refresh token if both present
     if (!StringUtils.isBlank(credential.getAccessToken()) && !StringUtils.isBlank(credential.getRefreshToken()))
@@ -2958,7 +2971,7 @@ public class SystemsServiceImpl implements SystemsService
       dataMap.put(SK_KEY_ACCESS_TOKEN, credential.getAccessToken());
       dataMap.put(SK_KEY_REFRESH_TOKEN, credential.getRefreshToken());
       sParms.setData(dataMap);
-      getSKClient().writeSecret(oboTenant, oboUser, sParms);
+      getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
     }
     // NOTE if necessary handle ssh certificate when supported
   }
@@ -2984,32 +2997,32 @@ public class SystemsServiceImpl implements SystemsService
     //       By default keyType is sshkey which may not exist
     boolean secretNotFound = true;
     sMetaParms.setKeyType(KeyType.password);
-    try { getSKClient().readSecretMeta(sMetaParms); secretNotFound = false; }
+    try { getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
     catch (Exception e) { log.trace(e.getMessage()); }
     sMetaParms.setKeyType(KeyType.sshkey);
-    try { getSKClient().readSecretMeta(sMetaParms); secretNotFound = false; }
+    try { getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
     catch (Exception e) { log.trace(e.getMessage()); }
     sMetaParms.setKeyType(KeyType.accesskey);
-    try { getSKClient().readSecretMeta(sMetaParms); secretNotFound = false; }
+    try { getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
     catch (Exception e) { log.trace(e.getMessage()); }
     sMetaParms.setKeyType(KeyType.token);
-    try { getSKClient().readSecretMeta(sMetaParms); secretNotFound = false; }
+    try { getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
     catch (Exception e) { log.trace(e.getMessage()); }
     if (secretNotFound) return 0;
 
     // Construct basic SK secret parameters and attempt to destroy each type of secret.
     // If destroy attempt throws an exception then log a message and continue.
     sMetaParms.setKeyType(KeyType.password);
-    try { getSKClient().destroySecretMeta(sMetaParms); }
+    try { getSKClient(rUser).destroySecretMeta(sMetaParms); }
     catch (Exception e) { log.trace(e.getMessage()); }
     sMetaParms.setKeyType(KeyType.sshkey);
-    try { getSKClient().destroySecretMeta(sMetaParms); }
+    try { getSKClient(rUser).destroySecretMeta(sMetaParms); }
     catch (Exception e) { log.trace(e.getMessage()); }
     sMetaParms.setKeyType(KeyType.accesskey);
-    try { getSKClient().destroySecretMeta(sMetaParms); }
+    try { getSKClient(rUser).destroySecretMeta(sMetaParms); }
     catch (Exception e) { log.trace(e.getMessage()); }
     sMetaParms.setKeyType(KeyType.token);
-    try { getSKClient().destroySecretMeta(sMetaParms); }
+    try { getSKClient(rUser).destroySecretMeta(sMetaParms); }
     catch (Exception e) { log.trace(e.getMessage()); }
     return 1;
   }
@@ -3027,13 +3040,13 @@ public class SystemsServiceImpl implements SystemsService
 
     // Use Security Kernel client to find all users with perms associated with the system.
     String permSpec = String.format(PERM_SPEC_TEMPLATE, oboTenant, "%", systemId);
-    var userNames = getSKClient().getUsersWithPermission(oboTenant, permSpec);
+    var userNames = getSKClient(rUser).getUsersWithPermission(oboTenant, permSpec);
     // Revoke all perms for all users
     for (String userName : userNames)
     {
-      revokePermissions(oboTenant, systemId, userName, ALL_PERMS);
+      revokePermissions(rUser, oboTenant, systemId, userName, ALL_PERMS);
       // Remove wildcard perm
-      getSKClient().revokeUserPermission(oboTenant, userName, getPermSpecAllStr(oboTenant, systemId));
+      getSKClient(rUser).revokeUserPermission(oboTenant, userName, getPermSpecAllStr(oboTenant, systemId));
     }
 
     // Resolve effectiveUserId if necessary. This becomes the target user for perm and cred
@@ -3042,9 +3055,9 @@ public class SystemsServiceImpl implements SystemsService
     // Consider using a notification instead(jira cic-3071)
     // Remove files perm for owner and possibly effectiveUser
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
-    getSKClient().revokeUserPermission(oboTenant, system.getOwner(), filesPermSpec);
+    getSKClient(rUser).revokeUserPermission(oboTenant, system.getOwner(), filesPermSpec);
     if (!effectiveUserId.equals(APIUSERID_VAR))
-      getSKClient().revokeUserPermission(oboTenant, resolvedEffectiveUserId, filesPermSpec);;
+      getSKClient(rUser).revokeUserPermission(oboTenant, resolvedEffectiveUserId, filesPermSpec);;
 
     // Remove credentials associated with the system.
     // NOTE: Have SK do this in one operation?
@@ -3060,18 +3073,18 @@ public class SystemsServiceImpl implements SystemsService
    * Remove all SK permissions associated with given system ID, tenant. System does not need to exist.
    * Used to clean up orphaned permissions.
    */
-  private void removeOrphanedSKPerms(String sysId, String tenant)
+  private void removeOrphanedSKPerms(ResourceRequestUser rUser, String sysId, String tenant)
           throws TapisException, TapisClientException
   {
     // Use Security Kernel client to find all users with perms associated with the system.
     String permSpec = String.format(PERM_SPEC_TEMPLATE, tenant, "%", sysId);
-    var userNames = getSKClient().getUsersWithPermission(tenant, permSpec);
+    var userNames = getSKClient(rUser).getUsersWithPermission(tenant, permSpec);
     // Revoke all perms for all users
     for (String userName : userNames)
     {
-      revokePermissions(tenant, sysId, userName, ALL_PERMS);
+      revokePermissions(rUser, tenant, sysId, userName, ALL_PERMS);
       // Remove wildcard perm
-      getSKClient().revokeUserPermission(tenant, userName, getPermSpecAllStr(tenant, sysId));
+      getSKClient(rUser).revokeUserPermission(tenant, userName, getPermSpecAllStr(tenant, sysId));
     }
   }
 
@@ -3079,7 +3092,7 @@ public class SystemsServiceImpl implements SystemsService
    * Revoke permissions
    * No checks are done for incoming arguments and the system must exist
    */
-  private int revokePermissions(String oboTenant, String systemId, String userName,
+  private int revokePermissions(ResourceRequestUser rUser, String oboTenant, String systemId, String userName,
                                        Set<Permission> permissions)
           throws TapisClientException, TapisException
   {
@@ -3088,7 +3101,7 @@ public class SystemsServiceImpl implements SystemsService
     // Remove perms from default user role
     for (String permSpec : permSpecSet)
     {
-      getSKClient().revokeUserPermission(oboTenant, userName, permSpec);
+      getSKClient(rUser).revokeUserPermission(oboTenant, userName, permSpec);
     }
     return permSpecSet.size();
   }
@@ -3197,6 +3210,11 @@ public class SystemsServiceImpl implements SystemsService
     {
       String msg = MsgUtils.getMsg("TAPIS_CLIENT_NOT_FOUND", TapisConstants.SERVICE_NAME_GLOBUSPROXY, tenantName, userName);
       throw new TapisException(msg, e);
+    }
+    if (globusProxyClient == null)
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_SVC_CLIENT_NULL", rUser, TapisConstants.SERVICE_NAME_GLOBUSPROXY, tenantName, userName);
+      throw new TapisException(msg);
     }
     return globusProxyClient;
   }
@@ -3415,6 +3433,7 @@ public class SystemsServiceImpl implements SystemsService
       case setCred:
       case removeCred:
       case checkCred:
+      case setAccessRefreshTokens:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
              (oboOrImpersonatedUser.equals(targetUser) && isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS)) ||
              (oboOrImpersonatedUser.equals(targetUser) && isSystemSharedWithUser(rUser, systemId, oboOrImpersonatedUser, Permission.READ)))
@@ -3487,7 +3506,7 @@ public class SystemsServiceImpl implements SystemsService
     skParms.setResourceId1(systemId);
     skParms.setGrantee(targetUser);
     skParms.setPrivilege(privilege.name());
-    return getSKClient().hasPrivilege(skParms);
+    return getSKClient(rUser).hasPrivilege(skParms);
   }
   
   /**
@@ -3579,7 +3598,7 @@ public class SystemsServiceImpl implements SystemsService
    */
   private boolean hasAdminRole(ResourceRequestUser rUser) throws TapisException, TapisClientException
   {
-    return getSKClient().isAdmin(rUser.getOboTenantId(), rUser.getOboUserId());
+    return getSKClient(rUser).isAdmin(rUser.getOboTenantId(), rUser.getOboUserId());
   }
 
   /**
@@ -3623,7 +3642,7 @@ public class SystemsServiceImpl implements SystemsService
     skParms.setTenant(tenant);
     skParms.setResourceId1(sysId);
     skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
-    var skShares = getSKClient().getShares(skParms);
+    var skShares = getSKClient(rUser).getShares(skParms);
     return (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
   }
 
@@ -3681,9 +3700,9 @@ public class SystemsServiceImpl implements SystemsService
         {
           reqShareResource.setGrantee(userName);
           reqShareResource.setPrivilege(Permission.READ.name());
-          getSKClient().shareResource(reqShareResource);
+          getSKClient(rUser).shareResource(reqShareResource);
           reqShareResource.setPrivilege(Permission.EXECUTE.name());
-          getSKClient().shareResource(reqShareResource);
+          getSKClient(rUser).shareResource(reqShareResource);
         }
       }
       case OP_UNSHARE ->
@@ -3699,9 +3718,9 @@ public class SystemsServiceImpl implements SystemsService
         {
           deleteShareParms.setGrantee(userName);
           deleteShareParms.setPrivilege(Permission.READ.name());
-          getSKClient().deleteShare(deleteShareParms);
+          getSKClient(rUser).deleteShare(deleteShareParms);
           deleteShareParms.setPrivilege(Permission.EXECUTE.name());
-          getSKClient().deleteShare(deleteShareParms);
+          getSKClient(rUser).deleteShare(deleteShareParms);
         }
       }
     }
