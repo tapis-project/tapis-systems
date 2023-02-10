@@ -10,22 +10,16 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.?.? - 2023-??-??
-
-Add support for Globus type systems.
-
-### New features:
-- Add accessToken, refreshToken to Credential for Globus support.
-- Add endpoints for Globus:
-    - GET  /v3/systems/credential/{systemId}/globus/authUrl
-    - POST /v3/systems/credential/{systemId}/globus/{authCode}/tokens/{userName}
-
-## 1.2.9 - 2023-02-06
+## 1.2.9 - 2023-02-??
 
 Incremental improvements and new preview features.
 
 ### New features:
 - Added enableCmdPrefix to Systems. This can be used to enable/disable command prefix for jobs.
+- Add accessToken, refreshToken to Credential for Globus support.
+- Add endpoints for Globus:
+    - GET  /v3/systems/credential/{systemId}/globus/authUrl
+    - POST /v3/systems/credential/{systemId}/globus/{authCode}/tokens/{userName}
 
 ### Bug fixes:
 - None
