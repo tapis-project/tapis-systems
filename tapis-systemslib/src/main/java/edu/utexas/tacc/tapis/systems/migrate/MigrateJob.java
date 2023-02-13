@@ -39,9 +39,11 @@ import java.util.TreeSet;
 
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_TOKEN;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_REFRESH_TOKEN;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.PERM_SPEC_TEMPLATE;
@@ -296,6 +298,8 @@ public class MigrateJob
               dataMapFull.get(SK_KEY_PUBLIC_KEY),
               dataMapFull.get(SK_KEY_ACCESS_KEY),
               dataMapFull.get(SK_KEY_ACCESS_SECRET),
+              dataMapFull.get(SK_KEY_ACCESS_TOKEN),
+              dataMapFull.get(SK_KEY_REFRESH_TOKEN),
               null); // No support yet for ssh certificates
     }
     return credential;

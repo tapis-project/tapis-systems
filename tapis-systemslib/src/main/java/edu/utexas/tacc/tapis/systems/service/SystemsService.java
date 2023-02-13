@@ -9,6 +9,7 @@ import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.model.Credential;
+import edu.utexas.tacc.tapis.systems.model.GlobusAuthInfo;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
@@ -105,6 +106,12 @@ public interface SystemsService
           throws TapisException, TapisClientException, IllegalStateException;
 
   Credential getUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
+          throws TapisException, TapisClientException;
+
+  GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser, String clientId) throws TapisException, TapisClientException;
+
+  void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName, String authCode,
+                                   String sessionId, String clientId)
           throws TapisException, TapisClientException;
 
   // ------------------- Scheduler Profiles---------------------------------

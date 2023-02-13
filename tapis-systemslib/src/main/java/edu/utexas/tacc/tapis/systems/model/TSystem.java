@@ -157,9 +157,10 @@ public final class TSystem
   // ************************************************************************
   public enum SystemType {LINUX, S3, IRODS, GLOBUS}
   public enum SystemOperation {create, read, modify, execute, delete, undelete, hardDelete, changeOwner, enable, disable,
-                               getPerms, grantPerms, revokePerms, setCred, removeCred, getCred, checkCred}
+                               getPerms, grantPerms, revokePerms, setCred, removeCred, getCred, checkCred,
+                               getGlobusAuthInfo, setAccessRefreshTokens}
   public enum Permission {READ, MODIFY, EXECUTE}
-  public enum AuthnMethod {PASSWORD, PKI_KEYS, ACCESS_KEY, CERT}
+  public enum AuthnMethod {PASSWORD, PKI_KEYS, ACCESS_KEY, TOKEN, CERT}
   public enum SchedulerType {SLURM, CONDOR, PBS, SGE, UGE, TORQUE}
 
   // ************************************************************************

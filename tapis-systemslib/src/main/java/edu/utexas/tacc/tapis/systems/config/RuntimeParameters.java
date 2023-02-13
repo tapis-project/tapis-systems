@@ -118,6 +118,9 @@ public final class RuntimeParameters implements EmailClientParameters
   private String  logDirectory;
   private String  logFile;
 
+  // Tapis Globus client id
+  private String globusClientId;
+
   /* ********************************************************************** */
   /*                              Constructors                              */
   /* ********************************************************************** */
@@ -219,6 +222,10 @@ public final class RuntimeParameters implements EmailClientParameters
 
     parm = inputProperties.getProperty(EnvVar2.TAPIS_SVC_ADMIN_TENANT.getEnvName());
     if (!StringUtils.isBlank(parm)) setServiceAdminTenant(parm);
+
+    // --------------------- Default Globus client Id ----------------------------
+    parm = inputProperties.getProperty(EnvVar2.TAPIS_GLOBUS_CLIENT_ID.getEnvName());
+    if (!StringUtils.isBlank(parm)) setGlobusClientId(parm);
 
     // --------------------- Site on which we are running ----------------------------
     // Site is required. Throw runtime exception if not found.
@@ -451,6 +458,10 @@ public final class RuntimeParameters implements EmailClientParameters
     buf.append(tenantsSvcURL);
     buf.append("\ntapis.svc.sk.url: ");
     buf.append(skSvcURL);
+
+    buf.append("\n------- Default Globus Client Id ----------------------");
+    buf.append("\ntapis.globus.client.id: ");
+    buf.append(globusClientId);
 
     buf.append("\n------- Email Configuration -----------------------");
     buf.append("\ntapis.mail.provider: ");
@@ -749,6 +760,9 @@ public final class RuntimeParameters implements EmailClientParameters
     this.logFile = logFile;
   }
 
+  public String getGlobusClientId() { return globusClientId; }
+  private void setGlobusClientId(String s) {globusClientId = s; }
+
   /* ********************************************************************** */
   /*                            Private Methods                             */
   /* ********************************************************************** */
@@ -826,7 +840,8 @@ public final class RuntimeParameters implements EmailClientParameters
   private enum EnvVar2
   {
     TAPIS_SVC_ADMIN_TENANT("tapis.svc.admin.tenant"),
-    TAPIS_MIGRATE_JOB_APPLY("tapis.migrate.job.apply");
+    TAPIS_MIGRATE_JOB_APPLY("tapis.migrate.job.apply"),
+    TAPIS_GLOBUS_CLIENT_ID("tapis.globus.client.id");
     private final String _envName;
     EnvVar2(String envName) {
       _envName = envName;
