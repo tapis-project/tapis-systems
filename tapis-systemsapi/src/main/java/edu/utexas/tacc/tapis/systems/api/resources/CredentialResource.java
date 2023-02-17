@@ -469,17 +469,13 @@ public class CredentialResource
    * The host property of the system is used as the Endpoint Id.
    * Once a user has obtained an authorization code and session id the corresponding Systems endpoint for generating
    *   Globus tokens should be called to exchange the code for a pair of access and refresh tokens.
-   * NOTE: To support a passed in clientId to be used in place of the pre-configurated Tapis clientId we would need
-   *   somewhere to store the clientId for each System+user combination, i.e. we would need to store clientId
-   *   as part of the credentials. However, if we always use pre-configured clientId then no need.
    * @return Response
    */
   @GET
   @Path("/globus/authUrl")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getGlobusAuthUrl(@QueryParam("clientId") @DefaultValue("") String clientId,
-                                   @Context SecurityContext securityContext)
+  public Response getGlobusAuthUrl(@Context SecurityContext securityContext)
   {
     String opName = "getGlobusAuthUrl";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
@@ -493,7 +489,7 @@ public class CredentialResource
 
     // Trace this request.
     if (_log.isTraceEnabled())
-      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "clientId="+clientId);
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString());
 
     // ------------------------- Perform the operation -------------------------
     // Make the service call to get the globus auth url
@@ -501,7 +497,7 @@ public class CredentialResource
     String msg;
     try
     {
-      globusAuthInfo = service.getGlobusAuthInfo(rUser, clientId);
+      globusAuthInfo = service.getGlobusAuthInfo(rUser);
     }
     catch (Exception e)
     {
@@ -541,7 +537,6 @@ public class CredentialResource
                                        @PathParam("userName") String userName,
                                        @PathParam("authCode") String authCode,
                                        @PathParam("sessionId") String sessionId,
-                                       @QueryParam("clientId") @DefaultValue("") String clientId,
                                        @Context SecurityContext securityContext)
   {
     String opName = "generateGlobusTokens";
@@ -559,7 +554,7 @@ public class CredentialResource
     // Trace this request.
     if (_log.isTraceEnabled())
       ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                          "systemId="+systemId,"userName="+userName,"authCode="+ac,"sessionId="+sessionId,"clientId="+clientId);
+                          "systemId="+systemId,"userName="+userName,"authCode="+ac,"sessionId="+sessionId);
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
@@ -570,7 +565,7 @@ public class CredentialResource
     // Make the service call to create or update the credential
     try
     {
-      service.generateAndSaveGlobusTokens(rUser, systemId, userName, authCode, sessionId, clientId);
+      service.generateAndSaveGlobusTokens(rUser, systemId, userName, authCode, sessionId);
     }
     catch (Exception e)
     {

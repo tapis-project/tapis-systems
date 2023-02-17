@@ -108,10 +108,10 @@ public interface SystemsService
   Credential getUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
           throws TapisException, TapisClientException;
 
-  GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser, String clientId) throws TapisException, TapisClientException;
+  GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser) throws TapisException, TapisClientException;
 
   void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName, String authCode,
-                                   String sessionId, String clientId)
+                                   String sessionId)
           throws TapisException, TapisClientException;
 
   // ------------------- Scheduler Profiles---------------------------------

@@ -1816,15 +1816,14 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Obtain a URL+SessionId that can be used to obtain a Globus Native App Authorization Code.
-   * The clientId must be configured as a runtime setting or provided by caller.
+   * The clientId must be configured as a runtime setting.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param clientId1 - optional globus client Id to use when fetching URL
    * @return URL to be used for obtaining a Globus Native App Authorization Code
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser, String clientId1)
+  public GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.getGlobusAuthInfo;
@@ -1832,7 +1831,6 @@ public class SystemsServiceImpl implements SystemsService
 
     // Get clientId configured for Tapis. If none throw an exception
     String clientId = RuntimeParameters.getInstance().getGlobusClientId();
-    if (!StringUtils.isBlank(clientId1)) clientId = clientId1;
     if (StringUtils.isBlank(clientId))
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
 
@@ -1859,12 +1857,11 @@ public class SystemsServiceImpl implements SystemsService
    * @param userName - Target user for operation
    * @param authCode - Globus Native App Authorization Code
    * @param sessionId - Id tracking the oauth2 flow started with the call to getGlobusAuthInfo
-   * @param clientId1 - optional globus client Id to use
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName,
-                                          String authCode, String sessionId, String clientId1)
+                                          String authCode, String sessionId)
           throws NotFoundException, TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.setAccessRefreshTokens;
@@ -1877,7 +1874,6 @@ public class SystemsServiceImpl implements SystemsService
 
     // Get clientId configured for Tapis. If none throw an exception
     String clientId = RuntimeParameters.getInstance().getGlobusClientId();
-    if (!StringUtils.isBlank(clientId1)) clientId = clientId1;
     if (StringUtils.isBlank(clientId))
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
 
