@@ -4,29 +4,38 @@
   "description": "Schema for a request to create a scheduler profile",
 
   "type": "object",
-  "required": [ "name", "moduleLoadCommand" ],
+  "required": [ "name" ],
   "additionalProperties": false,
   "properties": {
     "name": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/SchedulerProfileName" },
     "description": { "type": ["string", "null"], "maxLength": 2048 },
     "owner": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/UserName" },
-    "moduleLoadCommand": { "type": "string", "minLength": 1},
-
-    "modulesToLoad": {
+    "moduleLoads": {
       "type": ["array", "null"],
       "uniqueItems": true,
-      "items": { "type": "string", "minLength": 1}
+      "items": { "$ref": "#/moduleLoadSpec" }
     },
-
     "hiddenOptions": {
       "type": "array",
       "uniqueItems": true,
       "items": {"$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/SchedulerHiddenOptionEnum" }
     },
-
     "tenant": { "type":  "string" },
     "uuid": { "type":  "string" },
     "created": { "type":  "string" },
     "updated": { "type":  "string" }
+  },
+
+  "moduleLoadSpec": {
+    "type": "object",
+    "required": [ "moduleLoadCommand" ],
+    "properties": {
+      "moduleLoadCommand": { "type": "string", "minLength": 1},
+      "modulesToLoad": {
+        "type": ["array", "null"],
+        "uniqueItems": true,
+        "items": { "type": "string", "minLength": 1}
+      }
+    }
   }
 }

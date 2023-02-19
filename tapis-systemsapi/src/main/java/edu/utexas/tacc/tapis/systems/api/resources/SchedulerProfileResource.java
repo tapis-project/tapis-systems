@@ -176,8 +176,8 @@ public class SchedulerProfileResource
 
     // Create a scheduler profile from the request
     var schedProfile =
-            new SchedulerProfile(rUser.getOboTenantId(), req.name, req.description, req.owner, req.moduleLoadCommand,
-                                 req.modulesToLoad, req.hiddenOptions, null, null, null);
+            new SchedulerProfile(rUser.getOboTenantId(), req.name, req.description, req.owner, req.moduleLoads,
+                                 req.hiddenOptions, null, null, null);
 
     resp = validateSchedulerProfile(schedProfile, rUser);
     if (resp != null) return resp;

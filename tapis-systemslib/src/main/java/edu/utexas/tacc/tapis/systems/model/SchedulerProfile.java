@@ -1,13 +1,12 @@
 package edu.utexas.tacc.tapis.systems.model;
 
-import edu.utexas.tacc.tapis.systems.utils.LibUtils;
-import io.swagger.v3.oas.annotations.media.Schema;
-import org.apache.commons.lang3.StringUtils;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.apache.commons.lang3.StringUtils;
+import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
 /*
  * Scheduler Profile
@@ -41,8 +40,7 @@ public final class SchedulerProfile
   private final String name;
   private final String description;
   private String owner;
-  private final String moduleLoadCommand;
-  private final String[] modulesToLoad;
+  private final List<ModuleLoadSpec> moduleLoads;
   private final List<HiddenOption> hiddenOptions;
   private UUID uuid;
   private final Instant created; // UTC time for when record was created
@@ -67,26 +65,23 @@ public final class SchedulerProfile
     updated = sp.getUpdated();
     description = sp.getDescription();
     owner = sp.getOwner();
-    moduleLoadCommand = sp.getModuleLoadCommand();
-    modulesToLoad = sp.getModulesToLoad();
+    moduleLoads = sp.getModuleLoads();
     hiddenOptions = sp.getHiddenOptions();
     uuid = sp.getUuid();
   }
 
   /**
-   * Constructor for jOOQ with input parameter matching order of columns in DB
-   * Also useful for testing
+   * Constructor taking all attributes
    */
   public SchedulerProfile(String tenant1, String name1, String description1, String owner1,
-                          String moduleLoadCommand1, String[] modulesToLoad1, List<HiddenOption> hiddenOptions1,
+                          List<ModuleLoadSpec> moduleLoads1, List<HiddenOption> hiddenOptions1,
                           UUID uuid1, Instant created1, Instant updated1)
   {
     tenant = tenant1;
     name = name1;
     description = description1;
     owner = owner1;
-    moduleLoadCommand = moduleLoadCommand1;
-    modulesToLoad = (modulesToLoad1 == null) ? null : modulesToLoad1.clone();
+    moduleLoads = (moduleLoads1 == null) ? null : new ArrayList<>(moduleLoads1);
     hiddenOptions = (hiddenOptions1 == null) ? null : new ArrayList<>(hiddenOptions1);
     uuid = uuid1;
     created = created1;
@@ -107,8 +102,7 @@ public final class SchedulerProfile
     name = t.getName();
     description = t.getDescription();
     owner = t.getOwner();
-    moduleLoadCommand = t.getModuleLoadCommand();
-    modulesToLoad = t.getModulesToLoad();
+    moduleLoads = t.getModuleLoads();
     hiddenOptions = t.getHiddenOptions();
   }
 
@@ -182,10 +176,8 @@ public final class SchedulerProfile
   // ************************************************************************
   // *********************** Accessors **************************************
   // ************************************************************************
-
   @Schema(type = "string")
   public Instant getCreated() { return created; }
-
   @Schema(type = "string")
   public Instant getUpdated() { return updated; }
 
@@ -194,11 +186,9 @@ public final class SchedulerProfile
   public String getDescription() { return description; }
   public String getOwner() { return owner; }
   public void setOwner(String o) { owner = o; };
-  public String getModuleLoadCommand() { return moduleLoadCommand; }
-  public String[] getModulesToLoad() { return (modulesToLoad == null) ? null : modulesToLoad.clone(); }
+  public List<ModuleLoadSpec> getModuleLoads() { return (moduleLoads == null) ? null : new ArrayList<>(moduleLoads); }
   public List<HiddenOption> getHiddenOptions() { return (hiddenOptions == null) ? null : new ArrayList<>(hiddenOptions); }
 
   public UUID getUuid() { return uuid; }
-
   public void setUuid(UUID u) { uuid = u; }
 }
