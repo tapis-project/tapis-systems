@@ -5,6 +5,7 @@ package edu.utexas.tacc.tapis.systems.gen.jooq;
 
 
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.FlywaySchemaHistory;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedProfileModLoad;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemUpdates;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.Systems;
@@ -35,6 +36,11 @@ public class TapisSys extends SchemaImpl {
      * The table <code>tapis_sys.flyway_schema_history</code>.
      */
     public final FlywaySchemaHistory FLYWAY_SCHEMA_HISTORY = FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY;
+
+    /**
+     * The table <code>tapis_sys.sched_profile_mod_load</code>.
+     */
+    public final SchedProfileModLoad SCHED_PROFILE_MOD_LOAD = SchedProfileModLoad.SCHED_PROFILE_MOD_LOAD;
 
     /**
      * The table <code>tapis_sys.scheduler_profiles</code>.
@@ -73,6 +79,7 @@ public class TapisSys extends SchemaImpl {
     public final List<Table<?>> getTables() {
         return Arrays.asList(
             FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY,
+            SchedProfileModLoad.SCHED_PROFILE_MOD_LOAD,
             SchedulerProfiles.SCHEDULER_PROFILES,
             SystemUpdates.SYSTEM_UPDATES,
             Systems.SYSTEMS,

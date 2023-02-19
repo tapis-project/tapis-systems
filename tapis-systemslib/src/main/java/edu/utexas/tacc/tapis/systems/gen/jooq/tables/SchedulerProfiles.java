@@ -16,12 +16,13 @@ import java.util.function.Function;
 
 import org.jooq.Field;
 import org.jooq.ForeignKey;
-import org.jooq.Function10;
+import org.jooq.Function9;
+import org.jooq.Identity;
 import org.jooq.Index;
 import org.jooq.Name;
 import org.jooq.Record;
 import org.jooq.Records;
-import org.jooq.Row10;
+import org.jooq.Row9;
 import org.jooq.Schema;
 import org.jooq.SelectField;
 import org.jooq.Table;
@@ -79,18 +80,6 @@ public class SchedulerProfiles extends TableImpl<SchedulerProfilesRecord> {
     public final TableField<SchedulerProfilesRecord, String> OWNER = createField(DSL.name("owner"), SQLDataType.CLOB.nullable(false), this, "User name of system owner");
 
     /**
-     * The column <code>tapis_sys.scheduler_profiles.module_load_command</code>.
-     * Command to load software library modules.
-     */
-    public final TableField<SchedulerProfilesRecord, String> MODULE_LOAD_COMMAND = createField(DSL.name("module_load_command"), SQLDataType.CLOB.nullable(false), this, "Command to load software library modules.");
-
-    /**
-     * The column <code>tapis_sys.scheduler_profiles.modules_to_load</code>.
-     * Software library modules that should be loaded for each job.
-     */
-    public final TableField<SchedulerProfilesRecord, String[]> MODULES_TO_LOAD = createField(DSL.name("modules_to_load"), SQLDataType.CLOB.getArrayDataType(), this, "Software library modules that should be loaded for each job.");
-
-    /**
      * The column <code>tapis_sys.scheduler_profiles.hidden_options</code>.
      * Scheduler options that are subsumed by TAPIS.
      */
@@ -112,6 +101,11 @@ public class SchedulerProfiles extends TableImpl<SchedulerProfilesRecord> {
      * for when record was last updated
      */
     public final TableField<SchedulerProfilesRecord, LocalDateTime> UPDATED = createField(DSL.name("updated"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("timezone('utc'::text, now())", SQLDataType.LOCALDATETIME)), this, "UTC time for when record was last updated");
+
+    /**
+     * The column <code>tapis_sys.scheduler_profiles.seq_id</code>.
+     */
+    public final TableField<SchedulerProfilesRecord, Integer> SEQ_ID = createField(DSL.name("seq_id"), SQLDataType.INTEGER.nullable(false).identity(true), this, "");
 
     private SchedulerProfiles(Name alias, Table<SchedulerProfilesRecord> aliased) {
         this(alias, aliased, null);
@@ -159,6 +153,16 @@ public class SchedulerProfiles extends TableImpl<SchedulerProfilesRecord> {
     }
 
     @Override
+    public Identity<SchedulerProfilesRecord, Integer> getIdentity() {
+        return (Identity<SchedulerProfilesRecord, Integer>) super.getIdentity();
+    }
+
+    @Override
+    public UniqueKey<SchedulerProfilesRecord> getPrimaryKey() {
+        return Keys.SCHEDULER_PROFILES_PKEY;
+    }
+
+    @Override
     public List<UniqueKey<SchedulerProfilesRecord>> getUniqueKeys() {
         return Arrays.asList(Keys.SCHEDULER_PROFILES_TENANT_NAME_KEY);
     }
@@ -203,18 +207,18 @@ public class SchedulerProfiles extends TableImpl<SchedulerProfilesRecord> {
     }
 
     // -------------------------------------------------------------------------
-    // Row10 type methods
+    // Row9 type methods
     // -------------------------------------------------------------------------
 
     @Override
-    public Row10<String, String, String, String, String, String[], String[], java.util.UUID, LocalDateTime, LocalDateTime> fieldsRow() {
-        return (Row10) super.fieldsRow();
+    public Row9<String, String, String, String, String[], java.util.UUID, LocalDateTime, LocalDateTime, Integer> fieldsRow() {
+        return (Row9) super.fieldsRow();
     }
 
     /**
      * Convenience mapping calling {@link SelectField#convertFrom(Function)}.
      */
-    public <U> SelectField<U> mapping(Function10<? super String, ? super String, ? super String, ? super String, ? super String, ? super String[], ? super String[], ? super java.util.UUID, ? super LocalDateTime, ? super LocalDateTime, ? extends U> from) {
+    public <U> SelectField<U> mapping(Function9<? super String, ? super String, ? super String, ? super String, ? super String[], ? super java.util.UUID, ? super LocalDateTime, ? super LocalDateTime, ? super Integer, ? extends U> from) {
         return convertFrom(Records.mapping(from));
     }
 
@@ -222,7 +226,7 @@ public class SchedulerProfiles extends TableImpl<SchedulerProfilesRecord> {
      * Convenience mapping calling {@link SelectField#convertFrom(Class,
      * Function)}.
      */
-    public <U> SelectField<U> mapping(Class<U> toType, Function10<? super String, ? super String, ? super String, ? super String, ? super String, ? super String[], ? super String[], ? super java.util.UUID, ? super LocalDateTime, ? super LocalDateTime, ? extends U> from) {
+    public <U> SelectField<U> mapping(Class<U> toType, Function9<? super String, ? super String, ? super String, ? super String, ? super String[], ? super java.util.UUID, ? super LocalDateTime, ? super LocalDateTime, ? super Integer, ? extends U> from) {
         return convertFrom(toType, Records.mapping(from));
     }
 }

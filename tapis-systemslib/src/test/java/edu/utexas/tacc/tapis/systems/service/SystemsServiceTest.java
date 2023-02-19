@@ -19,6 +19,7 @@ import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
+import edu.utexas.tacc.tapis.systems.model.ModuleLoadSpec;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
@@ -161,12 +162,15 @@ public class SystemsServiceTest
     // Create a scheduler profile for systems to reference
     System.out.println("Creating scheduler profile with name: " + batchSchedulerProfile1);
     List<SchedulerProfile.HiddenOption> hiddenOptions = Arrays.asList(SchedulerProfile.HiddenOption.MEM);
-    SchedulerProfile sp = new SchedulerProfile(tenantName, batchSchedulerProfile1, "test profile1",  owner1, "module load1",
-                                               null, hiddenOptions, null, null, null);
+    String moduleLoadCmd = "modload1";
+    String[] modulesToLoad = {"value1"};
+    List<ModuleLoadSpec> moduleLoads = List.of(new ModuleLoadSpec(moduleLoadCmd, modulesToLoad));
+    SchedulerProfile sp = new SchedulerProfile(tenantName, batchSchedulerProfile1, "test profile1",  owner1,
+                                               moduleLoads, hiddenOptions, null, null, null);
     svc.createSchedulerProfile(rOwner1, sp);
     System.out.println("Creating scheduler profile with name: " + batchSchedulerProfile2);
-    sp = new SchedulerProfile(tenantName, batchSchedulerProfile2, "test profile2",  owner1, "module load2",
-                              null, hiddenOptions, null, null, null);
+    sp = new SchedulerProfile(tenantName, batchSchedulerProfile2, "test profile2",  owner1, moduleLoads, hiddenOptions,
+                              null, null, null);
     svc.createSchedulerProfile(rOwner1, sp);
   }
 
@@ -1825,10 +1829,13 @@ public class SystemsServiceTest
     Assert.assertEquals(tmpProfile.getName(), p0.getName());
     Assert.assertEquals(tmpProfile.getDescription(), p0.getDescription());
     Assert.assertEquals(tmpProfile.getOwner(), p0.getOwner());
-    Assert.assertEquals(tmpProfile.getModuleLoadCommand(), p0.getModuleLoadCommand());
+    var tmpModLoads = tmpProfile.getModuleLoads();
+    var p0ModLoads = p0.getModuleLoads();
+    Assert.assertNotNull(tmpModLoads, "tmpModuleLoads was null");
+    Assert.assertEquals(tmpModLoads.get(0).getModuleLoadCommand(), p0ModLoads.get(0).getModuleLoadCommand());
 
-    Assert.assertNotNull(tmpProfile.getModulesToLoad());
-    Assert.assertEquals(tmpProfile.getModulesToLoad().length, p0.getModulesToLoad().length);
+    Assert.assertNotNull(tmpModLoads.get(0).getModulesToLoad());
+    Assert.assertEquals(tmpModLoads.get(0).getModulesToLoad().length, p0ModLoads.get(0).getModulesToLoad().length);
 
     Assert.assertNotNull(tmpProfile.getHiddenOptions());
     Assert.assertFalse(tmpProfile.getHiddenOptions().isEmpty());
