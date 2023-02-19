@@ -14,8 +14,7 @@ CREATE TABLE IF NOT EXISTS sched_profile_mod_load
     sched_profile_name TEXT,
     tenant TEXT NOT NULL,
     module_load_command TEXT NOT NULL,
-    modules_to_load TEXT[],
-    UNIQUE (tenant, sched_profile_name)
+    modules_to_load TEXT[]
 );
 ALTER TABLE sched_profile_mod_load OWNER TO tapis_sys;
 --
