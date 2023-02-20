@@ -6,8 +6,8 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="tapis-systemslib" />
         <module name="tapis-systemsapi" />
+        <module name="tapis-systemslib" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>

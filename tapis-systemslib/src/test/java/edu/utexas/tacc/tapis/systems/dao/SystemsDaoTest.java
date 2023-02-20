@@ -409,10 +409,16 @@ public class SystemsDaoTest
     Assert.assertEquals(tmpProfile.getName(), p0.getName());
     Assert.assertEquals(tmpProfile.getDescription(), p0.getDescription());
     Assert.assertEquals(tmpProfile.getOwner(), p0.getOwner());
-    Assert.assertEquals(tmpProfile.getModuleLoadCommand(), p0.getModuleLoadCommand());
 
-    Assert.assertNotNull(tmpProfile.getModulesToLoad());
-    Assert.assertEquals(tmpProfile.getModulesToLoad().length, p0.getModulesToLoad().length);
+    var tmpModLoads = tmpProfile.getModuleLoads();
+    var p0ModLoads = p0.getModuleLoads();
+    Assert.assertNotNull(p0ModLoads);
+    Assert.assertNotNull(p0ModLoads.get(0));
+    Assert.assertNotNull(p0ModLoads.get(0).getModulesToLoad());
+    Assert.assertNotNull(tmpModLoads, "tmpModuleLoads was null");
+    Assert.assertEquals(tmpModLoads.get(0).getModuleLoadCommand(), p0ModLoads.get(0).getModuleLoadCommand());
+    Assert.assertNotNull(tmpModLoads.get(0).getModulesToLoad());
+    Assert.assertEquals(tmpModLoads.get(0).getModulesToLoad().length, p0ModLoads.get(0).getModulesToLoad().length);
 
     Assert.assertNotNull(tmpProfile.getHiddenOptions());
     Assert.assertFalse(tmpProfile.getHiddenOptions().isEmpty());

@@ -46,9 +46,11 @@ import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.shareddb.datasource.TapisDataSource;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedulerProfilesRecord;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedProfileModLoadRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemUpdatesRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsRecord;
 import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
+import edu.utexas.tacc.tapis.systems.model.ModuleLoadSpec;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.Capability;
@@ -1126,7 +1128,7 @@ public class SystemsDaoImpl implements SystemsDao
 //        retList.add(s);
 //      }
 
-      for (Record r : results) { TSystem s = getSystemFromRecord(r); retList.add(s); }
+      for (SystemsRecord r : results) { TSystem s = getSystemFromRecord(r); retList.add(s); }
 
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -1551,22 +1553,23 @@ public class SystemsDaoImpl implements SystemsDao
           throws TapisException, IllegalStateException
   {
     String opName = "createSchedulerProfile";
-    String tenantId = schedulerProfile.getTenant();
-    String name = schedulerProfile.getName();
     // ------------------------- Check Input -------------------------
     if (schedulerProfile == null) LibUtils.logAndThrowNullParmException(opName, "schedulerProfile");
     if (rUser == null) LibUtils.logAndThrowNullParmException(opName, "resourceRequestUser");
     if (StringUtils.isBlank(schedulerProfile.getTenant())) LibUtils.logAndThrowNullParmException(opName, "tenant");
     if (StringUtils.isBlank(schedulerProfile.getName())) LibUtils.logAndThrowNullParmException(opName, "schedulerProfileName");
 
-    // Make sure owner, effectiveUserId, notes and tags are all set
-    String owner = TSystem.DEFAULT_OWNER;
-    String[] modulesToLoadStrArray = null;
-    String[] hiddenOptionsStrArray = null;
+    String tenantId = schedulerProfile.getTenant();
+    String name = schedulerProfile.getName();
+    var moduleLoads = schedulerProfile.getModuleLoads();
 
+    // Make sure owner is set
+    String owner = TSystem.DEFAULT_OWNER;
     if (StringUtils.isNotBlank(schedulerProfile.getOwner())) owner = schedulerProfile.getOwner();
-    if (schedulerProfile.getModulesToLoad() != null) modulesToLoadStrArray = schedulerProfile.getModulesToLoad();
+
+    // Do some pre-processing of hiddenOptions
     // Convert hiddenOptions array from enum to string
+    String[] hiddenOptionsStrArray = null;
     if (schedulerProfile.getHiddenOptions() != null)
     {
       hiddenOptionsStrArray = schedulerProfile.getHiddenOptions().stream().map(SchedulerProfile.HiddenOption::name).toArray(String[]::new);
@@ -1587,16 +1590,38 @@ public class SystemsDaoImpl implements SystemsDao
       // Generate uuid for the new resource
       schedulerProfile.setUuid(UUID.randomUUID());
 
-      db.insertInto(SCHEDULER_PROFILES)
+      // Create the record in the main table.
+      var record = db.insertInto(SCHEDULER_PROFILES)
               .set(SCHEDULER_PROFILES.TENANT, schedulerProfile.getTenant())
               .set(SCHEDULER_PROFILES.NAME, schedulerProfile.getName())
               .set(SCHEDULER_PROFILES.DESCRIPTION, schedulerProfile.getDescription())
               .set(SCHEDULER_PROFILES.OWNER, owner)
-              .set(SCHEDULER_PROFILES.MODULE_LOAD_COMMAND, schedulerProfile.getModuleLoadCommand())
-              .set(SCHEDULER_PROFILES.MODULES_TO_LOAD, modulesToLoadStrArray)
               .set(SCHEDULER_PROFILES.HIDDEN_OPTIONS, hiddenOptionsStrArray)
-              .set(SCHEDULER_PROFILES.UUID, schedulerProfile.getUuid()).execute();
+              .set(SCHEDULER_PROFILES.UUID, schedulerProfile.getUuid())
+              .returningResult(SCHEDULER_PROFILES.SEQ_ID).fetchOne();
+      // If record is null it is an error
+      if (record == null)
+      {
+        throw new TapisException(LibUtils.getMsgAuth("SYSLIB_DB_NULL_RESULT", rUser, schedulerProfile.getName(), opName));
+      }
+      // Generated sequence id
+      int seqId = record.getValue(SCHEDULER_PROFILES.SEQ_ID);
 
+      // Create any moduleLoadSpec records in the aux table.
+      if (moduleLoads != null && !moduleLoads.isEmpty())
+      {
+        for (ModuleLoadSpec m : moduleLoads)
+        {
+          String[] modulesToLoadStrArray = null;
+          if (m.getModulesToLoad() != null) modulesToLoadStrArray = m.getModulesToLoad();
+          db.insertInto(SCHED_PROFILE_MOD_LOAD)
+                   .set(SCHED_PROFILE_MOD_LOAD.SCHED_PROFILE_SEQ_ID, seqId)
+                   .set(SCHED_PROFILE_MOD_LOAD.TENANT, schedulerProfile.getTenant())
+                   .set(SCHED_PROFILE_MOD_LOAD.SCHED_PROFILE_NAME, schedulerProfile.getName())
+                   .set(SCHED_PROFILE_MOD_LOAD.MODULE_LOAD_COMMAND, m.getModuleLoadCommand())
+                   .set(SCHED_PROFILE_MOD_LOAD.MODULES_TO_LOAD, modulesToLoadStrArray).execute();
+        }
+      }
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -1647,9 +1672,11 @@ public class SystemsDaoImpl implements SystemsDao
         for (String ho : hoList1) { hoList2.add(SchedulerProfile.HiddenOption.valueOf(ho)); }
       }
 
-      sp = new SchedulerProfile(r.getTenant(), r.getName(), r.getDescription(), r.getOwner(),
-                                    r.getModuleLoadCommand(),r.getModulesToLoad(), hoList2, r.getUuid(),
-                                    r.getCreated().toInstant(ZoneOffset.UTC), r.getUpdated().toInstant(ZoneOffset.UTC));
+      // Fetch any moduleLoadSpec records
+      List<ModuleLoadSpec> moduleLoads = getSchedulerProfileModuleLoads(db, tenantId, name);
+
+      sp = new SchedulerProfile(r.getTenant(), r.getName(), r.getDescription(), r.getOwner(), moduleLoads, hoList2,
+                                r.getUuid(), r.getCreated().toInstant(ZoneOffset.UTC), r.getUpdated().toInstant(ZoneOffset.UTC));
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -1684,30 +1711,31 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
 
-      retList1 = db.selectFrom(SCHEDULER_PROFILES).where(SCHEDULER_PROFILES.TENANT.eq(tenantId))
-                  .fetchInto(SchedulerProfile.class);
-      if (retList1 == null || retList1.isEmpty()) return Collections.emptyList();
+      var records = db.selectFrom(SCHEDULER_PROFILES).where(SCHEDULER_PROFILES.TENANT.eq(tenantId)).fetch();
+      if (records == null || records.isEmpty()) return Collections.emptyList();
 
-      retList2 = new ArrayList<SchedulerProfile>();
-      for (SchedulerProfile sp1 : retList1)
+      for (SchedulerProfilesRecord spr : records)
       {
+        String[] hoList1 = spr.getHiddenOptions();
         // Convert type for list of hidden options.
         // NOTE: Currently the custom conversion config for jOOQ does not seem to work for an array of enums.
         //       See tapis-systemslib/pom.xml
         // So for now manually create a SchedulerProfile from the query result.
         List<SchedulerProfile.HiddenOption> hoList2 = null;
-        List<SchedulerProfile.HiddenOption> hoList1 = sp1.getHiddenOptions();
         if (hoList1 != null)
         {
           hoList2 = new ArrayList<>();
-          for (Object ho : hoList1)
-          {
-            hoList2.add(SchedulerProfile.HiddenOption.valueOf(ho.toString()));
+          for (String hoStr : hoList1) { hoList2.add(SchedulerProfile.HiddenOption.valueOf(hoStr));
           }
         }
-        SchedulerProfile sp2 = new SchedulerProfile(sp1.getTenant(), sp1.getName(), sp1.getDescription(), sp1.getOwner(),
-                sp1.getModuleLoadCommand(), sp1.getModulesToLoad(), hoList2, sp1.getUuid(),
-                sp1.getCreated(), sp1.getUpdated());
+        // Fetch any moduleLoadSpec records
+        List<ModuleLoadSpec> moduleLoads = getSchedulerProfileModuleLoads(db, tenantId, spr.getName());
+
+        // Create the scheduler profile and add it to the list
+        SchedulerProfile sp2 = new SchedulerProfile(spr.getTenant(), spr.getName(), spr.getDescription(),
+                                                    spr.getOwner(), moduleLoads, hoList2, spr.getUuid(),
+                                                    spr.getCreated().toInstant(ZoneOffset.UTC),
+                                                    spr.getUpdated().toInstant(ZoneOffset.UTC));
         retList2.add(sp2);
       }
       // Close out and commit
@@ -1973,6 +2001,30 @@ public class SystemsDaoImpl implements SystemsDao
   {
     if (includeDeleted) return db.fetchExists(SYSTEMS,SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(id));
     else return db.fetchExists(SYSTEMS,SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(id),SYSTEMS.DELETED.eq(false));
+  }
+
+  /**
+   * Given an sql connection fetch list of ModuleLoadSpec records for a scheduler profile
+   * @param db - jooq context
+   * @param tenantId - name of tenant
+   * @param name - name of scheduler profile
+   * @return - list of ModuleLoadSpec
+   */
+  private static List<ModuleLoadSpec> getSchedulerProfileModuleLoads(DSLContext db, String tenantId, String name)
+  {
+    List<ModuleLoadSpec> moduleLoads = new ArrayList<>();
+    if (db == null || StringUtils.isBlank(tenantId) || StringUtils.isBlank(name)) return moduleLoads;
+    var retList = db.selectFrom(SCHED_PROFILE_MOD_LOAD)
+            .where(SCHED_PROFILE_MOD_LOAD.TENANT.eq(tenantId), SCHED_PROFILE_MOD_LOAD.SCHED_PROFILE_NAME.eq(name))
+            .fetch();
+    for (SchedProfileModLoadRecord item : retList)
+    {
+      String modLoadCmd = item.getValue(SCHED_PROFILE_MOD_LOAD.MODULE_LOAD_COMMAND);
+      var modulesToLoad = item.getValue(SCHED_PROFILE_MOD_LOAD.MODULES_TO_LOAD);
+      var modLoadSpec = new ModuleLoadSpec(modLoadCmd, modulesToLoad);
+      moduleLoads.add(modLoadSpec);
+    }
+    return moduleLoads;
   }
 
   /**
@@ -2505,41 +2557,41 @@ public class SystemsDaoImpl implements SystemsDao
   /*
    * Given a record from a select, create a TSystem object
    */
-  private static TSystem getSystemFromRecord(Record r)
+  private static TSystem getSystemFromRecord(SystemsRecord r)
   {
     TSystem system;
     int sysSeqId = r.get(SYSTEMS.SEQ_ID);
 
     // Convert LocalDateTime to Instant. Note that although "Local" is in the type, timestamps from the DB are in UTC.
-    Instant created = r.get(SYSTEMS.CREATED).toInstant(ZoneOffset.UTC);
-    Instant updated = r.get(SYSTEMS.UPDATED).toInstant(ZoneOffset.UTC);
+    Instant created = r.getCreated().toInstant(ZoneOffset.UTC);
+    Instant updated = r.getUpdated().toInstant(ZoneOffset.UTC);
 
     // Convert JSONB columns to native types
-    JsonElement jobRuntimesJson = r.get(SYSTEMS.JOB_RUNTIMES);
+    JsonElement jobRuntimesJson = r.getJobRuntimes();
     List<JobRuntime> jobRuntimes = null;
     if (jobRuntimesJson != null && !jobRuntimesJson.isJsonNull())
     {
       jobRuntimes = Arrays.asList(TapisGsonUtils.getGson().fromJson(jobRuntimesJson, JobRuntime[].class));
     }
-    JsonElement jobEnvVariablesJson = r.get(SYSTEMS.JOB_ENV_VARIABLES);
+    JsonElement jobEnvVariablesJson = r.getJobEnvVariables();
     List<KeyValuePair> jobEnvVariables = Arrays.asList(TapisGsonUtils.getGson().fromJson(jobEnvVariablesJson, KeyValuePair[].class));
-    JsonElement logicalQueuesJson = r.get(SYSTEMS.BATCH_LOGICAL_QUEUES);
+    JsonElement logicalQueuesJson = r.getBatchLogicalQueues();
     List<LogicalQueue> logicalQueues = Arrays.asList(TapisGsonUtils.getGson().fromJson(logicalQueuesJson, LogicalQueue[].class));
-    JsonElement capabilitiesJson = r.get(SYSTEMS.JOB_CAPABILITIES);
+    JsonElement capabilitiesJson = r.getJobCapabilities();
     List<Capability> capabilities = Arrays.asList(TapisGsonUtils.getGson().fromJson(capabilitiesJson, Capability[].class));
 
-    system = new TSystem(sysSeqId, r.get(SYSTEMS.TENANT), r.get(SYSTEMS.ID), r.get(SYSTEMS.DESCRIPTION),
-            r.get(SYSTEMS.SYSTEM_TYPE), r.get(SYSTEMS.OWNER), r.get(SYSTEMS.HOST), r.get(SYSTEMS.ENABLED),
-            r.get(SYSTEMS.EFFECTIVE_USER_ID), r.get(SYSTEMS.DEFAULT_AUTHN_METHOD), r.get(SYSTEMS.BUCKET_NAME),
-            r.get(SYSTEMS.ROOT_DIR),
-            r.get(SYSTEMS.PORT), r.get(SYSTEMS.USE_PROXY), r.get(SYSTEMS.PROXY_HOST), r.get(SYSTEMS.PROXY_PORT),
-            r.get(SYSTEMS.DTN_SYSTEM_ID), r.get(SYSTEMS.DTN_MOUNT_POINT), r.get(SYSTEMS.DTN_MOUNT_SOURCE_PATH),
-            r.get(SYSTEMS.IS_DTN), r.get(SYSTEMS.CAN_EXEC), jobRuntimes, r.get(SYSTEMS.JOB_WORKING_DIR),
-            jobEnvVariables, r.get(SYSTEMS.JOB_MAX_JOBS), r.get(SYSTEMS.JOB_MAX_JOBS_PER_USER),
-            r.get(SYSTEMS.CAN_RUN_BATCH), r.get(SYSTEMS.ENABLE_CMD_PREFIX), r.get(SYSTEMS.MPI_CMD),
-            r.get(SYSTEMS.BATCH_SCHEDULER), logicalQueues, r.get(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE),
-            r.get(SYSTEMS.BATCH_SCHEDULER_PROFILE), capabilities, r.get(SYSTEMS.TAGS), r.get(SYSTEMS.NOTES),
-            r.get(SYSTEMS.IMPORT_REF_ID), r.get(SYSTEMS.UUID), r.get(SYSTEMS.DELETED), created, updated);
+    system = new TSystem(sysSeqId, r.getTenant(), r.getId(), r.getDescription(),
+            r.getSystemType(), r.getOwner(), r.getHost(), r.getEnabled(),
+            r.getEffectiveUserId(), r.getDefaultAuthnMethod(), r.getBucketName(),
+            r.getRootDir(),
+            r.getPort(), r.getUseProxy(), r.getProxyHost(), r.getProxyPort(),
+            r.getDtnSystemId(), r.getDtnMountPoint(), r.getDtnMountSourcePath(),
+            r.getIsDtn(), r.getCanExec(), jobRuntimes, r.getJobWorkingDir(),
+            jobEnvVariables, r.getJobMaxJobs(), r.getJobMaxJobsPerUser(),
+            r.getCanRunBatch(), r.getEnableCmdPrefix(), r.getMpiCmd(),
+            r.getBatchScheduler(), logicalQueues, r.getBatchDefaultLogicalQueue(),
+            r.getBatchSchedulerProfile(), capabilities, r.getTags(), r.getNotes(),
+            r.getImportRefId(), r.getUuid(), r.getDeleted(), created, updated);
     return system;
   }
 

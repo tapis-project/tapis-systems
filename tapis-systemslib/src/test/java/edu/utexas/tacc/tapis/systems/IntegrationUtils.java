@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
 import org.jooq.tools.StringUtils;
 import org.testng.Assert;
 import com.google.gson.Gson;
@@ -21,6 +22,7 @@ import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
+import edu.utexas.tacc.tapis.systems.model.ModuleLoadSpec;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
@@ -510,8 +512,9 @@ public final class IntegrationUtils
       String name = getSchedulerProfileName(key, i+1);
       String moduleLoadCmd = "module load" + suffix;
       String[] modulesToLoad = {"value1" + suffix, "value2" + suffix};
+      List<ModuleLoadSpec> moduleLoads = List.of(new ModuleLoadSpec(moduleLoadCmd, modulesToLoad));
       schedulerProfiles[i] = new SchedulerProfile(tenantName, name, "Test profile" + suffix, testUser2,
-                                                  moduleLoadCmd, modulesToLoad, hiddenOptions, null, null, null);
+                                                  moduleLoads, hiddenOptions, null, null, null);
     }
     return schedulerProfiles;
   }

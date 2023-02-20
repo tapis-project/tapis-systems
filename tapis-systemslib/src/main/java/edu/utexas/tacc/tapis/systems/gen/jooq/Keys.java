@@ -5,11 +5,13 @@ package edu.utexas.tacc.tapis.systems.gen.jooq;
 
 
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.FlywaySchemaHistory;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedProfileModLoad;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemUpdates;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.Systems;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsLoginUser;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.FlywaySchemaHistoryRecord;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedProfileModLoadRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedulerProfilesRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemUpdatesRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsLoginUserRecord;
@@ -34,6 +36,9 @@ public class Keys {
     // -------------------------------------------------------------------------
 
     public static final UniqueKey<FlywaySchemaHistoryRecord> FLYWAY_SCHEMA_HISTORY_PK = Internal.createUniqueKey(FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY, DSL.name("flyway_schema_history_pk"), new TableField[] { FlywaySchemaHistory.FLYWAY_SCHEMA_HISTORY.INSTALLED_RANK }, true);
+    public static final UniqueKey<SchedProfileModLoadRecord> SCHED_PROFILE_MOD_LOAD_PKEY = Internal.createUniqueKey(SchedProfileModLoad.SCHED_PROFILE_MOD_LOAD, DSL.name("sched_profile_mod_load_pkey"), new TableField[] { SchedProfileModLoad.SCHED_PROFILE_MOD_LOAD.SEQ_ID }, true);
+    public static final UniqueKey<SchedProfileModLoadRecord> SCHED_PROFILE_MOD_LOAD_TENANT_SCHED_PROFILE_NAME_KEY = Internal.createUniqueKey(SchedProfileModLoad.SCHED_PROFILE_MOD_LOAD, DSL.name("sched_profile_mod_load_tenant_sched_profile_name_key"), new TableField[] { SchedProfileModLoad.SCHED_PROFILE_MOD_LOAD.TENANT, SchedProfileModLoad.SCHED_PROFILE_MOD_LOAD.SCHED_PROFILE_NAME }, true);
+    public static final UniqueKey<SchedulerProfilesRecord> SCHEDULER_PROFILES_PKEY = Internal.createUniqueKey(SchedulerProfiles.SCHEDULER_PROFILES, DSL.name("scheduler_profiles_pkey"), new TableField[] { SchedulerProfiles.SCHEDULER_PROFILES.SEQ_ID }, true);
     public static final UniqueKey<SchedulerProfilesRecord> SCHEDULER_PROFILES_TENANT_NAME_KEY = Internal.createUniqueKey(SchedulerProfiles.SCHEDULER_PROFILES, DSL.name("scheduler_profiles_tenant_name_key"), new TableField[] { SchedulerProfiles.SCHEDULER_PROFILES.TENANT, SchedulerProfiles.SCHEDULER_PROFILES.NAME }, true);
     public static final UniqueKey<SystemUpdatesRecord> SYSTEM_UPDATES_PKEY = Internal.createUniqueKey(SystemUpdates.SYSTEM_UPDATES, DSL.name("system_updates_pkey"), new TableField[] { SystemUpdates.SYSTEM_UPDATES.SEQ_ID }, true);
     public static final UniqueKey<SystemsRecord> SYSTEMS_PKEY = Internal.createUniqueKey(Systems.SYSTEMS, DSL.name("systems_pkey"), new TableField[] { Systems.SYSTEMS.SEQ_ID }, true);
@@ -44,6 +49,7 @@ public class Keys {
     // FOREIGN KEY definitions
     // -------------------------------------------------------------------------
 
+    public static final ForeignKey<SchedProfileModLoadRecord, SchedulerProfilesRecord> SCHED_PROFILE_MOD_LOAD__SCHED_PROFILE_MOD_LOAD_SCHED_PROFILE_SEQ_ID_FKEY = Internal.createForeignKey(SchedProfileModLoad.SCHED_PROFILE_MOD_LOAD, DSL.name("sched_profile_mod_load_sched_profile_seq_id_fkey"), new TableField[] { SchedProfileModLoad.SCHED_PROFILE_MOD_LOAD.SCHED_PROFILE_SEQ_ID }, Keys.SCHEDULER_PROFILES_PKEY, new TableField[] { SchedulerProfiles.SCHEDULER_PROFILES.SEQ_ID }, true);
     public static final ForeignKey<SystemUpdatesRecord, SystemsRecord> SYSTEM_UPDATES__SYSTEM_UPDATES_SYSTEM_SEQ_ID_FKEY = Internal.createForeignKey(SystemUpdates.SYSTEM_UPDATES, DSL.name("system_updates_system_seq_id_fkey"), new TableField[] { SystemUpdates.SYSTEM_UPDATES.SYSTEM_SEQ_ID }, Keys.SYSTEMS_PKEY, new TableField[] { Systems.SYSTEMS.SEQ_ID }, true);
     public static final ForeignKey<SystemsLoginUserRecord, SystemsRecord> SYSTEMS_LOGIN_USER__SYSTEMS_LOGIN_USER_SYSTEM_SEQ_ID_FKEY = Internal.createForeignKey(SystemsLoginUser.SYSTEMS_LOGIN_USER, DSL.name("systems_login_user_system_seq_id_fkey"), new TableField[] { SystemsLoginUser.SYSTEMS_LOGIN_USER.SYSTEM_SEQ_ID }, Keys.SYSTEMS_PKEY, new TableField[] { Systems.SYSTEMS.SEQ_ID }, true);
 }

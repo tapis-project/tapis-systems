@@ -1945,9 +1945,8 @@ public class SystemsServiceImpl implements SystemsService
     String schedProfileName = schedulerProfile.getName();
 
     // ---------------------------- Check inputs ------------------------------------
-    // Required attributes: tenant, id, moduleLoadCommand
-    if (StringUtils.isBlank(oboTenant) || StringUtils.isBlank(schedProfileName) ||
-            StringUtils.isBlank(schedulerProfile.getModuleLoadCommand()))
+    // Required attributes: tenant, name, moduleLoadCommand
+    if (StringUtils.isBlank(oboTenant) || StringUtils.isBlank(schedProfileName))
     {
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ARG", rUser, schedProfileName));
     }
