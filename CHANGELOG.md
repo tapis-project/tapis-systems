@@ -10,7 +10,7 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.2.9 - 2023-02-13
+## 1.3.0 - 2023-02-24
 
 Incremental improvements and new preview features.
 
@@ -20,6 +20,7 @@ Incremental improvements and new preview features.
 - Add support for Globus. New credential attributes *accessToken*, *refreshToken*, new AuthnMethod type TOKEN. New endpoints:
     - GET  /v3/systems/credential/{systemId}/globus/authUrl
     - POST /v3/systems/credential/{systemId}/globus/{authCode}/tokens/{userName}
+- Support multiple module load entries for SchedulerProfile.
 
 ### Bug fixes:
 - None
