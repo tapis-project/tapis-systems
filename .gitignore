@@ -46,12 +46,6 @@ test-output
 *.imp
 *.ipr
 *.iws
-# Include some IntelliJ config files to help troubleshoot IDE issues
-!.idea/compiler.xml
-!.idea/misc.xml
-!.idea/modules.xml
-!.idea/sqldialects.xml
-!.idea/tapis-java.iml
 
 # Eclipse metadata files
 .project
