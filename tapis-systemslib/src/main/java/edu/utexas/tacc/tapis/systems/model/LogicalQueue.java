@@ -59,8 +59,8 @@ public final class LogicalQueue
   {
     name = name1;
     hpcQueueName = hpcQueueName1;
-    maxJobs = maxJobs1;
-    maxJobsPerUser = maxJobsPerUser1;
+    maxJobs = maxJobs1 < 0 ? Integer.MAX_VALUE : maxJobs1;
+    maxJobsPerUser = maxJobsPerUser1 < 0 ? Integer.MAX_VALUE : maxJobsPerUser1;
     minNodeCount = minNodeCount1;
     maxNodeCount = maxNodeCount1;
     minCoresPerNode = minCoresPerNode1;
@@ -76,8 +76,8 @@ public final class LogicalQueue
   /* ********************************************************************** */
   public String getName() { return name; }
   public String getHpcQueueName() { return hpcQueueName; }
-  public int getMaxJobs() { return maxJobs; }
-  public int getMaxJobsPerUser() { return maxJobsPerUser; }
+  public int getMaxJobs() { return maxJobs < 0 ? Integer.MAX_VALUE : maxJobs; }
+  public int getMaxJobsPerUser() { return maxJobsPerUser < 0 ? Integer.MAX_VALUE : maxJobsPerUser; }
   public int getMinNodeCount() { return minNodeCount; }
   public int getMaxNodeCount() { return maxNodeCount; }
   public int getMinCoresPerNode() { return minCoresPerNode; }

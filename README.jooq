@@ -38,3 +38,5 @@ To update the schema and re-create the jooq code:
 
 9. Make other updates as needed for Dao and service layers. For example, if columns added this is the time
    to start adding the new model attributes to the code.
+
+10. Commit the updates.

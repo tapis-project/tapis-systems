@@ -685,7 +685,7 @@ public class SystemResource
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
    *                          resolving effectiveUserId
-   * @param sharedAppCtx - Indicates that request is part of a shared app context. Tapis auth bypassed.
+   * @param sharedAppCtx - Share grantor for the case of a shared application context.
    * @param securityContext - user identity
    * @return Response with system object as the result
    */
@@ -698,7 +698,8 @@ public class SystemResource
                             @QueryParam("requireExecPerm") @DefaultValue("false") boolean requireExecPerm,
                             @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
                             @QueryParam("impersonationId") String impersonationId,
-                            @QueryParam("sharedAppCtx") @DefaultValue("false") boolean sharedAppCtx,
+                            @QueryParam("sharedAppCtx") String sharedAppCtx,
+                            @QueryParam("resourceTenant") String resourceTenant,
                             @Context SecurityContext securityContext) throws TapisClientException
   {
     String opName = "getSystem";
@@ -717,6 +718,7 @@ public class SystemResource
                                                    "requireExecPerm="+requireExecPerm,
                                                    "returnCredentials="+getCreds,
                                                    "impersonationId="+impersonationId,
+                                                   "resourceTenant="+resourceTenant,
                                                    "sharedAppCtx="+sharedAppCtx);
 
     // Check that authnMethodStr is valid if is passed in
@@ -735,7 +737,8 @@ public class SystemResource
     TSystem tSystem;
     try
     {
-      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId, sharedAppCtx);
+      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId,
+                                  sharedAppCtx, resourceTenant);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1313,7 +1316,7 @@ public class SystemResource
       TSystem dtnSystem = null;
       try
       {
-        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null, false);
+        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null, null, null);
       }
       catch (NotAuthorizedException e)
       {
