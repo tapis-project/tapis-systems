@@ -986,7 +986,8 @@ public class SystemsServiceImpl implements SystemsService
       else
         credTargetUser = oboOrImpersonatedUser;
       // Use private internal method instead of public API to skip auth and other checks not needed here.
-      Credential cred = getCredential(rUser, system, credTargetUser, tmpAccMethod, isStaticEffectiveUser);
+      Credential cred = getCredential(rUser, system, credTargetUser, tmpAccMethod, isStaticEffectiveUser,
+                                      resourceTenant);
       system.setAuthnCredential(cred);
     }
 
@@ -1744,7 +1745,7 @@ public class SystemsServiceImpl implements SystemsService
     else
       credTargetUser = oboUser;
     // Use private internal method instead of public API to skip auth and other checks not needed here.
-    Credential cred = getCredential(rUser, system, credTargetUser, authnMethod, isStaticEffectiveUser);
+    Credential cred = getCredential(rUser, system, credTargetUser, authnMethod, isStaticEffectiveUser, null);
     if (cred == null)
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op, systemId, system.getSystemType(),
@@ -1814,7 +1815,7 @@ public class SystemsServiceImpl implements SystemsService
       authnMethod = defaultAuthnMethod;
     }
 
-    return getCredential(rUser, system, targetUser, authnMethod, isStaticEffectiveUser);
+    return getCredential(rUser, system, targetUser, authnMethod, isStaticEffectiveUser, null);
   }
 
   /**
@@ -2778,12 +2779,13 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Get a credential given system, targetUser, isStatic and authnMethod
    * No checks are done for incoming arguments and the system must exist
+   * resourceTenant used when a service is calling as itself and needs to specify the tenant for the resource
    */
   private Credential getCredential(ResourceRequestUser rUser, TSystem system, String targetUser,
-                                   AuthnMethod authnMethod, boolean isStaticEffectiveUser)
+                                   AuthnMethod authnMethod, boolean isStaticEffectiveUser, String resourceTenant)
           throws TapisException
   {
-    String oboTenant = rUser.getOboTenantId();
+    String oboTenant = StringUtils.isBlank(resourceTenant) ? rUser.getOboTenantId() : resourceTenant;
     String oboUser = rUser.getOboUserId();
     String systemId = system.getId();
 

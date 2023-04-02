@@ -10,12 +10,12 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.3.1 - 2023-04-??
+## 1.3.1 - 2023-04-02
 
-Incremental improvements and new preview features.
+Incremental improvements and bug fix.
 
 ### New features:
-- 
+- None
 
 ### Bug fixes:
 - Update sharedAppCtx to represent app share grantor.
