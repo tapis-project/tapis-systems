@@ -30,6 +30,10 @@ public interface SystemsService
   TSystem createSystem(ResourceRequestUser rUser, TSystem system, boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException;
 
+  TSystem createChildSystem(ResourceRequestUser rUser, String systemId, String childId, String childEffectiveUserId,
+                            String childRootDir, String childOwner, String rawData)
+          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException;
+
   void patchSystem(ResourceRequestUser rUser, String systemId, PatchSystem patchSystem, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException;
 
@@ -48,6 +52,12 @@ public interface SystemsService
   int undeleteSystem(ResourceRequestUser rUser, String systemId)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException;
 
+  int unlinkFromParent(ResourceRequestUser rUser, String childSystemId) throws TapisException, TapisClientException;
+
+  int unlinkChild(ResourceRequestUser rUser, String parentId, String childSystemId) throws TapisException, TapisClientException;
+
+  int unlinkAllChildren(ResourceRequestUser rUser, String parentId) throws TapisException, TapisClientException;
+
   int changeSystemOwner(ResourceRequestUser rUser, String systemId, String newOwnerName)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException;
 
@@ -59,6 +69,9 @@ public interface SystemsService
 
   boolean isEnabled(ResourceRequestUser rUser, String systemId)
           throws TapisException, TapisClientException;
+
+  String getParentId(ResourceRequestUser rUser, String systemId)
+        throws TapisException, TapisClientException;
 
   TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod authnMethod, boolean requireExecPerm,
                     boolean getCreds, String impersonationId, String sharedAppCtxGrantor, String resourceTenant)

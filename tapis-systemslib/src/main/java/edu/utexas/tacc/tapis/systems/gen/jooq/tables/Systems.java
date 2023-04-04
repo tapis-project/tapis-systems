@@ -296,6 +296,16 @@ public class Systems extends TableImpl<SystemsRecord> {
      */
     public final TableField<SystemsRecord, Boolean> ENABLE_CMD_PREFIX = createField(DSL.name("enable_cmd_prefix"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "");
 
+    /**
+     * The column <code>tapis_sys.systems.parent_id</code>.
+     */
+    public final TableField<SystemsRecord, String> PARENT_ID = createField(DSL.name("parent_id"), SQLDataType.CLOB, this, "");
+
+    /**
+     * The column <code>tapis_sys.systems.allow_children</code>.
+     */
+    public final TableField<SystemsRecord, Boolean> ALLOW_CHILDREN = createField(DSL.name("allow_children"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "");
+
     private Systems(Name alias, Table<SystemsRecord> aliased) {
         this(alias, aliased, null);
     }
@@ -336,7 +346,7 @@ public class Systems extends TableImpl<SystemsRecord> {
 
     @Override
     public List<Index> getIndexes() {
-        return Arrays.asList(Indexes.SYS_HOST_IDX, Indexes.SYS_OWNER_IDX, Indexes.SYS_TAGS_IDX, Indexes.SYS_TENANT_NAME_IDX);
+        return Arrays.asList(Indexes.SYS_HOST_IDX, Indexes.SYS_OWNER_IDX, Indexes.SYS_SYSTEM_PARENT_ID_IDX, Indexes.SYS_TAGS_IDX, Indexes.SYS_TENANT_NAME_IDX);
     }
 
     @Override

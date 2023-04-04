@@ -144,6 +144,17 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
 
+      if(!StringUtils.isBlank(system.getParentId())) {
+        // in the case of a child system (the parentId is not null) we must guard against race conditions related
+        // to the allowChildren flag.  We will read the parent system for update ('lock'), and then check that
+        // allowChildren is true.  This also prevents another possible race conditon where a system may bet deleted
+        // during the creation of the child as well.
+        TSystem parentSystem = getSystemForUpdate(db, system.getTenant(), system.getParentId());
+        if((parentSystem == null) || (!parentSystem.isAllowChildren())) {
+          throw new IllegalStateException(LibUtils.getMsg("SYSLIB_SYS_CHILDREN_NOT_PERMITTED", rUser, system.getId()));
+        }
+      }
+
       // Check to see if system exists (even if deleted). If yes then throw IllegalStateException
       boolean doesExist = checkForSystem(db, system.getTenant(), system.getId(), true);
       if (doesExist) throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, system.getId()));
@@ -189,6 +200,8 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.NOTES, notesObj)
               .set(SYSTEMS.IMPORT_REF_ID, system.getImportRefId())
               .set(SYSTEMS.UUID, system.getUuid())
+              .set(SYSTEMS.PARENT_ID, system.getParentId())
+              .set(SYSTEMS.ALLOW_CHILDREN, system.isAllowChildren())
               .returningResult(SYSTEMS.SEQ_ID)
               .fetchOne();
 
@@ -276,6 +289,17 @@ public class SystemsDaoImpl implements SystemsDao
       boolean doesExist = checkForSystem(db, tenantId, systemId, false);
       if (!doesExist) throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_NOT_FOUND", rUser, systemId));
 
+      if(!putSystem.isAllowChildren()) {
+        // in the case of a parent system that has allowChildren set to false, we must guard against race conditions related
+        // to the allowChildren flag.  We will read the parent system for update ('lock'), and then check to see
+        // if the system has children.  If not we can proceed, but if it does have children we can't allow the patch to
+        // go through.
+        TSystem parentSystem = getSystemForUpdate(db, tenantId, systemId);
+        if((parentSystem == null) && hasChildren(tenantId, systemId)) {
+          throw new IllegalStateException(LibUtils.getMsg("SYSLIB_ERROR_PARENT_CHILD_CONFLICT", rUser, systemId));
+        }
+      }
+
       // Make sure UUID filled in, needed for update record. Pre-populated putSystem may not have it.
       UUID uuid = putSystem.getUuid();
       if (uuid == null) uuid = getUUIDUsingDb(db, tenantId, systemId);
@@ -304,6 +328,7 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.BATCH_LOGICAL_QUEUES, batchLogicalQueuesJson)
               .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, putSystem.getBatchDefaultLogicalQueue())
               .set(SYSTEMS.BATCH_SCHEDULER_PROFILE, putSystem.getBatchSchedulerProfile())
+              .set(SYSTEMS.ALLOW_CHILDREN, putSystem.isAllowChildren())
               .set(SYSTEMS.JOB_CAPABILITIES, jobCapabilitiesJson)
               .set(SYSTEMS.TAGS, tagsStrArray)
               .set(SYSTEMS.NOTES, notesObj)
@@ -390,6 +415,18 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
 
+      if(!patchedSystem.isAllowChildren()) {
+        // in the case of a parent system that has allowChildren set to false, we must guard against race conditions related
+        // to the allowChildren flag.  We will read the parent system for update ('lock'), and then check to see
+        // if the system has children.  If not we can proceed, but if it does have children we can't allow the patch to
+        // go through.
+        TSystem parentSystem = getSystemForUpdate(db, tenant, systemId);
+        if((parentSystem == null) && hasChildren(tenant, systemId)) {
+          throw new IllegalStateException(LibUtils.getMsg("SYSLIB_ERROR_PARENT_CHILD_CONFLICT", rUser, systemId));
+        }
+      }
+
+
       // Make sure system exists and has not been deleted.
       boolean doesExist = checkForSystem(db, tenant, systemId, false);
       if (!doesExist) throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_NOT_FOUND", rUser, systemId));
@@ -423,6 +460,7 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.TAGS, tagsStrArray)
               .set(SYSTEMS.NOTES, notesObj)
               .set(SYSTEMS.IMPORT_REF_ID, patchedSystem.getImportRefId())
+              .set(SYSTEMS.ALLOW_CHILDREN, patchedSystem.isAllowChildren())
               .set(SYSTEMS.UPDATED, TapisUtils.getUTCTimeNow())
               .where(SYSTEMS.TENANT.eq(tenant),SYSTEMS.ID.eq(systemId))
               .returningResult(SYSTEMS.SEQ_ID)
@@ -433,6 +471,8 @@ public class SystemsDaoImpl implements SystemsDao
       {
         throw new TapisException(LibUtils.getMsgAuth("SYSLIB_DB_NULL_RESULT", rUser, systemId, opName));
       }
+
+      updateChildSystemsFromParent(db, tenant, systemId);
 
       int seqId = result.getValue(SYSTEMS.SEQ_ID);
 
@@ -482,6 +522,9 @@ public class SystemsDaoImpl implements SystemsDao
       // Persist update record
       String changeDescription = "{\"enabled\":" +  enabled + "}";
       addUpdate(db, rUser, id, INVALID_SEQ_ID, systemOp, changeDescription , null, getUUIDUsingDb(db, tenantId, id));
+
+      updateChildSystemsFromParent(db, tenantId, id);
+
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -525,6 +568,20 @@ public class SystemsDaoImpl implements SystemsDao
       // Persist update record
       String changeDescription = "{\"deleted\":" +  deleted + "}";
       addUpdate(db, rUser, id, INVALID_SEQ_ID, systemOp, changeDescription , null, getUUIDUsingDb(db, tenantId, id));
+
+      // if we undeleted a child system, we need to make sure it has the current info from
+      // the parent.
+      if(!deleted) {
+        String parentId = db.selectFrom(SYSTEMS)
+                        .where(SYSTEMS.ID.eq(id).and(SYSTEMS.DELETED.eq(false)))
+                        .fetchOne(SYSTEMS.PARENT_ID);
+        if(!StringUtils.isBlank(parentId)) {
+          // we really only need to update a single system - the one that was undeleted.  This method
+          // updatas all children of "parentId", but it should be relatively quick anyway.  If it becomes
+          // a problem, this is a potential optimization.
+          updateChildSystemsFromParent(db, tenantId, parentId);
+        }
+      }
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -572,6 +629,91 @@ public class SystemsDaoImpl implements SystemsDao
     {
       // Rollback transaction and throw an exception
       LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "systems", id);
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  @Override
+  public void removeParentId(ResourceRequestUser rUser, String tenantId, String childSystemId) throws TapisException {
+    String opName = "removeParentId";
+    // ------------------------- Check Input -------------------------
+    if (StringUtils.isBlank(childSystemId)) {
+      LibUtils.logAndThrowNullParmException(opName, "systemId");
+    }
+
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      db.update(SYSTEMS)
+              .set(SYSTEMS.PARENT_ID, (String)null)
+              .set(SYSTEMS.UPDATED, TapisUtils.getUTCTimeNow())
+              .where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(childSystemId)).execute();
+
+      String changeDescription = "{\"parentId\":" +  null + "}";
+      addUpdate(db, rUser, childSystemId, INVALID_SEQ_ID, SystemOperation.modify, changeDescription , null, getUUIDUsingDb(db, tenantId, childSystemId));
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "systems", childSystemId);
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  @Override
+  public int removeParentIdFromChildren(ResourceRequestUser rUser, String tenantId, String parentSystemId)
+          throws TapisException {
+    String opName = "removeParentId";
+    // ------------------------- Check Input -------------------------
+    if (StringUtils.isBlank(parentSystemId)) {
+      LibUtils.logAndThrowNullParmException(opName, "systemId");
+    }
+
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      List<String> childIds = db.update(SYSTEMS)
+              .set(SYSTEMS.PARENT_ID, (String)null)
+              .set(SYSTEMS.UPDATED, TapisUtils.getUTCTimeNow())
+              .where(SYSTEMS.TENANT.eq(tenantId), SYSTEMS.PARENT_ID.eq(parentSystemId), SYSTEMS.DELETED.eq(false))
+              .returningResult(SYSTEMS.ID).fetch(SYSTEMS.ID);
+
+
+      if(childIds != null) {
+        for (String childId : childIds) {
+          String changeDescription = "{\"parentId\":" + null + "}";
+          addUpdate(db, rUser, childId, INVALID_SEQ_ID, SystemOperation.modify, changeDescription , null, getUUIDUsingDb(db, tenantId, childId));
+        }
+      }
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+      return childIds.size();
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "systems", parentSystemId);
+      return 0;
     }
     finally
     {
@@ -697,6 +839,48 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   /**
+   * check to see if the system with id equal systemId has child systms (that are not deleted).
+   * @param tenantId - id of the tenant
+   * @param systemId - id of the system
+   * @return true if the system has child systsms (that have not been deleted), or false if not.
+   * @throws TapisException
+   */
+  @Override
+  public boolean hasChildren(String tenantId, String systemId) throws TapisException {
+    // Initialize result.
+    boolean result = false;
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      // Run the sql
+      Boolean b = db.selectFrom(SYSTEMS)
+              .where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.PARENT_ID.eq(systemId),SYSTEMS.DELETED.eq(false))
+              .limit(1)
+              .fetchOne(SYSTEMS.ENABLED);
+      if (b != null) {
+        result = b;
+      }
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "System", tenantId, systemId, e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return result;
+  }
+
+  /**
    * isEnabled - check if resource with specified Id is enabled
    * @param sysId - system name
    * @return true if enabled else false
@@ -718,6 +902,44 @@ public class SystemsDaoImpl implements SystemsDao
               .where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(sysId),SYSTEMS.DELETED.eq(false))
               .fetchOne(SYSTEMS.ENABLED);
       if (b != null) result = b;
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "System", tenantId, sysId, e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return result;
+  }
+
+  /**
+   * getParent - gets the id of the parent system for the system with id sysId
+   * @param sysId - system name
+   * @return id of the parent or null if the system has no parent.
+   * @throws TapisException - on error
+   */
+  @Override
+  public String getParent(String tenantId, String sysId) throws TapisException {
+    // Initialize result.
+    String result = null;
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      // Run the sql
+      result = db.selectFrom(SYSTEMS)
+              .where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(sysId),SYSTEMS.DELETED.eq(false))
+              .fetchOne(SYSTEMS.PARENT_ID);
+
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -787,6 +1009,23 @@ public class SystemsDaoImpl implements SystemsDao
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
     }
+    return result;
+  }
+
+  private TSystem getSystemForUpdate(DSLContext db, String tenantId, String id)
+          throws TapisException {
+    // Initialize result.
+    TSystem result = null;
+
+    // ------------------------- Call SQL ----------------------------
+    SystemsRecord r;
+    r = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId), SYSTEMS.ID.eq(id), SYSTEMS.DELETED.eq(false)).forUpdate().fetchOne();
+    if (r == null) {
+      return null;
+    } else {
+      result = getSystemFromRecord(r);
+    }
+
     return result;
   }
 
@@ -1450,6 +1689,7 @@ public class SystemsDaoImpl implements SystemsDao
   @Override
   public void createOrUpdateLoginUserMapping(String tenantId, String systemId, String tapisUser, String loginUser) throws TapisException
   {
+
     if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(systemId) || StringUtils.isBlank(tapisUser) ||
         StringUtils.isBlank(loginUser))
     {
@@ -2591,7 +2831,8 @@ public class SystemsDaoImpl implements SystemsDao
             r.getCanRunBatch(), r.getEnableCmdPrefix(), r.getMpiCmd(),
             r.getBatchScheduler(), logicalQueues, r.getBatchDefaultLogicalQueue(),
             r.getBatchSchedulerProfile(), capabilities, r.getTags(), r.getNotes(),
-            r.getImportRefId(), r.getUuid(), r.getDeleted(), created, updated);
+            r.getImportRefId(), r.getUuid(), r.getDeleted(), r.getAllowChildren(),
+            r.getParentId(), created, updated);
     return system;
   }
 
@@ -2605,6 +2846,63 @@ public class SystemsDaoImpl implements SystemsDao
 	                             r.get(SYSTEM_UPDATES.DESCRIPTION), r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
   }
 
+  private void updateChildSystemsFromParent(DSLContext db, String tenant, String parentId) {
+    SystemsRecord systemRecord = (SystemsRecord) db.selectFrom(SYSTEMS)
+            .where(SYSTEMS.TENANT.eq(tenant), SYSTEMS.ID.eq(parentId))
+            .fetchOne();
+
+    updateChildSystemsFromParent(db, getSystemFromRecord(systemRecord));
+  }
+
+  private void updateChildSystemsFromParent(DSLContext db, TSystem parentSystem) {
+    // Make sure owner, effectiveUserId, etc are set
+    JsonElement jobEnvVariablesJson = TapisGsonUtils.getGson().toJsonTree(parentSystem.getJobEnvVariables());
+    JsonElement jobRuntimesJson = TapisGsonUtils.getGson().toJsonTree(parentSystem.getJobRuntimes());
+    JsonElement batchLogicalQueuesJson = TapisGsonUtils.getGson().toJsonTree(parentSystem.getBatchLogicalQueues());
+    JsonElement jobCapabilitiesJson = TapisGsonUtils.getGson().toJsonTree(parentSystem.getJobCapabilities());
+    String[] tagsStrArray = parentSystem.getTags();
+    JsonObject notesObj = (JsonObject) parentSystem.getNotes();
+
+    int rowsUpdated = db.update(SYSTEMS)
+            .set(SYSTEMS.TENANT, parentSystem.getTenant())
+            .set(SYSTEMS.DESCRIPTION, parentSystem.getDescription())
+            .set(SYSTEMS.SYSTEM_TYPE, parentSystem.getSystemType())
+            .set(SYSTEMS.HOST, parentSystem.getHost())
+            .set(SYSTEMS.ENABLED, parentSystem.isEnabled())
+            .set(SYSTEMS.DEFAULT_AUTHN_METHOD, parentSystem.getDefaultAuthnMethod())
+            .set(SYSTEMS.BUCKET_NAME, parentSystem.getBucketName())
+            .set(SYSTEMS.PORT, parentSystem.getPort())
+            .set(SYSTEMS.USE_PROXY, parentSystem.isUseProxy())
+            .set(SYSTEMS.PROXY_HOST, parentSystem.getProxyHost())
+            .set(SYSTEMS.PROXY_PORT, parentSystem.getProxyPort())
+            .set(SYSTEMS.DTN_SYSTEM_ID, parentSystem.getDtnSystemId())
+            .set(SYSTEMS.DTN_MOUNT_SOURCE_PATH, parentSystem.getDtnMountSourcePath())
+            .set(SYSTEMS.DTN_MOUNT_POINT, parentSystem.getDtnMountPoint())
+            .set(SYSTEMS.IS_DTN, parentSystem.isDtn())
+            .set(SYSTEMS.CAN_EXEC, parentSystem.getCanExec())
+            .set(SYSTEMS.CAN_RUN_BATCH, parentSystem.getCanRunBatch())
+            .set(SYSTEMS.ENABLE_CMD_PREFIX, parentSystem.isEnableCmdPrefix())
+            .set(SYSTEMS.MPI_CMD, parentSystem.getMpiCmd())
+            .set(SYSTEMS.JOB_RUNTIMES, jobRuntimesJson)
+            .set(SYSTEMS.JOB_WORKING_DIR, parentSystem.getJobWorkingDir())
+            .set(SYSTEMS.JOB_ENV_VARIABLES, jobEnvVariablesJson)
+            .set(SYSTEMS.JOB_MAX_JOBS, parentSystem.getJobMaxJobs())
+            .set(SYSTEMS.JOB_MAX_JOBS_PER_USER, parentSystem.getJobMaxJobsPerUser())
+            .set(SYSTEMS.BATCH_SCHEDULER, parentSystem.getBatchScheduler())
+            .set(SYSTEMS.BATCH_LOGICAL_QUEUES, batchLogicalQueuesJson)
+            .set(SYSTEMS.BATCH_DEFAULT_LOGICAL_QUEUE, parentSystem.getBatchDefaultLogicalQueue())
+            .set(SYSTEMS.BATCH_SCHEDULER_PROFILE, parentSystem.getBatchSchedulerProfile())
+            .set(SYSTEMS.JOB_CAPABILITIES, jobCapabilitiesJson)
+            .set(SYSTEMS.TAGS, tagsStrArray)
+            .set(SYSTEMS.NOTES, notesObj)
+            .set(SYSTEMS.IMPORT_REF_ID, parentSystem.getImportRefId())
+            .set(SYSTEMS.UUID, parentSystem.getUuid())
+            .set(SYSTEMS.ALLOW_CHILDREN, parentSystem.isAllowChildren())
+            .where(SYSTEMS.TENANT.eq(parentSystem.getTenant()), SYSTEMS.PARENT_ID.eq(parentSystem.getId()), SYSTEMS.DELETED.isFalse())
+            .execute();
+    log.info("Child Systems Updated:" + rowsUpdated);
+  }
+
   /*
    * Implement the array overlap construct in jooq.
    * Given a column as a Field<T[]> and a java array create a jooq condition that
@@ -2616,4 +2914,5 @@ public class SystemsDaoImpl implements SystemsDao
     if (negate) return cond.not();
     else return cond;
   }
+
 }

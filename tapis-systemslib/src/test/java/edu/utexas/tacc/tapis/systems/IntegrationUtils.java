@@ -65,6 +65,9 @@ public final class IntegrationUtils
   public static final String testUser3 = "testuser3";
   public static final String testUser4 = "testuser4";
   public static final String testUser5 = "testuser5";
+  public static final String parentChild1 = "parentChildUser1";
+  public static final String parentChild2 = "parentChildUser2";
+  public static final String parentChild3 = "parentChildUser3";
   public static final String testUser4LinuxUser = "testuser4LinuxUser";
   public static final String testUser5LinuxUser = "testuser5LinuxUser";
   public static final String impersonationIdTestUser9 = "testuser9";
@@ -251,6 +254,9 @@ public final class IntegrationUtils
   public static final String sharedCtxOwner = owner1;
   public static final String sharedCtxNull = null;
   public static final String resourceTenantNull = null;
+  public static final Boolean allowChildrenFalse = Boolean.FALSE;
+  public static final Boolean allowChildrenTrue = Boolean.TRUE;
+  public static final String parentIdNull = null;
   public static final Instant createdNull = null;
   public static final Instant updatedNull = null;
   public static final int qMaxJobs = -1;
@@ -318,7 +324,8 @@ public final class IntegrationUtils
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
             canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
-            batchSchedulerProfileNull, capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            batchSchedulerProfileNull, capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse,
+            allowChildrenFalse, parentIdNull, createdNull, updatedNull);
   }
 
   /**
@@ -337,7 +344,8 @@ public final class IntegrationUtils
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs2, jobMaxJobsPerUser2,
             canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
-            batchSchedulerProfileNull, capListNull, tags2, notes2, importRefId2, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            batchSchedulerProfileNull, capListNull, tags2, notes2, importRefId2, uuidNull, isDeletedFalse,
+            allowChildrenFalse, parentIdNull, createdNull, updatedNull);
   }
 
   /**
@@ -362,14 +370,16 @@ public final class IntegrationUtils
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
             canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
-            batchSchedulerProfileNull, capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            batchSchedulerProfileNull, capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse,
+            allowChildrenFalse, parentIdNull, createdNull, updatedNull);
     dtnSystem2 = new TSystem(-1, tenantName, dtnSystemName2, "DTN System2 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn2", prot2.getAuthnMethod(), "bucketDtn2", "/root/dtn2",
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs2, jobMaxJobsPerUser2,
             canRunBatchFalse, enableCmdPrefixTrue, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
-            batchSchedulerProfileNull, capListNull, tags2, notes2, importRefId2, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            batchSchedulerProfileNull, capListNull, tags2, notes2, importRefId2, uuidNull, isDeletedFalse,
+            allowChildrenFalse, parentIdNull, createdNull, updatedNull);
     for (int i = 0; i < n; i++)
     {
       // Suffix which should be unique for each system within each integration test
@@ -384,7 +394,8 @@ public final class IntegrationUtils
               dtnSystem1.getId(), dtnMountPoint1, dtnMountSourcePath1, isDtnFalse,
               canExecTrue, jobRuntimes1, "jobWorkDir"+suffix, jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1,
               canRunBatchTrue, enableCmdPrefixTrue, mpiCmd1, batchScheduler1, logicalQueueList1, queueA1.getName(),
-              batchSchedulerProfile1, capList1, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
+              batchSchedulerProfile1, capList1, tags1, notes1, importRefId1, uuidNull, isDeletedFalse,
+              allowChildrenFalse, parentIdNull, createdNull, updatedNull);
       systems[i].setJobRuntimes(jobRuntimes1);
       systems[i].setBatchLogicalQueues(logicalQueueList1);
       systems[i].setJobCapabilities(capList1);
@@ -409,7 +420,8 @@ public final class IntegrationUtils
               canExecFalse, jobRuntimesNull, null, null, jobMaxJobs1, jobMaxJobsPerUser1,
               canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull,
               batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull, tagsNull, notesNull,
-              importRefIdNull, uuidNull, isDeletedFalse, createdNull, updatedNull);
+              importRefIdNull, uuidNull, isDeletedFalse,
+              allowChildrenFalse, parentIdNull, createdNull, updatedNull);
     }
     else
     {
@@ -419,7 +431,8 @@ public final class IntegrationUtils
               canExecFalse, jobRuntimesNull, null, null, jobMaxJobs1, jobMaxJobsPerUser1,
               canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull,
               batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull,
-              tagsNull, notesNull, importRefIdNull, uuidNull, isDeletedFalse, null, null);
+              tagsNull, notesNull, importRefIdNull, uuidNull, isDeletedFalse, allowChildrenFalse, parentIdNull,
+              createdNull, updatedNull);
     }
   }
 
@@ -439,7 +452,8 @@ public final class IntegrationUtils
                        system.getCanExec(), jobRuntimes2, jobWorkingDir2, jobEnvVariables2, jobMaxJobs2,
                        jobMaxJobsPerUser2, canRunBatchTrue, enableCmdPrefixTrue, mpiCmd2, batchScheduler2,
                        logicalQueueList2, batchDefaultLogicalQueue2, batchSchedulerProfile2,
-                       capList2, tags2, notes2, importRefId2, null, false, null, null);
+                       capList2, tags2, notes2, importRefId2, null, false,
+                       allowChildrenFalse, parentIdNull, null, null);
     putSys.setBatchLogicalQueues(logicalQueueList2);
     putSys.setJobRuntimes(jobRuntimes2);
     putSys.setJobCapabilities(capList2);
@@ -458,7 +472,7 @@ public final class IntegrationUtils
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             sysNamePrefix+key+dtnSystemId2, dtnMountPoint2, dtnMountSourcePath2, jobRuntimes2, jobWorkingDir2,
             jobEnvVariables2, jobMaxJobs2, jobMaxJobsPerUser2, canRunBatchTrue, enableCmdPrefixTrue, mpiCmd2, batchScheduler2,
-            logicalQueueList2, batchDefaultLogicalQueue2, batchSchedulerProfile2, capList2, tags2, notes2, importRefId2);
+            logicalQueueList2, batchDefaultLogicalQueue2, batchSchedulerProfile2, capList2, tags2, notes2, importRefId2, allowChildrenFalse);
   }
 
   /**
@@ -471,7 +485,7 @@ public final class IntegrationUtils
             prot2.getAuthnMethod(), portNull, userProxyNull, proxyHostNull, proxyPortNull,
             dtnSystemIdNull, dtnMountPoint2, dtnMountSourcePathNull, jobRuntimes2, jobWorkingDirNull, jobEnvVariablesNull,
             jobMaxJobsNull, jobMaxJobsPerUser2, canRunBatchNull, enableCmdPrefixTrue, mpiCmd2, batchSchedulerNull, logicalQueueListNull,
-            batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull, tagsNull, notesNull, importRefIdNull);
+            batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull, tagsNull, notesNull, importRefIdNull, allowChildrenFalse);
   }
 
   /**
@@ -488,7 +502,8 @@ public final class IntegrationUtils
             dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnFalse,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
             canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
-            capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse,
+            allowChildrenFalse, parentIdNull, createdNull, updatedNull);
   }
 
   /**

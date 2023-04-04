@@ -1,6 +1,7 @@
 package edu.utexas.tacc.tapis.systems.api.resources;
 
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,8 +31,12 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
+
+import edu.utexas.tacc.tapis.systems.api.requests.ReqPostChildSystem;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.glassfish.grizzly.http.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,6 +77,7 @@ import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
+
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_EXEC_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_AUTHN_METHOD_FIELD;
@@ -81,6 +87,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.ID_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.NOTES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.AUTHN_CREDENTIAL_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.PARENT_ID;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.SYSTEM_TYPE_FIELD;
 
 /*
@@ -103,10 +110,14 @@ public class SystemResource
 
   private static final String SYSTEMS_SVC = StringUtils.capitalize(TapisConstants.SERVICE_NAME_SYSTEMS);
 
+//  private static final String CHILD_PATH = "<parentId>/children/<childId>";
+
   // Json schema resource files.
   private static final String FILE_SYSTEM_CREATE_REQUEST = "/edu/utexas/tacc/tapis/systems/api/jsonschema/SystemPostRequest.json";
+  private static final String FILE_SYSTEM_CREATE_CHILD_REQUEST = "/edu/utexas/tacc/tapis/systems/api/jsonschema/ChildSystemPostRequest.json";
   private static final String FILE_SYSTEM_PUT_REQUEST = "/edu/utexas/tacc/tapis/systems/api/jsonschema/SystemPutRequest.json";
   private static final String FILE_SYSTEM_UPDATE_REQUEST = "/edu/utexas/tacc/tapis/systems/api/jsonschema/SystemPatchRequest.json";
+  private static final String FILE_SYSTEM_CHILD_UPDATE_REQUEST = "/edu/utexas/tacc/tapis/systems/api/jsonschema/ChildSystemPatchRequest.json";
   private static final String FILE_SYSTEM_SEARCH_REQUEST = "/edu/utexas/tacc/tapis/systems/api/jsonschema/SystemSearchRequest.json";
   private static final String FILE_SYSTEM_MATCH_REQUEST = "/edu/utexas/tacc/tapis/systems/api/jsonschema/MatchConstraintsRequest.json";
 
@@ -131,6 +142,13 @@ public class SystemResource
   private static final String OP_CHANGEOWNER = "changeSystemOwner";
   private static final String OP_DELETE = "deleteSystem";
   private static final String OP_UNDELETE = "undeleteSystem";
+  private static final String OP_UNLINK_FROM_PARENT = "unlinkFromParent";
+  private static final String OP_UNLINK_CHILD = "unlinkChild";
+  private static final String OP_UNLINK_ALL_CHILDREN = "unlinkAllChildren";
+
+  private static final String ARG_USER_NAME = "userName";
+  private static final String ARG_PARENT_SYS = "parentSys";
+  private static final Pair<String, String> NO_ADDITIONAL_ARGS = null;
 
   // Always return a nicely formatted response
   public static final boolean PRETTY = true;
@@ -138,7 +156,7 @@ public class SystemResource
   // Top level summary attributes to be included by default in some cases.
   public static final List<String> SUMMARY_ATTRS =
           new ArrayList<>(List.of(ID_FIELD, SYSTEM_TYPE_FIELD, OWNER_FIELD, HOST_FIELD,
-                  EFFECTIVE_USER_ID_FIELD, DEFAULT_AUTHN_METHOD_FIELD, CAN_EXEC_FIELD));
+                  EFFECTIVE_USER_ID_FIELD, DEFAULT_AUTHN_METHOD_FIELD, CAN_EXEC_FIELD, PARENT_ID));
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -336,6 +354,89 @@ public class SystemResource
     return createSuccessResponse(Status.CREATED, ApiUtils.getMsgAuth("SYSAPI_CREATED", rUser, systemId), resp1);
   }
 
+  @POST
+  @Path("{systemId}/createChildSystem")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response createChildSystem(InputStream payloadStream,
+                               @PathParam("systemId") String systemId,
+                               @Context SecurityContext securityContext) throws TapisClientException {
+    String opName = "createChildSystem";
+
+    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
+    // Utility method returns null if all OK and appropriate error response if there was a problem.
+    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
+    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    if (resp != null) {
+      return resp;
+    }
+
+    // Create a user that collects together tenant, user and request information needed by the service call
+    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) {
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+              "systemId="+systemId);
+    }
+
+    // ------------------------- Extract and validate payload -------------------------
+    // Read the payload into a string.
+    String rawJson;
+    String msg;
+    try {
+      rawJson = IOUtils.toString(payloadStream, StandardCharsets.UTF_8);
+    } catch (Exception e) {
+      msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
+      _log.error(msg, e);
+      throw new BadRequestException(msg);
+    }
+
+    // Create validator specification and validate the json against the schema
+    JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, FILE_SYSTEM_CREATE_CHILD_REQUEST);
+    try {
+      JsonValidator.validate(spec);
+    } catch (TapisJSONException e) {
+      msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
+      _log.error(msg, e);
+      throw new BadRequestException(msg);
+    }
+
+    ReqPostChildSystem childSystemRequest;
+    try {
+      childSystemRequest = TapisGsonUtils.getGson().fromJson(rawJson, ReqPostChildSystem.class);
+    } catch (JsonSyntaxException e) {
+      msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
+      _log.error(msg, e);
+      throw new BadRequestException(msg);
+    }
+
+    // ---------------------------- Make service call -------------------------------
+    TSystem childSystem;
+    try
+    {
+      childSystem = service.createChildSystem(rUser, systemId, childSystemRequest.getId(),
+              childSystemRequest.getEffectiveUserId(), childSystemRequest.getRootDir(),
+              childSystemRequest.getOwner(), rawJson);
+    } catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) {
+      // Pass through not found or not auth to let exception mapper handle it.
+      throw e;
+    } catch (Exception e) {
+      // IllegalStateException indicates an Invalid TSystem was passed in
+      msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, systemId, e.getMessage());
+      _log.error(msg);
+      throw new BadRequestException(msg);
+    }
+
+    ResultResourceUrl respUrl = new ResultResourceUrl();
+    URI uri = URI.create(_request.getRequestURL().append("/../../").append(childSystem.getId()).toString()).normalize();
+
+    respUrl.url = uri.toString();
+    return createSuccessResponse(Status.CREATED, ApiUtils.getMsgAuth("SYSAPI_CREATED", rUser, systemId),
+            new RespResourceUrl(respUrl));
+
+  }
+
   /**
    * Update selected attributes of a system
    * @param systemId - name of the system
@@ -365,6 +466,9 @@ public class SystemResource
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
 
+    String jsonValidationFile = isChildSystem(rUser, systemId) ?
+            FILE_SYSTEM_CHILD_UPDATE_REQUEST : FILE_SYSTEM_UPDATE_REQUEST ;
+
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
     String rawJson;
@@ -377,7 +481,7 @@ public class SystemResource
       throw new BadRequestException(msg);
     }
     // Create validator specification and validate the json against the schema
-    JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, FILE_SYSTEM_UPDATE_REQUEST);
+    JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, jsonValidationFile);
     try { JsonValidator.validate(spec); }
     catch (TapisJSONException e)
     {
@@ -609,7 +713,7 @@ public class SystemResource
   public Response enableSystem(@PathParam("systemId") String systemId,
                                @Context SecurityContext securityContext) throws TapisClientException
   {
-    return postSystemSingleUpdate(OP_ENABLE, systemId, null, securityContext);
+    return postSystemSingleUpdate(OP_ENABLE, systemId, NO_ADDITIONAL_ARGS, securityContext);
   }
 
   /**
@@ -625,7 +729,7 @@ public class SystemResource
   public Response disableSystem(@PathParam("systemId") String systemId,
                                 @Context SecurityContext securityContext) throws TapisClientException
   {
-    return postSystemSingleUpdate(OP_DISABLE, systemId, null, securityContext);
+    return postSystemSingleUpdate(OP_DISABLE, systemId, NO_ADDITIONAL_ARGS, securityContext);
   }
 
   /**
@@ -641,7 +745,7 @@ public class SystemResource
   public Response deleteSystem(@PathParam("systemId") String systemId,
                                @Context SecurityContext securityContext) throws TapisClientException
   {
-    return postSystemSingleUpdate(OP_DELETE, systemId, null, securityContext);
+    return postSystemSingleUpdate(OP_DELETE, systemId, NO_ADDITIONAL_ARGS, securityContext);
   }
 
   /**
@@ -657,7 +761,7 @@ public class SystemResource
   public Response undeleteSystem(@PathParam("systemId") String systemId,
                                  @Context SecurityContext securityContext) throws TapisClientException
   {
-    return postSystemSingleUpdate(OP_UNDELETE, systemId, null, securityContext);
+    return postSystemSingleUpdate(OP_UNDELETE, systemId, NO_ADDITIONAL_ARGS, securityContext);
   }
 
   /**
@@ -675,7 +779,35 @@ public class SystemResource
                                     @PathParam("userName") String userName,
                                     @Context SecurityContext securityContext) throws TapisClientException
   {
-    return postSystemSingleUpdate(OP_CHANGEOWNER, systemId, userName, securityContext);
+    return postSystemSingleUpdate(OP_CHANGEOWNER, systemId, new ImmutablePair<>(ARG_USER_NAME, userName), securityContext);
+  }
+
+  @POST
+  @Path("{childSystemId}/unlinkFromParent")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response unlinkFromParent(@PathParam("childSystemId") String childSystemId,
+                               @Context SecurityContext securityContext) throws TapisClientException
+  {
+    return postSystemSingleUpdate(OP_UNLINK_FROM_PARENT, childSystemId, NO_ADDITIONAL_ARGS, securityContext);
+  }
+
+  @POST
+  @Path("{parentSystemId}/unlinkChild/{childSystemId}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response unlinkChild(@PathParam("parentSystemId") String parentSystemId,
+                                   @PathParam("childSystemId") String childSystemId,
+                                   @Context SecurityContext securityContext) throws TapisClientException
+  {
+    return postSystemSingleUpdate(OP_UNLINK_CHILD, childSystemId, new ImmutablePair<>(ARG_PARENT_SYS, parentSystemId), securityContext);
+  }
+
+  @POST
+  @Path("{parentSystemId}/unlinkAllChildren")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response unlinkAllChildren(@PathParam("parentSystemId") String childSystemId,
+                                   @Context SecurityContext securityContext) throws TapisClientException
+  {
+    return postSystemSingleUpdate(OP_UNLINK_ALL_CHILDREN, childSystemId, NO_ADDITIONAL_ARGS, securityContext);
   }
 
   /**
@@ -1167,11 +1299,13 @@ public class SystemResource
    * Note that userName only used for changeOwner
    * @param opName Name of operation.
    * @param systemId Id of system to update
-   * @param userName new owner name for op changeOwner
+   * @param additionalArg pair representing the name and value of one additional argument.
+   *                      new owner name for op changeOwner
+   *                      parent system id for unlinkChild
    * @param securityContext Security context from client call
    * @return Response to be returned to the client.
    */
-  private Response postSystemSingleUpdate(String opName, String systemId, String userName,
+  private Response postSystemSingleUpdate(String opName, String systemId, Pair<String, String> additionalArg,
                                           SecurityContext securityContext)
           throws TapisClientException
   {
@@ -1189,8 +1323,8 @@ public class SystemResource
     if (_log.isTraceEnabled())
     {
       // NOTE: We deliberately do not check for blank. If empty string passed in we want to record it here.
-      if (userName!=null)
-        ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId, "userName="+userName);
+      if (additionalArg!=null)
+        ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId, additionalArg.getLeft() + "=" + additionalArg.getRight());
       else
         ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
     }
@@ -1208,8 +1342,18 @@ public class SystemResource
         changeCount = service.deleteSystem(rUser, systemId);
       else if (OP_UNDELETE.equals(opName))
         changeCount = service.undeleteSystem(rUser, systemId);
-      else
+      else if (OP_UNLINK_CHILD.equals(opName)) {
+        String parentId = ARG_PARENT_SYS.equals(additionalArg.getLeft()) ? additionalArg.getRight() : null;
+        changeCount = service.unlinkChild(rUser, parentId, systemId);
+      }
+      else if (OP_UNLINK_FROM_PARENT.equals(opName))
+        changeCount = service.unlinkFromParent(rUser, systemId);
+      else if (OP_UNLINK_ALL_CHILDREN.equals(opName))
+        changeCount = service.unlinkAllChildren(rUser, systemId);
+      else {
+        String userName = ARG_USER_NAME.equals(additionalArg.getLeft()) ? additionalArg.getRight() : null;
         changeCount = service.changeSystemOwner(rUser, systemId, userName);
+      }
     }
     catch (IllegalStateException e)
     {
@@ -1260,7 +1404,8 @@ public class SystemResource
                        req.canExec, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs,
                        req.jobMaxJobsPerUser, req.canRunBatch, req.enableCmdPrefix, req.mpiCmd, req.batchScheduler,
                        req.batchLogicalQueues, req.batchDefaultLogicalQueue, req.batchSchedulerProfile, req.jobCapabilities,
-                       req.tags, notes, req.importRefId, null, false, null, null);
+                       req.tags, notes, req.importRefId, null, false,
+                       req.allowChildren, null, null, null);
     tSystem.setAuthnCredential(req.authnCredential);
     return tSystem;
   }
@@ -1287,7 +1432,8 @@ public class SystemResource
             req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, isDtnFalse,
             canExecTrue, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
             req.canRunBatch, req.enableCmdPrefix, req.mpiCmd, req.batchScheduler, req.batchLogicalQueues, req.batchDefaultLogicalQueue,
-            req.batchSchedulerProfile, req.jobCapabilities, req.tags, notes, req.importRefId, null, false, null, null);
+            req.batchSchedulerProfile, req.jobCapabilities, req.tags, notes, req.importRefId, null, false,
+            req.allowChildren, req.parentId, null, null);
     tSystem.setAuthnCredential(req.authnCredential);
     return tSystem;
   }
@@ -1473,5 +1619,19 @@ public class SystemResource
   private static Response createSuccessResponse(Status status, String msg, RespAbstract resp)
   {
     return Response.status(status).entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp)).build();
+  }
+
+  private boolean isChildSystem(ResourceRequestUser rUser, String systemId) throws TapisClientException {
+    try {
+      return !StringUtils.isBlank(service.getParentId(rUser, systemId));
+    } catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) {
+      // Pass through not found or not auth to let exception mapper handle it.
+      throw e;
+    } catch (Exception e) {
+      // As final fallback
+      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
+      _log.error(msg, e);
+      throw new WebApplicationException(msg);
+    }
   }
 }

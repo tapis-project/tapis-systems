@@ -28,6 +28,7 @@ public final class ReqPutSystem
   public String description;
   public String host;
   public String effectiveUserId = DEFAULT_EFFECTIVEUSERID;
+  public String parentId;
   public AuthnMethod defaultAuthnMethod;
   public Credential authnCredential;
   public int port = DEFAULT_PORT;
@@ -53,4 +54,5 @@ public final class ReqPutSystem
   public String[] tags = EMPTY_STR_ARRAY;
   public Object notes = DEFAULT_NOTES;
   public String importRefId;
+  public boolean allowChildren;
 }

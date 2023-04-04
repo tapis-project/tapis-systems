@@ -25,6 +25,8 @@ import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
+
+import static edu.utexas.tacc.tapis.systems.model.TSystem.ALLOW_CHILDREN;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_DEFAULT_LOGICAL_QUEUE_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_LOGICAL_QUEUES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_SCHEDULER_FIELD;
@@ -52,6 +54,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_WORKING_DIR_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.MPI_CMD_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.NOTES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.PARENT_ID;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.PORT_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.PROXY_HOST_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.PROXY_PORT_FIELD;
@@ -333,6 +336,8 @@ public class LibUtils
       {noChanges=false;addChange(jo, BATCH_SCHEDULER_PROFILE_FIELD, o.getBatchSchedulerProfile(), n.getBatchSchedulerProfile());}
     if (!(o.isDeleted() == n.isDeleted()))
       {noChanges=false;addChange(jo, DELETED_FIELD, o.isDeleted(), n.isDeleted());}
+    if (!(o.isAllowChildren() == n.isAllowChildren()))
+      {noChanges=false;addChange(jo, ALLOW_CHILDREN, o.isAllowChildren(), n.isAllowChildren());}
 
     // ------------------------------------------------------
     // Following attributes require more complex handling
@@ -469,6 +474,7 @@ public class LibUtils
     addChange(o, OWNER_FIELD, oldOwner, newOwner);
     return o.toString();
   }
+
   /*
    * Methods to add change entries for TSystem updates.
    */

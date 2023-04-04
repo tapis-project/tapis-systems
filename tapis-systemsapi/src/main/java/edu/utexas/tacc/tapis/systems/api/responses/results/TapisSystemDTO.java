@@ -15,6 +15,7 @@ import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 
 import static edu.utexas.tacc.tapis.systems.api.resources.SystemResource.SUMMARY_ATTRS;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.ALLOW_CHILDREN;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.AUTHN_CREDENTIAL_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_DEFAULT_LOGICAL_QUEUE_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_LOGICAL_QUEUES_FIELD;
@@ -47,6 +48,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_WORKING_DIR_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.MPI_CMD_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.NOTES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.PARENT_ID;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.PORT_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.PROXY_HOST_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.PROXY_PORT_FIELD;
@@ -108,6 +110,8 @@ public final class TapisSystemDTO
   public Object notes;
   public String importRefId;
   public UUID uuid;
+  public boolean allowChildren;
+  public String parentId;
   public boolean deleted;
   public Instant created;
   public Instant updated;
@@ -162,6 +166,8 @@ public final class TapisSystemDTO
     if (jobMaxJobsPerUser < 0) jobMaxJobsPerUser = Integer.MAX_VALUE;
     isPublic = s.isPublic();
     isDynamicEffectiveUser = s.isDynamicEffectiveUser();
+    allowChildren = s.isAllowChildren();
+    parentId = s.getParentId();
   }
 
   /**
@@ -271,6 +277,8 @@ public final class TapisSystemDTO
       case UPDATED_FIELD -> jsonObject.addProperty(UPDATED_FIELD, updated.toString());
       case IS_PUBLIC_FIELD -> jsonObject.addProperty(IS_PUBLIC_FIELD, Boolean.toString(isPublic));
       case IS_DYNAMIC_EFFECTIVE_USER -> jsonObject.addProperty(IS_DYNAMIC_EFFECTIVE_USER, Boolean.toString(isDynamicEffectiveUser));
+      case ALLOW_CHILDREN -> jsonObject.addProperty(ALLOW_CHILDREN, Boolean.toString(allowChildren));
+      case PARENT_ID -> jsonObject.addProperty(PARENT_ID, parentId);
     }
   }
 }

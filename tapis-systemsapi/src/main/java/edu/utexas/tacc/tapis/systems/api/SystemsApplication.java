@@ -3,6 +3,7 @@ package edu.utexas.tacc.tapis.systems.api;
 import java.net.URI;
 import javax.ws.rs.ApplicationPath;
 
+import edu.utexas.tacc.tapis.sharedapi.jaxrs.filters.QueryParametersRequestFilter;
 import edu.utexas.tacc.tapis.systems.api.resources.CredentialResource;
 import edu.utexas.tacc.tapis.systems.api.resources.GeneralResource;
 import edu.utexas.tacc.tapis.systems.api.resources.PermsResource;
@@ -87,6 +88,9 @@ public class SystemsApplication extends ResourceConfig
     register(SchedulerProfileResource.class);
     register(ShareResource.class);
     register(SystemResource.class);
+
+    //QueryParams filter
+    register(QueryParametersRequestFilter.class);
 
     // Set the application name. Note that this has no impact on base URL.
     setApplicationName(TapisConstants.SERVICE_NAME_SYSTEMS);

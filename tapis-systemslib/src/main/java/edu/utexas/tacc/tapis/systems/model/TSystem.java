@@ -101,6 +101,8 @@ public final class TSystem
   public static final String JOB_CAPABILITIES_FIELD = "jobCapabilities";
   public static final String TAGS_FIELD = "tags";
   public static final String NOTES_FIELD = "notes";
+  public static final String PARENT_ID = "parentId";
+  public static final String ALLOW_CHILDREN = "allowChildren";
   public static final String IMPORT_REF_ID = "importRefId";
   public static final String UUID_FIELD = "uuid";
   public static final String CREATED_FIELD = "created";
@@ -151,6 +153,7 @@ public final class TSystem
   public static final String CREATE_MISSING_ATTR = "SYSLIB_CREATE_MISSING_ATTR";
   public static final String INVALID_STR_ATTR = "SYSLIB_INVALID_STR_ATTR";
   public static final String TOO_LONG_ATTR = "SYSLIB_TOO_LONG_ATTR";
+
 
   // ************************************************************************
   // *********************** Enums ******************************************
@@ -211,6 +214,8 @@ public final class TSystem
   private String importRefId;
   private UUID uuid;
   private boolean deleted;
+  private String parentId;      // User who owns the system and has full privileges
+  private boolean allowChildren;
 
   private Instant created; // UTC time for when record was created
   private Instant updated; // UTC time for when record was last updated
@@ -277,6 +282,8 @@ public final class TSystem
     batchDefaultLogicalQueue = t.getBatchDefaultLogicalQueue();
     batchSchedulerProfile = t.getBatchSchedulerProfile();
     jobCapabilities = t.getJobCapabilities();
+    allowChildren = t.isAllowChildren();
+    parentId = t.getParentId();
     tags = (t.getTags() == null) ? EMPTY_STR_ARRAY : t.getTags().clone();
     notes = t.getNotes();
     importRefId = t.getImportRefId();
@@ -284,6 +291,29 @@ public final class TSystem
     deleted = t.isDeleted();
     isPublic = t.isPublic();
     isDynamicEffectiveUser = t.isDynamicEffectiveUser();
+  }
+
+  /**
+   * Constructor for creating a child system based on a parent system.
+   * @param parentSystem
+   * @param childId
+   * @param childEffectiveUserId
+   * @param childRootDir
+   * @param childOwner
+   */
+  public TSystem(TSystem parentSystem, String childId, String childEffectiveUserId, String childRootDir, String childOwner) {
+    this(parentSystem.getSeqId(), parentSystem.getTenant(), childId, parentSystem.getDescription(),
+            parentSystem.getSystemType(), childOwner, parentSystem.getHost(), parentSystem.isEnabled(),
+            childEffectiveUserId, parentSystem.getDefaultAuthnMethod(), parentSystem.getBucketName(),
+            childRootDir, parentSystem.getPort(), parentSystem.isUseProxy(), parentSystem.getProxyHost(),
+            parentSystem.getProxyPort(), parentSystem.getDtnSystemId(), parentSystem.getDtnMountPoint(), parentSystem.getDtnMountSourcePath(),
+            parentSystem.isDtn(), parentSystem.getCanExec(), parentSystem.getJobRuntimes(), parentSystem.getJobWorkingDir(),
+            parentSystem.getJobEnvVariables(), parentSystem.getJobMaxJobs(), parentSystem.getJobMaxJobsPerUser(), parentSystem.getCanRunBatch(),
+            parentSystem.isEnableCmdPrefix(), parentSystem.getMpiCmd(), parentSystem.getBatchScheduler(), parentSystem.getBatchLogicalQueues(),
+            parentSystem.getBatchDefaultLogicalQueue(), parentSystem.getBatchSchedulerProfile(), parentSystem.getJobCapabilities(),
+            parentSystem.getTags(), parentSystem.getNotes(), parentSystem.getImportRefId(), parentSystem.getUuid(),
+            parentSystem.isDeleted(), /* allowChildren:false */  false, parentSystem.getId(),
+            parentSystem.getCreated(), parentSystem.getUpdated());
   }
 
   /**
@@ -299,8 +329,8 @@ public final class TSystem
                  int jobMaxJobs1, int jobMaxJobsPerUser1, boolean canRunBatch1, boolean enableCmdPrefix1, String mpiCmd1,
                  SchedulerType batchScheduler1, List<LogicalQueue> batchLogicalQueues1, String batchDefaultLogicalQueue1,
                  String batchSchedulerProfile1, List<Capability> jobCapabilities1,
-                 String[] tags1, Object notes1, String importRefId1, UUID uuid1, boolean deleted1,
-                 Instant created1, Instant updated1)
+                 String[] tags1, Object notes1, String importRefId1, UUID uuid1, boolean deleted1, boolean allowChildren1,
+                 String parentId1, Instant created1, Instant updated1)
   {
     seqId = seqId1;
     tenant = tenant1;
@@ -339,10 +369,12 @@ public final class TSystem
     tags = (tags1 == null) ? EMPTY_STR_ARRAY : tags1.clone();
     notes = notes1;
     importRefId = importRefId1;
+    allowChildren = allowChildren1;
     uuid = uuid1;
     deleted = deleted1;
     created = created1;
     updated = updated1;
+    parentId = parentId1;
   }
 
   /**
@@ -396,6 +428,8 @@ public final class TSystem
     importRefId = t.getImportRefId();
     isPublic = t.isPublic();
     isDynamicEffectiveUser = t.isDynamicEffectiveUser();
+    allowChildren = t.isAllowChildren();
+    parentId = t.getParentId();
   }
 
   // ************************************************************************
@@ -909,4 +943,13 @@ public final class TSystem
   public void setIsPublic(boolean b) { isPublic = b;  }
   public boolean isDynamicEffectiveUser() { return isDynamicEffectiveUser; }
   public void setIsDynamicEffectiveUser(boolean b) { isDynamicEffectiveUser = b;  }
+  public String getParentId() {
+    return parentId;
+  }
+  public boolean isAllowChildren() {
+    return allowChildren;
+  }
+  public void setAllowChildren(boolean allowChildren) {
+    this.allowChildren = allowChildren;
+  }
 }

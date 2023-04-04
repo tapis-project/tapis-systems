@@ -48,6 +48,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.*;
 
@@ -67,6 +68,7 @@ public class SystemsServiceTest
   private SystemsServiceImpl svcImpl;
   private ResourceRequestUser rOwner1, rOwner3, rOwner4, rOwner5, rOwner6,
           rTestUser0, rTestUser1, rTestUser2, rTestUser3, rTestUser4, rTestUser5,
+          rParentChild1, rParentChild2, rParentChild3,
           rAdminUser, rSystemsSvc, rAppsSvcTestUser1, rFilesSvcAsFiles,
           rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rFilesSvcTestUser5,
           rJobsSvcTestUser1, rJobsSvcOwner1;
@@ -79,6 +81,10 @@ public class SystemsServiceTest
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
   TSystem s3System1 = IntegrationUtils.makeS3System(testKey);
   TSystem[] systems = IntegrationUtils.makeSystems(numSystems, testKey);
+
+  // used for cleanup
+  private static int MAX_PARENT_SYSTEMS=13;
+  List<TSystem> parentSystems = new ArrayList<>();
   SchedulerProfile[] schedulerProfiles = IntegrationUtils.makeSchedulerProfiles(numSchedulerProfiles, testKey);
 
   @BeforeSuite
@@ -133,6 +139,12 @@ public class SystemsServiceTest
                                                    null, testUser4, tenantName, null, null, null));
     rTestUser5 = new ResourceRequestUser(new AuthenticatedUser(testUser5, tenantName, TapisThreadContext.AccountType.user.name(),
                                                    null, testUser5, tenantName, null, null, null));
+    rParentChild1 = new ResourceRequestUser(new AuthenticatedUser(parentChild1, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                   null, parentChild1, tenantName, null, null, null));
+    rParentChild2 = new ResourceRequestUser(new AuthenticatedUser(parentChild2, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                   null, parentChild2, tenantName, null, null, null));
+    rParentChild3 = new ResourceRequestUser(new AuthenticatedUser(parentChild3, tenantName, TapisThreadContext.AccountType.user.name(),
+                                                   null, parentChild3, tenantName, null, null, null));
     rSystemsSvc = new ResourceRequestUser(new AuthenticatedUser(svcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                     null, svcName, adminTenantName, null, null, null));
     rFilesSvcAsFiles = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
@@ -195,6 +207,32 @@ public class SystemsServiceTest
     {
       svcImpl.hardDeleteSystem(rAdminUser, tenantName, systems[i].getId());
     }
+
+    // if this assertion fails, it means that tests have been added that create more parent systems.  We need to
+    // know what the max number is so that when this method is called at the begining of the test, we know how many
+    // parent/child systems to look for to clean up.  At the end of the tests we always know which ones to clean up.
+    // Just make MAX_PARENT_SYSTEMS larger - it's not a "real" error.
+    Assert.assertTrue(parentSystems.size() <= MAX_PARENT_SYSTEMS);
+    List<String> parentIds = new ArrayList<>();
+    if(parentSystems.size() == 0) {
+      for(int i=0;i < MAX_PARENT_SYSTEMS; i++) {
+        parentIds.add(getParentSysName(i));
+      }
+    } else {
+      for(TSystem parentSystem : parentSystems) {
+        parentIds.add(parentSystem.getId());
+      }
+    }
+    SystemsDaoImpl dao = new SystemsDaoImpl();
+    for(String pSystemId : parentIds) {
+      List<TSystem> childSystems = dao.getSystems(rAdminUser, Arrays.asList("parentId.eq." + pSystemId),
+              null, -1, null, 0, null, true, null, null, null);
+      for(TSystem cSystem : childSystems) {
+        svcImpl.hardDeleteSystem(rAdminUser, tenantName, cSystem.getId());
+      }
+      svcImpl.hardDeleteSystem(rAdminUser, tenantName, pSystemId);
+    }
+
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, s3System1.getId());
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem2.getId());
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem1.getId());
@@ -1236,7 +1274,7 @@ public class SystemsServiceTest
     // Patch the system
     String rawDataPatch = "{\"effectiveUserId\": \"testuser5LinuxUser\"}";
     PatchSystem patchSystem = new PatchSystem(null, null, testUser5LinuxUser, null, null, null, null, null, null, null, null,
-                              null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+                              null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
     // Retrieve with resolve of effUser, effUser should be static value
     tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, sharedCtxNull, resourceTenantNull);
@@ -1269,7 +1307,7 @@ public class SystemsServiceTest
     // Patch the system
     rawDataPatch = "{\"effectiveUserId\": \"${apiUserId}\"}";
     patchSystem = new PatchSystem(null, null, TSystem.APIUSERID_VAR, null, null, null, null, null, null, null, null,
-                                  null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+                                  null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
     // Retrieve with resolve, check effUser
     tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, sharedCtxNull, resourceTenantNull);
@@ -1542,7 +1580,7 @@ public class SystemsServiceTest
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, jobRuntimes1, jobWorkingDir1, jobEnvVariables1, jobMaxJobs1,
             jobMaxJobsPerUser1, canRunBatchTrue, enableCmdPrefixTrue, mpiCmd1, batchScheduler1, logicalQueueList1,
-            batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2, importRefId2);
+            batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2, importRefId2, allowChildrenFalse);
 
     // CREATE - Deny user not owner/admin, deny service calling as itself
     boolean pass = false;
@@ -1963,44 +2001,53 @@ public class SystemsServiceTest
   private static void checkCommonSysAttrs(TSystem sys0, TSystem tmpSys)
   {
     Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
-    System.out.println("Found item: " + sys0.getId());
     Assert.assertEquals(tmpSys.getId(), sys0.getId());
-    Assert.assertEquals(tmpSys.getDescription(), sys0.getDescription());
-    Assert.assertEquals(tmpSys.getSystemType().name(), sys0.getSystemType().name());
-    Assert.assertEquals(tmpSys.getOwner(), sys0.getOwner());
-    Assert.assertEquals(tmpSys.getHost(), sys0.getHost());
     Assert.assertEquals(tmpSys.getEffectiveUserId(), sys0.getEffectiveUserId());
-    Assert.assertEquals(tmpSys.getDefaultAuthnMethod().name(), sys0.getDefaultAuthnMethod().name());
-    Assert.assertEquals(tmpSys.getBucketName(), sys0.getBucketName());
     Assert.assertEquals(tmpSys.getRootDir(), sys0.getRootDir());
+    Assert.assertEquals(tmpSys.getOwner(), sys0.getOwner());
+    System.out.println("Found item: " + sys0.getId());
+    compareSystems(sys0, tmpSys);
+  }
+  private static void checkCommonParentChildAttrs(TSystem parentSystem, TSystem childSystem) {
+    Assert.assertEquals(parentSystem.getId(), childSystem.getParentId());
+    compareSystems(parentSystem, childSystem);
+  }
 
-    Assert.assertEquals(tmpSys.getPort(), sys0.getPort());
-    Assert.assertEquals(tmpSys.isUseProxy(), sys0.isUseProxy());
-    Assert.assertEquals(tmpSys.getProxyHost(), sys0.getProxyHost());
-    Assert.assertEquals(tmpSys.getProxyPort(), sys0.getProxyPort());
-    Assert.assertEquals(tmpSys.getDtnSystemId(), sys0.getDtnSystemId());
-    Assert.assertEquals(tmpSys.getDtnMountSourcePath(), sys0.getDtnMountSourcePath());
-    Assert.assertEquals(tmpSys.getDtnMountPoint(), sys0.getDtnMountPoint());
-    Assert.assertEquals(tmpSys.isDtn(), sys0.isDtn());
-    Assert.assertEquals(tmpSys.getCanExec(), sys0.getCanExec());
-    Assert.assertEquals(tmpSys.getJobWorkingDir(), sys0.getJobWorkingDir());
+  private static void compareSystems(TSystem sys1, TSystem sys2)
+  {
+    Assert.assertEquals(sys2.getDescription(), sys1.getDescription());
+    Assert.assertEquals(sys2.getSystemType().name(), sys1.getSystemType().name());
+    Assert.assertEquals(sys2.getHost(), sys1.getHost());
+    Assert.assertEquals(sys2.getDefaultAuthnMethod().name(), sys1.getDefaultAuthnMethod().name());
+    Assert.assertEquals(sys2.getBucketName(), sys1.getBucketName());
 
-    Assert.assertEquals(tmpSys.getImportRefId(), sys0.getImportRefId());
+    Assert.assertEquals(sys2.getPort(), sys1.getPort());
+    Assert.assertEquals(sys2.isUseProxy(), sys1.isUseProxy());
+    Assert.assertEquals(sys2.getProxyHost(), sys1.getProxyHost());
+    Assert.assertEquals(sys2.getProxyPort(), sys1.getProxyPort());
+    Assert.assertEquals(sys2.getDtnSystemId(), sys1.getDtnSystemId());
+    Assert.assertEquals(sys2.getDtnMountSourcePath(), sys1.getDtnMountSourcePath());
+    Assert.assertEquals(sys2.getDtnMountPoint(), sys1.getDtnMountPoint());
+    Assert.assertEquals(sys2.isDtn(), sys1.isDtn());
+    Assert.assertEquals(sys2.getCanExec(), sys1.getCanExec());
+    Assert.assertEquals(sys2.getJobWorkingDir(), sys1.getJobWorkingDir());
+
+    Assert.assertEquals(sys2.getImportRefId(), sys1.getImportRefId());
 
     // Verify jobEnvVariables
-    verifyKeyValuePairs(sys0.getJobEnvVariables(), tmpSys.getJobEnvVariables());
+    verifyKeyValuePairs(sys1.getJobEnvVariables(), sys2.getJobEnvVariables());
 
-    Assert.assertEquals(tmpSys.getJobMaxJobs(), sys0.getJobMaxJobs());
-    Assert.assertEquals(tmpSys.getJobMaxJobsPerUser(), sys0.getJobMaxJobsPerUser());
-    Assert.assertEquals(tmpSys.getCanRunBatch(), sys0.getCanRunBatch());
-    Assert.assertEquals(tmpSys.getMpiCmd(), sys0.getMpiCmd());
-    Assert.assertEquals(tmpSys.getBatchScheduler(), sys0.getBatchScheduler());
-    Assert.assertEquals(tmpSys.getBatchDefaultLogicalQueue(), sys0.getBatchDefaultLogicalQueue());
-    Assert.assertEquals(tmpSys.getBatchSchedulerProfile(), sys0.getBatchSchedulerProfile());
+    Assert.assertEquals(sys2.getJobMaxJobs(), sys1.getJobMaxJobs());
+    Assert.assertEquals(sys2.getJobMaxJobsPerUser(), sys1.getJobMaxJobsPerUser());
+    Assert.assertEquals(sys2.getCanRunBatch(), sys1.getCanRunBatch());
+    Assert.assertEquals(sys2.getMpiCmd(), sys1.getMpiCmd());
+    Assert.assertEquals(sys2.getBatchScheduler(), sys1.getBatchScheduler());
+    Assert.assertEquals(sys2.getBatchDefaultLogicalQueue(), sys1.getBatchDefaultLogicalQueue());
+    Assert.assertEquals(sys2.getBatchSchedulerProfile(), sys1.getBatchSchedulerProfile());
 
     // Verify tags
-    String[] origTags = sys0.getTags();
-    String[] tmpTags = tmpSys.getTags();
+    String[] origTags = sys1.getTags();
+    String[] tmpTags = sys2.getTags();
     Assert.assertNotNull(origTags, "Orig Tags should not be null");
     Assert.assertNotNull(tmpTags, "Fetched Tags value should not be null");
     var tagsList = Arrays.asList(tmpTags);
@@ -2011,11 +2058,11 @@ public class SystemsServiceTest
       System.out.println("Found tag: " + tagStr);
     }
     // Verify notes
-    Assert.assertNotNull(sys0.getNotes(), "Orig Notes should not be null");
-    Assert.assertNotNull(tmpSys.getNotes(), "Fetched Notes should not be null");
-    System.out.println("Found notes: " + sys0.getNotes());
-    JsonObject tmpObj = (JsonObject) tmpSys.getNotes();
-    JsonObject origNotes = (JsonObject) sys0.getNotes();
+    Assert.assertNotNull(sys1.getNotes(), "Orig Notes should not be null");
+    Assert.assertNotNull(sys2.getNotes(), "Fetched Notes should not be null");
+    System.out.println("Found notes: " + sys1.getNotes());
+    JsonObject tmpObj = (JsonObject) sys2.getNotes();
+    JsonObject origNotes = (JsonObject) sys1.getNotes();
     Assert.assertTrue(tmpObj.has("project"));
     String projStr = origNotes.get("project").getAsString();
     Assert.assertEquals(tmpObj.get("project").getAsString(), projStr);
@@ -2024,8 +2071,8 @@ public class SystemsServiceTest
     Assert.assertEquals(tmpObj.get("testdata").getAsString(), testdataStr);
 
     // Verify jobRuntimes
-    List<JobRuntime> origRuntimes = sys0.getJobRuntimes();
-    List<JobRuntime> jobRuntimes = tmpSys.getJobRuntimes();
+    List<JobRuntime> origRuntimes = sys1.getJobRuntimes();
+    List<JobRuntime> jobRuntimes = sys2.getJobRuntimes();
     Assert.assertNotNull(origRuntimes, "Orig Runtimes was null");
     Assert.assertNotNull(jobRuntimes, "Fetched Runtimes was null");
     Assert.assertEquals(jobRuntimes.size(), origRuntimes.size());
@@ -2038,8 +2085,8 @@ public class SystemsServiceTest
     }
 
     // Verify logicalQueues
-    List<LogicalQueue> origLogicalQueues = sys0.getBatchLogicalQueues();
-    List<LogicalQueue> logicalQueues = tmpSys.getBatchLogicalQueues();
+    List<LogicalQueue> origLogicalQueues = sys1.getBatchLogicalQueues();
+    List<LogicalQueue> logicalQueues = sys2.getBatchLogicalQueues();
     Assert.assertNotNull(origLogicalQueues, "Orig LogicalQueues was null");
     Assert.assertNotNull(logicalQueues, "Fetched LogicalQueues was null");
     Assert.assertEquals(logicalQueues.size(), origLogicalQueues.size());
@@ -2052,8 +2099,8 @@ public class SystemsServiceTest
     }
 
     // Verify capabilities
-    List<Capability> origCaps = sys0.getJobCapabilities();
-    List<Capability> jobCaps = tmpSys.getJobCapabilities();
+    List<Capability> origCaps = sys1.getJobCapabilities();
+    List<Capability> jobCaps = sys2.getJobCapabilities();
     Assert.assertNotNull(origCaps, "Orig Caps was null");
     Assert.assertNotNull(jobCaps, "Fetched Caps was null");
     Assert.assertEquals(jobCaps.size(), origCaps.size());
@@ -2065,10 +2112,10 @@ public class SystemsServiceTest
               "List of capabilities did not contain a capability named: " + capSeedItem.getName());
     }
 
-    Assert.assertNotNull(tmpSys.getCreated(), "Fetched created timestamp should not be null");
-    Assert.assertNotNull(tmpSys.getUpdated(), "Fetched updated timestamp should not be null");
+    Assert.assertNotNull(sys2.getCreated(), "Fetched created timestamp should not be null");
+    Assert.assertNotNull(sys2.getUpdated(), "Fetched updated timestamp should not be null");
   }
-  
+
   // Test retrieving a system history
   @Test
   public void testGetSystemHistory() throws Exception
@@ -2240,13 +2287,234 @@ public class SystemsServiceTest
     tmpSys = svc.getSystem(rTestUser5, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull);
     Assert.assertFalse(tmpSys.isPublic());
   }
- 
+
+  @Test
+  public void testChildSystemBasics() throws TapisException, TapisClientException {
+    // create a system that doesnt allow child systems
+    TSystem parentSystem_noChildren = makeParentSystem();
+    parentSystem_noChildren.setAllowChildren(false);
+    TSystem createdParent = svc.createSystem(rParentChild1, parentSystem_noChildren, skipCredCheckTrue, rawDataEmptyJson);
+    Assert.assertFalse(createdParent.isAllowChildren());
+
+    // test that create child system fails
+    String notAllowedMsg = null;
+    try {
+      svc.createChildSystem(rParentChild1, createdParent.getId(), "testChild", "unitTestUser", "/", null, rawDataEmptyJson);
+    } catch (IllegalStateException ex) {
+      notAllowedMsg = ex.getMessage();
+    }
+
+    // create a system that doesnt allow child systems
+    TSystem parentSystem = makeParentSystem();
+    createdParent = svc.createSystem(rParentChild1, parentSystem, skipCredCheckTrue, rawDataEmptyJson);
+    Assert.assertTrue(createdParent.isAllowChildren());
+
+    String childId = "childSystem";
+    String childEffectiveUserId = "unitTestUser";
+    String childRootDir = "/childRoot";
+    TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+    Assert.assertEquals(createdChild.getParentId(), createdParent.getId());
+    Assert.assertEquals(createdChild.getId(), childId);
+    Assert.assertEquals(createdChild.getEffectiveUserId(), childEffectiveUserId);
+    Assert.assertEquals(createdChild.getRootDir(), childRootDir);
+    Assert.assertEquals(createdChild.getOwner(), rParentChild1.getOboUserId());
+    checkCommonParentChildAttrs(createdParent, createdChild);
+
+    // delete system
+    Assert.assertTrue(svc.checkForSystem(rParentChild1, childId));
+    int deletes = svc.deleteSystem(rParentChild1, childId);
+    Assert.assertEquals(deletes, 1);
+    Assert.assertFalse(svc.checkForSystem(rParentChild1, childId));
+
+    // now create a child system with no id, and assert id is assigned
+    TSystem defaultIdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), null, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+    Assert.assertEquals(defaultIdChild.getParentId(), createdParent.getId());
+    Assert.assertEquals(defaultIdChild.getId(), createdParent.getId() +  "-" + parentChild1);
+    Assert.assertEquals(defaultIdChild.getEffectiveUserId(), childEffectiveUserId);
+    Assert.assertEquals(defaultIdChild.getRootDir(), childRootDir);
+    Assert.assertEquals(defaultIdChild.getOwner(), parentChild1);
+    checkCommonParentChildAttrs(createdParent, defaultIdChild);
+
+    // test patching a child system
+    String patchedEffectiveId = "newTestOwner";
+    JsonObject patchSystemJson = new JsonObject();
+    patchSystemJson.addProperty("effectiveUserId", patchedEffectiveId);
+    svc.patchSystem(rParentChild1, defaultIdChild.getId(),
+            TapisGsonUtils.getGson().fromJson(patchSystemJson, PatchSystem.class), rawDataEmptyJson);
+    TSystem patchedSystem = svc.getSystem(rParentChild1, defaultIdChild.getId(), null, false, false, null, null, null);
+    Assert.assertEquals(patchedSystem.getEffectiveUserId(), patchedEffectiveId);
+  }
+
+  @Test
+  public void testParentUpdatesAllChildren() throws TapisException, TapisClientException {
+    // create a system that doesnt allow child systems
+    TSystem parentSystem = makeParentSystem();
+    TSystem createdParent = svc.createSystem(rParentChild1, parentSystem, skipCredCheckTrue, rawDataEmptyJson);
+    Assert.assertTrue(createdParent.isAllowChildren());
+
+    String childEffectiveUserId = "unitTestUser";
+    String childRootDir = "/childRoot";
+    TSystem child1 = svc.createChildSystem(rParentChild1, createdParent.getId(), "childId1", childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+    TSystem child2 = svc.createChildSystem(rParentChild1, createdParent.getId(), "childId2", childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+    TSystem child3 = svc.createChildSystem(rParentChild1, createdParent.getId(), "childId3", childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+
+    checkCommonParentChildAttrs(createdParent, child1);
+    checkCommonParentChildAttrs(createdParent, child2);
+    checkCommonParentChildAttrs(createdParent, child3);
+
+    JsonObject patchSystemJson = new JsonObject();
+    patchSystemJson.addProperty("description", "This is a new description");
+    patchSystemJson.addProperty("port", 12345);
+    patchSystemJson.addProperty("host", "unittest.tacc.utexas.edu");
+
+    svc.patchSystem(rParentChild1, parentSystem.getId(),
+            TapisGsonUtils.getGson().fromJson(patchSystemJson, PatchSystem.class), rawDataEmptyJson);
+
+    // reread the parent and all children
+    TSystem patchedSystem = svc.getSystem(rParentChild1, parentSystem.getId(), null, false, false, null, null, null);
+    child1 = svc.getSystem(rParentChild1, child1.getId(), null, false, false, null, null, null);
+    child2 = svc.getSystem(rParentChild1, child2.getId(), null, false, false, null, null, null);
+    child3 = svc.getSystem(rParentChild1, child3.getId(), null, false, false, null, null, null);
+
+    // make sure children were updated when parent was updated.
+    checkCommonParentChildAttrs(patchedSystem, child1);
+    checkCommonParentChildAttrs(patchedSystem, child2);
+    checkCommonParentChildAttrs(patchedSystem, child3);
+  }
+
+  @Test
+  public void testChangeChildOwner() throws TapisException, TapisClientException {
+    // create a system that doesnt allow child systems
+    TSystem parentSystem = makeParentSystem();
+    TSystem createdParent = svc.createSystem(rParentChild1, parentSystem, skipCredCheckTrue, rawDataEmptyJson);
+    Assert.assertTrue(createdParent.isAllowChildren());
+    Set<Permission> permissions = new HashSet<Permission>();
+    permissions.add(Permission.READ);
+    svc.grantUserPermissions(rParentChild1, parentSystem.getId(), parentChild2, permissions, rawDataEmptyJson);
+
+    String childEffectiveUserId = "unitTestUser";
+    String childRootDir = "/childRoot";
+    String childSysId = "childSys-" + UUID.randomUUID().toString();
+    TSystem child1 = svc.createChildSystem(rParentChild2, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+    Assert.assertEquals(child1.getOwner(), parentChild2);
+
+    svc.grantUserPermissions(rParentChild1, parentSystem.getId(), parentChild3, permissions, rawDataEmptyJson);
+    svc.changeSystemOwner(rParentChild2, child1.getId(), parentChild3);
+    TSystem changedOwnerChild = svc.getSystem(rParentChild3, child1.getId(), null, false, false, null, null, null);
+    Assert.assertEquals(changedOwnerChild.getOwner(), parentChild3);
+  }
+
+  @Test(expectedExceptions = ForbiddenException.class)
+  public void testChangeChildOwnerWithoutPermissionFails() throws TapisException, TapisClientException {
+    TSystem parentSystem = makeParentSystem();
+    TSystem createdParent = svc.createSystem(rParentChild1, parentSystem, skipCredCheckTrue, rawDataEmptyJson);
+    Assert.assertTrue(createdParent.isAllowChildren());
+
+    String childEffectiveUserId = "unitTestUser";
+    String childRootDir = "/childRoot";
+    String childSysId = "childSys-" + UUID.randomUUID().toString();
+    TSystem child1 = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+
+    Assert.assertEquals(child1.getOwner(), parentChild1);
+    svc.changeSystemOwner(rParentChild2, child1.getId(), parentChild3);
+  }
+
+  @Test
+  public void testEnableAndDisableChild() throws TapisException, TapisClientException {
+    TSystem parentSystem = makeParentSystem();
+    TSystem createdParent = svc.createSystem(rParentChild1, parentSystem, skipCredCheckTrue, rawDataEmptyJson);
+    Assert.assertTrue(createdParent.isAllowChildren());
+    Set<Permission> permissions = new HashSet<Permission>();
+
+    String childEffectiveUserId = "unitTestUser";
+    String childRootDir = "/childRoot";
+    String childSysId = "childSys-" + UUID.randomUUID().toString();
+    TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+    Assert.assertEquals(createdChild.getId(), childSysId);
+
+    TSystem retrievedChild = svc.getSystem(rParentChild1, childSysId, null, false, false, null, null, null);
+    Assert.assertTrue(retrievedChild.isEnabled());
+    svc.disableSystem(rParentChild1, childSysId);
+    retrievedChild = svc.getSystem(rParentChild1, childSysId, null, false, false, null, null, null);
+    Assert.assertFalse(retrievedChild.isEnabled());
+    svc.enableSystem(rParentChild1, childSysId);
+    retrievedChild = svc.getSystem(rParentChild1, childSysId, null, false, false, null, null, null);
+    Assert.assertTrue(retrievedChild.isEnabled());
+  }
+
+
+  @Test(expectedExceptions = ForbiddenException.class)
+  public void testCreateChildWithoutPermisssionFails() throws TapisException, TapisClientException {
+    TSystem parentSystem = makeParentSystem();
+    TSystem createdParent = svc.createSystem(rParentChild1, parentSystem, skipCredCheckTrue, rawDataEmptyJson);
+    Assert.assertTrue(createdParent.isAllowChildren());
+
+    // update system to allow children
+    String childEffectiveUserId = "unitTestUser";
+    String childRootDir = "/childRoot";
+    String childSysId = "childSys-" + UUID.randomUUID().toString();
+    svc.createChildSystem(rParentChild2, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+  }
+
  // ************************************************************************
  // **************************  Private Methods  ***************************
  // ************************************************************************
- 
 
- // Retrieve and display history for manual checking of system history records
+  @Test
+  public void testUnlinkChildren() throws TapisException, TapisClientException {
+    // create a parent with 4 children
+    TSystem parentSystem = makeParentSystem();
+    TSystem createdParent = svc.createSystem(rParentChild1, parentSystem, skipCredCheckTrue, rawDataEmptyJson);
+    Assert.assertTrue(createdParent.isAllowChildren());
+    List<String> childIds = new ArrayList<>();
+
+    for(int i=0;i<4;i++) {
+      String childEffectiveUserId = "unitTestUser";
+      String childRootDir = "/childRoot";
+      String childSysId = "childSys-" + UUID.randomUUID().toString();
+      childIds.add(childSysId);
+      TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+      Assert.assertEquals(createdChild.getId(), childSysId);
+      Assert.assertEquals(createdChild.getParentId(), createdParent.getId());
+    }
+
+    // unlinkFromParent
+    Assert.assertEquals(svc.unlinkFromParent(rParentChild1, childIds.get(2)), 1);
+
+    List<TSystem>  childSystems = svc.getSystems(rParentChild1, Arrays.asList("parentId.eq." + createdParent.getId()), -1, null, 0, null, false, null);
+    Assert.assertEquals(childSystems.size(), 3);
+
+    TSystem unlinkedChild = svc.getSystem(rParentChild1, childIds.get(2), null, false, false, null, null, null);
+    Assert.assertNull(unlinkedChild.getParentId());
+
+
+    // unlinkChild
+    Assert.assertEquals(svc.unlinkChild(rParentChild1, createdParent.getId(), childIds.get(3)), 1);
+    childSystems = svc.getSystems(rParentChild1, Arrays.asList("parentId.eq." + createdParent.getId()), -1, null, 0, null, false, null);
+    Assert.assertEquals(childSystems.size(), 2);
+
+    unlinkedChild = svc.getSystem(rParentChild1, childIds.get(3), null, false, false, null, null, null);
+    Assert.assertNull(unlinkedChild.getParentId());
+
+    // add 2 more children
+    for(int i=0;i<2;i++) {
+      String childEffectiveUserId = "unitTestUser";
+      String childRootDir = "/childRoot";
+      String childSysId = "childSys-" + UUID.randomUUID().toString();
+      TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+      Assert.assertEquals(createdChild.getId(), childSysId);
+      Assert.assertEquals(createdChild.getParentId(), createdParent.getId());
+    }
+
+    // unlinkAllChildren
+    Assert.assertEquals(svc.unlinkAllChildren(rParentChild1, createdParent.getId()), 4);
+    childSystems = svc.getSystems(rParentChild1, Arrays.asList("parentId.eq." + createdParent.getId()), -1, null, 0, null, false, null);
+    Assert.assertEquals(childSystems.size(), 0);
+  }
+
+
+
+  // Retrieve and display history for manual checking of system history records
  private void displaySystemHistory(ResourceRequestUser rUser, String systemId) throws TapisException, TapisClientException
  {
    // Retrieve and display history for manual checking of display
@@ -2280,5 +2548,31 @@ public class SystemsServiceTest
     Assert.assertEquals(cred.getPassword(), password, "Retrieved password incorrect");
     Assert.assertEquals(sys.getEffectiveUserId(), effUser, "Incorrect effectiveUserId");
 
+  }
+
+  private String getParentSysName(int num) {
+    return sysNamePrefix + "_parentSystem_" + num;
+  }
+
+  private synchronized TSystem makeParentSystem() {
+    // Suffix which should be unique for each system within each integration test
+    TSystem system;
+    String indexString = "parentSys" + parentSystems.size();
+    String name = getParentSysName(parentSystems.size());
+    String hostName = "host" + indexString + ".test.org";
+    // Constructor initializes all attributes except for JobCapabilities and Credential
+    system = new TSystem(-1, tenantName, name, description1 + indexString, TSystem.SystemType.LINUX, null,
+            hostName, isEnabledTrue, effectiveUserId1 + indexString, prot1.getAuthnMethod(), "bucket" + indexString, "/root" + indexString,
+            prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
+            null, dtnMountPoint1, dtnMountSourcePath1, isDtnFalse,
+            canExecTrue, jobRuntimes1, "jobWorkDir" + indexString, jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1,
+            canRunBatchTrue, enableCmdPrefixTrue, mpiCmd1, batchScheduler1, logicalQueueList1, queueA1.getName(),
+            batchSchedulerProfile1, capList1, tags1, notes1, importRefId1, uuidNull, isDeletedFalse,
+            allowChildrenTrue, parentIdNull, createdNull, updatedNull);
+    system.setJobRuntimes(jobRuntimes1);
+    system.setBatchLogicalQueues(logicalQueueList1);
+    system.setJobCapabilities(capList1);
+    parentSystems.add(system);
+    return system;
   }
 }
