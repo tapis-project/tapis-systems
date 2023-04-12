@@ -2,6 +2,13 @@ package edu.utexas.tacc.tapis.systems.api;
 
 import java.net.URI;
 import javax.ws.rs.ApplicationPath;
+
+import edu.utexas.tacc.tapis.systems.api.resources.CredentialResource;
+import edu.utexas.tacc.tapis.systems.api.resources.GeneralResource;
+import edu.utexas.tacc.tapis.systems.api.resources.PermsResource;
+import edu.utexas.tacc.tapis.systems.api.resources.SchedulerProfileResource;
+import edu.utexas.tacc.tapis.systems.api.resources.ShareResource;
+import edu.utexas.tacc.tapis.systems.api.resources.SystemResource;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
@@ -30,7 +37,7 @@ import edu.utexas.tacc.tapis.systems.service.ServiceContextFactory;
 /*
  * Main startup class for the web application. Uses Jersey and Grizzly frameworks.
  *   Performs setup for HK2 dependency injection.
- *   Register packages and features for Jersey.
+ *   Register classes and features for Jersey.
  *   Gets runtime parameters from the environment.
  *   Initializes the service:
  *     Init service context.
@@ -44,7 +51,7 @@ import edu.utexas.tacc.tapis.systems.service.ServiceContextFactory;
  *     This has been found to be a more robust scheme for keeping startup working for both
  *     running in an IDE and standalone.
  *
- * For all logging use println or similar so we do not have a dependency on a logging subsystem.
+ * For all logging use println or similar, so we do not have a dependency on a logging subsystem.
  */
 @ApplicationPath("/")
 public class SystemsApplication extends ResourceConfig
@@ -70,10 +77,16 @@ public class SystemsApplication extends ResourceConfig
     register(ApiExceptionMapper.class);
     register(ValidationExceptionMapper.class);
 
-    // We specify what packages JAX-RS should recursively scan to find annotations. By setting the value to the
-    // top-level directory in all projects, we can use JAX-RS annotations in any tapis class. In particular, the filter
-    // classes in tapis-shared-api will be discovered whenever that project is included as a maven dependency.
-    packages("edu.utexas.tacc.tapis");
+    //JWT validation
+    register(JWTValidateRequestFilter.class);
+
+    //Our APIs
+    register(GeneralResource.class);
+    register(CredentialResource.class);
+    register(PermsResource.class);
+    register(SchedulerProfileResource.class);
+    register(ShareResource.class);
+    register(SystemResource.class);
 
     // Set the application name. Note that this has no impact on base URL.
     setApplicationName(TapisConstants.SERVICE_NAME_SYSTEMS);
