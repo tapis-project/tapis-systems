@@ -294,8 +294,8 @@ public class SystemsDaoImpl implements SystemsDao
         // to the allowChildren flag.  We will read the parent system for update ('lock'), and then check to see
         // if the system has children.  If not we can proceed, but if it does have children we can't allow the patch to
         // go through.
-        TSystem parentSystem = getSystemForUpdate(db, tenantId, systemId);
-        if((parentSystem == null) && hasChildren(tenantId, systemId)) {
+        TSystem system = getSystemForUpdate(db, tenantId, systemId);
+        if((system != null) && hasChildren(tenantId, systemId)) {
           throw new IllegalStateException(LibUtils.getMsg("SYSLIB_ERROR_PARENT_CHILD_CONFLICT", rUser, systemId));
         }
       }
@@ -576,12 +576,19 @@ public class SystemsDaoImpl implements SystemsDao
                         .where(SYSTEMS.ID.eq(id).and(SYSTEMS.DELETED.eq(false)))
                         .fetchOne(SYSTEMS.PARENT_ID);
         if(!StringUtils.isBlank(parentId)) {
+          TSystem parentSystem = getSystemForUpdate(db, tenantId, parentId);
+          if((parentSystem == null) || (!parentSystem.isAllowChildren())) {
+            // either we couldn't find the parent, or the parent no long is allowing children
+            throw new IllegalStateException(LibUtils.getMsg("SYSLIB_SYS_CHILDREN_NOT_PERMITTED", rUser, id));
+          }
+
           // we really only need to update a single system - the one that was undeleted.  This method
           // updatas all children of "parentId", but it should be relatively quick anyway.  If it becomes
           // a problem, this is a potential optimization.
           updateChildSystemsFromParent(db, tenantId, parentId);
         }
       }
+
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -655,7 +662,7 @@ public class SystemsDaoImpl implements SystemsDao
       db.update(SYSTEMS)
               .set(SYSTEMS.PARENT_ID, (String)null)
               .set(SYSTEMS.UPDATED, TapisUtils.getUTCTimeNow())
-              .where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(childSystemId)).execute();
+              .where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(childSystemId), SYSTEMS.DELETED.eq(false)).execute();
 
       String changeDescription = "{\"parentId\":" +  null + "}";
       addUpdate(db, rUser, childSystemId, INVALID_SEQ_ID, SystemOperation.modify, changeDescription , null, getUUIDUsingDb(db, tenantId, childSystemId));
@@ -2868,7 +2875,6 @@ public class SystemsDaoImpl implements SystemsDao
             .set(SYSTEMS.DESCRIPTION, parentSystem.getDescription())
             .set(SYSTEMS.SYSTEM_TYPE, parentSystem.getSystemType())
             .set(SYSTEMS.HOST, parentSystem.getHost())
-            .set(SYSTEMS.ENABLED, parentSystem.isEnabled())
             .set(SYSTEMS.DEFAULT_AUTHN_METHOD, parentSystem.getDefaultAuthnMethod())
             .set(SYSTEMS.BUCKET_NAME, parentSystem.getBucketName())
             .set(SYSTEMS.PORT, parentSystem.getPort())

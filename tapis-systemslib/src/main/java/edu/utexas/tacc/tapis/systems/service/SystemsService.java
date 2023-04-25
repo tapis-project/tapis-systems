@@ -31,7 +31,7 @@ public interface SystemsService
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException;
 
   TSystem createChildSystem(ResourceRequestUser rUser, String systemId, String childId, String childEffectiveUserId,
-                            String childRootDir, String childOwner, String rawData)
+                            String childRootDir, String childOwner, boolean enabled, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException;
 
   void patchSystem(ResourceRequestUser rUser, String systemId, PatchSystem patchSystem, String rawData)

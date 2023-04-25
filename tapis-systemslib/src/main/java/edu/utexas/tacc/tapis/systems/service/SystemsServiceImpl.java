@@ -379,7 +379,7 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   public TSystem createChildSystem(ResourceRequestUser rUser, String systemId, String childId, String childEffectiveUserId,
-                                   String childRootDir, String childOwner, String rawData)
+                                   String childRootDir, String childOwner, boolean enabled, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException {
     String sharedAppCtxGrantor = null;
     String impoersonationId = null;
@@ -404,7 +404,7 @@ public class SystemsServiceImpl implements SystemsService
       childOwner = rUser.getOboUserId();
     }
 
-    TSystem childSystem = new TSystem(system, childId, childEffectiveUserId, childRootDir, childOwner);
+    TSystem childSystem = new TSystem(system, childId, childEffectiveUserId, childRootDir, childOwner, enabled);
 
     return createSystem(rUser, childSystem, true, rawData);
   }

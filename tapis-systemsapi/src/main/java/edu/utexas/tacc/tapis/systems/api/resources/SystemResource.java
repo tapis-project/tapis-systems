@@ -415,9 +415,9 @@ public class SystemResource
     TSystem childSystem;
     try
     {
-      childSystem = service.createChildSystem(rUser, systemId, childSystemRequest.getId(),
-              childSystemRequest.getEffectiveUserId(), childSystemRequest.getRootDir(),
-              childSystemRequest.getOwner(), rawJson);
+      childSystem = service.createChildSystem(rUser, systemId, childSystemRequest.id,
+              childSystemRequest.effectiveUserId, childSystemRequest.rootDir,
+              childSystemRequest.owner, childSystemRequest.enabled, rawJson);
     } catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) {
       // Pass through not found or not auth to let exception mapper handle it.
       throw e;
@@ -466,6 +466,7 @@ public class SystemResource
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
 
+    // load the correct json validation file depending on if this is a parent or child system
     String jsonValidationFile = isChildSystem(rUser, systemId) ?
             FILE_SYSTEM_CHILD_UPDATE_REQUEST : FILE_SYSTEM_UPDATE_REQUEST ;
 
@@ -782,6 +783,16 @@ public class SystemResource
     return postSystemSingleUpdate(OP_CHANGEOWNER, systemId, new ImmutablePair<>(ARG_USER_NAME, userName), securityContext);
   }
 
+  /**
+   * Unlink a child system from a parent.  This makes the child system a standalone system.
+   * unlinkChild and unlinkFromParent are identical in that they each make a childSystem become a standalone
+   * system.  The difference is in the authorization.  unlinkFromParent requires access to the child.  unlinkChild
+   * requires access to the parent.
+   *
+   * @param childSystemId - id of the child system to unlink
+   * @param securityContext - user identity
+   * @return  number of records modified as a result of the action
+   */
   @POST
   @Path("{childSystemId}/unlinkFromParent")
   @Produces(MediaType.APPLICATION_JSON)
@@ -791,6 +802,17 @@ public class SystemResource
     return postSystemSingleUpdate(OP_UNLINK_FROM_PARENT, childSystemId, NO_ADDITIONAL_ARGS, securityContext);
   }
 
+  /**
+   * Unlink a child system from a parent.  This makes the child system a standalone system.
+   * unlinkChild and unlinkFromParent are identical in that they each make a childSystem become a standalone
+   * system.  The difference is in the authorization.  unlinkFromParent requires access to the child.  unlinkChild
+   * requires access to the parent.
+   *
+   * @param parentSystemId - id of the parent of the system to unlink
+   * @param childSystemId - id of the child system to unlink
+   * @param securityContext - user identity
+   * @return  number of records modified as a result of the action
+   */
   @POST
   @Path("{parentSystemId}/unlinkChild/{childSystemId}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -801,13 +823,20 @@ public class SystemResource
     return postSystemSingleUpdate(OP_UNLINK_CHILD, childSystemId, new ImmutablePair<>(ARG_PARENT_SYS, parentSystemId), securityContext);
   }
 
+  /**
+   * Unlinks all child systems from a parent system.
+   *
+   * @param parentSystemId - id of the parent system
+   * @param securityContext - user identity
+   * @return  number of records modified as a result of the action
+   */
   @POST
   @Path("{parentSystemId}/unlinkAllChildren")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response unlinkAllChildren(@PathParam("parentSystemId") String childSystemId,
+  public Response unlinkAllChildren(@PathParam("parentSystemId") String parentSystemId,
                                    @Context SecurityContext securityContext) throws TapisClientException
   {
-    return postSystemSingleUpdate(OP_UNLINK_ALL_CHILDREN, childSystemId, NO_ADDITIONAL_ARGS, securityContext);
+    return postSystemSingleUpdate(OP_UNLINK_ALL_CHILDREN, parentSystemId, NO_ADDITIONAL_ARGS, securityContext);
   }
 
   /**

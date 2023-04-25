@@ -127,6 +127,7 @@ public final class TSystem
   public static final boolean DEFAULT_IS_PUBLIC = false;
   public static final boolean DEFAULT_IS_DYNAMIC_EFFECTIVE_USER = false;
   public static final boolean DEFAULT_ENABLE_CMD_PREFIX = false;
+  public static final boolean DEFAULT_CHILD_ENABLED = true;
 
   // Validation pattern strings
   // ID Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
@@ -301,9 +302,9 @@ public final class TSystem
    * @param childRootDir
    * @param childOwner
    */
-  public TSystem(TSystem parentSystem, String childId, String childEffectiveUserId, String childRootDir, String childOwner) {
+  public TSystem(TSystem parentSystem, String childId, String childEffectiveUserId, String childRootDir, String childOwner, boolean enabled) {
     this(parentSystem.getSeqId(), parentSystem.getTenant(), childId, parentSystem.getDescription(),
-            parentSystem.getSystemType(), childOwner, parentSystem.getHost(), parentSystem.isEnabled(),
+            parentSystem.getSystemType(), childOwner, parentSystem.getHost(), enabled,
             childEffectiveUserId, parentSystem.getDefaultAuthnMethod(), parentSystem.getBucketName(),
             childRootDir, parentSystem.getPort(), parentSystem.isUseProxy(), parentSystem.getProxyHost(),
             parentSystem.getProxyPort(), parentSystem.getDtnSystemId(), parentSystem.getDtnMountPoint(), parentSystem.getDtnMountSourcePath(),
