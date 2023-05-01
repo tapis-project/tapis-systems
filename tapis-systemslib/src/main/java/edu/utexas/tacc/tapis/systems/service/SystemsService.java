@@ -54,7 +54,7 @@ public interface SystemsService
 
   int unlinkFromParent(ResourceRequestUser rUser, String childSystemId) throws TapisException, TapisClientException;
 
-  int unlinkChild(ResourceRequestUser rUser, String parentId, String childSystemId) throws TapisException, TapisClientException;
+  int unlinkChildren(ResourceRequestUser rUser, String parentId, List<String> childIdsToUnlink) throws TapisException, TapisClientException;
 
   int unlinkAllChildren(ResourceRequestUser rUser, String parentId) throws TapisException, TapisClientException;
 

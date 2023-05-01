@@ -863,7 +863,7 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   @Override
-  public int unlinkChild(ResourceRequestUser rUser, String parentId, String childSystemId) throws TapisException, TapisClientException {
+  public int unlinkChildren(ResourceRequestUser rUser, String parentId, List<String> childIdsToUnlink) throws TapisException, TapisClientException {
     SystemOperation op = SystemOperation.modify;
 
     // ---------------------------- Check inputs ------------------------------------
@@ -871,29 +871,28 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     }
 
-    if (StringUtils.isBlank(childSystemId)) {
+    if (childIdsToUnlink == null) {
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
     }
 
     String oboTenant = rUser.getOboTenantId();
 
     // System must already exist and not be deleted
-    TSystem childSystem = dao.getSystem(oboTenant, childSystemId, false);
-    if (childSystem == null) {
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, childSystemId));
-    }
-
-    String parentSystemId = childSystem.getParentId();
-    if (parentSystemId != parentSystemId) {
-      throw new NotFoundException(LibUtils.getMsgAuth("SYSLIB_PARENT_CHILD_NOT_FOUND", rUser, parentSystemId, childSystemId));
+    for(String childSystemId : childIdsToUnlink) {
+      TSystem childSystem = dao.getSystem(oboTenant, childSystemId, false);
+      if (childSystem == null) {
+        throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, childSystemId));
+      }
+      if(!parentId.equals(childSystem.getParentId())) {
+        throw new NotFoundException(LibUtils.getMsgAuth("SYSLIB_PARENT_CHILD_NOT_FOUND", rUser, parentId, childSystemId));
+      }
     }
 
     // ------------------------- Check authorization -------------------------
-    checkAuthOwnerUnkown(rUser, op, parentSystemId);
+    checkAuthOwnerUnkown(rUser, op, parentId);
 
     // ------------------- Make Dao call to unlink the system -----------------------------------
-    dao.removeParentId(rUser, oboTenant, childSystemId);
-    return 1;
+    return dao.removeParentIdFromChildren(rUser, oboTenant, parentId, childIdsToUnlink);
   }
 
   @Override
@@ -921,7 +920,7 @@ public class SystemsServiceImpl implements SystemsService
     checkAuthOwnerKnown(rUser, op, parentId, parentSystem.getOwner());
 
     // ------------------- Make Dao call to unlink the system -----------------------------------
-    return dao.removeParentIdFromChildren(rUser, oboTenant, parentId);
+    return dao.removeParentIdFromAllChildren(rUser, oboTenant, parentId);
   }
 
   /**

@@ -664,7 +664,7 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.UPDATED, TapisUtils.getUTCTimeNow())
               .where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(childSystemId), SYSTEMS.DELETED.eq(false)).execute();
 
-      String changeDescription = "{\"parentId\":" +  null + "}";
+      String changeDescription = "{\"parentId\":\"\"}";
       addUpdate(db, rUser, childSystemId, INVALID_SEQ_ID, SystemOperation.modify, changeDescription , null, getUUIDUsingDb(db, tenantId, childSystemId));
 
       // Close out and commit
@@ -683,7 +683,54 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   @Override
-  public int removeParentIdFromChildren(ResourceRequestUser rUser, String tenantId, String parentSystemId)
+  public int removeParentIdFromChildren(ResourceRequestUser rUser, String tenantId, String parentSystemId, List<String> childSystemsToUnlink)
+          throws TapisException {
+    String opName = "removeParentId";
+    // ------------------------- Check Input -------------------------
+    if (StringUtils.isBlank(parentSystemId)) {
+      LibUtils.logAndThrowNullParmException(opName, "systemId");
+    }
+
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      List<String> childIds = db.update(SYSTEMS)
+              .set(SYSTEMS.PARENT_ID, (String)null)
+              .set(SYSTEMS.UPDATED, TapisUtils.getUTCTimeNow())
+              .where(SYSTEMS.TENANT.eq(tenantId), SYSTEMS.PARENT_ID.eq(parentSystemId), SYSTEMS.ID.in(childSystemsToUnlink), SYSTEMS.DELETED.eq(false))
+              .returningResult(SYSTEMS.ID).fetch(SYSTEMS.ID);
+
+
+      if(childIds != null) {
+        for (String childId : childIds) {
+          String changeDescription = "{\"parentId\":\"\"}";
+          addUpdate(db, rUser, childId, INVALID_SEQ_ID, SystemOperation.modify, changeDescription , null, getUUIDUsingDb(db, tenantId, childId));
+        }
+      }
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+      return childIds.size();
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "systems", parentSystemId);
+      return 0;
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  @Override
+  public int removeParentIdFromAllChildren(ResourceRequestUser rUser, String tenantId, String parentSystemId)
           throws TapisException {
     String opName = "removeParentId";
     // ------------------------- Check Input -------------------------
@@ -707,7 +754,7 @@ public class SystemsDaoImpl implements SystemsDao
 
       if(childIds != null) {
         for (String childId : childIds) {
-          String changeDescription = "{\"parentId\":" + null + "}";
+          String changeDescription = "{\"parentId\":\"\"}";
           addUpdate(db, rUser, childId, INVALID_SEQ_ID, SystemOperation.modify, changeDescription , null, getUUIDUsingDb(db, tenantId, childId));
         }
       }

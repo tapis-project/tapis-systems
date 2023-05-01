@@ -41,7 +41,8 @@ public interface SystemsDao
 
   void removeParentId(ResourceRequestUser rUser, String tenantId, String childSystemId) throws TapisException;
 
-  int removeParentIdFromChildren(ResourceRequestUser rUser, String oboTenant, String parentId) throws TapisException;
+  int removeParentIdFromChildren(ResourceRequestUser rUser, String oboTenant, String parentId, List<String> childIdsToRemove) throws TapisException;
+  int removeParentIdFromAllChildren(ResourceRequestUser rUser, String oboTenant, String parentId) throws TapisException;
 
   void updateDeleted(ResourceRequestUser rUser, String tenantId, String id, boolean deleted) throws TapisException;
 

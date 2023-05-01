@@ -2299,7 +2299,7 @@ public class SystemsServiceTest
     // test that create child system fails
     String notAllowedMsg = null;
     try {
-      svc.createChildSystem(rParentChild1, createdParent.getId(), "testChild", "unitTestUser", "/", null, rawDataEmptyJson);
+      svc.createChildSystem(rParentChild1, createdParent.getId(), "testChild", "unitTestUser", "/", null, true, rawDataEmptyJson);
     } catch (IllegalStateException ex) {
       notAllowedMsg = ex.getMessage();
     }
@@ -2312,7 +2312,7 @@ public class SystemsServiceTest
     String childId = "childSystem";
     String childEffectiveUserId = "unitTestUser";
     String childRootDir = "/childRoot";
-    TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+    TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
     Assert.assertEquals(createdChild.getParentId(), createdParent.getId());
     Assert.assertEquals(createdChild.getId(), childId);
     Assert.assertEquals(createdChild.getEffectiveUserId(), childEffectiveUserId);
@@ -2327,7 +2327,7 @@ public class SystemsServiceTest
     Assert.assertFalse(svc.checkForSystem(rParentChild1, childId));
 
     // now create a child system with no id, and assert id is assigned
-    TSystem defaultIdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), null, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+    TSystem defaultIdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), null, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
     Assert.assertEquals(defaultIdChild.getParentId(), createdParent.getId());
     Assert.assertEquals(defaultIdChild.getId(), createdParent.getId() +  "-" + parentChild1);
     Assert.assertEquals(defaultIdChild.getEffectiveUserId(), childEffectiveUserId);
@@ -2354,9 +2354,9 @@ public class SystemsServiceTest
 
     String childEffectiveUserId = "unitTestUser";
     String childRootDir = "/childRoot";
-    TSystem child1 = svc.createChildSystem(rParentChild1, createdParent.getId(), "childId1", childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
-    TSystem child2 = svc.createChildSystem(rParentChild1, createdParent.getId(), "childId2", childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
-    TSystem child3 = svc.createChildSystem(rParentChild1, createdParent.getId(), "childId3", childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+    TSystem child1 = svc.createChildSystem(rParentChild1, createdParent.getId(), "childId1", childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
+    TSystem child2 = svc.createChildSystem(rParentChild1, createdParent.getId(), "childId2", childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
+    TSystem child3 = svc.createChildSystem(rParentChild1, createdParent.getId(), "childId3", childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
 
     checkCommonParentChildAttrs(createdParent, child1);
     checkCommonParentChildAttrs(createdParent, child2);
@@ -2395,7 +2395,7 @@ public class SystemsServiceTest
     String childEffectiveUserId = "unitTestUser";
     String childRootDir = "/childRoot";
     String childSysId = "childSys-" + UUID.randomUUID().toString();
-    TSystem child1 = svc.createChildSystem(rParentChild2, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+    TSystem child1 = svc.createChildSystem(rParentChild2, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
     Assert.assertEquals(child1.getOwner(), parentChild2);
 
     svc.grantUserPermissions(rParentChild1, parentSystem.getId(), parentChild3, permissions, rawDataEmptyJson);
@@ -2413,7 +2413,7 @@ public class SystemsServiceTest
     String childEffectiveUserId = "unitTestUser";
     String childRootDir = "/childRoot";
     String childSysId = "childSys-" + UUID.randomUUID().toString();
-    TSystem child1 = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+    TSystem child1 = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
 
     Assert.assertEquals(child1.getOwner(), parentChild1);
     svc.changeSystemOwner(rParentChild2, child1.getId(), parentChild3);
@@ -2429,7 +2429,7 @@ public class SystemsServiceTest
     String childEffectiveUserId = "unitTestUser";
     String childRootDir = "/childRoot";
     String childSysId = "childSys-" + UUID.randomUUID().toString();
-    TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+    TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
     Assert.assertEquals(createdChild.getId(), childSysId);
 
     TSystem retrievedChild = svc.getSystem(rParentChild1, childSysId, null, false, false, null, null, null);
@@ -2453,7 +2453,7 @@ public class SystemsServiceTest
     String childEffectiveUserId = "unitTestUser";
     String childRootDir = "/childRoot";
     String childSysId = "childSys-" + UUID.randomUUID().toString();
-    svc.createChildSystem(rParentChild2, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+    svc.createChildSystem(rParentChild2, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
   }
 
  // ************************************************************************
@@ -2473,7 +2473,7 @@ public class SystemsServiceTest
       String childRootDir = "/childRoot";
       String childSysId = "childSys-" + UUID.randomUUID().toString();
       childIds.add(childSysId);
-      TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+      TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
       Assert.assertEquals(createdChild.getId(), childSysId);
       Assert.assertEquals(createdChild.getParentId(), createdParent.getId());
     }
@@ -2489,7 +2489,7 @@ public class SystemsServiceTest
 
 
     // unlinkChild
-    Assert.assertEquals(svc.unlinkChild(rParentChild1, createdParent.getId(), childIds.get(3)), 1);
+    Assert.assertEquals(svc.unlinkChildren(rParentChild1, createdParent.getId(), Arrays.asList(childIds.get(3))), 1);
     childSystems = svc.getSystems(rParentChild1, Arrays.asList("parentId.eq." + createdParent.getId()), -1, null, 0, null, false, null);
     Assert.assertEquals(childSystems.size(), 2);
 
@@ -2501,7 +2501,7 @@ public class SystemsServiceTest
       String childEffectiveUserId = "unitTestUser";
       String childRootDir = "/childRoot";
       String childSysId = "childSys-" + UUID.randomUUID().toString();
-      TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, rawDataEmptyJson);
+      TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
       Assert.assertEquals(createdChild.getId(), childSysId);
       Assert.assertEquals(createdChild.getParentId(), createdParent.getId());
     }

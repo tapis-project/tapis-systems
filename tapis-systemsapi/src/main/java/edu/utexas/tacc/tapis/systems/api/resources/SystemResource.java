@@ -33,6 +33,7 @@ import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPostChildSystem;
+import edu.utexas.tacc.tapis.systems.model.UnlinkInfo;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -100,8 +101,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.SYSTEM_TYPE_FIELD;
  *  NOTE: For OpenAPI spec please see repo openapi-systems, file SystemsAPI.yaml
  */
 @Path("/v3/systems")
-public class SystemResource
-{
+public class SystemResource {
   // ************************************************************************
   // *********************** Constants **************************************
   // ************************************************************************
@@ -143,12 +143,16 @@ public class SystemResource
   private static final String OP_DELETE = "deleteSystem";
   private static final String OP_UNDELETE = "undeleteSystem";
   private static final String OP_UNLINK_FROM_PARENT = "unlinkFromParent";
-  private static final String OP_UNLINK_CHILD = "unlinkChild";
+  private static final String OP_UNLINK_CHILDREN = "unlinkChild";
   private static final String OP_UNLINK_ALL_CHILDREN = "unlinkAllChildren";
 
-  private static final String ARG_USER_NAME = "userName";
-  private static final String ARG_PARENT_SYS = "parentSys";
-  private static final Pair<String, String> NO_ADDITIONAL_ARGS = null;
+  private static final Pair<ARGUMENT_TYPE, Object> NO_ADDITIONAL_ARGS = null;
+
+  private enum ARGUMENT_TYPE {
+    ARG_USER_NAME,
+    ARG_CHILD_SYSTEMS,
+    ARG_PARENT_SYS
+  }
 
   // Always return a nicely formatted response
   public static final boolean PRETTY = true;
@@ -780,7 +784,7 @@ public class SystemResource
                                     @PathParam("userName") String userName,
                                     @Context SecurityContext securityContext) throws TapisClientException
   {
-    return postSystemSingleUpdate(OP_CHANGEOWNER, systemId, new ImmutablePair<>(ARG_USER_NAME, userName), securityContext);
+    return postSystemSingleUpdate(OP_CHANGEOWNER, systemId, new ImmutablePair<>(ARGUMENT_TYPE.ARG_USER_NAME, userName), securityContext);
   }
 
   /**
@@ -809,34 +813,24 @@ public class SystemResource
    * requires access to the parent.
    *
    * @param parentSystemId - id of the parent of the system to unlink
-   * @param childSystemId - id of the child system to unlink
+   * @param unlinkInfo - object containing the ids of the child systems to unlink
    * @param securityContext - user identity
    * @return  number of records modified as a result of the action
    */
   @POST
-  @Path("{parentSystemId}/unlinkChild/{childSystemId}")
+  @Path("{parentSystemId}/unlinkChildren")
   @Produces(MediaType.APPLICATION_JSON)
+  @Consumes(MediaType.APPLICATION_JSON)
   public Response unlinkChild(@PathParam("parentSystemId") String parentSystemId,
-                                   @PathParam("childSystemId") String childSystemId,
+                                   @QueryParam("all") @DefaultValue("false") boolean unlinkAll,
+                                   UnlinkInfo unlinkInfo,
                                    @Context SecurityContext securityContext) throws TapisClientException
   {
-    return postSystemSingleUpdate(OP_UNLINK_CHILD, childSystemId, new ImmutablePair<>(ARG_PARENT_SYS, parentSystemId), securityContext);
-  }
-
-  /**
-   * Unlinks all child systems from a parent system.
-   *
-   * @param parentSystemId - id of the parent system
-   * @param securityContext - user identity
-   * @return  number of records modified as a result of the action
-   */
-  @POST
-  @Path("{parentSystemId}/unlinkAllChildren")
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response unlinkAllChildren(@PathParam("parentSystemId") String parentSystemId,
-                                   @Context SecurityContext securityContext) throws TapisClientException
-  {
-    return postSystemSingleUpdate(OP_UNLINK_ALL_CHILDREN, parentSystemId, NO_ADDITIONAL_ARGS, securityContext);
+    if(unlinkAll) {
+      return postSystemSingleUpdate(OP_UNLINK_ALL_CHILDREN, parentSystemId, NO_ADDITIONAL_ARGS, securityContext);
+    } else {
+      return postSystemSingleUpdate(OP_UNLINK_CHILDREN, parentSystemId, new ImmutablePair<>(ARGUMENT_TYPE.ARG_CHILD_SYSTEMS, unlinkInfo.childSystemIds), securityContext);
+    }
   }
 
   /**
@@ -1334,7 +1328,7 @@ public class SystemResource
    * @param securityContext Security context from client call
    * @return Response to be returned to the client.
    */
-  private Response postSystemSingleUpdate(String opName, String systemId, Pair<String, String> additionalArg,
+  private Response postSystemSingleUpdate(String opName, String systemId, Pair<ARGUMENT_TYPE, Object> additionalArg,
                                           SecurityContext securityContext)
           throws TapisClientException
   {
@@ -1371,16 +1365,14 @@ public class SystemResource
         changeCount = service.deleteSystem(rUser, systemId);
       else if (OP_UNDELETE.equals(opName))
         changeCount = service.undeleteSystem(rUser, systemId);
-      else if (OP_UNLINK_CHILD.equals(opName)) {
-        String parentId = ARG_PARENT_SYS.equals(additionalArg.getLeft()) ? additionalArg.getRight() : null;
-        changeCount = service.unlinkChild(rUser, parentId, systemId);
-      }
       else if (OP_UNLINK_FROM_PARENT.equals(opName))
         changeCount = service.unlinkFromParent(rUser, systemId);
+      else if (OP_UNLINK_CHILDREN.equals(opName))
+        changeCount = service.unlinkChildren(rUser, systemId, (List<String>)additionalArg.getRight());
       else if (OP_UNLINK_ALL_CHILDREN.equals(opName))
         changeCount = service.unlinkAllChildren(rUser, systemId);
       else {
-        String userName = ARG_USER_NAME.equals(additionalArg.getLeft()) ? additionalArg.getRight() : null;
+        String userName = ARGUMENT_TYPE.ARG_USER_NAME.equals(additionalArg.getLeft()) ? (String) additionalArg.getRight() : null;
         changeCount = service.changeSystemOwner(rUser, systemId, userName);
       }
     }
