@@ -143,7 +143,7 @@ public class SystemResource {
   private static final String OP_DELETE = "deleteSystem";
   private static final String OP_UNDELETE = "undeleteSystem";
   private static final String OP_UNLINK_FROM_PARENT = "unlinkFromParent";
-  private static final String OP_UNLINK_CHILDREN = "unlinkChild";
+  private static final String OP_UNLINK_CHILDREN = "unlinkChildren";
   private static final String OP_UNLINK_ALL_CHILDREN = "unlinkAllChildren";
 
   private static final Pair<ARGUMENT_TYPE, Object> NO_ADDITIONAL_ARGS = null;
