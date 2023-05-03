@@ -39,6 +39,11 @@ public interface SystemsDao
 
   void updateEnabled(ResourceRequestUser rUser, String tenantId, String id, boolean enabled) throws TapisException;
 
+  void removeParentId(ResourceRequestUser rUser, String tenantId, String childSystemId) throws TapisException;
+
+  int removeParentIdFromChildren(ResourceRequestUser rUser, String oboTenant, String parentId, List<String> childIdsToRemove) throws TapisException;
+  int removeParentIdFromAllChildren(ResourceRequestUser rUser, String oboTenant, String parentId) throws TapisException;
+
   void updateDeleted(ResourceRequestUser rUser, String tenantId, String id, boolean deleted) throws TapisException;
 
   void addUpdateRecord(ResourceRequestUser rUser, String id, SystemOperation op, String changeDescription, String rawData)
@@ -47,8 +52,11 @@ public interface SystemsDao
   int hardDeleteSystem(String tenantId, String id) throws TapisException;
 
   boolean checkForSystem(String tenantId, String id, boolean includeDeleted) throws TapisException;
+  boolean hasChildren(String tenantId, String id) throws TapisException;
 
   boolean isEnabled(String tenantId, String id) throws TapisException;
+
+  String getParent(String tenantId, String sysId) throws TapisException;
 
   TSystem getSystem(String tenantId, String id) throws TapisException;
 
@@ -97,5 +105,4 @@ public interface SystemsDao
   String getSchedulerProfileOwner(String tenant, String name) throws TapisException;
 
   List<SystemHistoryItem> getSystemHistory(String oboTenant, String systemId) throws TapisException;
-
 }

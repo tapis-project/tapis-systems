@@ -13,6 +13,8 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
+
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jvnet.hk2.annotations.Service;
@@ -265,18 +267,9 @@ public class SystemsServiceImpl implements SystemsService
     // Determine if effectiveUserId is static
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
-// TODO: Update when dynamic rootDir is supported via parent-child.
     String normalizedRootDir = PathUtils.getAbsolutePath("/", system.getRootDir()).toString();
     system.setRootDir(normalizedRootDir);
-//    // Determine if rootDir is dynamic
-//    boolean isDynamicRootDir = isRootDirDynamic(system.getRootDir());
-//
-//    // If rootDir is not dynamic then normalize it
-//    if (!isDynamicRootDir)
-//    {
-//      String normalizedRootDir = PathUtils.getAbsolutePath("/", system.getRootDir()).toString();
-//      system.setRootDir(normalizedRootDir);
-//    }
+
     // Set flag indicating if we will deal with credentials.
     // We only do that when credentials provided and effectiveUser is static
     Credential cred = system.getAuthnCredential();
@@ -385,6 +378,37 @@ public class SystemsServiceImpl implements SystemsService
     return system;
   }
 
+  public TSystem createChildSystem(ResourceRequestUser rUser, String systemId, String childId, String childEffectiveUserId,
+                                   String childRootDir, String childOwner, boolean enabled, String rawData)
+          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException {
+    String sharedAppCtxGrantor = null;
+    String impoersonationId = null;
+    String resourceTenant = null;
+
+    TSystem system = getSystem(rUser, systemId, null, false, false, impoersonationId, sharedAppCtxGrantor, resourceTenant);
+    if(!system.isAllowChildren()) {
+      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_CHILDREN_NOT_PERMITTED", rUser, systemId));
+    }
+
+    if(StringUtils.isBlank(childId)) {
+      childId = system.getId() + "-" + rUser.getOboUserId();
+    }
+
+    // Check if system already exists
+    if (dao.checkForSystem(system.getTenant(), childId, true))
+    {
+      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, systemId));
+    }
+
+    if(StringUtils.isBlank(childOwner)) {
+      childOwner = rUser.getOboUserId();
+    }
+
+    TSystem childSystem = new TSystem(system, childId, childEffectiveUserId, childRootDir, childOwner, enabled);
+
+    return createSystem(rUser, childSystem, true, rawData);
+  }
+
   /**
    * Update a system object given a PatchSystem and the text used to create the PatchSystem.
    * Secrets in the text should be masked.
@@ -404,8 +428,7 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public void patchSystem(ResourceRequestUser rUser, String systemId, PatchSystem patchSystem, String rawData)
-          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException
-  {
+          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException {
     SystemOperation op = SystemOperation.modify;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (patchSystem == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
@@ -413,14 +436,23 @@ public class SystemsServiceImpl implements SystemsService
     String oboTenant = rUser.getOboTenantId();
 
     // ---------------------------- Check inputs ------------------------------------
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(rawData))
-    {
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(rawData)) {
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ARG", rUser, systemId));
     }
 
     // System must already exist and not be deleted
     if (!dao.checkForSystem(oboTenant, systemId, false))
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+
+    // if the patch system contains a request to set allowChildren to false, only allow
+    // the change if there are no children.
+    Boolean changeAllowChildren = patchSystem.getAllowChildren();
+    if (BooleanUtils.isFalse(changeAllowChildren)) {
+      if (dao.hasChildren(rUser.getOboTenantId(), systemId)) {
+        String msg = LibUtils.getMsgAuth("SYSLIB_ERROR_HAS_CHILDREN", rUser);
+        throw new IllegalStateException(msg);
+      }
+    }
 
     // Retrieve the system being patched and create fully populated TSystem with changes merged in
     TSystem origTSystem = dao.getSystem(oboTenant, systemId);
@@ -499,10 +531,6 @@ public class SystemsServiceImpl implements SystemsService
     // Set flag indicating if effectiveUserId is static
     boolean isStaticEffectiveUser = !effectiveUserId.equals(APIUSERID_VAR);
 
-// TODO update when dynamic rootDir is supported via parent-child
-    // Before resolving rootDir, determine if it is dynamic
-//    boolean isDynamicRootDir = isRootDirDynamic(putSystem.getRootDir());
-
     // Set flag indicating if we will deal with credentials.
     // We only do that when credentials provided and effectiveUser is static
     Credential cred = putSystem.getAuthnCredential();
@@ -510,6 +538,14 @@ public class SystemsServiceImpl implements SystemsService
 
     // Retrieve the system being updated and create fully populated TSystem with updated attributes
     TSystem origTSystem = dao.getSystem(oboTenant, systemId);
+
+    // Error if the system we are replacing had a parentId (i.e. - PUT not allowed for a child system) or if
+    // the incoming request has a parentId set (i.e. trying to change the system to a child system)
+    if(!StringUtils.isBlank(origTSystem.getParentId())) {
+      String msg = LibUtils.getMsgAuth("SYSLIB_CHILD_PUT_NOT_ALLOWED", rUser, systemId);
+      throw new IllegalArgumentException(msg);
+    }
+
     TSystem updatedTSystem = createUpdatedTSystem(origTSystem, putSystem);
     updatedTSystem.setAuthnCredential(cred);
 
@@ -634,6 +670,11 @@ public class SystemsServiceImpl implements SystemsService
     if (system == null)
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
+    // cant delete a system if it has children
+    if(dao.hasChildren(rUser.getOboTenantId(), systemId)) {
+      String msg = LibUtils.getMsg("SYSLIB_ERROR_HAS_CHILDREN", rUser);
+      throw new IllegalStateException(msg);
+    }
     // ------------------------- Check authorization -------------------------
     checkAuthOwnerUnkown(rUser, op, systemId);
 
@@ -658,8 +699,7 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public int undeleteSystem(ResourceRequestUser rUser, String systemId)
-          throws TapisException, IllegalArgumentException, TapisClientException
-  {
+          throws TapisException, IllegalArgumentException, TapisClientException {
     SystemOperation op = SystemOperation.undelete;
     // ---------------------------- Check inputs ------------------------------------
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -669,11 +709,30 @@ public class SystemsServiceImpl implements SystemsService
     String oboTenant = rUser.getOboTenantId();
 
     // System must exist
-    if (!dao.checkForSystem(oboTenant, systemId, true))
+    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, true);
+    if (system == null) {
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    }
+
+    // if this is a child system, make sure that the parent hasn't been deleted, and that
+    // the parent still allows children
+    if(isChildSystem(system)) {
+      boolean okToUndeleteChild = false;
+      TSystem parentSystem = dao.getSystem(rUser.getOboTenantId(), system.getParentId(), false);
+      if (parentSystem != null) {
+        if(parentSystem.isAllowChildren()) {
+          okToUndeleteChild = true;
+        }
+      }
+
+      if(!okToUndeleteChild) {
+        String msg = LibUtils.getMsgAuth("SYSLIB_ERROR_PARENT_CHILD_CONFLICT", rUser);
+        throw new IllegalStateException(msg);
+      }
+    }
 
     // Get owner, if not found it is an error
-    String owner = dao.getSystemOwner(oboTenant, systemId);
+    String owner = system.getOwner();
     if (StringUtils.isBlank(owner)) {
       String msg = LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, systemId, op.name());
       log.error(msg);
@@ -765,6 +824,103 @@ public class SystemsServiceImpl implements SystemsService
       throw e0;
     }
     return 1;
+  }
+
+  @Override
+  public int unlinkFromParent(ResourceRequestUser rUser, String childSystemId) throws TapisException, TapisClientException {
+    SystemOperation op = SystemOperation.modify;
+
+    // ---------------------------- Check inputs ------------------------------------
+    if (rUser == null) {
+      throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    }
+
+    if (StringUtils.isBlank(childSystemId)) {
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
+    }
+
+    String oboTenant = rUser.getOboTenantId();
+
+    // System must already exist and not be deleted
+    TSystem childSystem = dao.getSystem(oboTenant, childSystemId, false);
+    if (childSystem == null) {
+      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, childSystemId));
+    }
+
+    // Get parent's Id
+    String parentSystemId = childSystem.getParentId();
+    if (parentSystemId == null) {
+      // if there is no parent id, we are done.  This is already not a child system.
+      return 1;
+    }
+
+    // ------------------------- Check authorization -------------------------
+    checkAuthOwnerKnown(rUser, op, childSystemId, childSystem.getOwner());
+
+    // ------------------- Make Dao call to unlink the system -----------------------------------
+    dao.removeParentId(rUser, oboTenant, childSystemId);
+    return 1;
+  }
+
+  @Override
+  public int unlinkChildren(ResourceRequestUser rUser, String parentId, List<String> childIdsToUnlink) throws TapisException, TapisClientException {
+    SystemOperation op = SystemOperation.modify;
+
+    // ---------------------------- Check inputs ------------------------------------
+    if (rUser == null) {
+      throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    }
+
+    if (childIdsToUnlink == null) {
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
+    }
+
+    String oboTenant = rUser.getOboTenantId();
+
+    // System must already exist and not be deleted
+    for(String childSystemId : childIdsToUnlink) {
+      TSystem childSystem = dao.getSystem(oboTenant, childSystemId, false);
+      if (childSystem == null) {
+        throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, childSystemId));
+      }
+      if(!parentId.equals(childSystem.getParentId())) {
+        throw new NotFoundException(LibUtils.getMsgAuth("SYSLIB_PARENT_CHILD_NOT_FOUND", rUser, parentId, childSystemId));
+      }
+    }
+
+    // ------------------------- Check authorization -------------------------
+    checkAuthOwnerUnkown(rUser, op, parentId);
+
+    // ------------------- Make Dao call to unlink the system -----------------------------------
+    return dao.removeParentIdFromChildren(rUser, oboTenant, parentId, childIdsToUnlink);
+  }
+
+  @Override
+  public int unlinkAllChildren(ResourceRequestUser rUser, String parentId) throws TapisException, TapisClientException {
+    SystemOperation op = SystemOperation.modify;
+
+    // ---------------------------- Check inputs ------------------------------------
+    if (rUser == null) {
+      throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    }
+
+    if (StringUtils.isBlank(parentId)) {
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
+    }
+
+    String oboTenant = rUser.getOboTenantId();
+
+    // System must already exist and not be deleted
+    TSystem parentSystem = dao.getSystem(oboTenant, parentId, false);
+    if (parentSystem == null) {
+      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, parentSystem));
+    }
+
+    // ------------------------- Check authorization -------------------------
+    checkAuthOwnerKnown(rUser, op, parentId, parentSystem.getOwner());
+
+    // ------------------- Make Dao call to unlink the system -----------------------------------
+    return dao.removeParentIdFromAllChildren(rUser, oboTenant, parentId);
   }
 
   /**
@@ -3176,6 +3332,7 @@ public class SystemsServiceImpl implements SystemsService
     if (p.getTags() != null) p1.setTags(p.getTags());
     if (p.getNotes() != null) p1.setNotes(p.getNotes());
     if (p.getImportRefId() != null) p1.setImportRefId(p.getImportRefId());
+    if (p.getAllowChildren() != null) p1.setAllowChildren(p.getAllowChildren());
     return p1;
   }
 
@@ -3929,6 +4086,31 @@ public class SystemsServiceImpl implements SystemsService
                                    effectiveUser, authnMethod));
     return retCred;
   }
+
+  public String getParentId(ResourceRequestUser rUser, String systemId) throws TapisException, TapisClientException {
+    SystemOperation op = SystemOperation.read;
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId)) {
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+    }
+
+    String oboTenant = rUser.getOboTenantId();
+
+    // Resource must exist and not be deleted
+    if (!dao.checkForSystem(oboTenant, systemId, false)) {
+      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    }
+
+    // ------------------------- Check authorization -------------------------
+    checkAuthOwnerUnkown(rUser, op, systemId);
+
+    return dao.getParent(oboTenant, systemId);
+  }
+
+  private boolean isChildSystem(TSystem system) {
+    return !StringUtils.isBlank(system.getParentId());
+  }
+
 
 // TODO: Update or remove when dynamic rootDir is supported via parent-child.
 //  /**

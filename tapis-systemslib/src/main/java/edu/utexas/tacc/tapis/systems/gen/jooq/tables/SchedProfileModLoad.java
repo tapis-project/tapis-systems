@@ -136,11 +136,6 @@ public class SchedProfileModLoad extends TableImpl<SchedProfileModLoadRecord> {
     }
 
     @Override
-    public List<UniqueKey<SchedProfileModLoadRecord>> getUniqueKeys() {
-        return Arrays.asList(Keys.SCHED_PROFILE_MOD_LOAD_TENANT_SCHED_PROFILE_NAME_KEY);
-    }
-
-    @Override
     public List<ForeignKey<SchedProfileModLoadRecord, ?>> getReferences() {
         return Arrays.asList(Keys.SCHED_PROFILE_MOD_LOAD__SCHED_PROFILE_MOD_LOAD_SCHED_PROFILE_SEQ_ID_FKEY);
     }

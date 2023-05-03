@@ -1,0 +1,11 @@
+{
+  "$id": "https://tapis.tacc.utexas.edu/ChildSystemPatchRequest",
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "description": "Schema for a request to update a child system",
+
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "effectiveUserId": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/UserName" },
+  }
+}

@@ -68,4 +68,5 @@ public final class ReqPostSystem
   public String[] tags = EMPTY_STR_ARRAY;
   public Object notes = DEFAULT_NOTES;
   public String importRefId;
+  public boolean allowChildren;
 }

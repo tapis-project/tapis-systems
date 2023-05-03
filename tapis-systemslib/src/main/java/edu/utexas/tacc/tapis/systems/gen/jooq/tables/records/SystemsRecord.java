@@ -668,6 +668,34 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
         return (Boolean) get(40);
     }
 
+    /**
+     * Setter for <code>tapis_sys.systems.parent_id</code>.
+     */
+    public void setParentId(String value) {
+        set(41, value);
+    }
+
+    /**
+     * Getter for <code>tapis_sys.systems.parent_id</code>.
+     */
+    public String getParentId() {
+        return (String) get(41);
+    }
+
+    /**
+     * Setter for <code>tapis_sys.systems.allow_children</code>.
+     */
+    public void setAllowChildren(Boolean value) {
+        set(42, value);
+    }
+
+    /**
+     * Getter for <code>tapis_sys.systems.allow_children</code>.
+     */
+    public Boolean getAllowChildren() {
+        return (Boolean) get(42);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -691,7 +719,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     /**
      * Create a detached, initialised SystemsRecord
      */
-    public SystemsRecord(Integer seqId, String tenant, String id, String description, SystemType systemType, String owner, String host, Boolean enabled, String effectiveUserId, AuthnMethod defaultAuthnMethod, String bucketName, String rootDir, Integer port, Boolean useProxy, String proxyHost, Integer proxyPort, String dtnSystemId, String dtnMountPoint, String dtnMountSourcePath, Boolean isDtn, Boolean canExec, Boolean canRunBatch, String mpiCmd, JsonElement jobRuntimes, String jobWorkingDir, JsonElement jobEnvVariables, Integer jobMaxJobs, Integer jobMaxJobsPerUser, SchedulerType batchScheduler, JsonElement batchLogicalQueues, String batchDefaultLogicalQueue, String batchSchedulerProfile, JsonElement jobCapabilities, String[] tags, JsonElement notes, String importRefId, UUID uuid, Boolean deleted, LocalDateTime created, LocalDateTime updated, Boolean enableCmdPrefix) {
+    public SystemsRecord(Integer seqId, String tenant, String id, String description, SystemType systemType, String owner, String host, Boolean enabled, String effectiveUserId, AuthnMethod defaultAuthnMethod, String bucketName, String rootDir, Integer port, Boolean useProxy, String proxyHost, Integer proxyPort, String dtnSystemId, String dtnMountPoint, String dtnMountSourcePath, Boolean isDtn, Boolean canExec, Boolean canRunBatch, String mpiCmd, JsonElement jobRuntimes, String jobWorkingDir, JsonElement jobEnvVariables, Integer jobMaxJobs, Integer jobMaxJobsPerUser, SchedulerType batchScheduler, JsonElement batchLogicalQueues, String batchDefaultLogicalQueue, String batchSchedulerProfile, JsonElement jobCapabilities, String[] tags, JsonElement notes, String importRefId, UUID uuid, Boolean deleted, LocalDateTime created, LocalDateTime updated, Boolean enableCmdPrefix, String parentId, Boolean allowChildren) {
         super(Systems.SYSTEMS);
 
         setSeqId(seqId);
@@ -735,5 +763,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
         setCreated(created);
         setUpdated(updated);
         setEnableCmdPrefix(enableCmdPrefix);
+        setParentId(parentId);
+        setAllowChildren(allowChildren);
     }
 }

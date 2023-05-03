@@ -10,6 +10,17 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.3.2 - 2023-04-25
+
+Incremental improvements.
+
+### New features:
+- Child Systems
+
+### Bug fixes:
+- None
+
+---------------------------------------------------------------------------
 ## 1.3.1 - 2023-04-02
 
 Incremental improvements and bug fix.

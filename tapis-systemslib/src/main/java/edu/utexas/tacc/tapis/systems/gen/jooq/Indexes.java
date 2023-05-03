@@ -28,6 +28,7 @@ public class Indexes {
     public static final Index SCHEDPROF_TENANT_NAME_IDX = Internal.createIndex(DSL.name("schedprof_tenant_name_idx"), SchedulerProfiles.SCHEDULER_PROFILES, new OrderField[] { SchedulerProfiles.SCHEDULER_PROFILES.TENANT, SchedulerProfiles.SCHEDULER_PROFILES.NAME }, false);
     public static final Index SYS_HOST_IDX = Internal.createIndex(DSL.name("sys_host_idx"), Systems.SYSTEMS, new OrderField[] { Systems.SYSTEMS.HOST }, false);
     public static final Index SYS_OWNER_IDX = Internal.createIndex(DSL.name("sys_owner_idx"), Systems.SYSTEMS, new OrderField[] { Systems.SYSTEMS.OWNER }, false);
+    public static final Index SYS_SYSTEM_PARENT_ID_IDX = Internal.createIndex(DSL.name("sys_system_parent_id_idx"), Systems.SYSTEMS, new OrderField[] { Systems.SYSTEMS.PARENT_ID }, false);
     public static final Index SYS_TAGS_IDX = Internal.createIndex(DSL.name("sys_tags_idx"), Systems.SYSTEMS, new OrderField[] { Systems.SYSTEMS.TAGS }, false);
     public static final Index SYS_TENANT_NAME_IDX = Internal.createIndex(DSL.name("sys_tenant_name_idx"), Systems.SYSTEMS, new OrderField[] { Systems.SYSTEMS.TENANT, Systems.SYSTEMS.ID }, false);
 }

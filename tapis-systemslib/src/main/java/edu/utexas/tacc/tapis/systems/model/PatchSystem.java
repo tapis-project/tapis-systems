@@ -43,6 +43,7 @@ public final class PatchSystem
   private final String[] tags;
   private Object notes;
   private final String importRefId;
+  private final Boolean allowChildren;
 
   // ************************************************************************
   // *********************** Constructors ***********************************
@@ -58,8 +59,8 @@ public final class PatchSystem
                      List<JobRuntime> jobRuntimes1, String jobWorkingDir1, List<KeyValuePair> jobEnvVariables1,
                      Integer jobMaxJobs1, Integer jobMaxJobsPerUser1, Boolean canRunBatch1, Boolean enableCmdPrefix1,
                      String mpiCmd1, SchedulerType batchScheduler1, List<LogicalQueue> batchLogicalQueues1,
-                     String batchDefaultLogicalQueue1, String batchSchedulerProfile1,
-                     List<Capability> jobCapabilities1, String[] tags1, Object notes1, String importRefId1)
+                     String batchDefaultLogicalQueue1, String batchSchedulerProfile1, List<Capability> jobCapabilities1,
+                     String[] tags1, Object notes1, String importRefId1, Boolean allowChildren1)
   {
     description = description1;
     host = host1;
@@ -88,6 +89,7 @@ public final class PatchSystem
     tags = (tags1 == null) ? null : tags1.clone();
     notes = notes1;
     importRefId = importRefId1;
+    allowChildren = allowChildren1;
   }
 
   // ************************************************************************
@@ -159,4 +161,8 @@ public final class PatchSystem
   public void setNotes(Object o) { notes = o; }
 
   public String getImportRefId() { return importRefId; }
+
+  public Boolean getAllowChildren() {
+    return allowChildren;
+  }
 }

@@ -16,6 +16,7 @@ import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -38,7 +39,7 @@ public class SystemsDaoTest
   private ResourceRequestUser rOwner1, rOwner2, rOwner3, rOwner4, rOwner5, rOwner6, rOwner7;
 
   // Create test system definitions and scheduler profiles in memory
-  int numSystems = 14; // All in use: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+  int numSystems = 17; // All in use: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
   int numSchedulerProfiles = 5;
   String testKey = "Dao";
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
@@ -323,7 +324,7 @@ public class SystemsDaoTest
             canExecTrue, jobRuntimes1, "jobWorkDir", jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1,
             canRunBatchTrue, enableCmdPrefixTrue, mpiCmd1, batchScheduler1, logicalQueueList1,
             "batchDefaultLogicalQueue", batchSchedulerProfile1, capList1, tags1, notes1,
-            importRefIdNull, uuidNull, isDeletedFalse, createdNull, updatedNull);
+            importRefIdNull, uuidNull, isDeletedFalse, allowChildrenFalse, parentIdNull, createdNull, updatedNull);
     // Make sure system does not exist
     Assert.assertFalse(dao.checkForSystem(tenantName, fakeSystemName, true));
     Assert.assertFalse(dao.checkForSystem(tenantName, fakeSystemName, false));
@@ -471,5 +472,33 @@ public class SystemsDaoTest
                       "getSchedulerProfiles did not return item with name: " + schedulerProfiles[3].getName());
     Assert.assertTrue(profileNameList.contains(schedulerProfiles[4].getName()),
                       "getSchedulerProfiles did not return item with name: " + schedulerProfiles[4].getName());
+  }
+
+  @Test
+  public void testHasChildrenAndGetParent() throws Exception {
+    TSystem hasNoChildrenSys = systems[14];
+    TSystem childSys = systems[15];
+    TSystem hasChildrenSys = systems[16];
+    hasChildrenSys.setAllowChildren(true);
+
+    // parent id is not exposed in a a setter - use reflaction to set it.  This could be
+    // have used a special child constructor, but this is the easiest way to fit in with the
+    // existing test framework.
+    Field field = TSystem.class.getDeclaredField("parentId");
+    field.setAccessible(true);
+    field.set(childSys, hasChildrenSys.getId());
+
+    Assert.assertTrue(dao.createSystem(rOwner1, hasNoChildrenSys, gson.toJson(hasNoChildrenSys), rawDataEmptyJson));
+    Assert.assertTrue(dao.createSystem(rOwner1, hasChildrenSys, gson.toJson(hasChildrenSys), rawDataEmptyJson));
+    Assert.assertTrue(dao.createSystem(rOwner1, childSys, gson.toJson(childSys), rawDataEmptyJson));
+
+    Assert.assertFalse(dao.hasChildren(rOwner1.getOboTenantId(), hasNoChildrenSys.getId()));
+    Assert.assertTrue(dao.hasChildren(rOwner1.getOboTenantId(), hasChildrenSys.getId()));
+
+    String parentId = dao.getParent(rOwner1.getOboTenantId(), childSys.getId());
+    Assert.assertEquals(hasChildrenSys.getId(), parentId);
+
+    Assert.assertNull(dao.getParent(rOwner1.getOboTenantId(), hasChildrenSys.getId()));
+    Assert.assertNull(dao.getParent(rOwner1.getOboTenantId(), hasNoChildrenSys.getId()));
   }
 }

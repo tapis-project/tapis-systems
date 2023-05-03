@@ -8,6 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "id": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/SystemId" },
+    "parentId": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/SystemId" },
     "description": { "type": ["string", "null"], "maxLength": 2048 },
     "systemType": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/SystemTypeEnum" },
     "owner": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/UserName" },
@@ -55,6 +56,7 @@
     "importRefId": { "type": ["string", "null"] },
     "isPublic": { "type": "boolean" },
     "isDynamicEffectiveUser": { "type": "boolean" },
+    "allowChildren": { "type": "boolean" },
     "tenant": { "type":  "string" },
     "uuid": { "type":  "string" },
     "deleted": { "type":  "boolean" },

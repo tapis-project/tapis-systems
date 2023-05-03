@@ -1,0 +1,16 @@
+{
+  "$id": "https://tapis.tacc.utexas.edu/ChildSystemPostRequest",
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "description": "Schema for a request to create a child system",
+
+  "type": "object",
+  "required": [ "effectiveUserId", "rootDir" ],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/SystemId" },
+    "effectiveUserId": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/UserName" },
+    "rootDir": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/DirPath" },
+    "enabled": { "type": "boolean", "default": true },
+    "owner": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/UserName" }
+  }
+}
