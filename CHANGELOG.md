@@ -15,7 +15,7 @@ https://tapis-project.github.io/live-docs
 Incremental improvements and bug fix
 
 ### New features:
-- None
+- Add application shutdown hook for graceful shutdown.
 
 ### Bug fixes:
 - Do not log error if optional startup parameter for applying a migration is not set.
