@@ -2,15 +2,6 @@ package edu.utexas.tacc.tapis.systems.api;
 
 import java.net.URI;
 import javax.ws.rs.ApplicationPath;
-
-import edu.utexas.tacc.tapis.sharedapi.jaxrs.filters.ClearThreadLocalRequestFilter;
-import edu.utexas.tacc.tapis.sharedapi.jaxrs.filters.QueryParametersRequestFilter;
-import edu.utexas.tacc.tapis.systems.api.resources.CredentialResource;
-import edu.utexas.tacc.tapis.systems.api.resources.GeneralResource;
-import edu.utexas.tacc.tapis.systems.api.resources.PermsResource;
-import edu.utexas.tacc.tapis.systems.api.resources.SchedulerProfileResource;
-import edu.utexas.tacc.tapis.systems.api.resources.ShareResource;
-import edu.utexas.tacc.tapis.systems.api.resources.SystemResource;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
@@ -19,12 +10,21 @@ import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.jersey.internal.inject.InjectionManager;
 import org.glassfish.jersey.server.ApplicationHandler;
 import org.glassfish.jersey.server.ResourceConfig;
+
+import edu.utexas.tacc.tapis.systems.api.resources.CredentialResource;
+import edu.utexas.tacc.tapis.systems.api.resources.GeneralResource;
+import edu.utexas.tacc.tapis.systems.api.resources.PermsResource;
+import edu.utexas.tacc.tapis.systems.api.resources.SchedulerProfileResource;
+import edu.utexas.tacc.tapis.systems.api.resources.ShareResource;
+import edu.utexas.tacc.tapis.systems.api.resources.SystemResource;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
 import edu.utexas.tacc.tapis.shared.security.TenantManager;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
+import edu.utexas.tacc.tapis.sharedapi.jaxrs.filters.ClearThreadLocalRequestFilter;
 import edu.utexas.tacc.tapis.sharedapi.jaxrs.filters.JWTValidateRequestFilter;
+import edu.utexas.tacc.tapis.sharedapi.jaxrs.filters.QueryParametersRequestFilter;
 import edu.utexas.tacc.tapis.sharedapi.providers.ApiExceptionMapper;
 import edu.utexas.tacc.tapis.sharedapi.providers.ObjectMapperContextResolver;
 import edu.utexas.tacc.tapis.sharedapi.providers.ValidationExceptionMapper;
@@ -79,8 +79,10 @@ public class SystemsApplication extends ResourceConfig
     register(ApiExceptionMapper.class);
     register(ValidationExceptionMapper.class);
 
-    //JWT validation
+    // jax-rs filters
     register(JWTValidateRequestFilter.class);
+    register(ClearThreadLocalRequestFilter.class);
+    register(QueryParametersRequestFilter.class);
 
     //Our APIs
     register(GeneralResource.class);
@@ -89,10 +91,6 @@ public class SystemsApplication extends ResourceConfig
     register(SchedulerProfileResource.class);
     register(ShareResource.class);
     register(SystemResource.class);
-
-    //QueryParams filter
-    register(ClearThreadLocalRequestFilter.class);
-    register(QueryParametersRequestFilter.class);
 
     // Set the application name. Note that this has no impact on base URL.
     setApplicationName(TapisConstants.SERVICE_NAME_SYSTEMS);

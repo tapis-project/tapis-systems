@@ -10,6 +10,17 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.3.3 - 2023-0?-??
+
+Incremental improvements and bug fix
+
+### New features:
+- None
+
+### Bug fixes:
+- Do not log error if optional startup parameter for applying a migration is not set.
+
+---------------------------------------------------------------------------
 ## 1.3.2 - 2023-04-25
 
 Incremental improvements.

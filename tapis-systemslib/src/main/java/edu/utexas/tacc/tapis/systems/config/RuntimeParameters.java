@@ -213,8 +213,11 @@ public final class RuntimeParameters implements EmailClientParameters
 
     // Optional apply migrate job flag
     parm = inputProperties.getProperty(EnvVar2.TAPIS_MIGRATE_JOB_APPLY.getEnvName());
-    _log.error("Processing migratejob. Parm: " + parm);
-    if (MIGRATE_JOB_ENV_FLAG.equals(parm)) setMigrateJobApply(true);
+    if (MIGRATE_JOB_ENV_FLAG.equals(parm))
+    {
+      _log.info("Processing migratejob. Parm: " + parm);
+      setMigrateJobApply(true);
+    }
 
     // --------------------- Service config --------------------------------
     parm = inputProperties.getProperty(EnvVar.TAPIS_SERVICE_PASSWORD.getEnvName());
