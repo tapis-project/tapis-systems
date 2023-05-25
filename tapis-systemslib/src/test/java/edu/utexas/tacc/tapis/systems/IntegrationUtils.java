@@ -144,12 +144,12 @@ public final class IntegrationUtils
   public static final String batchSchedulerProfileNull = null;
   public static final String noSuchSchedulerProfile = "noSuchSchedulerProfile";
   public static final List<KeyValuePair> jobEnvVariables1 =
-          new ArrayList<>(List.of(new KeyValuePair("a1","b1", null),
-                                  new KeyValuePair("HOME","/home/testuser1", ""),
+          new ArrayList<>(List.of(new KeyValuePair("a1","b1"),
+                                  new KeyValuePair("HOME","/home/testuser1"),
                                   new KeyValuePair("TMP","/tmp1", "my keyvalue pair")));
   public static final List<KeyValuePair> jobEnvVariables2 =
           new ArrayList<>(List.of(new KeyValuePair("a2","b2", "my 2nd key-value pair"),
-                                  new KeyValuePair("HOME","/home/testuser2", null),
+                                  new KeyValuePair("HOME","/home/testuser2"),
                                  new KeyValuePair("TMP","/tmp2")));
   public static final List<KeyValuePair> jobEnvVariables3 =
           new ArrayList<>(List.of(new KeyValuePair("a3","b3"),
