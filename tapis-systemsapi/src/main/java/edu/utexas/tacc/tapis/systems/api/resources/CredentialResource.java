@@ -156,6 +156,8 @@ public class CredentialResource
       ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId=" + systemId,
                           "userName=" + userName, "skipCredentialCheck=" + skipCredCheck);
 
+    // NOTE: Do not log any raw input data here since it may contain secrets.
+
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
     resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, opName);
@@ -175,7 +177,7 @@ public class CredentialResource
     // Create validator specification and validate the json against the schema
     JsonValidatorSpec spec = new JsonValidatorSpec(json, FILE_CRED_REQUEST);
     try { JsonValidator.validate(spec); }
-    catch (TapisJSONException e)
+    catch (Exception e)
     {
       msg = ApiUtils.getMsgAuth("SYSAPI_CRED_JSON_INVALID", rUser, systemId, userName, e.getMessage());
       _log.error(msg, e);
@@ -183,7 +185,21 @@ public class CredentialResource
     }
 
     // Populate credential from payload
-    ReqPostCredential req = TapisGsonUtils.getGson().fromJson(json, ReqPostCredential.class);
+    // Even when the above json validator succeeds the next call may still throw
+    //   a com.google.gson.stream.MalformedJsonException runtime exception
+    //   or a com.google.gson.JsonSyntaxException checked exception
+    ReqPostCredential req;
+    try
+    {
+      req = TapisGsonUtils.getGson().fromJson(json, ReqPostCredential.class);
+    }
+    catch (Exception e)
+    {
+      msg = ApiUtils.getMsgAuth("SYSAPI_CRED_GSON_ERROR", rUser, systemId, userName, e.getMessage());
+      _log.error(msg, e);
+      throw new WebApplicationException(msg);
+    }
+
     // If no loginUser provided default to userName
     String loginUser = (StringUtils.isBlank(req.loginUser)) ? userName : req.loginUser;
     // If loginUser provided then trace it.
@@ -238,9 +254,14 @@ public class CredentialResource
       throw new WebApplicationException(msg);
     }
 
-    // If not skipping validation then check result
-    resp = ApiUtils.checkCredValidationResult(rUser, systemId, userName, checkedCred, null, skipCredCheck);
-    if (resp != null) return resp;
+    // If not skipping validation then check result. If cred check not supported for system type (such as IRODS),
+    // then checkedCred will be null and validation should not be done.
+    // NOTE: Much of the validation logic in this method should probably be moved to the service layer.
+    if (checkedCred != null && checkedCred.getValidationResult() != null)
+    {
+      resp = ApiUtils.checkCredValidationResult(rUser, systemId, userName, checkedCred, null, skipCredCheck);
+      if (resp != null) return resp;
+    }
 
     // ---------------------------- Success -------------------------------
     RespBasic resp1 = new RespBasic();
