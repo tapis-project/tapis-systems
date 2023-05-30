@@ -1262,6 +1262,12 @@ public class SystemsServiceTest
                            impersonationIdNull, sharedCtxNull, resourceTenantNull);
     checkCredPasswordAndEffectiveUser(tmpSys, cred4LoginUser.getPassword(), testUser4, testUser4LinuxUser);
 
+    // When Files gets as system as itself using impersonationId=testuser4 and resourceTenant=dev
+    //   we should get back the mapped login user, i.e. effectiveUserId=testUser4LinuxUser and password=fakePassword4
+    tmpSys = svc.getSystem(rFilesSvcAsFiles, sysId, AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
+                           testUser4, sharedCtxNull, tenantName);
+    checkCredPasswordAndEffectiveUser(tmpSys, cred4LoginUser.getPassword(), testUser4, testUser4LinuxUser);
+
     // when fetching System as Files with oboUser=testUser3 and impersonationId=testUser4
     //   we should also find effectiveUserId=testUser4LinuxUser and password=fakePassword4
     tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
