@@ -10,9 +10,12 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.3.3 - 2023-05-30
+## 1.3.3 - 2023-06-01
 
 Incremental improvements and bug fixes
+
+### Breaking changes:
+- None
 
 ### New features:
 - Add application shutdown hook for graceful shutdown.
@@ -47,6 +50,10 @@ Incremental improvements and bug fix.
 ## 1.3.0 - 2023-02-24
 
 Incremental improvements and new preview features.
+
+### Breaking changes:
+- Support for multiple module load entries in a scheduler profile has changed the data structure. The modules entry is now an array modules to load.
+  - https://tapis-project.github.io/live-docs/?service=Systems#tag/Scheduler-Profiles
 
 ### New features:
 - Added enableCmdPrefix to Systems. This can be used to enable/disable command prefix for jobs.
