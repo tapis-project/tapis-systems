@@ -311,10 +311,9 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Construct Json string representing the TSystem (without credentials) about to be created
-    // This will be used as the description for the change history record
     TSystem scrubbedSystem = new TSystem(system);
     scrubbedSystem.setAuthnCredential(nullCredential);
-    String changeDescription = TapisGsonUtils.getGson().toJson(scrubbedSystem);
+    String updateJsonStr = TapisGsonUtils.getGson().toJson(scrubbedSystem);
 
     // ----------------- Create all artifacts --------------------
     // Creation of system, perms and creds not in single DB transaction.
@@ -330,7 +329,7 @@ public class SystemsServiceImpl implements SystemsService
     try
     {
       // ------------------- Make Dao call to persist the system -----------------------------------
-      itemCreated = dao.createSystem(rUser, system, changeDescription, rawData);
+      itemCreated = dao.createSystem(rUser, system, updateJsonStr, rawData);
 
       // ------------------- Add permissions -----------------------------
       // Consider using a notification instead (jira cic-3071)
@@ -470,19 +469,24 @@ public class SystemsServiceImpl implements SystemsService
     patchedTSystem.setDefaults();
     validateTSystem(rUser, patchedTSystem);
 
-    // Get a complete and succinct description of the update.
-    // If nothing has changed, then log a warning and return
-    String changeDescription = LibUtils.getChangeDescriptionSystemUpdate(origTSystem, patchedTSystem, patchSystem);
-    if (StringUtils.isBlank(changeDescription))
-    {
-      log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, "PATCH", systemId));
-      return;
-    }
+    // This is a WIP and, in fact, probably not even a good idea to attempt.
+    // We should instead generate the change history on demand from the raw data.
+//    // Get a complete and succinct description of the update.
+//    // If nothing has changed, then log a warning and return
+//    String changeDescription = LibUtils.getChangeDescriptionSystemUpdate(origTSystem, patchedTSystem, patchSystem);
+//    if (StringUtils.isBlank(changeDescription))
+//    {
+//      log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, "PATCH", systemId));
+//      return;
+//    }
+//    dao.patchSystem(rUser, systemId, patchedTSystem, changeDescription, rawData);
+    // Construct Json string representing the PatchApp about to be used to update the app
+    String updateJsonStr = TapisGsonUtils.getGson().toJson(patchSystem);
 
     // ----------------- Create all artifacts --------------------
     // No distributed transactions so no distributed rollback needed
     // ------------------- Make Dao call to persist the system -----------------------------------
-    dao.patchSystem(rUser, systemId, patchedTSystem, changeDescription, rawData);
+    dao.patchSystem(rUser, systemId, patchedTSystem, updateJsonStr, rawData);
   }
 
   /**
@@ -591,19 +595,23 @@ public class SystemsServiceImpl implements SystemsService
       createCredential(rUser, cred, systemId, effectiveUserId, isStaticEffectiveUser);
     }
 
-    // Get a complete and succinct description of the update.
-    // If nothing has changed, then log a warning and return
-    String changeDescription = LibUtils.getChangeDescriptionSystemUpdate(origTSystem, updatedTSystem, null);
-    if (StringUtils.isBlank(changeDescription))
-    {
-      log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, "PUT", systemId));
-      return updatedTSystem;
-    }
+    // This is a WIP and, in fact, probably not even a good idea to attempt.
+    // We should instead generate the change history on demand from the raw data.
+//    // Get a complete and succinct description of the update.
+//    // If nothing has changed, then log a warning and return
+//    String changeDescription = LibUtils.getChangeDescriptionSystemUpdate(origTSystem, updatedTSystem, null);
+//    if (StringUtils.isBlank(changeDescription))
+//    {
+//      log.warn(LibUtils.getMsgAuth("SYSLIB_UPD_NO_CHANGE", rUser, "PUT", systemId));
+//      return updatedTSystem;
+//    }
+    // Construct Json string representing the PatchApp about to be used to update the app
+    String updateJsonStr = TapisGsonUtils.getGson().toJson(putSystem);
 
     // ----------------- Create all artifacts --------------------
     // No distributed transactions so no distributed rollback needed
     // ------------------- Make Dao call to update the system -----------------------------------
-    dao.putSystem(rUser, updatedTSystem, changeDescription, rawData);
+    dao.putSystem(rUser, updatedTSystem, updateJsonStr, rawData);
 
     // Update dynamically computed flags.
     putSystem.setIsPublic(isSystemSharedPublic(rUser, putSystem.getTenant(), systemId));

@@ -143,14 +143,21 @@ public final class IntegrationUtils
   public static final String batchSchedulerProfile2 = "schedProfile2";
   public static final String batchSchedulerProfileNull = null;
   public static final String noSuchSchedulerProfile = "noSuchSchedulerProfile";
+  public static final Object notes1 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj1\", \"testdata\": \"abc 1\"}", JsonObject.class);
+  public static final Object notes2 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj2\", \"testdata\": \"abc 2\"}", JsonObject.class);
+  public static final JsonObject notesObj1 = (JsonObject) notes1;
+  public static final JsonObject notesObj2 = (JsonObject) notes2;
+  public static final Object notesNull = null;
   public static final List<KeyValuePair> jobEnvVariables1 =
-          new ArrayList<>(List.of(new KeyValuePair("a1","b1", null),
-                                  new KeyValuePair("HOME","/home/testuser1", ""),
-                                  new KeyValuePair("TMP","/tmp1", "my keyvalue pair")));
+          new ArrayList<>(List.of(new KeyValuePair("a1","b1"),
+                                  new KeyValuePair("HOME","/home/testuser1"),
+                                  new KeyValuePair("TMP","/tmp1", "my keyvalue pair"),
+                  new KeyValuePair("TMP1a","/tmp1a", "my keyvalue pair1a", KeyValuePair.KeyValueInputMode.FIXED, notesObj1)));
   public static final List<KeyValuePair> jobEnvVariables2 =
           new ArrayList<>(List.of(new KeyValuePair("a2","b2", "my 2nd key-value pair"),
-                                  new KeyValuePair("HOME","/home/testuser2", null),
-                                 new KeyValuePair("TMP","/tmp2")));
+                                  new KeyValuePair("HOME","/home/testuser2"),
+                                 new KeyValuePair("TMP","/tmp2"),
+                  new KeyValuePair("TMP2a","/tmp2a", "my keyvalue pair2a", KeyValuePair.KeyValueInputMode.REQUIRED, notesObj2)));
   public static final List<KeyValuePair> jobEnvVariables3 =
           new ArrayList<>(List.of(new KeyValuePair("a3","b3"),
                   new KeyValuePair("HOME","/home/testuser3", "third one"),
@@ -184,10 +191,6 @@ public final class IntegrationUtils
   public static final String[] tags2 = {"value4", "value5"};
   public static final String[] tags3 = {tagVal1};
   public static final String[] tagsNull = null;
-  public static final Object notes1 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj1\", \"testdata\": \"abc 1\"}", JsonObject.class);
-  public static final Object notes2 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj2\", \"testdata\": \"abc 2\"}", JsonObject.class);
-  public static final JsonObject notesObj1 = (JsonObject) notes1;
-  public static final Object notesNull = null;
 
   public static final String importRefId1 = "https://exmpale.com/import_ref_id1";
   public static final String importRefId2 = "import_ref_id2";
