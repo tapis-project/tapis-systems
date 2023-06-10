@@ -1,6 +1,5 @@
 package edu.utexas.tacc.tapis.systems.api.requests;
 
-import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;

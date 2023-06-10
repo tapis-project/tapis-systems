@@ -29,6 +29,8 @@ import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_NOTES;
+import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.DEFAULT_INPUT_MODE;
 
 /*
  * Utilities and data for integration testing
@@ -149,21 +151,22 @@ public final class IntegrationUtils
   public static final JsonObject notesObj2 = (JsonObject) notes2;
   public static final Object notesNull = null;
   public static final List<KeyValuePair> jobEnvVariables1 =
-          new ArrayList<>(List.of(new KeyValuePair("a1","b1"),
-                                  new KeyValuePair("HOME","/home/testuser1"),
-                                  new KeyValuePair("TMP","/tmp1", "my keyvalue pair"),
+          new ArrayList<>(List.of(new KeyValuePair("a1","b1", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                                  new KeyValuePair("HOME","/home/testuser1", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                                  new KeyValuePair("TMP","/tmp1", "my keyvalue pair", DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                   new KeyValuePair("TMP1a","/tmp1a", "my keyvalue pair1a", KeyValuePair.KeyValueInputMode.FIXED, notesObj1)));
   public static final List<KeyValuePair> jobEnvVariables2 =
-          new ArrayList<>(List.of(new KeyValuePair("a2","b2", "my 2nd key-value pair"),
-                                  new KeyValuePair("HOME","/home/testuser2"),
-                                 new KeyValuePair("TMP","/tmp2"),
+          new ArrayList<>(List.of(new KeyValuePair("a2","b2", "my 2nd key-value pair", DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                                  new KeyValuePair("HOME","/home/testuser2", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                                 new KeyValuePair("TMP","/tmp2", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                   new KeyValuePair("TMP2a","/tmp2a", "my keyvalue pair2a", KeyValuePair.KeyValueInputMode.REQUIRED, notesObj2)));
   public static final List<KeyValuePair> jobEnvVariables3 =
-          new ArrayList<>(List.of(new KeyValuePair("a3","b3"),
-                  new KeyValuePair("HOME","/home/testuser3", "third one"),
+          new ArrayList<>(List.of(new KeyValuePair("a3","b3", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                  new KeyValuePair("HOME","/home/testuser3", "third one", DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                   new KeyValuePair("TMP","/tmp3",
-                          "Send money. Stop. 3rd tmp kv pair with longer description just to test things out. Stop."),
-                  new KeyValuePair("TMP2","/tmp3a")));
+                          "Send money. Stop. 3rd tmp kv pair with longer description just to test things out. Stop.",
+                          DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                  new KeyValuePair("TMP2","/tmp3a", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES)));
   public static final List<KeyValuePair> jobEnvVariablesNull = null;
   public static final SchedulerType batchSchedulerNull = null;
   public static final String queueNameNull = null;

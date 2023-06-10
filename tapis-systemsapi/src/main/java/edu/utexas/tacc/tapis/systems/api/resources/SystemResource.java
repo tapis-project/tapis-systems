@@ -33,7 +33,7 @@ import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPostChildSystem;
-import edu.utexas.tacc.tapis.systems.model.UnlinkInfo;
+import edu.utexas.tacc.tapis.systems.model.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -67,15 +67,12 @@ import edu.utexas.tacc.tapis.sharedapi.responses.RespChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespResourceUrl;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultResourceUrl;
-import edu.utexas.tacc.tapis.systems.model.PatchSystem;
-import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPostSystem;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPutSystem;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystem;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystemHistory;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystems;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 
@@ -510,6 +507,12 @@ public class SystemResource {
     // Notes require special handling. Else they end up as a LinkedTreeMap which causes trouble when attempting to
     // convert to a JsonObject.
     patchSystem.setNotes(extractNotes(rawJson));
+
+    // If needed process request to create list of job env variables with proper defaults.
+    if (patchSystem.getJobEnvVariables() != null)
+    {
+      patchSystem.setJobEnvVariables(processJobEnvVariables(patchSystem.getJobEnvVariables()));
+    }
 
     // No attributes are required. Constraints validated and defaults filled in on server side.
     // No secrets in PatchSystem so no need to scrub
@@ -1417,12 +1420,14 @@ public class SystemResource {
   {
     // Extract Notes from the raw json.
     Object notes = extractNotes(rawJson);
+    // Process request to create list of job env variables with proper defaults.
+    List<KeyValuePair> jobEnvVariables = processJobEnvVariables(req.jobEnvVariables);
 
     var tSystem = new TSystem(-1, tenantId, req.id, req.description, req.systemType, req.owner, req.host,
                        req.enabled, req.effectiveUserId, req.defaultAuthnMethod, req.bucketName, req.rootDir,
                        req.port, req.useProxy, req.proxyHost, req.proxyPort,
                        req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, req.isDtn,
-                       req.canExec, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs,
+                       req.canExec, req.jobRuntimes, req.jobWorkingDir, jobEnvVariables, req.jobMaxJobs,
                        req.jobMaxJobsPerUser, req.canRunBatch, req.enableCmdPrefix, req.mpiCmd, req.batchScheduler,
                        req.batchLogicalQueues, req.batchDefaultLogicalQueue, req.batchSchedulerProfile, req.jobCapabilities,
                        req.tags, notes, req.importRefId, null, false,
@@ -1438,6 +1443,8 @@ public class SystemResource {
   {
     // Extract Notes from the raw json.
     Object notes = extractNotes(rawJson);
+    // Process request to create list of job env variables with proper defaults.
+    List<KeyValuePair> jobEnvVariables = processJobEnvVariables(req.jobEnvVariables);
 
     // NOTE: Following attributes are not updatable and must be filled in on service side.
     TSystem.SystemType systemTypeNull = null;
@@ -1451,7 +1458,7 @@ public class SystemResource {
             enabledTrue, req.effectiveUserId, req.defaultAuthnMethod, bucketNameNull, rootDirNull,
             req.port, req.useProxy, req.proxyHost, req.proxyPort,
             req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, isDtnFalse,
-            canExecTrue, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
+            canExecTrue, req.jobRuntimes, req.jobWorkingDir, jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
             req.canRunBatch, req.enableCmdPrefix, req.mpiCmd, req.batchScheduler, req.batchLogicalQueues, req.batchDefaultLogicalQueue,
             req.batchSchedulerProfile, req.jobCapabilities, req.tags, notes, req.importRefId, null, false,
             req.allowChildren, req.parentId, null, null);
@@ -1524,7 +1531,7 @@ public class SystemResource {
     return null;
   }
 
-  /**
+  /*
    * Extract notes from the incoming json
    * This explicit method to extract is needed because notes is an unstructured object and other seemingly simpler
    * approaches caused problems with the json marshalling. This method ensures notes end up as a JsonObject rather
@@ -1540,6 +1547,23 @@ public class SystemResource {
     if (!topObj.has(NOTES_FIELD)) return notes;
     notes = topObj.getAsJsonObject(NOTES_FIELD);
     return notes;
+  }
+
+  /*
+   * Process jobEnvVariables from request to create list of job env variables with proper defaults.
+   */
+  private static List<KeyValuePair> processJobEnvVariables(List<KeyValuePair> requestEnvVars)
+  {
+    var envVars = new ArrayList<KeyValuePair>();
+    // If no items return an empty list
+    if (requestEnvVars == null || requestEnvVars.isEmpty()) return envVars;
+
+    // Process each item. Constructor will set appropriate defaults
+    for (KeyValuePair kv : requestEnvVars)
+    {
+      envVars.add(new KeyValuePair(kv.getKey(), kv.getValue(), kv.getDescription(), kv.getInputMode(), kv.getNotes()));
+    }
+    return envVars;
   }
 
   /**
