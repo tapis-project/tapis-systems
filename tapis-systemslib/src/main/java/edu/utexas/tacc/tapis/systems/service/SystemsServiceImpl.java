@@ -14,6 +14,7 @@ import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 
+import edu.utexas.tacc.tapis.systems.model.*;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -61,14 +62,7 @@ import edu.utexas.tacc.tapis.systems.client.gen.model.TapisSystem;
 import edu.utexas.tacc.tapis.systems.client.gen.model.SystemTypeEnum;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
-import edu.utexas.tacc.tapis.systems.model.Credential;
-import edu.utexas.tacc.tapis.systems.model.GlobusAuthInfo;
-import edu.utexas.tacc.tapis.systems.model.PatchSystem;
-import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile.SchedulerProfileOperation;
-import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
-import edu.utexas.tacc.tapis.systems.model.SystemShare;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
@@ -381,10 +375,10 @@ public class SystemsServiceImpl implements SystemsService
                                    String childRootDir, String childOwner, boolean enabled, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException {
     String sharedAppCtxGrantor = null;
-    String impoersonationId = null;
+    String impersonationId = null;
     String resourceTenant = null;
 
-    TSystem system = getSystem(rUser, systemId, null, false, false, impoersonationId, sharedAppCtxGrantor, resourceTenant);
+    TSystem system = getSystem(rUser, systemId, null, false, false, impersonationId, sharedAppCtxGrantor, resourceTenant);
     if(!system.isAllowChildren()) {
       throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_CHILDREN_NOT_PERMITTED", rUser, systemId));
     }
@@ -451,6 +445,14 @@ public class SystemsServiceImpl implements SystemsService
         String msg = LibUtils.getMsgAuth("SYSLIB_ERROR_HAS_CHILDREN", rUser);
         throw new IllegalStateException(msg);
       }
+    }
+
+    // If needed, create list of job env variables with proper defaults.
+    // Note that because this is a patch DO NOT fill in with non-null unless it is in the request.
+    // We rely on null to indicate it was not in the call to patch, method createPatchedTSystem
+    if (patchSystem.getJobEnvVariables() != null)
+    {
+      patchSystem.setJobEnvVariables(TSystem.processJobEnvVariables(patchSystem.getJobEnvVariables()));
     }
 
     // Retrieve the system being patched and create fully populated TSystem with changes merged in

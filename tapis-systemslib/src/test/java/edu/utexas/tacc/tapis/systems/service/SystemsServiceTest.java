@@ -391,6 +391,7 @@ public class SystemsServiceTest
     // Retrieve system as owner, without and with requireExecPerm
     TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull);
     checkCommonSysAttrs(sys0, tmpSys);
+    checkEnvVarDefaults(tmpSys);
     tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, true, false, null, sharedCtxNull, resourceTenantNull);
     checkCommonSysAttrs(sys0, tmpSys);
     // Retrieve the system including the credential using the default authn method defined for the system

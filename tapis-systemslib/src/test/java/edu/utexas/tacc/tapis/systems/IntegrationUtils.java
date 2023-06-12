@@ -150,11 +150,17 @@ public final class IntegrationUtils
   public static final JsonObject notesObj1 = (JsonObject) notes1;
   public static final JsonObject notesObj2 = (JsonObject) notes2;
   public static final Object notesNull = null;
+
+  // Two keyValue pairs for checking defaults. Use default constructor to simulate behavior of jax-rs
+  public static final KeyValuePair kvDefault1 = new KeyValuePair();
+  public static final KeyValuePair kvDefault2 = new KeyValuePair("CHK_DEFAULT",null, null, KeyValuePair.KeyValueInputMode.REQUIRED, null);
+
   public static final List<KeyValuePair> jobEnvVariables1 =
-          new ArrayList<>(List.of(new KeyValuePair("a1","b1", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+          new ArrayList<>(List.of(new KeyValuePair("A1","b1", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                                   new KeyValuePair("HOME","/home/testuser1", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                                   new KeyValuePair("TMP","/tmp1", "my keyvalue pair", DEFAULT_INPUT_MODE, DEFAULT_NOTES),
-                  new KeyValuePair("TMP1a","/tmp1a", "my keyvalue pair1a", KeyValuePair.KeyValueInputMode.FIXED, notesObj1)));
+                  new KeyValuePair("TMP1a","/tmp1a", "my keyvalue pair1a", KeyValuePair.KeyValueInputMode.FIXED, notesObj1),
+                  kvDefault1, kvDefault2));
   public static final List<KeyValuePair> jobEnvVariables2 =
           new ArrayList<>(List.of(new KeyValuePair("a2","b2", "my 2nd key-value pair", DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                                   new KeyValuePair("HOME","/home/testuser2", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
@@ -555,6 +561,24 @@ public final class IntegrationUtils
   {
     String suffix = key + "_" + String.format("%03d", idx);
     return schedProfileNamePrefix + "_" + suffix;
+  }
+
+  /**
+   * Check that KeyValuePair value was set to !tapis_not_set when inputMode was REQUIRED and no value was given.
+   * NOTE: This only tests correct behavior of KeyValuePair constructors. Still not a direct test of going through
+   *       jax-rs framework
+   */
+  public static void checkEnvVarDefaults(TSystem sys)
+  {
+    var jobEnvVars = sys.getJobEnvVariables();
+    Assert.assertNotNull(jobEnvVars, "JobEnvVars is null");
+    Assert.assertFalse(jobEnvVars.isEmpty(), "JobEnvVars is empty");
+    // Look for env var named CHECK
+    for (KeyValuePair kv : jobEnvVars)
+    {
+      if ("CHK_DEFAULT".equals(kv.getKey()))
+        Assert.assertEquals(kv.getValue(), "!tapis_not_set");
+    }
   }
 
   // Verify that original list of KeyValuePairs matches the fetched list

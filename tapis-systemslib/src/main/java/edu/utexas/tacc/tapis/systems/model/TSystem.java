@@ -451,6 +451,8 @@ public final class TSystem
     {
       setBatchDefaultLogicalQueue(getBatchLogicalQueues().get(0).getName());
     }
+    // Process request to create list of job env variables with proper defaults.
+    setJobEnvVariables(processJobEnvVariables(jobEnvVariables));
   }
   /**
    * Resolve variables for TSystem attributes
@@ -502,6 +504,23 @@ public final class TSystem
    */
   public static boolean isValidId(String id) { return id.matches(PATTERN_STR_VALID_ID); }
 
+  /*
+   * Process jobEnvVariables from request to create list of job env variables with proper defaults.
+   */
+  public static List<KeyValuePair> processJobEnvVariables(List<KeyValuePair> requestEnvVars)
+  {
+    var envVars = new ArrayList<KeyValuePair>();
+    // If no items return an empty list
+    if (requestEnvVars == null || requestEnvVars.isEmpty()) return envVars;
+
+    // Process each item. Constructor will set appropriate defaults
+    for (KeyValuePair kv : requestEnvVars)
+    {
+      envVars.add(new KeyValuePair(kv.getKey(), kv.getValue(), kv.getDescription(), kv.getInputMode(), kv.getNotes()));
+    }
+    return envVars;
+  }
+
   // ************************************************************************
   // *********************** Private methods *********************************
   // ************************************************************************
@@ -522,9 +541,6 @@ public final class TSystem
    * Check for invalid attributes
    *   systemId, host
    *   For LINUX or IRODS rootDir must start with /
-   *TODO Will need some HOST_EVAL handling for parent-child support
-   *TODO/TBD   For LINUX or IRODS rootDir must start with / or HOST_EVAL
-   *TODO/TBD   If rootDir uses HOST_EVAL then system type must be LINUX
    */
   private void checkAttrValidity(List<String> errMessages)
   {
@@ -537,13 +553,6 @@ public final class TSystem
     {
       if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/"))
         errMessages.add(LibUtils.getMsg("SYSLIB_LINUX_ROOTDIR_NOSLASH", rootDir));
-//TODO Will need some HOST_EVAL handling for parent-child support
-//TODO/TBD      if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/")  && !rootDir.startsWith(HOST_EVAL))
-//TODO/TBD        errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NOSLASH", systemType.name(), rootDir));
-//TODO/TBD    }
-//TODO/TBD    if (!SystemType.LINUX.equals(systemType) && rootDir.contains(HOST_EVAL))
-//TODO/TBD    {
-//TODO/TBD      errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NO_HOST_EVAL", systemType.name(), rootDir));
     }
   }
 
@@ -704,7 +713,6 @@ public final class TSystem
    * Check misc attribute restrictions
    *  If systemType is LINUX or IRODS then:
    *           - rootDir is required
-   * TODO/TBD           - if rootDir contains HOST_EVAL then it must meet certain criteria
    *  If systemType is IRODS then port is required.
    *  effectiveUserId is restricted.
    *  If effectiveUserId is dynamic then providing credentials is disallowed
@@ -717,24 +725,6 @@ public final class TSystem
     {
       errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR", systemType.name()));
     }
-//TODO/TBD    // LINUX and IRODS systems require rootDir and if dynamic must meet certain criteria
-//TODO/TBD    if (systemType == SystemType.LINUX || systemType == SystemType.IRODS)
-//TODO/TBD    {
-//TODO/TBD      if (StringUtils.isBlank(rootDir)) errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR", systemType.name()));
-//TODO/TBD      // If rootDir contains HOST_EVAL then must have only 1 occurrence of HOST_EVAL,
-//TODO/TBD      //    and it must follow a certain pattern: "HOST_EVAL($variable)"
-//TODO/TBD      if (rootDir != null && rootDir.contains(HOST_EVAL))
-//TODO/TBD      {
-//TODO/TBD        if (StringUtils.countMatches(rootDir, HOST_EVAL) != 1)
-//TODO/TBD        {
-//TODO/TBD          errMessages.add(LibUtils.getMsg("SYSLIB_HOSTEVAL_MULTIPLE", rootDir));
-//TODO/TBD        }
-//TODO/TBD        if (!rootDir.matches(PATTERN_STR_HOST_EVAL))
-//TODO/TBD        {
-//TODO/TBD          errMessages.add(LibUtils.getMsg("SYSLIB_HOSTEVAL_ERR", rootDir));
-//TODO/TBD        }
-//TODO/TBD      }
-//TODO/TBD    }
 
     // IRODS systems require port
     if (systemType == SystemType.IRODS && !isValidPort(port))
