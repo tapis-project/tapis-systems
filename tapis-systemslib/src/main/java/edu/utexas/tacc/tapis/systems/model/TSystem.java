@@ -14,8 +14,9 @@ import org.apache.commons.validator.routines.DomainValidator;
 import org.apache.commons.validator.routines.InetAddressValidator;
 
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
-import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.KeyValueInputMode.FIXED;
+import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.VALUE_NOT_SET;
 
 /*
  * Tapis System representing a server or collection of servers exposed through a
@@ -56,7 +57,6 @@ public final class TSystem
   public static final String EFFUSERID_VAR = String.format("${%s}", EFFUSERID_STR);
   public static final String OWNER_VAR = "${owner}";
   public static final String TENANT_VAR = "${tenant}";
-  public static final String HOST_EVAL = "HOST_EVAL";
 
   private static final String[] ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
   private static final String[] ROOTDIR_VARS = {OWNER_VAR, TENANT_VAR};
@@ -717,6 +717,7 @@ public final class TSystem
    *  effectiveUserId is restricted.
    *  If effectiveUserId is dynamic then providing credentials is disallowed
    *  If credential is provided and contains ssh keys then validate them
+   *  If jobEnvVariables set then check that if inputMode=FIXED then value != "!tapis_not_set"
    */
   private void checkAttrMisc(List<String> errMessages)
   {
@@ -753,6 +754,18 @@ public final class TSystem
     {
       if (!authnCredential.isValidPrivateSshKey())
         errMessages.add(LibUtils.getMsg("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1"));
+    }
+
+    // Check for inputMode=FIXED and value == "!tapis_not_set"
+    if (jobEnvVariables != null)
+    {
+      for (KeyValuePair kv : jobEnvVariables)
+      {
+        if (FIXED.equals(kv.getInputMode()) && VALUE_NOT_SET.equals(kv.getValue()))
+        {
+          errMessages.add(LibUtils.getMsg("SYSLIB_ENV_VAR_FIXED_UNSET", kv.getKey(), kv.getValue()));
+        }
+      }
     }
   }
 
