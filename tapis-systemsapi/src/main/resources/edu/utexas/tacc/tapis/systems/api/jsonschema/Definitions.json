@@ -28,7 +28,7 @@
       "key": { "type": "string", "minLength": 1 },
       "value": { "type": ["string", "null"], "default": "" },
       "description": { "type": ["string", "null"], "default": "", "maxLength": 2048 },
-      "inputMode": { "$ref": "#/ArgInputModeEnum" },
+      "inputMode": { "$ref": "#/KeyValueInputModeEnum" },
       "notes": { "type": "object" }
     }
   },
@@ -97,5 +97,5 @@
     }
   },
   "SchedulerHiddenOptionEnum": { "type": "string", "enum": ["MEM"] },
-  "ArgInputModeEnum": { "type": "string", "enum": [ "REQUIRED", "FIXED", "INCLUDE_ON_DEMAND", "INCLUDE_BY_DEFAULT" ], "default": "INCLUDE_BY_DEFAULT" }
+  "KeyValueInputModeEnum": { "type": "string", "enum": [ "REQUIRED", "FIXED", "INCLUDE_ON_DEMAND", "INCLUDE_BY_DEFAULT" ], "default": "INCLUDE_BY_DEFAULT" }
 }
