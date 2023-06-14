@@ -173,6 +173,8 @@ public final class IntegrationUtils
                           "Send money. Stop. 3rd tmp kv pair with longer description just to test things out. Stop.",
                           DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                   new KeyValuePair("TMP2","/tmp3a", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES)));
+  public static final List<KeyValuePair> jobEnvVariablesReject =
+          List.of(new KeyValuePair("rejectMe", KeyValuePair.VALUE_NOT_SET, null, KeyValuePair.KeyValueInputMode.FIXED, null));
   public static final List<KeyValuePair> jobEnvVariablesNull = null;
   public static final SchedulerType batchSchedulerNull = null;
   public static final String queueNameNull = null;
