@@ -21,6 +21,7 @@ public final class KeyValuePair
   // ************************************************************************
   public static final KeyValueInputMode DEFAULT_INPUT_MODE = KeyValueInputMode.INCLUDE_BY_DEFAULT;
   public static final String VALUE_NOT_SET = "!tapis_not_set";
+  public static final String RESERVED_PREFIX= "_tapis";
 
   // ************************************************************************
   // *********************** Enums ******************************************

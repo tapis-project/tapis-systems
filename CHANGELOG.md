@@ -10,12 +10,12 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.3.4 - 2023-06-12
+## 1.3.4 - 2023-06-14
 
 Incremental improvements and new features.
 
 ### Breaking changes:
-- None
+- Environment variables beginning with *_tapis* may not be used in *jobEnvVariables*. This is to match Jobs service behavior.
 
 ### New features:
 - Add notes and inputMode attributes to items in jobEnvVariables.
