@@ -391,6 +391,7 @@ public class SystemsServiceTest
     // Retrieve system as owner, without and with requireExecPerm
     TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull);
     checkCommonSysAttrs(sys0, tmpSys);
+    checkEnvVarDefaults(tmpSys);
     tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, true, false, null, sharedCtxNull, resourceTenantNull);
     checkCommonSysAttrs(sys0, tmpSys);
     // Retrieve the system including the credential using the default authn method defined for the system
@@ -1009,6 +1010,7 @@ public class SystemsServiceTest
   // - If effectiveUserId is dynamic then providing credentials is disallowed
   // - If credential is provided and contains ssh keys then validate them
   // - SchedulerProfile must exist
+  // - envVariables contains a FIXED entry then value cannot be !tapis_not_set
   @Test
   public void testCreateInvalidMiscFail()
   {
@@ -1024,6 +1026,7 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
+    // Reset in prep for continued checking
     sys0.setJobWorkingDir(tmpJobWorkingDir);
     pass = false;
     sys0.setJobRuntimes(null);
@@ -1034,6 +1037,7 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
+    // Reset in prep for continued checking
     sys0.setJobRuntimes(jobRuntimes1);
 
     // If canRunBatch is true
@@ -1047,6 +1051,7 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
+    // Reset in prep for continued checking
     sys0.setBatchScheduler(batchScheduler1);
 
     // If systemType is LINUX then rootDir is required.
@@ -1059,6 +1064,7 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
+    // Reset in prep for continued checking
     sys0.setRootDir(rootDir1);
     pass = false;
     sys0.setRootDir("");
@@ -1069,6 +1075,7 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
+    // Reset in prep for continued checking
     sys0.setRootDir(rootDir1);
 
     // SchedulerProfile must exist.
@@ -1081,7 +1088,23 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
+    // Reset in prep for continued checking
     sys0.setBatchSchedulerProfile(batchSchedulerProfile1);
+
+    // If envVariables contains a FIXED entry then value cannot be !tapis_not_set
+    var tmpJobEnvVars = sys0.getJobEnvVariables();
+    sys0.setJobEnvVariables(jobEnvVariablesReject);
+    pass = false;
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_ENV_VAR_FIXED_UNSET"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    // Reset in prep for continued checking
+    sys0.setJobEnvVariables(tmpJobEnvVars);
+
   }
 
   // Test creating, reading and deleting user permissions for a system

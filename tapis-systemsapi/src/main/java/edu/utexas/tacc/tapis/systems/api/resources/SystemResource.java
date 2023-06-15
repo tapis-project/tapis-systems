@@ -33,7 +33,7 @@ import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPostChildSystem;
-import edu.utexas.tacc.tapis.systems.model.UnlinkInfo;
+import edu.utexas.tacc.tapis.systems.model.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -67,15 +67,12 @@ import edu.utexas.tacc.tapis.sharedapi.responses.RespChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.RespResourceUrl;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultResourceUrl;
-import edu.utexas.tacc.tapis.systems.model.PatchSystem;
-import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPostSystem;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPutSystem;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystem;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystemHistory;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystems;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 
@@ -1417,7 +1414,6 @@ public class SystemResource {
   {
     // Extract Notes from the raw json.
     Object notes = extractNotes(rawJson);
-
     var tSystem = new TSystem(-1, tenantId, req.id, req.description, req.systemType, req.owner, req.host,
                        req.enabled, req.effectiveUserId, req.defaultAuthnMethod, req.bucketName, req.rootDir,
                        req.port, req.useProxy, req.proxyHost, req.proxyPort,
@@ -1438,7 +1434,6 @@ public class SystemResource {
   {
     // Extract Notes from the raw json.
     Object notes = extractNotes(rawJson);
-
     // NOTE: Following attributes are not updatable and must be filled in on service side.
     TSystem.SystemType systemTypeNull = null;
     String ownerNull = null;
@@ -1524,7 +1519,7 @@ public class SystemResource {
     return null;
   }
 
-  /**
+  /*
    * Extract notes from the incoming json
    * This explicit method to extract is needed because notes is an unstructured object and other seemingly simpler
    * approaches caused problems with the json marshalling. This method ensures notes end up as a JsonObject rather

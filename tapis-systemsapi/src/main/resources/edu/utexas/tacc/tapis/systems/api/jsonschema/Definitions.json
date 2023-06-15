@@ -27,7 +27,9 @@
     "properties": {
       "key": { "type": "string", "minLength": 1 },
       "value": { "type": ["string", "null"], "default": "" },
-      "description": { "type": ["string", "null"], "default": "", "maxLength": 2048 }
+      "description": { "type": ["string", "null"], "default": "", "maxLength": 2048 },
+      "inputMode": { "$ref": "#/KeyValueInputModeEnum" },
+      "notes": { "type": "object" }
     }
   },
   "LogicalQueue": {
@@ -94,5 +96,6 @@
       "certificate": { "type":  "string" }
     }
   },
-  "SchedulerHiddenOptionEnum": { "type": "string", "enum": ["MEM"] }
+  "SchedulerHiddenOptionEnum": { "type": "string", "enum": ["MEM"] },
+  "KeyValueInputModeEnum": { "type": "string", "enum": [ "REQUIRED", "FIXED", "INCLUDE_ON_DEMAND", "INCLUDE_BY_DEFAULT" ], "default": "INCLUDE_BY_DEFAULT" }
 }

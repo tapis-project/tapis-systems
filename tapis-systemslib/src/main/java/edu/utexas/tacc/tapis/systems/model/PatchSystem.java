@@ -10,6 +10,9 @@ import java.util.List;
  * Fields set to null indicate attribute not updated.
  *
  * Make defensive copies as needed on get/set to keep this class as immutable as possible.
+ *
+ * Allow notes and jobEnvVariables to be set because these fields require special handling when
+ *   object is being created based on a jax-rs request.
  */
 public final class PatchSystem
 {
@@ -32,7 +35,7 @@ public final class PatchSystem
   private final String mpiCmd;
   private final List<JobRuntime> jobRuntimes;
   private final String jobWorkingDir;
-  private final List<KeyValuePair> jobEnvVariables;
+  private List<KeyValuePair> jobEnvVariables;
   private final Integer jobMaxJobs;
   private final Integer jobMaxJobsPerUser;
   private final SchedulerType batchScheduler;
@@ -126,6 +129,7 @@ public final class PatchSystem
   public List<KeyValuePair> getJobEnvVariables() {
     return (jobEnvVariables == null) ? null : new ArrayList<>(jobEnvVariables);
   }
+  public void setJobEnvVariables(List<KeyValuePair> jev) { jobEnvVariables = jev; }
 
   public Integer getJobMaxJobs() { return jobMaxJobs; }
 

@@ -29,6 +29,8 @@ import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_NOTES;
+import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.DEFAULT_INPUT_MODE;
 
 /*
  * Utilities and data for integration testing
@@ -143,20 +145,36 @@ public final class IntegrationUtils
   public static final String batchSchedulerProfile2 = "schedProfile2";
   public static final String batchSchedulerProfileNull = null;
   public static final String noSuchSchedulerProfile = "noSuchSchedulerProfile";
+  public static final Object notes1 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj1\", \"testdata\": \"abc 1\"}", JsonObject.class);
+  public static final Object notes2 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj2\", \"testdata\": \"abc 2\"}", JsonObject.class);
+  public static final JsonObject notesObj1 = (JsonObject) notes1;
+  public static final JsonObject notesObj2 = (JsonObject) notes2;
+  public static final Object notesNull = null;
+
+  // Two keyValue pairs for checking defaults. Use default constructor to simulate behavior of jax-rs
+  public static final KeyValuePair kvDefault1 = new KeyValuePair();
+  public static final KeyValuePair kvDefault2 = new KeyValuePair("CHK_DEFAULT",null, null, KeyValuePair.KeyValueInputMode.REQUIRED, null);
+
   public static final List<KeyValuePair> jobEnvVariables1 =
-          new ArrayList<>(List.of(new KeyValuePair("a1","b1", null),
-                                  new KeyValuePair("HOME","/home/testuser1", ""),
-                                  new KeyValuePair("TMP","/tmp1", "my keyvalue pair")));
+          new ArrayList<>(List.of(new KeyValuePair("A1","b1", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                                  new KeyValuePair("HOME","/home/testuser1", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                                  new KeyValuePair("TMP","/tmp1", "my keyvalue pair", DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                  new KeyValuePair("TMP1a","/tmp1a", "my keyvalue pair1a", KeyValuePair.KeyValueInputMode.FIXED, notesObj1),
+                  kvDefault1, kvDefault2));
   public static final List<KeyValuePair> jobEnvVariables2 =
-          new ArrayList<>(List.of(new KeyValuePair("a2","b2", "my 2nd key-value pair"),
-                                  new KeyValuePair("HOME","/home/testuser2", null),
-                                 new KeyValuePair("TMP","/tmp2")));
+          new ArrayList<>(List.of(new KeyValuePair("a2","b2", "my 2nd key-value pair", DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                                  new KeyValuePair("HOME","/home/testuser2", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                                 new KeyValuePair("TMP","/tmp2", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                  new KeyValuePair("TMP2a","/tmp2a", "my keyvalue pair2a", KeyValuePair.KeyValueInputMode.REQUIRED, notesObj2)));
   public static final List<KeyValuePair> jobEnvVariables3 =
-          new ArrayList<>(List.of(new KeyValuePair("a3","b3"),
-                  new KeyValuePair("HOME","/home/testuser3", "third one"),
+          new ArrayList<>(List.of(new KeyValuePair("a3","b3", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                  new KeyValuePair("HOME","/home/testuser3", "third one", DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                   new KeyValuePair("TMP","/tmp3",
-                          "Send money. Stop. 3rd tmp kv pair with longer description just to test things out. Stop."),
-                  new KeyValuePair("TMP2","/tmp3a")));
+                          "Send money. Stop. 3rd tmp kv pair with longer description just to test things out. Stop.",
+                          DEFAULT_INPUT_MODE, DEFAULT_NOTES),
+                  new KeyValuePair("TMP2","/tmp3a", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES)));
+  public static final List<KeyValuePair> jobEnvVariablesReject =
+          List.of(new KeyValuePair("rejectMe", KeyValuePair.VALUE_NOT_SET, null, KeyValuePair.KeyValueInputMode.FIXED, null));
   public static final List<KeyValuePair> jobEnvVariablesNull = null;
   public static final SchedulerType batchSchedulerNull = null;
   public static final String queueNameNull = null;
@@ -184,10 +202,6 @@ public final class IntegrationUtils
   public static final String[] tags2 = {"value4", "value5"};
   public static final String[] tags3 = {tagVal1};
   public static final String[] tagsNull = null;
-  public static final Object notes1 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj1\", \"testdata\": \"abc 1\"}", JsonObject.class);
-  public static final Object notes2 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj2\", \"testdata\": \"abc 2\"}", JsonObject.class);
-  public static final JsonObject notesObj1 = (JsonObject) notes1;
-  public static final Object notesNull = null;
 
   public static final String importRefId1 = "https://exmpale.com/import_ref_id1";
   public static final String importRefId2 = "import_ref_id2";
@@ -549,6 +563,24 @@ public final class IntegrationUtils
   {
     String suffix = key + "_" + String.format("%03d", idx);
     return schedProfileNamePrefix + "_" + suffix;
+  }
+
+  /**
+   * Check that KeyValuePair value was set to !tapis_not_set when inputMode was REQUIRED and no value was given.
+   * NOTE: This only tests correct behavior of KeyValuePair constructors. Still not a direct test of going through
+   *       jax-rs framework
+   */
+  public static void checkEnvVarDefaults(TSystem sys)
+  {
+    var jobEnvVars = sys.getJobEnvVariables();
+    Assert.assertNotNull(jobEnvVars, "JobEnvVars is null");
+    Assert.assertFalse(jobEnvVars.isEmpty(), "JobEnvVars is empty");
+    // Look for env var named CHECK
+    for (KeyValuePair kv : jobEnvVars)
+    {
+      if ("CHK_DEFAULT".equals(kv.getKey()))
+        Assert.assertEquals(kv.getValue(), "!tapis_not_set");
+    }
   }
 
   // Verify that original list of KeyValuePairs matches the fetched list
