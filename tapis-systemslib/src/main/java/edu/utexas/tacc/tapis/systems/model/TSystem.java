@@ -16,6 +16,7 @@ import org.apache.commons.validator.routines.InetAddressValidator;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.KeyValueInputMode.FIXED;
+import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.KeyValueInputMode.REQUIRED;
 import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.RESERVED_PREFIX;
 import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.VALUE_NOT_SET;
 
@@ -718,7 +719,7 @@ public final class TSystem
    *  effectiveUserId is restricted.
    *  If effectiveUserId is dynamic then providing credentials is disallowed
    *  If credential is provided and contains ssh keys then validate them
-   *  If jobEnvVariables set then check that if inputMode=FIXED then value != "!tapis_not_set"
+   *  If jobEnvVariables set then check them (see below for restrictions)
    */
   private void checkAttrMisc(List<String> errMessages)
   {
@@ -758,6 +759,7 @@ public final class TSystem
     }
 
     // Check for inputMode=FIXED and value == "!tapis_not_set"
+    // Check for inputMode=REQUIRED and value != "!tapis_not_set"
     // Check for variables that begin with "_tapis". This is not allowed. Jobs will not accept them.
     if (jobEnvVariables != null)
     {
@@ -766,6 +768,10 @@ public final class TSystem
         if (FIXED.equals(kv.getInputMode()) && VALUE_NOT_SET.equals(kv.getValue()))
         {
           errMessages.add(LibUtils.getMsg("SYSLIB_ENV_VAR_FIXED_UNSET", kv.getKey(), kv.getValue()));
+        }
+        else if (REQUIRED.equals(kv.getInputMode()) && !VALUE_NOT_SET.equals(kv.getValue()))
+        {
+          errMessages.add(LibUtils.getMsg("SYSLIB_ENV_VAR_REQUIRED_SET", kv.getKey(), kv.getValue()));
         }
         if (StringUtils.startsWith(kv.getKey(), RESERVED_PREFIX))
         {

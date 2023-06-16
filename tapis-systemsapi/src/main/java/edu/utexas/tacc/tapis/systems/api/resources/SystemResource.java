@@ -32,8 +32,6 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 
-import edu.utexas.tacc.tapis.systems.api.requests.ReqPostChildSystem;
-import edu.utexas.tacc.tapis.systems.model.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -68,13 +66,15 @@ import edu.utexas.tacc.tapis.sharedapi.responses.RespResourceUrl;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultChangeCount;
 import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultResourceUrl;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPostSystem;
+import edu.utexas.tacc.tapis.systems.api.requests.ReqPostChildSystem;
 import edu.utexas.tacc.tapis.systems.api.requests.ReqPutSystem;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystem;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystemHistory;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystems;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
-import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
+import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
+import edu.utexas.tacc.tapis.systems.model.*;
 
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_EXEC_FIELD;
@@ -106,8 +106,6 @@ public class SystemResource {
   private static final Logger _log = LoggerFactory.getLogger(SystemResource.class);
 
   private static final String SYSTEMS_SVC = StringUtils.capitalize(TapisConstants.SERVICE_NAME_SYSTEMS);
-
-//  private static final String CHILD_PATH = "<parentId>/children/<childId>";
 
   // Json schema resource files.
   private static final String FILE_SYSTEM_CREATE_REQUEST = "/edu/utexas/tacc/tapis/systems/api/jsonschema/SystemPostRequest.json";
@@ -247,7 +245,7 @@ public class SystemResource {
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
     // Create validator specification and validate the json against the schema
     JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, FILE_SYSTEM_CREATE_REQUEST);
@@ -256,7 +254,7 @@ public class SystemResource {
     {
       msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
     // ------------------------- Create a TSystem from the json and validate constraints -------------------------
     ReqPostSystem req;
@@ -265,7 +263,7 @@ public class SystemResource {
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
     // If req is null that is an unrecoverable error
     if (req == null)
@@ -316,7 +314,7 @@ public class SystemResource {
         // IllegalStateException indicates an Invalid TSystem was passed in
         msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, systemId, e.getMessage());
         _log.error(msg);
-        throw new BadRequestException(msg);
+        throw new BadRequestException(msg, e);
       }
     }
     catch (IllegalArgumentException e)
@@ -324,7 +322,7 @@ public class SystemResource {
       // IllegalArgumentException indicates somehow a bad argument made it this far
       msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, systemId, e.getMessage());
       _log.error(msg);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -390,7 +388,7 @@ public class SystemResource {
     } catch (Exception e) {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
 
     // Create validator specification and validate the json against the schema
@@ -400,7 +398,7 @@ public class SystemResource {
     } catch (TapisJSONException e) {
       msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
 
     ReqPostChildSystem childSystemRequest;
@@ -409,7 +407,7 @@ public class SystemResource {
     } catch (JsonSyntaxException e) {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
 
     // ---------------------------- Make service call -------------------------------
@@ -426,7 +424,7 @@ public class SystemResource {
       // IllegalStateException indicates an Invalid TSystem was passed in
       msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, systemId, e.getMessage());
       _log.error(msg);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
 
     ResultResourceUrl respUrl = new ResultResourceUrl();
@@ -480,8 +478,9 @@ public class SystemResource {
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
+
     // Create validator specification and validate the json against the schema
     JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, jsonValidationFile);
     try { JsonValidator.validate(spec); }
@@ -489,7 +488,7 @@ public class SystemResource {
     {
       msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
 
     // ------------------------- Create a PatchSystem from the json and validate constraints -------------------------
@@ -499,7 +498,7 @@ public class SystemResource {
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
 
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_PATCH_TRACE", rUser, rawJson));
@@ -521,14 +520,14 @@ public class SystemResource {
       // IllegalStateException indicates an Invalid PatchSystem was passed in
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
     catch (IllegalArgumentException e)
     {
       // IllegalArgumentException indicates somehow a bad argument made it this far
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -610,7 +609,7 @@ public class SystemResource {
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
     // Create validator specification and validate the json against the schema
     // NOTE that CREATE and PUT are very similar schemas.
@@ -621,7 +620,7 @@ public class SystemResource {
     {
       msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
 
     // ------------------------- Create a System from the json and validate constraints -------------------------
@@ -631,7 +630,7 @@ public class SystemResource {
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
     // If req is null that is an unrecoverable error
     if (req == null)
@@ -664,14 +663,14 @@ public class SystemResource {
       // IllegalStateException indicates an Invalid PutSystem was passed in
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
     catch (IllegalArgumentException e)
     {
       // IllegalArgumentException indicates somehow a bad argument made it this far
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -880,7 +879,7 @@ public class SystemResource {
     {
       String msg = ApiUtils.getMsgAuth("SYSAPI_ACCMETHOD_ENUM_ERROR", rUser, systemId, authnMethodStr, e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
 
     List<String> selectList = threadContext.getSearchParameters().getSelectList();
@@ -1004,7 +1003,7 @@ public class SystemResource {
     {
       String msg = ApiUtils.getMsgAuth("SYSAPI_SEARCH_ERROR", rUser, e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
 
     // ThreadContext designed to never return null for SearchParameters
@@ -1073,7 +1072,7 @@ public class SystemResource {
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
     // Create validator specification and validate the json against the schema
     JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, FILE_SYSTEM_SEARCH_REQUEST);
@@ -1082,7 +1081,7 @@ public class SystemResource {
     {
       msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
 
     // Construct final SQL-like search string using the json
@@ -1097,7 +1096,7 @@ public class SystemResource {
     {
       msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
       _log.error(msg, e);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
 
     // ThreadContext designed to never return null for SearchParameters
@@ -1160,7 +1159,7 @@ public class SystemResource {
 //    {
 //      msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName , e.getMessage());
 //      _log.error(msg, e);
-//      throw new BadRequestException(msg);
+//      throw new BadRequestException(msg, e);
 //    }
 //    // Create validator specification and validate the json against the schema
 //    JsonValidatorSpec spec = new JsonValidatorSpec(rawJson, FILE_SYSTEM_MATCH_REQUEST);
@@ -1169,7 +1168,7 @@ public class SystemResource {
 //    {
 //      msg = MsgUtils.getMsg(JSON_VALIDATION_ERR, e.getMessage());
 //      _log.error(msg, e);
-//      throw new BadRequestException(msg);
+//      throw new BadRequestException(msg, e);
 //    }
 //
 //    // Construct final SQL-like search string using the json
@@ -1184,7 +1183,7 @@ public class SystemResource {
 //    {
 //      msg = MsgUtils.getMsg(INVALID_JSON_INPUT, opName, e.getMessage());
 //      _log.error(msg, e);
-//      throw new BadRequestException(msg);
+//      throw new BadRequestException(msg, e);
 //    }
 //
 //    // ------------------------- Retrieve records -----------------------------
@@ -1378,14 +1377,14 @@ public class SystemResource {
       // IllegalStateException indicates an Invalid PatchSystem was passed in
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
     catch (IllegalArgumentException e)
     {
       // IllegalArgumentException indicates somehow a bad argument made it this far
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(msg, e);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
