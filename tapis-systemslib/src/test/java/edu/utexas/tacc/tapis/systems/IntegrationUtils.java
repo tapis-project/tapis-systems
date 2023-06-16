@@ -165,7 +165,7 @@ public final class IntegrationUtils
           new ArrayList<>(List.of(new KeyValuePair("a2","b2", "my 2nd key-value pair", DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                                   new KeyValuePair("HOME","/home/testuser2", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                                  new KeyValuePair("TMP","/tmp2", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
-                  new KeyValuePair("TMP2a","/tmp2a", "my keyvalue pair2a", KeyValuePair.KeyValueInputMode.REQUIRED, notesObj2)));
+                  new KeyValuePair("TMP2a",null, "my keyvalue pair2a", KeyValuePair.KeyValueInputMode.REQUIRED, notesObj2)));
   public static final List<KeyValuePair> jobEnvVariables3 =
           new ArrayList<>(List.of(new KeyValuePair("a3","b3", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                   new KeyValuePair("HOME","/home/testuser3", "third one", DEFAULT_INPUT_MODE, DEFAULT_NOTES),
