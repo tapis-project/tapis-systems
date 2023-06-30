@@ -90,7 +90,6 @@ public final class IntegrationUtils
   public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "scblack";
   public static final String TAPIS_TEST_S3_BUCKET = "smoketest";
 
-
   public static final String sysNamePrefix = "TestSys";
   public static final String schedProfileNamePrefix = "TestSchedProfile";
   public static final String description1 = "System description 1";
@@ -329,9 +328,10 @@ public final class IntegrationUtils
    */
   public static TSystem makeDtnSystem1(String key)
   {
-    String dtnSystemName1 = sysNamePrefix+key+dtnSystemId1;
+    // Start ID with a number to validate the update that allows for IDs starting with a number.
+    String dtnSystemName1 = "1" +sysNamePrefix+key+dtnSystemId1;
 
-    // Create DTN systems for other systems to reference. Otherwise some system definitions are not valid.
+    // Create DTN systems for other systems to reference. Otherwise, some system definitions are not valid.
     return new TSystem(-1, tenantName, dtnSystemName1 , "DTN System1 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn1", prot1.getAuthnMethod(), "bucketDtn1", "/root/dtn1",
             prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
@@ -374,7 +374,7 @@ public final class IntegrationUtils
   public static TSystem[] makeSystems(int n, String key)
   {
     TSystem[] systems = new TSystem[n];
-    String dtnSystemName1 = sysNamePrefix+key+dtnSystemId1;
+    String dtnSystemName1 = "1" + sysNamePrefix+key+dtnSystemId1;
     String dtnSystemName2 = sysNamePrefix+key+dtnSystemId2;
 
     // Create DTN systems for other systems to reference. Otherwise, some system definitions are not valid.

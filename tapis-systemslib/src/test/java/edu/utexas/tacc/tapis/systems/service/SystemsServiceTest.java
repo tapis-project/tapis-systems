@@ -167,7 +167,7 @@ public class SystemsServiceTest
     // Cleanup anything leftover from previous failed run
     tearDown();
 
-    // Create DTN systems for other systems to reference. Otherwise some system definitions are not valid.
+    // Create DTN systems for other systems to reference. Otherwise, some system definitions are not valid.
     svc.createSystem(rOwner1, dtnSystem1, skipCredCheckTrue, rawDataEmptyJson);
     svc.createSystem(rOwner1, dtnSystem2, skipCredCheckTrue, rawDataEmptyJson);
 
@@ -485,7 +485,7 @@ public class SystemsServiceTest
     sys0.setUseProxy(prot2.isUseProxy());
     sys0.setProxyHost(prot2.getProxyHost());
     sys0.setProxyPort(prot2.getProxyPort());
-    sys0.setDtnSystemId(sysNamePrefix+ testKey +dtnSystemId2);
+    sys0.setDtnSystemId(sysNamePrefix + testKey + dtnSystemId2);
     sys0.setDtnMountPoint(dtnMountPoint2);
     sys0.setDtnMountSourcePath(dtnMountSourcePath2);
     sys0.setMpiCmd(mpiCmd2);
