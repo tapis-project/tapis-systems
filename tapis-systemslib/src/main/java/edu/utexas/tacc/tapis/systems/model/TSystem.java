@@ -132,8 +132,8 @@ public final class TSystem
   public static final boolean DEFAULT_CHILD_ENABLED = true;
 
   // Validation pattern strings
-  // ID Must start alphabetic and contain only alphanumeric and 4 special characters: - . _ ~
-  public static final String PATTERN_STR_VALID_ID = "^[a-zA-Z]([a-zA-Z0-9]|[-\\._~])*";
+  // ID Must start alphanumeric and contain only alphanumeric and 4 special characters: - . _ ~
+  public static final String PATTERN_STR_VALID_ID = "^[a-zA-Z0-9]([a-zA-Z0-9]|[-\\._~])*";
 
   // If rootDir contains HOST_EVAL then rootDir must match a certain pattern at start: "HOST_EVAL($VARIABLE)...
   // Web search indicates for linux, env var names should start with single alpha/underscore followed by 0 or more alphanum/underscore

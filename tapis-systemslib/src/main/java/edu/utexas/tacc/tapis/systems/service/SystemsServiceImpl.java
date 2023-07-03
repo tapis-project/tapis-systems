@@ -1885,19 +1885,12 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // ---------------- Fetch credentials ------------------------
-    // Determine targetUser for fetching credential.
-    //   If static use effectiveUserId, else use oboUser
-    String credTargetUser;
-    if (isStaticEffectiveUser)
-      credTargetUser = system.getEffectiveUserId();
-    else
-      credTargetUser = oboUser;
     // Use private internal method instead of public API to skip auth and other checks not needed here.
-    Credential cred = getCredential(rUser, system, credTargetUser, authnMethod, isStaticEffectiveUser, null);
+    Credential cred = getCredential(rUser, system, targetUser, authnMethod, isStaticEffectiveUser, null);
     if (cred == null)
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op, systemId, system.getSystemType(),
-                                       credTargetUser, authnMethod.name());
+                                       targetUser, authnMethod.name());
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
     // ---------------- Verify credentials using defaultAuthnMethod --------------------

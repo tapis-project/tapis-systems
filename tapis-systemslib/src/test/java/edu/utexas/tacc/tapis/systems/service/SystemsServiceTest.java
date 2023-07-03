@@ -167,7 +167,7 @@ public class SystemsServiceTest
     // Cleanup anything leftover from previous failed run
     tearDown();
 
-    // Create DTN systems for other systems to reference. Otherwise some system definitions are not valid.
+    // Create DTN systems for other systems to reference. Otherwise, some system definitions are not valid.
     svc.createSystem(rOwner1, dtnSystem1, skipCredCheckTrue, rawDataEmptyJson);
     svc.createSystem(rOwner1, dtnSystem2, skipCredCheckTrue, rawDataEmptyJson);
 
@@ -308,7 +308,9 @@ public class SystemsServiceTest
     checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PASSWORD);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
 
+    // Negative tests
     // Check with different authnMethod. Should throw NotAuthorized
+    boolean pass = false;
     try
     {
       checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PKI_KEYS);
@@ -318,7 +320,24 @@ public class SystemsServiceTest
     {
       String msg = e.getMessage();
       Assert.assertTrue(msg.contains("SYSLIB_CRED_NOT_FOUND"));
+      pass = true;
     }
+    Assert.assertTrue(pass);
+
+    // Check that check for non-existent user with no credentials fails.
+    pass = false;
+    try
+    {
+      checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), "testuser_99999999_no_such_user", null);
+      Assert.fail("System checkUserCredential call should have thrown an exception when user and credentials do not exist");
+    }
+    catch (Exception e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_CRED_NOT_FOUND"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
   }
 
   // Test credential verification for S3 - local ceph server
@@ -466,7 +485,7 @@ public class SystemsServiceTest
     sys0.setUseProxy(prot2.isUseProxy());
     sys0.setProxyHost(prot2.getProxyHost());
     sys0.setProxyPort(prot2.getProxyPort());
-    sys0.setDtnSystemId(sysNamePrefix+ testKey +dtnSystemId2);
+    sys0.setDtnSystemId(sysNamePrefix + testKey + dtnSystemId2);
     sys0.setDtnMountPoint(dtnMountPoint2);
     sys0.setDtnMountSourcePath(dtnMountSourcePath2);
     sys0.setMpiCmd(mpiCmd2);
@@ -1446,8 +1465,7 @@ public class SystemsServiceTest
     Assert.assertEquals(cred0.getPassword(), cred1.getPassword());
 
     // Initially user testUser5 should not be able to set a cred.
-    boolean pass;
-    pass = false;
+    boolean pass = false;
     try { svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson); }
     catch (ForbiddenException e)
     {
