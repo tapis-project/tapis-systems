@@ -144,6 +144,10 @@ public class SystemsServiceImpl implements SystemsService
   private static final Set<String> publicUserSet = Collections.singleton(SKClient.PUBLIC_GRANTEE); // "~public"
   private static final String SYS_SHR_TYPE = "system";
 
+  // Connection timeouts for SKClient
+  private static final int SK_READ_TIMEOUT_MS = 20000;
+  private static final int SK_CONN_TIMEOUT_MS = 20000;
+
   // ************************************************************************
   // *********************** Enums ******************************************
   // ************************************************************************
@@ -2432,6 +2436,8 @@ public class SystemsServiceImpl implements SystemsService
       String msg = LibUtils.getMsgAuth("SYSLIB_SVC_CLIENT_NULL", rUser, TapisConstants.SERVICE_NAME_SECURITY, oboTenant, oboUser);
       throw new TapisException(msg);
     }
+    skClient.setReadTimeout(SK_READ_TIMEOUT_MS);
+    skClient.setConnectTimeout(SK_CONN_TIMEOUT_MS);
     return skClient;
   }
 
