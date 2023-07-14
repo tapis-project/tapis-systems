@@ -101,6 +101,7 @@ public final class TSystem
   public static final String BATCH_DEFAULT_LOGICAL_QUEUE_FIELD = "batchDefaultLogicalQueue";
   public static final String BATCH_SCHEDULER_PROFILE_FIELD = "batchSchedulerProfile";
   public static final String JOB_CAPABILITIES_FIELD = "jobCapabilities";
+  public static final String SHARED_WITH_USERS_FIELD = "sharedWithUsers";
   public static final String TAGS_FIELD = "tags";
   public static final String NOTES_FIELD = "notes";
   public static final String PARENT_ID = "parentId";
@@ -175,6 +176,7 @@ public final class TSystem
 
   private boolean isPublic = DEFAULT_IS_PUBLIC;
   private boolean isDynamicEffectiveUser = DEFAULT_IS_DYNAMIC_EFFECTIVE_USER;
+  private Set<String> sharedWithUsers;
 
   // NOTE: In order to use jersey's SelectableEntityFilteringFeature fields cannot be final.
   private int seqId;         // Unique database sequence number
@@ -959,6 +961,8 @@ public final class TSystem
   public void setIsPublic(boolean b) { isPublic = b;  }
   public boolean isDynamicEffectiveUser() { return isDynamicEffectiveUser; }
   public void setIsDynamicEffectiveUser(boolean b) { isDynamicEffectiveUser = b;  }
+  public void setSharedWithUsers(Set<String> s) { sharedWithUsers = (s == null) ? null : new HashSet<>(s); }
+  public Set<String> getSharedWithUsers() { return (sharedWithUsers == null) ? null : new HashSet<>(sharedWithUsers); }
   public String getParentId() {
     return parentId;
   }
