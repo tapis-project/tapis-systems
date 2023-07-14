@@ -2,6 +2,7 @@ package edu.utexas.tacc.tapis.systems.api.responses.results;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -38,6 +39,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.IMPORT_REF_ID;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_DTN_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_DYNAMIC_EFFECTIVE_USER;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_PUBLIC_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.SHARED_WITH_USERS_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_CAPABILITIES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_ENV_VARIABLES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_RUN_BATCH_FIELD;
@@ -71,6 +73,7 @@ public final class TapisSystemDTO
 
   public boolean isPublic;
   public boolean isDynamicEffectiveUser;
+  public Set<String> sharedWithUsers;
 
   public String tenant;
   public String id;
@@ -166,6 +169,7 @@ public final class TapisSystemDTO
     if (jobMaxJobsPerUser < 0) jobMaxJobsPerUser = Integer.MAX_VALUE;
     isPublic = s.isPublic();
     isDynamicEffectiveUser = s.isDynamicEffectiveUser();
+    sharedWithUsers = s.getSharedWithUsers();
     allowChildren = s.isAllowChildren();
     parentId = s.getParentId();
   }
@@ -277,6 +281,7 @@ public final class TapisSystemDTO
       case UPDATED_FIELD -> jsonObject.addProperty(UPDATED_FIELD, updated.toString());
       case IS_PUBLIC_FIELD -> jsonObject.addProperty(IS_PUBLIC_FIELD, Boolean.toString(isPublic));
       case IS_DYNAMIC_EFFECTIVE_USER -> jsonObject.addProperty(IS_DYNAMIC_EFFECTIVE_USER, Boolean.toString(isDynamicEffectiveUser));
+      case SHARED_WITH_USERS_FIELD -> jsonObject.add(SHARED_WITH_USERS_FIELD, gson.toJsonTree(sharedWithUsers));
       case ALLOW_CHILDREN -> jsonObject.addProperty(ALLOW_CHILDREN, Boolean.toString(allowChildren));
       case PARENT_ID -> jsonObject.addProperty(PARENT_ID, parentId);
     }

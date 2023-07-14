@@ -79,8 +79,6 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFUSERID_VAR;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.PATTERN_STR_HOST_EVAL;
 
 /*
  * Service level methods for Systems.
@@ -369,8 +367,10 @@ public class SystemsServiceImpl implements SystemsService
       }
       throw e0;
     }
-    // Update dynamically computed flags.
-    system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), systemId));
+    // Update dynamically computed info.
+    SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), systemId);
+    system.setIsPublic(systemShare.isPublic());
+    system.setSharedWithUsers(systemShare.getUserList());
     system.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
     return system;
   }
@@ -425,7 +425,8 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public void patchSystem(ResourceRequestUser rUser, String systemId, PatchSystem patchSystem, String rawData)
-          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException {
+          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException
+  {
     SystemOperation op = SystemOperation.modify;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (patchSystem == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
@@ -619,8 +620,10 @@ public class SystemsServiceImpl implements SystemsService
     // ------------------- Make Dao call to update the system -----------------------------------
     dao.putSystem(rUser, updatedTSystem, updateJsonStr, rawData);
 
-    // Update dynamically computed flags.
-    putSystem.setIsPublic(isSystemSharedPublic(rUser, putSystem.getTenant(), systemId));
+    // Update dynamically computed info.
+    SystemShare systemShare = getSystemShareInfo(rUser, putSystem.getTenant(), systemId);
+    putSystem.setIsPublic(systemShare.isPublic());
+    putSystem.setSharedWithUsers(systemShare.getUserList());
     putSystem.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
     return updatedTSystem;
   }
@@ -1161,8 +1164,10 @@ public class SystemsServiceImpl implements SystemsService
       system.setAuthnCredential(cred);
     }
 
-    // Update dynamically computed flags.
-    system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), systemId));
+    // Update dynamically computed info.
+    SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), systemId);
+    system.setIsPublic(systemShare.isPublic());
+    system.setSharedWithUsers(systemShare.getUserList());
     system.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
     return system;
   }
@@ -1308,11 +1313,12 @@ public class SystemsServiceImpl implements SystemsService
     // Get all allowed systems matching the search conditions
     List<TSystem> systems = dao.getSystems(rUser, verifiedSearchList, null,  limit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
-
-    // Update dynamically computed flags and resolve effUser as needed.
+    // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
     {
-      system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), system.getId()));
+      SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), system.getId());
+      system.setIsPublic(systemShare.isPublic());
+      system.setSharedWithUsers(systemShare.getUserList());
       system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
       system.setEffectiveUserId(resolveEffectiveUserId(system, rUser.getOboUserId()));
     }
@@ -1393,10 +1399,13 @@ public class SystemsServiceImpl implements SystemsService
     // Get all allowed systems matching the search conditions
     List<TSystem> systems = dao.getSystems(rUser, null, searchAST, limit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
-    // Update dynamically computed flags and resolve effUser as needed.
+    // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
     {
-      system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), system.getId()));
+      SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), system.getId());
+      system.setIsPublic(systemShare.isPublic());
+      system.setSharedWithUsers(systemShare.getUserList());
+      system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
       system.setEffectiveUserId(resolveEffectiveUserId(system, rUser.getOboUserId()));
     }
     return systems;
@@ -1433,10 +1442,12 @@ public class SystemsServiceImpl implements SystemsService
     // Get all allowed systems matching the constraint conditions
     List<TSystem> systems = dao.getSystemsSatisfyingConstraints(rUser.getOboTenantId(), matchAST, allowedSysIDs);
 
-    // Update dynamically computed flags and resolve effUser as needed.
+    // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
     {
-      system.setIsPublic(isSystemSharedPublic(rUser, system.getTenant(), system.getId()));
+      SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), system.getId());
+      system.setIsPublic(systemShare.isPublic());
+      system.setSharedWithUsers(systemShare.getUserList());
       system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
       system.setEffectiveUserId(resolveEffectiveUserId(system, rUser.getOboUserId()));
     }
@@ -2238,33 +2249,9 @@ public class SystemsServiceImpl implements SystemsService
 
     checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet);
 
-    // Create SKShareGetSharesParms needed for SK calls.
-    var skParms = new SKShareGetSharesParms();
-    skParms.setResourceType(SYS_SHR_TYPE);
-    skParms.setTenant(system.getTenant());
-    skParms.setResourceId1(systemId);
-
-    var userSet = new HashSet<String>();
-    
-    // First determine if system is publicly shared. Search for share to grantee ~public
-    skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
-    var skShares = getSKClient(rUser).getShares(skParms);
-    // Set isPublic based on result.
-    boolean isPublic = (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
-    // Now get all the users with whom the system has been shared
-    skParms.setGrantee(null);
-    skParms.setIncludePublicGrantees(false);
-    skShares = getSKClient(rUser).getShares(skParms);
-    if (skShares != null && skShares.getShares() != null)
-    {
-      for (SkShare skShare : skShares.getShares())
-      {
-        userSet.add(skShare.getGrantee());
-      }
-    }
-
-    var shareInfo = new SystemShare(isPublic, userSet);
-    return shareInfo;
+    // Get the SystemShare object
+    SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), systemId);
+    return systemShare;
   }
   
   /**
@@ -2577,74 +2564,6 @@ public class SystemsServiceImpl implements SystemsService
     return (!StringUtils.isBlank(loginUser)) ? loginUser : tapisUser;
   }
 
-  /*
-   * Determine if rootDir is dynamic.
-   * Dynamic if it contains the pattern HOST_EVAL($variable) or the string "${effectiveUserId}"
-   */
-  private static boolean isRootDirDynamic(String rootDir)
-  {
-    if (StringUtils.isBlank(rootDir)) return false;
-// TODO/TBD: remove EFFUSERID_VAR. Once we support dynamic rootDir as a one-time step when creating child via parent-child support
-//           allowing for $effectiveUserId in a dynamic rootDir seems not very useful. Seems reasonable/preferable to have users
-//           supply the actual effective user at create time.
-    return rootDir.matches(PATTERN_STR_HOST_EVAL) || rootDir.contains(EFFUSERID_VAR);
-  }
-
-// TODO: Update when dynamic rootDir is supported via parent-child.
-//  /**
-//   * Determine the resolved rootDir for static and dynamic cases.
-//   * Resolving rootDir may involve remote call to system host, so do that only if needed
-//   * If HOST_EVAL is present, call will be made to system host, credentials will be fetched.
-//   *
-//   * @param rUser - ResourceRequestUser containing tenant, user and request info
-//   * @param system - the system in question
-//   * @param impersonationId - use provided Tapis username instead of oboUser when resolving effectiveUserId
-//   * @param resolvedEffectiveUser - host login user
-//   * @param isStaticEffectiveUser -
-//   * @return Resolved value for rootDir
-//   */
-//  private String resolveRootDir(ResourceRequestUser rUser, TSystem system, String impersonationId, String resolvedEffectiveUser,
-//                                boolean isStaticEffectiveUser)
-//          throws TapisException
-//  {
-//    String rootDir = system.getRootDir();
-//    String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
-//    boolean rootDirIsDynamic = isRootDirDynamic(rootDir);
-//
-//    // If not dynamic we are done.
-//    if (StringUtils.isBlank(rootDir) || !rootDirIsDynamic) return rootDir;
-//
-//    Credential cred = null;
-//    // If necessary fetch the credentials
-//    if (rootDir.matches(PATTERN_STR_HOST_EVAL))
-//    {
-//      // Determine targetUser for fetching credential.
-//      //   If static use effectiveUserId, else use oboOrImpersonatedUser
-//      String credTargetUser;
-//      if (isStaticEffectiveUser)
-//        credTargetUser = system.getEffectiveUserId();
-//      else
-//        credTargetUser = oboOrImpersonatedUser;
-//      // Use private internal method instead of public API to skip auth and other checks not needed here.
-//      cred = getCredential(rUser, system, credTargetUser, system.getDefaultAuthnMethod(), isStaticEffectiveUser);
-//    }
-//
-//    // MacroResolver requires a TapisSystem, so create a partially filled in TapisSystem from the TSystem
-//    TapisSystem tapisSystem = createTapisSystemFromTSystem(system, cred);
-//    // Make sure TapisSystem has correct host login user. It is possible for effUser to still be unresolved.
-//    tapisSystem.setEffectiveUserId(resolvedEffectiveUser);
-//
-//    // Create list of macros: effectiveUserId
-//    var macros = new TreeMap<String,String>();
-//    macros.put(EFFUSERID_STR, resolvedEffectiveUser);
-//
-//    // Resolve HOST_EVAL and other macros
-//    MacroResolver macroResolver = new MacroResolver(tapisSystem, macros);
-//    String resolvedRootDir = macroResolver.resolve(rootDir);
-//    String normalizedRootDir = PathUtils.getRelativePath(resolvedRootDir).toString();
-//    return normalizedRootDir;
-//  }
-
   /**
    * Build a client based TapisSystem from a TSystem for use by MacroResolver and other shared code.
    * Need to fill in credentials and authn method if HOST_EVAL needs evaluation
@@ -2678,6 +2597,7 @@ public class SystemsServiceImpl implements SystemsService
     tapisSystem.setDtnMountPoint(s.getDtnMountPoint());
     tapisSystem.setDtnMountSourcePath(s.getDtnMountSourcePath());
     tapisSystem.setIsPublic(s.isPublic());
+    if (s.getSharedWithUsers() != null) tapisSystem.setSharedWithUsers(new ArrayList<>(s.getSharedWithUsers()));
     tapisSystem.setIsDtn(s.isDtn());
     tapisSystem.setCanExec(s.getCanExec());
 //    tapisSystem.setJobRuntimes(s.getJobRuntimes());
@@ -3806,6 +3726,40 @@ public class SystemsServiceImpl implements SystemsService
     skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
     var skShares = getSKClient(rUser).getShares(skParms);
     return (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
+  }
+
+  /*
+   * Get system share info
+   */
+  private SystemShare getSystemShareInfo(ResourceRequestUser rUser, String tenant, String sysId)
+          throws TapisException, TapisClientException
+  {
+    // Create SKShareGetSharesParms needed for SK calls.
+    var skParms = new SKShareGetSharesParms();
+    skParms.setResourceType(SYS_SHR_TYPE);
+    skParms.setTenant(tenant);
+    skParms.setResourceId1(sysId);
+
+    // First determine if system is publicly shared. Search for share to grantee ~public
+    skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
+    var skShares = getSKClient(rUser).getShares(skParms);
+    // Set isPublic based on result.
+    boolean isPublic = (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
+
+    // Now get all the users with whom the system has been shared
+    var userSet = new HashSet<String>();
+    skParms.setGrantee(null);
+    skParms.setIncludePublicGrantees(false);
+    skShares = getSKClient(rUser).getShares(skParms);
+    if (skShares != null && skShares.getShares() != null)
+    {
+      for (SkShare skShare : skShares.getShares())
+      {
+        userSet.add(skShare.getGrantee());
+      }
+    }
+    var shareInfo = new SystemShare(isPublic, userSet);
+    return shareInfo;
   }
 
   /*
