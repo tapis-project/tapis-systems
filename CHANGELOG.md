@@ -10,6 +10,17 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.4.1 - 2023-??-??
+
+Incremental improvements and new features.
+
+### New features:
+- Add computed attribute sharedWithUsers to be included when a system is fetched.
+
+### Bug fixes:
+- None
+
+---------------------------------------------------------------------------
 ## 1.4.0 - 2023-07-07
 
 Incremental improvements and bug fix.
