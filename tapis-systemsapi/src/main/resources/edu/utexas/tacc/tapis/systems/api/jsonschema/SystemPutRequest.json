@@ -54,6 +54,7 @@
     "notes": { "type": "object" },
     "importRefId": { "type": ["string", "null"] },
     "isPublic": { "type": "boolean" },
+    "sharedWithUsers": { "type": "array", "items": { "type":  "string" } },
     "allowChildren": { "type": "boolean" },
     "isDynamicEffectiveUser": { "type": "boolean" },
     "tenant": { "type":  "string" },
