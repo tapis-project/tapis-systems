@@ -116,7 +116,7 @@ public class MatchConstraintsDaoTest
                        "System not deleted. System name: " + systems[0].getId());
   }
 
-  /*TODO
+  /*TBD
    * Check valid cases
    */
   @Test(groups={"integration"}, enabled = false)
@@ -131,11 +131,11 @@ public class MatchConstraintsDaoTest
     class CaseData {public final int count; public final String sqlMatchStr; CaseData(int c, String s) { count = c; sqlMatchStr = s; }}
     var validCaseInputs = new HashMap<Integer, CaseData>();
     // Test basic types and operators
-    // TODO ASTParser does not like the "." in the middle of the attribute name. Modify parser to support the "." ?
+    // TBD ASTParser does not like the "." in the middle of the attribute name. Modify parser to support the "." ?
     //      use ~ instead? No, parser also barfs with ~. check parser details. Looks like $ should work
-// TODO    validCaseInputs.put( 1,new CaseData(numSystems/2, "Scheduler.Type = Slurm"));
+// TBD    validCaseInputs.put( 1,new CaseData(numSystems/2, "Scheduler.Type = Slurm"));
 
-    // TODO: Comparison with values not yet implemented, but call does consider category$name such
+    // TBD: Comparison with values not yet implemented, but call does consider category$name such
     //       that only systems that might possibly match are returned
     //       So, for example, for case 1 only half the systems have Scheduler$Type
     //       and for case 2 all systems have either Scheduler$Type or Scheduler$Type
@@ -160,8 +160,8 @@ public class MatchConstraintsDaoTest
 //    validCaseInputs.put(16,new CaseData(1, "name LIKE " + sq(sys0Name)));
 //    validCaseInputs.put(17,new CaseData(0, "name LIKE 'NOSUCHSYSTEMxFM2c29bc8RpKWeE2sht7aZrJzQf3s'"));
 //    validCaseInputs.put(18,new CaseData(numSystems, "name LIKE " + sysNameLikeAll));
-//    validCaseInputs.put(19,new CaseData(numSystems-1, "name LIKE " + sysNameLikeAll + " AND name NLIKE " + sys0Name)); // TODO support NLIKE
-//    validCaseInputs.put(20,new CaseData(1, "name LIKE " + sysNameLikeAll + " AND name IN " + nameList)); // TODO
+//    validCaseInputs.put(19,new CaseData(numSystems-1, "name LIKE " + sysNameLikeAll + " AND name NLIKE " + sys0Name)); // TBD support NLIKE
+//    validCaseInputs.put(20,new CaseData(1, "name LIKE " + sysNameLikeAll + " AND name IN " + nameList)); // TBD
 //    validCaseInputs.put(21,new CaseData(numSystems-1, "name LIKE " + sysNameLikeAll, "name.nin." + nameList));
 //    validCaseInputs.put(22,new CaseData(numSystems, "name LIKE " + sysNameLikeAll, "system_type = LINUX"));
 //    validCaseInputs.put(23,new CaseData(numSystems/2, "name LIKE " + sysNameLikeAll, "system_type = LINUX","owner <> " + sq(ownerUser2)));
@@ -223,7 +223,7 @@ public class MatchConstraintsDaoTest
       int caseNum = item.getKey();
       System.out.println("Checking case # " + caseNum + " Input:        " + cd.sqlMatchStr);
       // Build an AST from the sql-like match string
-      // TODO
+      // TBD
       ASTNode matchAST = ASTParser.parse(cd.sqlMatchStr);
       System.out.println("  Created AST with leaf node count: " + matchAST.countLeaves());
       List<TSystem> matchResults = dao.getSystemsSatisfyingConstraints(tenantName, matchAST, allowedIDs);
