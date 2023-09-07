@@ -432,8 +432,8 @@ public class LibUtils
     cEntry.put("PrivateKey", cred.getPrivateKey());
     cEntry.put("AccessKey", cred.getAccessKey());
     cEntry.put("AccessSecret", cred.getAccessSecret());
-//    cEntry.put("AccessToken", cred.getAccessToken()); //TODO Globus
-//    cEntry.put("RefreshToken", cred.getRefreshToken());
+    cEntry.put("AccessToken", cred.getAccessToken());
+    cEntry.put("RefreshToken", cred.getRefreshToken());
     cEntry.put("Certificate", cred.getCertificate());
     o.put("Credential", oCred);
     return o.toString();
@@ -502,7 +502,6 @@ public class LibUtils
   public static void addChange(JSONObject jo, String field, String[] o, String[] n)
   {
     var jo1 = new JSONObject();
-    // TODO/TBD how does this look?
     jo1.put("oldValue", o);
     jo1.put("newValue", n);
     jo.put(field, jo1);
@@ -520,7 +519,6 @@ public class LibUtils
   public static void addChange(JSONObject jo, String field, List<?> o, List<?> n)
   {
     var jo1 = new JSONObject();
-    // TODO/TBD how does this look?
     jo1.put("oldValue", o);
     jo1.put("newValue", n);
     jo.put(field, jo1);

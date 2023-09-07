@@ -1548,7 +1548,7 @@ public class SystemsDaoImpl implements SystemsDao
     // Select only those systems satisfying the constraints
     for (TSystem sys : systemsList)
     {
-// TODO      if (systemMatchesConstraints(sys, matchAST)) retList.add(sys);
+// TBD      if (systemMatchesConstraints(sys, matchAST)) retList.add(sys);
       retList.add(sys);
     }
     return retList;
@@ -2772,7 +2772,7 @@ public class SystemsDaoImpl implements SystemsDao
     List<TSystem> retList = new ArrayList<>();
     if (allowedIDs == null || allowedIDs.isEmpty()) return retList;
 
-// TODO    // Begin where condition for the query
+// TBD    // Begin where condition for the query
 //    Condition whereCondition = (SYSTEMS.TENANT.eq(tenantId)).and(SYSTEMS.DELETED.eq(false));
 //
 //    Field catCol = CAPABILITIES.CATEGORY;
@@ -2789,7 +2789,7 @@ public class SystemsDaoImpl implements SystemsDao
 //    }
 //    whereCondition = whereCondition.and(newCondition1);
 //
-//    // TODO: Work out raw SQL, copy it here and translate it into jOOQ.
+//    // TBD: Work out raw SQL, copy it here and translate it into jOOQ.
 //    /*
 //     * --  select S.id,S.name as s_name, C.id as c_id, C.category,C.name,C.value from systems as S
 //     * select S.* from systems as S

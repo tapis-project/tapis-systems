@@ -3118,17 +3118,14 @@ public class SystemsServiceImpl implements SystemsService
     // Resolve effectiveUserId if necessary. This becomes the target user for perm and cred
     String resolvedEffectiveUserId = resolveEffectiveUserId(system, rUser.getOboUserId());
 
-    // Consider using a notification instead(jira cic-3071)
+    // NOTE: Consider using a notification instead(jira cic-3071)
     // Remove files perm for owner and possibly effectiveUser
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
     getSKClient(rUser).revokeUserPermission(oboTenant, system.getOwner(), filesPermSpec);
     if (!effectiveUserId.equals(APIUSERID_VAR))
       getSKClient(rUser).revokeUserPermission(oboTenant, resolvedEffectiveUserId, filesPermSpec);;
 
-    // Remove credentials associated with the system.
-    // NOTE: Have SK do this in one operation?
-    // TODO: How to remove for users other than effectiveUserId?
-    // Remove credentials in Security Kernel if effectiveUser is static
+    // Remove credentials associated with the system if system has a static effectiveUserId
     if (!effectiveUserId.equals(APIUSERID_VAR)) {
       // Use private internal method instead of public API to skip auth and other checks not needed here.
       deleteCredential(rUser, system.getId(), resolvedEffectiveUserId, true);
