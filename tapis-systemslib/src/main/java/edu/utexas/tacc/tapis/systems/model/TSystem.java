@@ -10,8 +10,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.validator.routines.DomainValidator;
-import org.apache.commons.validator.routines.InetAddressValidator;
 
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
@@ -112,6 +110,7 @@ public final class TSystem
   public static final String UPDATED_FIELD = "updated";
 
   // Default values
+  public static final String DEFAULT_ROOTDIR = "";
   public static final String[] EMPTY_STR_ARRAY = new String[0];
   public static final String DEFAULT_OWNER = APIUSERID_VAR;
   public static final boolean DEFAULT_ENABLED = true;
@@ -135,11 +134,6 @@ public final class TSystem
   // Validation pattern strings
   // ID Must start alphanumeric and contain only alphanumeric and 4 special characters: - . _ ~
   public static final String PATTERN_STR_VALID_ID = "^[a-zA-Z0-9]([a-zA-Z0-9]|[-\\._~])*";
-
-  // If rootDir contains HOST_EVAL then rootDir must match a certain pattern at start: "HOST_EVAL($VARIABLE)...
-  // Web search indicates for linux, env var names should start with single alpha/underscore followed by 0 or more alphanum/underscore
-  // Must start with "HOST_EVAL($", followed by 1 alpha/underscore followed by 0 or more alphanum/underscore followed by ")"
-  public static final String PATTERN_STR_HOST_EVAL = "^HOST_EVAL\\(\\$[a-zA-Z_]+([a-zA-Z0-9_])*\\)(.*)";
 
   // Validation constants
   public static final Integer MAX_ID_LEN = 80;
@@ -191,7 +185,7 @@ public final class TSystem
   private AuthnMethod defaultAuthnMethod; // How access authorization is handled by default
   private Credential authnCredential; // Credential to be stored in or retrieved from the Security Kernel
   private String bucketName; // Name of bucket for system of type S3
-  private String rootDir;    // Effective root directory for system of type LINUX, can also be used for system of type S3
+  private String rootDir = DEFAULT_ROOTDIR; // Effective root directory
   private int port;          // Port number used to access the system
   private boolean useProxy;  // Indicates if a system should be accessed through a proxy
   private String proxyHost;  // Name or IP address of proxy host
@@ -348,7 +342,7 @@ public final class TSystem
     effectiveUserId = effectiveUserId1;
     defaultAuthnMethod = defaultAuthnMethod1;
     bucketName = bucketName1;
-    rootDir = rootDir1;
+    rootDir = (rootDir1 == null) ? DEFAULT_ROOTDIR : rootDir1;
     port = port1;
     useProxy = useProxy1;
     proxyHost = proxyHost1;
@@ -550,13 +544,12 @@ public final class TSystem
   {
     if (!StringUtils.isBlank(id) && !isValidId(id)) errMessages.add(LibUtils.getMsg(INVALID_STR_ATTR, ID_FIELD, id));
 
-    if (!StringUtils.isBlank(host) && !isValidHost(host))
-      errMessages.add(LibUtils.getMsg(INVALID_STR_ATTR, HOST_FIELD, host));
-
     if (SystemType.LINUX.equals(systemType) || SystemType.IRODS.equals(systemType))
     {
-      if (!StringUtils.isBlank(rootDir) && !rootDir.startsWith("/"))
-        errMessages.add(LibUtils.getMsg("SYSLIB_LINUX_ROOTDIR_NOSLASH", rootDir));
+      if (StringUtils.isBlank(rootDir))
+        errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR1", id, systemType));
+      else if (!rootDir.startsWith("/"))
+        errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NOSLASH", rootDir));
     }
   }
 
@@ -781,19 +774,6 @@ public final class TSystem
         }
       }
     }
-  }
-
-  /**
-   * Validate a host string.
-   * Check if a string is a valid hostname or IP address.
-   * Use methods from org.apache.commons.validator.routines.
-   */
-  private boolean isValidHost(String host)
-  {
-    // First check for valid IP address, then for valid domain name
-    boolean allowLocal = true;
-    if (DomainValidator.getInstance(allowLocal).isValid(host) || InetAddressValidator.getInstance().isValid(host)) return true;
-    else return false;
   }
 
   /**

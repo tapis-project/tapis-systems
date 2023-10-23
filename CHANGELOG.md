@@ -9,6 +9,17 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
+## 1.5.1 - 2023-??-??
+
+Incremental improvements and bug fixes
+
+### New features:
+- None
+
+### Bug fixes:
+- Relax restrictions on attribute *host*. Validation was rejecting some valid names, such as *host.docker.internal*.
+- Allow attribute *rootDir* to be empty for S3 type systems.
+
 ---------------------------------------------------------------------------
 ## 1.5.0 - 2023-10-11
 

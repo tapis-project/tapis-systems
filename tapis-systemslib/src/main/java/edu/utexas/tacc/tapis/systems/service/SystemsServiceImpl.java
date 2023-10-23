@@ -14,7 +14,6 @@ import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 
-import edu.utexas.tacc.tapis.systems.model.*;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -62,6 +61,7 @@ import edu.utexas.tacc.tapis.systems.client.gen.model.TapisSystem;
 import edu.utexas.tacc.tapis.systems.client.gen.model.SystemTypeEnum;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
+import edu.utexas.tacc.tapis.systems.model.*;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile.SchedulerProfileOperation;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
@@ -246,11 +246,6 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, systemId));
     }
 
-    // Make a specific rootDir check. Due to processing for dynamic rootDir the check in
-    //   TSystem.checkAttributeRestrictions is not enough. But leave it also in checkAttrRestrictions because it is
-    //   called from the api layer.
-    checkRootDir(rUser, system);
-
     // Make sure owner, effectiveUserId, notes and tags are all set
     // Note that this is done before auth so owner can get resolved and used during auth check.
     system.setDefaults();
@@ -262,9 +257,6 @@ public class SystemsServiceImpl implements SystemsService
 
     // Determine if effectiveUserId is static
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
-
-    String normalizedRootDir = PathUtils.getAbsolutePath("/", system.getRootDir()).toString();
-    system.setRootDir(normalizedRootDir);
 
     // Set flag indicating if we will deal with credentials.
     // We only do that when credentials provided and effectiveUser is static
@@ -279,6 +271,13 @@ public class SystemsServiceImpl implements SystemsService
 
     // ---------------- Check constraints on TSystem attributes ------------------------
     validateTSystem(rUser, system);
+
+    // For LINUX and IRODS, normalize the rootDir.
+    if (SystemType.LINUX.equals(systemType) || SystemType.IRODS.equals(systemType))
+    {
+      String normalizedRootDir = PathUtils.getAbsolutePath("/", system.getRootDir()).toString();
+      system.setRootDir(normalizedRootDir);
+    }
 
     // If credentials provided validate constraints and verify credentials
     if (cred != null)
@@ -464,11 +463,6 @@ public class SystemsServiceImpl implements SystemsService
     TSystem origTSystem = dao.getSystem(oboTenant, systemId);
     TSystem patchedTSystem = createPatchedTSystem(origTSystem, patchSystem);
 
-    // Make a specific rootDir check. Due to processing for dynamic rootDir the check in
-    //   TSystem.checkAttributeRestrictions is not enough. But leave it also in checkAttrRestrictions because it is
-    //   called from the api layer.
-    checkRootDir(rUser, patchedTSystem);
-
     // ------------------------- Check authorization -------------------------
     checkAuthOwnerKnown(rUser, op, systemId, origTSystem.getOwner());
 
@@ -533,11 +527,6 @@ public class SystemsServiceImpl implements SystemsService
     // System must already exist and not be deleted
     if (!dao.checkForSystem(oboTenant, systemId, false))
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
-
-    // Make a specific rootDir check. Due to processing for dynamic rootDir the check in
-    //   TSystem.checkAttributeRestrictions is not enough. But leave it also in checkAttrRestrictions because it is
-    //   called from the api layer.
-    checkRootDir(rUser, putSystem);
 
     // Set flag indicating if effectiveUserId is static
     boolean isStaticEffectiveUser = !effectiveUserId.equals(APIUSERID_VAR);
@@ -2322,27 +2311,6 @@ public class SystemsServiceImpl implements SystemsService
   // ************************************************************************
   // **************************  Private Methods  ***************************
   // ************************************************************************
-
-  /*
-   *  Make a specific rootDir check. Due to processing for dynamic rootDir the check in
-   *    TSystem.checkAttributeRestrictions is not enough. But leave it also in checkAttrRestrictions because that
-   *    method is called from the api layer.
-   *  If systemType is LINUX or IRODS then:
-   *           - rootDir is required
-   */
-  private static void checkRootDir(ResourceRequestUser rUser, TSystem sys)
-  {
-    var systemType = sys.getSystemType();
-    var rootDir = sys.getRootDir();
-    // LINUX and IRODS systems require rootDir
-    if (systemType == SystemType.LINUX || systemType == SystemType.IRODS)
-    {
-      if (StringUtils.isBlank(rootDir))
-      {
-        throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_NOROOTDIR1", rUser, sys.getId(), systemType));
-      }
-    }
-  }
 
   /**
    * Update enabled attribute for a system
