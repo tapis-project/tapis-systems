@@ -21,7 +21,7 @@ import edu.utexas.tacc.tapis.shared.providers.email.EmailClientParameters;
 import edu.utexas.tacc.tapis.shared.providers.email.enumeration.EmailProviderType;
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 
-/** This class contains the complete and effective set of runtime parameters
+/* This class contains the complete and effective set of runtime parameters
  * for this service.  Each service has it own version of this file that
  * contains the resolved values of configuration parameters needed to
  * initialize and run this service alone.  By resolved, we mean the values
@@ -543,7 +543,7 @@ public final class RuntimeParameters implements EmailClientParameters
   /* ---------------------------------------------------------------------- */
   /* reload:                                                                */
   /* ---------------------------------------------------------------------- */
-  /** Reload the parameters from scratch.  Should not be called too often,
+  /* Reload the parameters from scratch. Should not be called too often,
    * but does allow updates to parameter files and environment variables
    * to be recognized.
    *
