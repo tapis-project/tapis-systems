@@ -19,6 +19,7 @@ Incremental improvements and bug fixes
 ### Bug fixes:
 - Relax restrictions on attribute *host*. Validation was rejecting some valid names, such as *host.docker.internal*.
 - Allow attribute *rootDir* to be empty for S3 type systems.
+- Fix bug in PATCH where null value for defaultAuthnMethod resulted in an error.
 
 ---------------------------------------------------------------------------
 ## 1.5.0 - 2023-10-11

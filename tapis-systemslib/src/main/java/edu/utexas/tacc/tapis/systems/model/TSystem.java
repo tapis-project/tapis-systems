@@ -719,29 +719,29 @@ public final class TSystem
   private void checkAttrMisc(List<String> errMessages)
   {
     // LINUX and IRODS systems require rootDir
-    if ((systemType == SystemType.LINUX || systemType == SystemType.IRODS) && StringUtils.isBlank(rootDir))
+    if ((SystemType.LINUX.equals(systemType) || SystemType.IRODS.equals(systemType)) && StringUtils.isBlank(rootDir))
     {
       errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR", systemType.name()));
     }
 
     // IRODS systems require port
-    if (systemType == SystemType.IRODS && !isValidPort(port))
+    if (SystemType.IRODS.equals(systemType) && !isValidPort(port))
     {
-      errMessages.add(LibUtils.getMsg("SYSLIB_NOPORT", systemType.name()));
+      String sysTypeName = systemType == null ? "null" : systemType.name();
+      errMessages.add(LibUtils.getMsg("SYSLIB_NOPORT", sysTypeName));
     }
 
     // For CERT authn the effectiveUserId cannot be static string other than owner
-    if (defaultAuthnMethod.equals(AuthnMethod.CERT) &&
-            !effectiveUserId.equals(TSystem.APIUSERID_VAR) &&
-            !effectiveUserId.equals(TSystem.OWNER_VAR) &&
-            !StringUtils.isBlank(owner) &&
-            !effectiveUserId.equals(owner))
+    if (AuthnMethod.CERT.equals(defaultAuthnMethod) &&
+            !TSystem.APIUSERID_VAR.equals(effectiveUserId) &&
+            !TSystem.OWNER_VAR.equals(effectiveUserId) &&
+            !StringUtils.isBlank(owner) && !owner.equals(effectiveUserId))
     {
       errMessages.add(LibUtils.getMsg("SYSLIB_INVALID_EFFECTIVEUSERID_INPUT"));
     }
 
     // If effectiveUserId is dynamic then providing credentials is disallowed
-    if (effectiveUserId.equals(TSystem.APIUSERID_VAR) && authnCredential != null)
+    if (TSystem.APIUSERID_VAR.equals(effectiveUserId) && authnCredential != null)
     {
       errMessages.add(LibUtils.getMsg("SYSLIB_CRED_DISALLOWED_INPUT"));
     }
