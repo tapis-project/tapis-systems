@@ -9,14 +9,15 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
-## 1.5.1 - 2023-??-??
+## 1.5.10 - 2023-11-20
 
-Incremental improvements and bug fixes
+Incremental improvements and bug fixes.
 
 ### New features:
 - None
 
 ### Bug fixes:
+- Rebuild with latest shared code to fix JWT validation issue.
 - Relax restrictions on attribute *host*. Validation was rejecting some valid names, such as *host.docker.internal*.
 - Allow attribute *rootDir* to be empty for S3 type systems.
 - Fix bug in PATCH where null value for defaultAuthnMethod resulted in an error.
