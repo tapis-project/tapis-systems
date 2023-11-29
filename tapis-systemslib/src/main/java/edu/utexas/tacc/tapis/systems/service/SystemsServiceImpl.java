@@ -381,7 +381,8 @@ public class SystemsServiceImpl implements SystemsService
     String impersonationId = null;
     String resourceTenant = null;
 
-    TSystem system = getSystem(rUser, systemId, null, false, false, impersonationId, sharedAppCtxGrantor, resourceTenant);
+    TSystem system = getSystem(rUser, systemId, null, false, false, impersonationId,
+                               sharedAppCtxGrantor, resourceTenant, false);
     if(!system.isAllowChildren()) {
       throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_CHILDREN_NOT_PERMITTED", rUser, systemId));
     }
@@ -1068,7 +1069,8 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod accMethod, boolean requireExecPerm,
-                           boolean getCreds, String impersonationId, String sharedAppCtxGrantor, String resourceTenant)
+                           boolean getCreds, String impersonationId, String sharedAppCtxGrantor, String resourceTenant,
+                           boolean fetchShareInfo)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
@@ -1154,9 +1156,13 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Update dynamically computed info.
-    SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), systemId);
-    system.setIsPublic(systemShare.isPublic());
-    system.setSharedWithUsers(systemShare.getUserList());
+    // Fetch share info only if requested by caller
+    if (fetchShareInfo)
+    {
+      SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), systemId);
+      system.setIsPublic(systemShare.isPublic());
+      system.setSharedWithUsers(systemShare.getUserList());
+    }
     system.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
     return system;
   }
@@ -1247,7 +1253,7 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList,
                                   int limit, List<OrderBy> orderByList, int skip, String startAfter,
-                                  boolean includeDeleted, String listType)
+                                  boolean includeDeleted, String listType, boolean fetchShareInfo)
           throws TapisException, TapisClientException
   {
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1255,7 +1261,7 @@ public class SystemsServiceImpl implements SystemsService
     // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
     // If no listType provided use the default
     if (StringUtils.isBlank(listType)) listType = DEFAULT_LIST_TYPE.name();
-    // Validate the listType enum (case insensitive).
+    // Validate the listType enum (case-insensitive).
     listType = listType.toUpperCase();
     if (!EnumUtils.isValidEnum(AuthListType.class, listType))
     {
@@ -1305,9 +1311,13 @@ public class SystemsServiceImpl implements SystemsService
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
     {
-      SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), system.getId());
-      system.setIsPublic(systemShare.isPublic());
-      system.setSharedWithUsers(systemShare.getUserList());
+      // Fetch share info only if requested by caller
+      if (fetchShareInfo)
+      {
+        SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), system.getId());
+        system.setIsPublic(systemShare.isPublic());
+        system.setSharedWithUsers(systemShare.getUserList());
+      }
       system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
       system.setEffectiveUserId(resolveEffectiveUserId(system, rUser.getOboUserId()));
     }
@@ -1331,12 +1341,12 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser, String sqlSearchStr, int limit,
                                                    List<OrderBy> orderByList, int skip, String startAfter,
-                                                   boolean includeDeleted, String listType)
+                                                   boolean includeDeleted, String listType, boolean fetchShareInfo)
           throws TapisException, TapisClientException
   {
     // If search string is empty delegate to getSystems()
     if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip,
-                                                             startAfter, includeDeleted, listType);
+                                                             startAfter, includeDeleted, listType, fetchShareInfo);
 
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
@@ -1391,9 +1401,13 @@ public class SystemsServiceImpl implements SystemsService
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
     {
-      SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), system.getId());
-      system.setIsPublic(systemShare.isPublic());
-      system.setSharedWithUsers(systemShare.getUserList());
+      // Fetch share info only if requested by caller
+      if (fetchShareInfo)
+      {
+        SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), system.getId());
+        system.setIsPublic(systemShare.isPublic());
+        system.setSharedWithUsers(systemShare.getUserList());
+      }
       system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
       system.setEffectiveUserId(resolveEffectiveUserId(system, rUser.getOboUserId()));
     }
@@ -1409,7 +1423,7 @@ public class SystemsServiceImpl implements SystemsService
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr)
+  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr, boolean fetchShareInfo)
           throws TapisException, TapisClientException
   {
     if (rUser == null)  throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1434,9 +1448,13 @@ public class SystemsServiceImpl implements SystemsService
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
     {
-      SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), system.getId());
-      system.setIsPublic(systemShare.isPublic());
-      system.setSharedWithUsers(systemShare.getUserList());
+      // Fetch share info only if requested by caller
+      if (fetchShareInfo)
+      {
+        SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), system.getId());
+        system.setIsPublic(systemShare.isPublic());
+        system.setSharedWithUsers(systemShare.getUserList());
+      }
       system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
       system.setEffectiveUserId(resolveEffectiveUserId(system, rUser.getOboUserId()));
     }

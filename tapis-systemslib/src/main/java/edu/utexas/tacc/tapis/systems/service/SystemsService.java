@@ -74,22 +74,23 @@ public interface SystemsService
         throws TapisException, TapisClientException;
 
   TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod authnMethod, boolean requireExecPerm,
-                    boolean getCreds, String impersonationId, String sharedAppCtxGrantor, String resourceTenant)
+                    boolean getCreds, String impersonationId, String sharedAppCtxGrantor, String resourceTenant,
+                    boolean fetchShareInfo)
           throws TapisException, TapisClientException;
 
   int getSystemsTotalCount(ResourceRequestUser rUser, List<String> searchList, List<OrderBy> orderByList,
                            String startAfter, boolean includeDeleted, String listType) throws TapisException, TapisClientException;
 
   List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, int limit, List<OrderBy> orderByList,
-                           int skip, String startAfter, boolean includeDeleted, String listType)
+                           int skip, String startAfter, boolean includeDeleted, String listType, boolean fetchShareInfo)
           throws TapisException, TapisClientException;
 
   List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser, String searchStr, int limit,
                                         List<OrderBy> orderByList, int skip, String startAfter,
-                                        boolean includeDeleted, String listType)
+                                        boolean includeDeleted, String listType, boolean fetchShareInfo)
           throws TapisException, TapisClientException;
 
-  List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr)
+  List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr, boolean fetchShareInfo)
           throws TapisException, TapisClientException;
 
   String getSystemOwner(ResourceRequestUser rUser, String systemId)
