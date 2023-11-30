@@ -264,6 +264,8 @@ public final class IntegrationUtils
   public static final boolean showDeletedTrue = true;
   public static final boolean resolveEffUserTrue = true;
   public static final boolean resolveEffUserFalse = false;
+  public static final boolean fetchShareInfoFalse = false;
+  public static final boolean fetchShareInfoTrue = true;
   public static final String sharedCtxOwner = owner1;
   public static final String sharedCtxNull = null;
   public static final String resourceTenantNull = null;

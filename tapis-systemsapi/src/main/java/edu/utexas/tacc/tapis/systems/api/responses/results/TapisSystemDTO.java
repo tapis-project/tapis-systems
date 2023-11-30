@@ -16,52 +16,7 @@ import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 
 import static edu.utexas.tacc.tapis.systems.api.resources.SystemResource.SUMMARY_ATTRS;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.ALLOW_CHILDREN;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.AUTHN_CREDENTIAL_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_DEFAULT_LOGICAL_QUEUE_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_LOGICAL_QUEUES_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_SCHEDULER_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.BATCH_SCHEDULER_PROFILE_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.BUCKET_NAME_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_EXEC_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_AUTHN_METHOD_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DELETED_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DESCRIPTION_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_MOUNT_POINT_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_MOUNT_SOURCE_PATH_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_SYSTEM_ID_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFECTIVE_USER_ID_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.ENABLED_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.ENABLE_CMD_PREFIX_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.ID_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.IMPORT_REF_ID;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_DTN_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_DYNAMIC_EFFECTIVE_USER;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_PUBLIC_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.SHARED_WITH_USERS_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_CAPABILITIES_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_ENV_VARIABLES_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_RUN_BATCH_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_MAX_JOBS_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_MAX_JOBS_PER_USER_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_RUNTIMES_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_WORKING_DIR_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.MPI_CMD_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.NOTES_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.PARENT_ID;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.PORT_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.PROXY_HOST_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.PROXY_PORT_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.ROOT_DIR_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.SYSTEM_TYPE_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.TAGS_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.TENANT_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.USE_PROXY_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.UUID_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.CREATED_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.UPDATED_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
 
 /*
     Class representing a TSystem result to be returned
@@ -185,7 +140,7 @@ public final class TapisSystemDTO
   public JsonObject getDisplayObject(List<String> selectList)
   {
     // Check for special case of returning all attributes
-    if (selectList == null || selectList.isEmpty() || selectList.contains("allAttributes"))
+    if (selectList == null || selectList.isEmpty() || selectList.contains(SEL_ALL_ATTRS))
     {
       return allAttrs();
     }
@@ -193,7 +148,7 @@ public final class TapisSystemDTO
     var retObj = new JsonObject();
 
     // If summaryAttrs included then add them
-    if (selectList.contains("summaryAttributes")) addSummaryAttrs(retObj);
+    if (selectList.contains(SEL_SUMMARY_ATTRS)) addSummaryAttrs(retObj);
 
     // Include specified list of attributes
     // If ID not in list we add it anyway.

@@ -61,6 +61,10 @@ public final class TSystem
   private static final String[] ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
   private static final String[] ROOTDIR_VARS = {OWNER_VAR, TENANT_VAR};
 
+  // Special select strings used for determining what attributes are returned in a response
+  public static final String SEL_ALL_ATTRS = "allAttributes";
+  public static final String SEL_SUMMARY_ATTRS = "summaryAttributes";
+
   // Attribute names, also used as field names in Json
   public static final String TENANT_FIELD = "tenant";
   public static final String ID_FIELD = "id";

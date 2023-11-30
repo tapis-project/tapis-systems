@@ -77,16 +77,7 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.*;
 
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_EXEC_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_AUTHN_METHOD_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFECTIVE_USER_ID_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.ID_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.NOTES_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.AUTHN_CREDENTIAL_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.OWNER_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.PARENT_ID;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.SYSTEM_TYPE_FIELD;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
 
 /*
  * JAX-RS REST resource for a Tapis System (edu.utexas.tacc.tapis.systems.model.TSystem)
@@ -156,6 +147,9 @@ public class SystemResource {
   public static final List<String> SUMMARY_ATTRS =
           new ArrayList<>(List.of(ID_FIELD, SYSTEM_TYPE_FIELD, OWNER_FIELD, HOST_FIELD,
                   EFFECTIVE_USER_ID_FIELD, DEFAULT_AUTHN_METHOD_FIELD, CAN_EXEC_FIELD, PARENT_ID));
+
+  // Default for getSystem
+  public static final List<String> ALL_ATTRS = new ArrayList<>(List.of(SEL_ALL_ATTRS));
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -437,7 +431,7 @@ public class SystemResource {
   }
 
   /**
-   * Update selected attributes of a system
+   * Update specified attributes of a system
    * @param systemId - name of the system
    * @param payloadStream - request body
    * @param securityContext - user identity
@@ -883,13 +877,17 @@ public class SystemResource {
     }
 
     List<String> selectList = threadContext.getSearchParameters().getSelectList();
+    if (selectList == null || selectList.isEmpty()) selectList = ALL_ATTRS;
+
+    // Determine if select contains shareInfo
+    boolean fetchShareInfo = isShareInfoRequested(selectList);
 
     // ---------------------------- Make service call -------------------------------
     TSystem tSystem;
     try
     {
       tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId,
-                                  sharedAppCtx, resourceTenant);
+                                  sharedAppCtx, resourceTenant, fetchShareInfo);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1477,7 +1475,8 @@ public class SystemResource {
       TSystem dtnSystem = null;
       try
       {
-        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false, null, null, null);
+        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false,
+                         null, null, null, false);
       }
       catch (NotAuthorizedException e)
       {
@@ -1601,11 +1600,16 @@ public class SystemResource {
     String orderBy = srchParms.getOrderBy();
     List<OrderBy> orderByList = srchParms.getOrderByList();
 
+    // Determine if select contains shareInfo
+    boolean fetchShareInfo = isShareInfoRequested(selectList);
+
+    // Call service method to fetch systems
     if (StringUtils.isBlank(sqlSearchStr))
-      systems = service.getSystems(rUser, searchList, limit, orderByList, skip, startAfter, showDeleted, listType);
+      systems = service.getSystems(rUser, searchList, limit, orderByList, skip, startAfter, showDeleted,
+                                   listType, fetchShareInfo);
     else
       systems = service.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit, orderByList, skip, startAfter,
-                                                    showDeleted, listType);
+                                                    showDeleted, listType, fetchShareInfo);
     if (systems == null) systems = Collections.emptyList();
     itemCountStr = String.format(SYS_CNT_STR, systems.size());
     if (computeTotal && limit <= 0) totalCount = systems.size();
@@ -1648,5 +1652,16 @@ public class SystemResource {
       _log.error(msg, e);
       throw new WebApplicationException(msg);
     }
+  }
+
+  /*
+   * Determine if selectList will trigger need to fetch shareInfo
+   */
+  private static boolean isShareInfoRequested(List<String> selectList)
+  {
+    if (selectList == null || selectList.isEmpty()) selectList = Collections.emptyList();
+    return (selectList.contains(IS_PUBLIC_FIELD) ||
+            selectList.contains(SHARED_WITH_USERS_FIELD) ||
+            selectList.contains(SEL_ALL_ATTRS));
   }
 }
