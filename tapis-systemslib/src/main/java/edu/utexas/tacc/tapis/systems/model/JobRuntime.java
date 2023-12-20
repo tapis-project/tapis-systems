@@ -9,7 +9,7 @@ import java.util.Objects;
  */
 public final class JobRuntime
 {
-  public enum RuntimeType {DOCKER, SINGULARITY}
+  public enum RuntimeType {DOCKER, SINGULARITY, ZIP}
   private final RuntimeType runtimeType;
   private final String version;
 
