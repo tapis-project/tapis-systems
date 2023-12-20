@@ -57,7 +57,7 @@
     "required": [ "runtimeType" ],
     "additionalProperties": false,
     "properties": {
-      "runtimeType": { "type": "string", "enum": ["DOCKER","SINGULARITY"] },
+      "runtimeType": { "type": "string", "enum": ["DOCKER","SINGULARITY", "ZIP"] },
       "version": { "type": ["string", "null"] }
     }
   },

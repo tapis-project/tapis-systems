@@ -149,7 +149,7 @@ public class SystemResource {
                   EFFECTIVE_USER_ID_FIELD, DEFAULT_AUTHN_METHOD_FIELD, CAN_EXEC_FIELD, PARENT_ID));
 
   // Default for getSystem
-  public static final List<String> ALL_ATTRS = new ArrayList<>(List.of(SEL_ALL_ATTRS));
+  public static final List<String> DEFAULT_GETSYS_ATTRS = new ArrayList<>(List.of(SEL_ALL_ATTRS));
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -877,7 +877,7 @@ public class SystemResource {
     }
 
     List<String> selectList = threadContext.getSearchParameters().getSelectList();
-    if (selectList == null || selectList.isEmpty()) selectList = ALL_ATTRS;
+    if (selectList == null || selectList.isEmpty()) selectList = DEFAULT_GETSYS_ATTRS;
 
     // Determine if select contains shareInfo
     boolean fetchShareInfo = isShareInfoRequested(selectList);
@@ -989,6 +989,7 @@ public class SystemResource {
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
                                                    "listType="+listType);
+
     // Create search list based on query parameters
     // Note that some validation is done for each condition but the back end will handle translating LIKE wildcard
     //   characters (* and !) and deal with escaped characters.
@@ -1045,7 +1046,8 @@ public class SystemResource {
   public Response searchSystemsRequestBody(InputStream payloadStream,
                                            @Context SecurityContext securityContext,
                                            @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
-                                           @QueryParam("listType") @DefaultValue("OWNED") String listType) throws TapisClientException
+                                           @QueryParam("listType") @DefaultValue("OWNED") String listType)
+          throws TapisClientException
   {
     String opName = "searchSystemsPost";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId

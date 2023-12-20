@@ -9,6 +9,18 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
+---------------------------------------------------------------------------
+## 1.5.11 - 2023-??-??
+
+Incremental improvements.
+
+### New features:
+- When fetching systems get shareInfo only when needed.
+
+### Bug fixes:
+- None
+
+---------------------------------------------------------------------------
 ## 1.5.10 - 2023-11-20
 
 Incremental improvements and bug fixes.
