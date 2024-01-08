@@ -1518,13 +1518,14 @@ public class SystemsServiceImpl implements SystemsService
     if (!dao.checkForSystem(oboTenant, systemId, false))
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
-    // Check to see if owner is trying to update permissions for themselves.
-    // If so throw an exception because this would be confusing since owner always has full permissions.
-    // For an owner permissions are never checked directly.
-    String owner = checkForOwnerPermUpdate(rUser, systemId, targetUser, op.name());
+    // NOTE: Previously we did a check here to see if owner is trying to update permissions for themselves.
+    // If so we threw an exception because this would be confusing since owner always has full permissions.
+    // Due to a request (github issue #47) to change the behavior of changeSystemOwner we now allow owner to
+    // grant/revoke permissions for themselves.
+    // See previous code versions for implementation of checkForOwnerPermUpdate()
 
     // ------------------------- Check authorization -------------------------
-    checkAuthOwnerKnown(rUser, op, systemId, owner);
+    checkAuthOwnerUnkown(rUser, op, systemId);
 
     // Check inputs. If anything null or empty throw an exception
     if (permissions == null || permissions.isEmpty())
@@ -1600,13 +1601,15 @@ public class SystemsServiceImpl implements SystemsService
     // if system does not exist or has been deleted then return 0 changes
     if (!dao.checkForSystem(oboTenant, systemId, false)) return 0;
 
-    // Check to see if owner is trying to update permissions for themselves.
-    // If so throw an exception because this would be confusing since owner always has full permissions.
-    // For an owner permissions are never checked directly.
-    String owner = checkForOwnerPermUpdate(rUser, systemId, targetUser, op.name());
+
+    // NOTE: Previously we did a check here to see if owner is trying to update permissions for themselves.
+    // If so we threw an exception because this would be confusing since owner always has full permissions.
+    // Due to a request (github issue #47) to change the behavior of changeSystemOwner we now allow owner to
+    // grant/revoke permissions for themselves.
+    // See previous code versions for implementation of checkForOwnerPermUpdate()
 
     // ------------------------- Check authorization -------------------------
-    checkAuth(rUser, op, systemId, owner, targetUser, permissions);
+    checkAuth(rUser, op, systemId, nullOwner, targetUser, permissions);
 
     // Check inputs. If anything null or empty throw an exception
     if (permissions == null || permissions.isEmpty())
@@ -2689,39 +2692,6 @@ public class SystemsServiceImpl implements SystemsService
     if (msgList == null || msgList.isEmpty()) return sb.toString();
     for (String msg : msgList) { sb.append("  ").append(msg).append(System.lineSeparator()); }
     return sb.toString();
-  }
-
-  /**
-   * Check to see if owner is trying to update permissions for themselves.
-   * If so throw an exception because this would be confusing since owner always has full permissions.
-   * For an owner permissions are never checked directly.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param systemId System id
-   * @param targetOboUser user for whom perms are being updated
-   * @param opStr Operation in progress, for logging
-   * @return name of owner
-   */
-  private String checkForOwnerPermUpdate(ResourceRequestUser rUser, String systemId, String targetOboUser, String opStr)
-          throws TapisException
-  {
-    // Look up owner. If not found then it is an error
-    String owner = dao.getSystemOwner(rUser.getOboTenantId(), systemId);
-    if (StringUtils.isBlank(owner))
-        throw new TapisException(LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, systemId, opStr));
-    // If owner making the request and owner is the target user for the perm update then reject.
-    if (owner.equals(rUser.getOboUserId()) && owner.equals(targetOboUser))
-    {
-      // If it is a svc making request reject with forbidden, if user making request reject with special message.
-      // Need this check since svc not allowed to update perms but checkAuth happens after checkForOwnerPermUpdate.
-      // Without this the op would be denied with a misleading message.
-      // Unfortunately this means auth check for svc in 2 places but not clear how to avoid it.
-      //   On the bright side it means at worst operation will be denied when maybe it should be allowed which is better
-      //   than the other way around.
-      if (rUser.isServiceRequest()) throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, opStr));
-      else throw new TapisException(LibUtils.getMsgAuth("SYSLIB_PERM_OWNER_UPDATE", rUser, systemId, opStr));
-    }
-    return owner;
   }
 
   /**

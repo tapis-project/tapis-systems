@@ -1138,35 +1138,34 @@ public class SystemsServiceTest
     // Create a system
     TSystem sys0 = systems[9];
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
-    // Create user perms for the system
+
+    // Owner should be able to grant/revoke for themselves in preparation for changeSystemOwner.
+    svc.grantUserPermissions(rOwner1, sys0.getId(), owner1, testPermsREADMODIFY, rawDataEmptyJson);
+    Set<Permission> userPerms = svc.getUserPermissions(rOwner1, sys0.getId(), owner1);
+    Assert.assertNotNull(userPerms, "Null returned when retrieving perms.");
+    Assert.assertEquals(userPerms.size(), testPermsREADMODIFY.size(), "Incorrect number of perms returned.");
+    for (Permission perm: testPermsREADMODIFY) { if (!userPerms.contains(perm)) Assert.fail("User perms should contain permission: " + perm.name()); }
+    svc.revokeUserPermissions(rOwner1, sys0.getId(), owner1, testPermsREADMODIFY, rawDataEmptyJson);
+    int changeCount = svc.revokeUserPermissions(rOwner1, sys0.getId(), owner1, testPermsREADMODIFY, rawDataEmptyJson);
+    Assert.assertEquals(changeCount, 2, "Change count incorrect when revoking permissions.");
+    userPerms = svc.getUserPermissions(rOwner1, sys0.getId(), owner1);
+    for (Permission perm: testPermsREADMODIFY) { if (userPerms.contains(perm)) Assert.fail("User perms should not contain permission: " + perm.name()); }
+
+    // Create non-owner user perms for the system
     svc.grantUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADMODIFY, rawDataEmptyJson);
     // Get the system perms for the user and make sure permissions are there
-    Set<Permission> userPerms = svc.getUserPermissions(rOwner1, sys0.getId(), testUser3);
+    userPerms = svc.getUserPermissions(rOwner1, sys0.getId(), testUser3);
     Assert.assertNotNull(userPerms, "Null returned when retrieving perms.");
     Assert.assertEquals(userPerms.size(), testPermsREADMODIFY.size(), "Incorrect number of perms returned.");
     for (Permission perm: testPermsREADMODIFY) { if (!userPerms.contains(perm)) Assert.fail("User perms should contain permission: " + perm.name()); }
     // Remove perms for the user. Should return a change count of 2
-    int changeCount = svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADMODIFY, rawDataEmptyJson);
+    changeCount = svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADMODIFY, rawDataEmptyJson);
     Assert.assertEquals(changeCount, 2, "Change count incorrect when revoking permissions.");
     // Get the system perms for the user and make sure permissions are gone.
     userPerms = svc.getUserPermissions(rOwner1, sys0.getId(), testUser3);
     for (Permission perm: testPermsREADMODIFY) { if (userPerms.contains(perm)) Assert.fail("User perms should not contain permission: " + perm.name()); }
 
-    // Owner should not be able to update perms. It would be confusing since owner always authorized. Perms not checked.
-    try {
-      svc.grantUserPermissions(rOwner1, sys0.getId(), sys0.getOwner(), testPermsREAD, rawDataEmptyJson);
-      Assert.fail("Update of perms by owner for owner should have thrown an exception");
-    } catch (Exception e) {
-      Assert.assertTrue(e.getMessage().contains("SYSLIB_PERM_OWNER_UPDATE"));
-    }
-    try {
-      svc.revokeUserPermissions(rOwner1, sys0.getId(), sys0.getOwner(), testPermsREAD, rawDataEmptyJson);
-      Assert.fail("Update of perms by owner for owner should have thrown an exception");
-    } catch (Exception e) {
-      Assert.assertTrue(e.getMessage().contains("SYSLIB_PERM_OWNER_UPDATE"));
-    }
-
-    // Give testuser3 back some perms so we can test revokePerms auth when user is not the owner and is target user
+    // Give testuser3 back some perms, so we can test revokePerms auth when user is not the owner and is target user
     svc.grantUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADMODIFY, rawDataEmptyJson);
 
     // Have testuser3 remove their own perms. Should return a change count of 2
@@ -1176,7 +1175,7 @@ public class SystemsServiceTest
     userPerms = svc.getUserPermissions(rOwner1, sys0.getId(), testUser3);
     for (Permission perm: testPermsREADMODIFY) { if (userPerms.contains(perm)) Assert.fail("User perms should not contain permission: " + perm.name()); }
 
-    // Give testuser3 back some perms so we can test revokePerms auth when user is not the owner and is not target user
+    // Give testuser3 back some perms, so we can test revokePerms auth when user is not the owner and is not target user
     svc.grantUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADMODIFY, rawDataEmptyJson);
     try {
       svc.revokeUserPermissions(rTestUser2, sys0.getId(), testUser3, testPermsREADMODIFY, rawDataEmptyJson);
@@ -1743,14 +1742,6 @@ public class SystemsServiceTest
     // REVOKE_PERMS - deny user not owner/admin
     pass = false;
     try { svc.revokeUserPermissions(rTestUser3, systemId, owner1, testPermsREADMODIFY, rawDataEmptyJson); }
-    catch (ForbiddenException e)
-    {
-      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
-      pass = true;
-    }
-    Assert.assertTrue(pass);
-    pass = false;
-    try { svc.revokeUserPermissions(rFilesSvcOwner1, systemId, owner1, testPermsREADMODIFY, rawDataEmptyJson); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
