@@ -10,12 +10,14 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.5.11 - 2023-??-??
+## 1.5.11 - 2024-??-??
 
 Incremental improvements.
 
 ### New features:
 - When fetching systems get shareInfo only when needed.
+- Add ZIP to JobRuntime model.
+- Allow owner to grant themselves permissions. Useful when preparing to call changeSystemOwner.
 
 ### Bug fixes:
 - None
