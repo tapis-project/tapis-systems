@@ -10,7 +10,7 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.5.11 - 2024-??-??
+## 1.5.11 - 2024-01-16
 
 Incremental improvements.
 
@@ -20,7 +20,7 @@ Incremental improvements.
 - Allow owner to grant themselves permissions. Useful when preparing to call changeSystemOwner.
 
 ### Bug fixes:
-- None
+- Fix missing information in error message SYSLIB_CRED_NOT_FOUND.
 
 ---------------------------------------------------------------------------
 ## 1.5.10 - 2023-11-20
