@@ -3850,13 +3850,13 @@ public class SystemsServiceImpl implements SystemsService
                            cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
                            cred.getAccessToken(), cred.getRefreshToken(), cred.getCertificate(), Boolean.FALSE, msg);
     }
-    return verifyConnection(rUser, tSystem1, authnMethod, cred, effectiveUser);
+    return verifyConnection(rUser, op, tSystem1, authnMethod, cred, effectiveUser);
   }
 
   /*
    * Verify connection based on authentication method
    */
-  private Credential verifyConnection(ResourceRequestUser rUser, TSystem tSystem1, AuthnMethod authnMethod,
+  private Credential verifyConnection(ResourceRequestUser rUser, String op, TSystem tSystem1, AuthnMethod authnMethod,
                                       Credential cred, String effectiveUser)
   {
     log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), tSystem1.getSystemType(),
@@ -3886,7 +3886,7 @@ public class SystemsServiceImpl implements SystemsService
              (doingAccessKey && (StringUtils.isBlank(cred.getAccessKey()) || StringUtils.isBlank(cred.getAccessSecret()))))
     {
       // We do not have the credentials we need
-      msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, systemId, systemType, effectiveUser, authnMethod);
+      msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op, systemId, systemType, effectiveUser, authnMethod);
       retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
                                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(),
                                cred.getRefreshToken(), cred.getCertificate(), Boolean.FALSE, msg);
