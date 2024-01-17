@@ -1,6 +1,7 @@
 package edu.utexas.tacc.tapis.systems.model;
 
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
+import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
 import java.util.Objects;
 
@@ -44,10 +45,10 @@ public final class Capability
   public Capability(Category category1, String name1, Datatype datatype1, int precedence1, String value1)
   {
     category = category1;
-    name = name1;
+    name = LibUtils.stripStr(name1);
     datatype = datatype1;
     precedence = precedence1;
-    value = value1;
+    value = LibUtils.stripStr(value1);
   }
 
   /* ********************************************************************** */

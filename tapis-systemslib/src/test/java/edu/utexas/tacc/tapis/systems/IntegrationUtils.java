@@ -151,7 +151,7 @@ public final class IntegrationUtils
   public static final Object notesNull = null;
 
   // Two keyValue pairs for checking defaults. Use default constructor to simulate behavior of jax-rs
-  public static final KeyValuePair kvDefault1 = new KeyValuePair();
+//  public static final KeyValuePair kvDefault1 = new KeyValuePair(); TODO invalid, key cannot be empty string
   public static final KeyValuePair kvDefault2 = new KeyValuePair("CHK_DEFAULT",null, null, KeyValuePair.KeyValueInputMode.REQUIRED, null);
 
   public static final List<KeyValuePair> jobEnvVariables1 =
@@ -159,7 +159,7 @@ public final class IntegrationUtils
                                   new KeyValuePair("HOME","/home/testuser1", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                                   new KeyValuePair("TMP","/tmp1", "my keyvalue pair", DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                   new KeyValuePair("TMP1a","/tmp1a", "my keyvalue pair1a", KeyValuePair.KeyValueInputMode.FIXED, notesObj1),
-                  kvDefault1, kvDefault2));
+                  kvDefault2));
   public static final List<KeyValuePair> jobEnvVariables2 =
           new ArrayList<>(List.of(new KeyValuePair("a2","b2", "my 2nd key-value pair", DEFAULT_INPUT_MODE, DEFAULT_NOTES),
                                   new KeyValuePair("HOME","/home/testuser2", null, DEFAULT_INPUT_MODE, DEFAULT_NOTES),
@@ -322,6 +322,10 @@ public final class IntegrationUtils
   public static final SystemsServiceImpl.AuthListType listTypeOwned = SystemsServiceImpl.AuthListType.OWNED;
   public static final SystemsServiceImpl.AuthListType listTypeAll = SystemsServiceImpl.AuthListType.ALL;
   public static final SystemsServiceImpl.AuthListType listTypePublic = SystemsServiceImpl.AuthListType.SHARED_PUBLIC;
+
+  public static final String stringWithCtrlChar = "Start\u0001Finish"; // String containing a control-A character
+  public static final String stringWithNewlineAtEnd = "StartFinish\n"; // String containing a newline at end
+  public static final String[] tagsWithCtrlChar = {"Start\u0001Finish", "tag 2"};
 
   /**
    * Create first DTN System

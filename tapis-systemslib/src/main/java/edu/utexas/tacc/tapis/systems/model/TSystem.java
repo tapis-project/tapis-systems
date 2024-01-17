@@ -11,6 +11,8 @@ import com.google.gson.JsonObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.apache.commons.lang3.StringUtils;
 
+import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
+import edu.utexas.tacc.tapis.shared.utils.PathSanitizer;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.KeyValueInputMode.FIXED;
@@ -94,12 +96,14 @@ public final class TSystem
   public static final String ENABLE_CMD_PREFIX_FIELD = "enableCmdPrefix";
   public static final String MPI_CMD_FIELD = "mpiCmd";
   public static final String JOB_RUNTIMES_FIELD = "jobRuntimes";
+  public static final String JOB_RUNTIMES_VERSION_FIELD = "version";
   public static final String JOB_WORKING_DIR_FIELD = "jobWorkingDir";
   public static final String JOB_ENV_VARIABLES_FIELD = "jobEnvVariables";
   public static final String JOB_MAX_JOBS_FIELD = "jobMaxJobs";
   public static final String JOB_MAX_JOBS_PER_USER_FIELD = "jobMaxJobsPerUser";
   public static final String BATCH_SCHEDULER_FIELD = "batchScheduler";
   public static final String BATCH_LOGICAL_QUEUES_FIELD = "batchLogicalQueues";
+  public static final String HPCQ_NAME_FIELD = "hpcQueueName";
   public static final String BATCH_DEFAULT_LOGICAL_QUEUE_FIELD = "batchDefaultLogicalQueue";
   public static final String BATCH_SCHEDULER_PROFILE_FIELD = "batchSchedulerProfile";
   public static final String JOB_CAPABILITIES_FIELD = "jobCapabilities";
@@ -112,6 +116,10 @@ public final class TSystem
   public static final String UUID_FIELD = "uuid";
   public static final String CREATED_FIELD = "created";
   public static final String UPDATED_FIELD = "updated";
+
+  // Private field names used only in this class for messages.
+  private static final String NAME_FIELD = "name";
+  private static final String VALUE_FIELD = "value";
 
   // Default values
   public static final String DEFAULT_ROOTDIR = "";
@@ -155,6 +163,10 @@ public final class TSystem
   public static final String CREATE_MISSING_ATTR = "SYSLIB_CREATE_MISSING_ATTR";
   public static final String INVALID_STR_ATTR = "SYSLIB_INVALID_STR_ATTR";
   public static final String TOO_LONG_ATTR = "SYSLIB_TOO_LONG_ATTR";
+  private static final String CTL_CHR_ATTR = "SYSLIB_CTL_CHR_ATTR";
+
+  // Label to use when name is missing.
+  private static final String UNNAMED = "unnamed";
 
 
   // ************************************************************************
@@ -232,9 +244,9 @@ public final class TSystem
    */
   public TSystem(String id1, SystemType systemType1, String host1, AuthnMethod defaultAuthnMethod1, boolean canExec1)
   {
-    id = id1;
+    id = LibUtils.stripStr(id1);
     systemType = systemType1;
-    host = host1;
+    host = LibUtils.stripStr(host1);
     defaultAuthnMethod = defaultAuthnMethod1;
     canExec = canExec1;
   }
@@ -247,8 +259,8 @@ public final class TSystem
   {
     if (t==null || StringUtils.isBlank(tenant1) || StringUtils.isBlank(id1) || systemType1 == null )
       throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT"));
-    tenant = tenant1;
-    id = id1;
+    tenant = LibUtils.stripStr(tenant1);
+    id = LibUtils.stripStr(id1);
     systemType = systemType1;
     isDtn = isDtn1;
     canExec = canExec1;
@@ -257,36 +269,36 @@ public final class TSystem
     created = t.getCreated();
     updated = t.getUpdated();
     description = t.getDescription();
-    owner = t.getOwner();
-    host = t.getHost();
+    owner = LibUtils.stripStr(t.getOwner());
+    host = LibUtils.stripStr(t.getHost());
     enabled = t.isEnabled();
-    effectiveUserId = t.getEffectiveUserId();
+    effectiveUserId = LibUtils.stripStr(t.getEffectiveUserId());
     defaultAuthnMethod = t.getDefaultAuthnMethod();
     authnCredential = t.getAuthnCredential();
-    bucketName = t.getBucketName();
-    rootDir = t.getRootDir();
+    bucketName = LibUtils.stripStr(t.getBucketName());
+    rootDir = LibUtils.stripStr(t.getRootDir());
     port = t.getPort();
     useProxy = t.isUseProxy();
-    proxyHost = t.getProxyHost();
+    proxyHost = LibUtils.stripStr(t.getProxyHost());
     proxyPort = t.getProxyPort();
-    dtnSystemId = t.getDtnSystemId();
-    dtnMountPoint = t.getDtnMountPoint();
-    dtnMountSourcePath = t.dtnMountSourcePath;
+    dtnSystemId = LibUtils.stripStr(t.getDtnSystemId());
+    dtnMountPoint = LibUtils.stripStr(t.getDtnMountPoint());
+    dtnMountSourcePath = LibUtils.stripStr(t.dtnMountSourcePath);
     canRunBatch = t.getCanRunBatch();
     enableCmdPrefix = t.isEnableCmdPrefix();
-    mpiCmd = t.getMpiCmd();
+    mpiCmd = LibUtils.stripStr(t.getMpiCmd());
     jobRuntimes = t.getJobRuntimes();
-    jobWorkingDir = t.getJobWorkingDir();
+    jobWorkingDir = LibUtils.stripStr(t.getJobWorkingDir());
     jobEnvVariables = t.getJobEnvVariables();
     jobMaxJobs = t.getJobMaxJobs();
     jobMaxJobsPerUser = t.getJobMaxJobsPerUser();
     batchScheduler = t.getBatchScheduler();
     batchLogicalQueues = t.getBatchLogicalQueues();
-    batchDefaultLogicalQueue = t.getBatchDefaultLogicalQueue();
-    batchSchedulerProfile = t.getBatchSchedulerProfile();
+    batchDefaultLogicalQueue = LibUtils.stripStr(t.getBatchDefaultLogicalQueue());
+    batchSchedulerProfile = LibUtils.stripStr(t.getBatchSchedulerProfile());
     jobCapabilities = t.getJobCapabilities();
     allowChildren = t.isAllowChildren();
-    parentId = t.getParentId();
+    parentId = LibUtils.stripStr(t.getParentId());
     tags = (t.getTags() == null) ? EMPTY_STR_ARRAY : t.getTags().clone();
     notes = t.getNotes();
     importRefId = t.getImportRefId();
@@ -294,6 +306,8 @@ public final class TSystem
     deleted = t.isDeleted();
     isPublic = t.isPublic();
     isDynamicEffectiveUser = t.isDynamicEffectiveUser();
+    // Strip whitespace as appropriate for string attributes.
+    stripWhitespace();
   }
 
   /**
@@ -336,38 +350,38 @@ public final class TSystem
                  String parentId1, Instant created1, Instant updated1)
   {
     seqId = seqId1;
-    tenant = tenant1;
-    id = id1;
+    tenant = LibUtils.stripStr(tenant1);
+    id = LibUtils.stripStr(id1);
+    owner = LibUtils.stripStr(owner1);
     description = description1;
     systemType = systemType1;
-    owner = owner1;
-    host = host1;
+    host = LibUtils.stripStr(host1);
     enabled = enabled1;
-    effectiveUserId = effectiveUserId1;
+    effectiveUserId = LibUtils.stripStr(effectiveUserId1);
     defaultAuthnMethod = defaultAuthnMethod1;
-    bucketName = bucketName1;
-    rootDir = (rootDir1 == null) ? DEFAULT_ROOTDIR : rootDir1;
+    bucketName = LibUtils.stripStr(bucketName1);
+    rootDir = (rootDir1 == null) ? DEFAULT_ROOTDIR : LibUtils.stripStr(rootDir1);
     port = port1;
     useProxy = useProxy1;
-    proxyHost = proxyHost1;
+    proxyHost = LibUtils.stripStr(proxyHost1);
     proxyPort = proxyPort1;
-    dtnSystemId = dtnSystemId1;
-    dtnMountPoint = dtnMountPoint1;
-    dtnMountSourcePath = dtnMountSourcePath1;
+    dtnSystemId = LibUtils.stripStr(dtnSystemId1);
+    dtnMountPoint = LibUtils.stripStr(dtnMountPoint1);
+    dtnMountSourcePath = LibUtils.stripStr(dtnMountSourcePath1);
     isDtn = isDtn1;
     canExec = canExec1;
     jobRuntimes = jobRuntimes1;
-    jobWorkingDir = jobWorkingDir1;
+    jobWorkingDir = LibUtils.stripStr(jobWorkingDir1);
     jobEnvVariables = jobEnvVariables1;
     jobMaxJobs = jobMaxJobs1;
     jobMaxJobsPerUser = jobMaxJobsPerUser1;
     canRunBatch = canRunBatch1;
     enableCmdPrefix = enableCmdPrefix1;
-    mpiCmd = mpiCmd1;
+    mpiCmd = LibUtils.stripStr(mpiCmd1);
     batchScheduler = batchScheduler1;
     batchLogicalQueues = batchLogicalQueues1;
-    batchDefaultLogicalQueue = batchDefaultLogicalQueue1;
-    batchSchedulerProfile = batchSchedulerProfile1;
+    batchDefaultLogicalQueue = LibUtils.stripStr(batchDefaultLogicalQueue1);
+    batchSchedulerProfile = LibUtils.stripStr(batchSchedulerProfile1);
     jobCapabilities = jobCapabilities1;
     tags = (tags1 == null) ? EMPTY_STR_ARRAY : tags1.clone();
     notes = notes1;
@@ -377,7 +391,9 @@ public final class TSystem
     deleted = deleted1;
     created = created1;
     updated = updated1;
-    parentId = parentId1;
+    parentId = LibUtils.stripStr(parentId1);
+    // Strip whitespace as appropriate for string attributes.
+    stripWhitespace();
   }
 
   /**
@@ -392,39 +408,39 @@ public final class TSystem
     updated = t.getUpdated();
     uuid = t.getUuid();
     deleted = t.isDeleted();
-    tenant = t.getTenant();
-    id = t.getId();
+    tenant = LibUtils.stripStr(t.getTenant());
+    id = LibUtils.stripStr(t.getId());
     description = t.getDescription();
     systemType = t.getSystemType();
-    owner = t.getOwner();
-    host = t.getHost();
+    owner = LibUtils.stripStr(t.getOwner());
+    host = LibUtils.stripStr(t.getHost());
     enabled = t.isEnabled();
-    effectiveUserId = t.getEffectiveUserId();
+    effectiveUserId = LibUtils.stripStr(t.getEffectiveUserId());
     defaultAuthnMethod = t.getDefaultAuthnMethod();
     authnCredential = t.getAuthnCredential();
-    bucketName = t.getBucketName();
-    rootDir = t.getRootDir();
+    bucketName = LibUtils.stripStr(t.getBucketName());
+    rootDir = LibUtils.stripStr(t.getRootDir());
     port = t.getPort();
     useProxy = t.isUseProxy();
-    proxyHost = t.getProxyHost();
+    proxyHost = LibUtils.stripStr(t.getProxyHost());
     proxyPort = t.getProxyPort();
-    dtnSystemId = t.getDtnSystemId();
-    dtnMountPoint = t.getDtnMountPoint();
-    dtnMountSourcePath = t.dtnMountSourcePath;
+    dtnSystemId = LibUtils.stripStr(t.getDtnSystemId());
+    dtnMountPoint = LibUtils.stripStr(t.getDtnMountPoint());
+    dtnMountSourcePath = LibUtils.stripStr(t.dtnMountSourcePath);
     isDtn = t.isDtn();
     canExec = t.getCanExec();
     jobRuntimes = t.getJobRuntimes();
-    jobWorkingDir = t.getJobWorkingDir();
+    jobWorkingDir = LibUtils.stripStr(t.getJobWorkingDir());
     jobEnvVariables = t.getJobEnvVariables();
     jobMaxJobs = t.getJobMaxJobs();
     jobMaxJobsPerUser = t.getJobMaxJobsPerUser();
     canRunBatch = t.getCanRunBatch();
     enableCmdPrefix = t.isEnableCmdPrefix();
-    mpiCmd = t.getMpiCmd();
+    mpiCmd = LibUtils.stripStr(t.getMpiCmd());
     batchScheduler = t.getBatchScheduler();
     batchLogicalQueues = t.getBatchLogicalQueues();
-    batchDefaultLogicalQueue = t.getBatchDefaultLogicalQueue();
-    batchSchedulerProfile = t.getBatchSchedulerProfile();
+    batchDefaultLogicalQueue = LibUtils.stripStr(t.getBatchDefaultLogicalQueue());
+    batchSchedulerProfile = LibUtils.stripStr(t.getBatchSchedulerProfile());
     jobCapabilities = t.getJobCapabilities();
     tags = (t.getTags() == null) ? EMPTY_STR_ARRAY : t.getTags().clone();
     notes = t.getNotes();
@@ -432,7 +448,9 @@ public final class TSystem
     isPublic = t.isPublic();
     isDynamicEffectiveUser = t.isDynamicEffectiveUser();
     allowChildren = t.isAllowChildren();
-    parentId = t.getParentId();
+    parentId = LibUtils.stripStr(t.getParentId());
+    // Strip whitespace as appropriate for string attributes.
+    stripWhitespace();
   }
 
   // ************************************************************************
@@ -497,6 +515,7 @@ public final class TSystem
     if (canRunBatch) checkAttrCanRunBatch(errMessages);
     if (systemType == SystemType.S3) checkAttrS3(errMessages);
     checkAttrMisc(errMessages);
+    checkAttrControlCharacters(errMessages);
     return errMessages;
   }
 
@@ -764,6 +783,11 @@ public final class TSystem
     {
       for (KeyValuePair kv : jobEnvVariables)
       {
+        // Name must not be empty
+        if (StringUtils.isBlank(kv.getKey()))
+        {
+          errMessages.add(LibUtils.getMsg("SYSLIB_ENV_VAR_NO_NAME", kv.getValue()));
+        }
         if (FIXED.equals(kv.getInputMode()) && VALUE_NOT_SET.equals(kv.getValue()))
         {
           errMessages.add(LibUtils.getMsg("SYSLIB_ENV_VAR_FIXED_UNSET", kv.getKey(), kv.getValue()));
@@ -781,11 +805,154 @@ public final class TSystem
   }
 
   /**
+   * Check for control characters for attributes that do not allow them.
+   */
+  private void checkAttrControlCharacters(List<String> errMessages)
+  {
+    checkForControlChars(errMessages, id, ID_FIELD);
+    checkForControlChars(errMessages, owner, OWNER_FIELD);
+    checkForControlChars(errMessages, tenant, TENANT_FIELD);
+    checkForControlChars(errMessages, host, HOST_FIELD);
+    checkForControlChars(errMessages, effectiveUserId, EFFECTIVE_USER_ID_FIELD);
+    checkForControlChars(errMessages, bucketName, BUCKET_NAME_FIELD);
+    checkForControlChars(errMessages, rootDir, ROOT_DIR_FIELD);
+    checkForControlChars(errMessages, proxyHost, PROXY_HOST_FIELD);
+    checkForControlChars(errMessages, dtnSystemId, DTN_SYSTEM_ID_FIELD);
+    checkForControlChars(errMessages, dtnMountPoint, DTN_MOUNT_POINT_FIELD);
+    checkForControlChars(errMessages, dtnMountSourcePath, DTN_MOUNT_SOURCE_PATH_FIELD);
+    checkForControlChars(errMessages, mpiCmd, MPI_CMD_FIELD);
+    checkForControlChars(errMessages, batchDefaultLogicalQueue, BATCH_DEFAULT_LOGICAL_QUEUE_FIELD);
+    checkForControlChars(errMessages, batchSchedulerProfile, BATCH_SCHEDULER_PROFILE_FIELD);
+    // NOTE Use various checkForControlChars* methods to help code readability.
+    checkForControlCharsStrArray(errMessages, tags, TAGS_FIELD, null);
+    checkForControlCharsEnvVariables(errMessages, jobEnvVariables);
+    checkForControlCharsJobRuntimes(errMessages);
+    checkForControlCharsBatchLogicalQueues(errMessages);
+    checkForControlCharsJobCapabilities(errMessages);
+  }
+
+  /**
+   * Check for control characters in env variables
+   */
+  private void checkForControlCharsEnvVariables(List<String> errMessages, List<KeyValuePair> envVariables)
+  {
+    if (envVariables == null || envVariables.isEmpty()) return;
+    for (var envVar : envVariables)
+    {
+      String name = envVar.getKey(); // NOTE: Previous check ensures name is not empty.
+      String value = envVar.getValue();
+      checkForControlChars(errMessages, name, JOB_ENV_VARIABLES_FIELD, NAME_FIELD);
+      checkForControlChars(errMessages, value, JOB_ENV_VARIABLES_FIELD, VALUE_FIELD);
+    }
+  }
+
+  /**
+   * Check for control characters in JobRuntime attributes
+   */
+  private void checkForControlCharsJobRuntimes(List<String> errMessages)
+  {
+    if (jobRuntimes == null || jobRuntimes.isEmpty()) return;
+    for (var jobRuntime : jobRuntimes)
+    {
+      checkForControlChars(errMessages, jobRuntime.getVersion(), JOB_RUNTIMES_FIELD, JOB_RUNTIMES_VERSION_FIELD);
+    }
+  }
+
+  /**
+   * Check for control characters in JobRuntime attributes
+   */
+  private void checkForControlCharsBatchLogicalQueues(List<String> errMessages)
+  {
+    if (batchLogicalQueues == null || batchLogicalQueues.isEmpty()) return;
+    for (var q : batchLogicalQueues)
+    {
+      checkForControlChars(errMessages, q.getName(), BATCH_LOGICAL_QUEUES_FIELD, NAME_FIELD);
+      checkForControlChars(errMessages, q.getHpcQueueName(), BATCH_LOGICAL_QUEUES_FIELD, HPCQ_NAME_FIELD);
+    }
+  }
+
+  /**
+   * Check for control characters in JobCapabilities
+   */
+  private void checkForControlCharsJobCapabilities(List<String> errMessages)
+  {
+    if (jobCapabilities == null || jobCapabilities.isEmpty()) return;
+    for (var c : jobCapabilities)
+    {
+      String name = StringUtils.isBlank(c.getName()) ? UNNAMED : c.getName();
+      String value = c.getValue();
+      checkForControlChars(errMessages, c.getName(), JOB_CAPABILITIES_FIELD, NAME_FIELD);
+      // Since we may use name as a label, we need to replace any control characters in it, so we do not
+      // log any strings with control characters.
+      name = PathSanitizer.replaceControlChars(name, '?');
+      checkForControlChars(errMessages, value, JOB_CAPABILITIES_FIELD, name, VALUE_FIELD);
+    }
+  }
+
+  /*
+   * Check for control characters in an array of strings.
+   */
+  private void checkForControlCharsStrArray(List<String> errMessages, String[] strArray, String label1, String label2)
+  {
+    if (strArray == null) return;
+    for (String s : strArray)
+    {
+      checkForControlChars(errMessages, s, label1, label2);
+    }
+  }
+
+  /**
+   * Check for control characters in an attribute value. Use 3 part label.
+   * Labels should never be null.
+   */
+  private void checkForControlChars(List<String> errMessages, String attrValue, String label1, String label2, String label3)
+  {
+    String label = String.format("%s.%s.%s", label1, label2, label3);
+    checkForControlChars(errMessages, attrValue, label);
+  }
+
+  /**
+   * Check for control characters in an attribute value. Use 1 or 2 part label for message.
+   * label2 can be null.
+   */
+  private void checkForControlChars(List<String> errMessages, String attrValue, String label1, String label2)
+  {
+    String label = label1;
+    if (!StringUtils.isBlank(label2)) label = String.format("%s.%s", label1, label2);
+    checkForControlChars(errMessages, attrValue, label);
+  }
+
+  /**
+   * Check for control characters in an attribute value.
+   * If one is found add a message to the error list using provided label.
+   */
+  private void checkForControlChars(List<String> errMessages, String attrValue, String label)
+  {
+
+    try { PathSanitizer.detectControlChars(attrValue); }
+    catch (TapisException e)
+    {
+      String logAttrValue = PathSanitizer.replaceControlChars(attrValue, '?');
+      errMessages.add(LibUtils.getMsg(CTL_CHR_ATTR, label, logAttrValue, e.getMessage()));
+    }
+  }
+
+  /**
    * Validate a port number. Range is 1-65535
    */
   private boolean isValidPort(int p)
   {
     return (p > 0 && p <= 65535);
+  }
+
+  /**
+   * Strip whitespace as appropriate for string attributes.
+   * For: tags
+   * Stripping for other handled by the classes: jobRuntime, logicalQueue, capability
+   */
+  private void stripWhitespace()
+  {
+    tags = LibUtils.stripWhitespaceStrArray(tags);
   }
 
   // ************************************************************************
@@ -810,16 +977,16 @@ public final class TSystem
   public TSystem setDescription(String d) { description = d; return this; }
 
   public String getOwner() { return owner; }
-  public TSystem setOwner(String s) { owner = s;  return this;}
+  public TSystem setOwner(String s) { owner = LibUtils.stripStr(s);  return this;}
 
   public String getHost() { return host; }
-  public TSystem setHost(String s) { host = s; return this; }
+  public TSystem setHost(String s) { host = LibUtils.stripStr(s); return this; }
 
   public boolean isEnabled() { return enabled; }
   public TSystem setEnabled(boolean b) { enabled = b;  return this; }
 
   public String getEffectiveUserId() { return effectiveUserId; }
-  public TSystem setEffectiveUserId(String s) { effectiveUserId = s; return this; }
+  public TSystem setEffectiveUserId(String s) { effectiveUserId = LibUtils.stripStr(s); return this; }
 
   public AuthnMethod getDefaultAuthnMethod() { return defaultAuthnMethod; }
   public TSystem setDefaultAuthnMethod(AuthnMethod a) { defaultAuthnMethod = a; return this; }
@@ -828,10 +995,10 @@ public final class TSystem
   public TSystem setAuthnCredential(Credential c) {authnCredential = c; return this; }
 
   public String getBucketName() { return bucketName; }
-  public TSystem setBucketName(String s) { bucketName = s; return this; }
+  public TSystem setBucketName(String s) { bucketName = LibUtils.stripStr(s); return this; }
 
   public String getRootDir() { return rootDir; }
-  public TSystem setRootDir(String s) { rootDir = s; return this; }
+  public TSystem setRootDir(String s) { rootDir = LibUtils.stripStr(s); return this; }
 
   public int getPort() { return port; }
   public TSystem setPort(int i) { port = i; return this; }
@@ -840,19 +1007,19 @@ public final class TSystem
   public TSystem setUseProxy(boolean b) { useProxy = b; return this; }
 
   public String getProxyHost() { return proxyHost; }
-  public TSystem setProxyHost(String s) { proxyHost = s; return this; }
+  public TSystem setProxyHost(String s) { proxyHost = LibUtils.stripStr(s); return this; }
 
   public int getProxyPort() { return proxyPort; }
   public TSystem setProxyPort(int i) { proxyPort = i; return this; }
 
   public String getDtnSystemId() { return dtnSystemId; }
-  public TSystem setDtnSystemId(String s) { dtnSystemId = s; return this; }
+  public TSystem setDtnSystemId(String s) { dtnSystemId = LibUtils.stripStr(s); return this; }
 
   public String getDtnMountPoint() { return dtnMountPoint; }
-  public TSystem setDtnMountPoint(String s) { dtnMountPoint = s; return this; }
+  public TSystem setDtnMountPoint(String s) { dtnMountPoint = LibUtils.stripStr(s); return this; }
 
   public String getDtnMountSourcePath() { return dtnMountSourcePath; }
-  public TSystem setDtnMountSourcePath(String s) { dtnMountSourcePath = s; return this; }
+  public TSystem setDtnMountSourcePath(String s) { dtnMountSourcePath = LibUtils.stripStr(s); return this; }
 
   public boolean isDtn() { return isDtn; }
 
@@ -862,7 +1029,7 @@ public final class TSystem
   public TSystem setCanRunBatch(boolean b) { canRunBatch = b; return this; }
 
   public String getMpiCmd() { return mpiCmd; }
-  public TSystem setMpiCmd(String s) { mpiCmd = s; return this; }
+  public TSystem setMpiCmd(String s) { mpiCmd = LibUtils.stripStr(s); return this; }
 
   public boolean isEnableCmdPrefix() {
     return enableCmdPrefix;
@@ -881,7 +1048,7 @@ public final class TSystem
   }
 
   public String getJobWorkingDir() { return jobWorkingDir; }
-  public TSystem setJobWorkingDir(String s) { jobWorkingDir = s; return this; }
+  public TSystem setJobWorkingDir(String s) { jobWorkingDir = LibUtils.stripStr(s); return this; }
 
   public List<KeyValuePair> getJobEnvVariables() {
     return (jobEnvVariables == null) ? null : new ArrayList<>(jobEnvVariables);
@@ -909,10 +1076,10 @@ public final class TSystem
   }
 
   public String getBatchDefaultLogicalQueue() { return batchDefaultLogicalQueue; }
-  public TSystem setBatchDefaultLogicalQueue(String s) { batchDefaultLogicalQueue = s; return this; }
+  public TSystem setBatchDefaultLogicalQueue(String s) { batchDefaultLogicalQueue = LibUtils.stripStr(s); return this; }
 
   public String getBatchSchedulerProfile() { return batchSchedulerProfile; }
-  public TSystem setBatchSchedulerProfile(String s) { batchSchedulerProfile = s; return this; }
+  public TSystem setBatchSchedulerProfile(String s) { batchSchedulerProfile = LibUtils.stripStr(s); return this; }
 
   public List<Capability> getJobCapabilities() {
     return (jobCapabilities == null) ? null : new ArrayList<>(jobCapabilities);

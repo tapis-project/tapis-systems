@@ -1,5 +1,7 @@
 package edu.utexas.tacc.tapis.systems.model;
 
+import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+
 import java.util.Objects;
 
 /*
@@ -16,7 +18,7 @@ public final class JobRuntime
   public JobRuntime(RuntimeType runtimeType1, String version1)
   {
     runtimeType = runtimeType1;
-    version = version1;
+    version = LibUtils.stripStr(version1);
   }
   public RuntimeType getRuntimeType() { return runtimeType; }
   public String getVersion() { return version; }
