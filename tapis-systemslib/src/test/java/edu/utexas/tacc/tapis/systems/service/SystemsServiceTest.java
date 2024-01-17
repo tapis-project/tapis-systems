@@ -1131,6 +1131,43 @@ public class SystemsServiceTest
 
   }
 
+  // Test that attempting to create a system with control characters in attributes
+  @Test
+  public void testCreateInvalidControlCharactersFail()
+  {
+    TSystem sys0 = systems[24];
+    // If bucketName has a control char then create should fail.
+    String tmpStr = sys0.getBucketName();
+    sys0.setBucketName(stringWithCtrlChar);
+    boolean pass = false;
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_CTL_CHR_ATTR"));
+      Assert.assertTrue(e.getMessage().contains("Attribute Name: bucketName"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    // Reset in prep for continued checking
+    sys0.setBucketName(tmpStr);
+    pass = false;
+
+    // Do similar checks for a tag
+    sys0.setTags(tagsWithCtrlChar);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_CTL_CHR_ATTR"));
+      Assert.assertTrue(e.getMessage().contains("Attribute Name: tags"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setTags(tags1);
+    pass = false;
+  }
+
   // Test creating, reading and deleting user permissions for a system
   @Test
   public void testUserPerms() throws Exception

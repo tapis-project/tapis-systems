@@ -1,6 +1,7 @@
 package edu.utexas.tacc.tapis.systems.model;
 
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
+import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,8 +58,8 @@ public final class LogicalQueue
                       int minNodeCount1, int maxNodeCount1, int minCoresPerNode1, int maxCoresPerNode1,
                       int minMemoryMB1, int maxMemoryMB1, int minMinutes1, int maxMinutes1)
   {
-    name = name1;
-    hpcQueueName = hpcQueueName1;
+    name = LibUtils.stripStr(name1);
+    hpcQueueName = LibUtils.stripStr(hpcQueueName1);
     maxJobs = maxJobs1 < 0 ? Integer.MAX_VALUE : maxJobs1;
     maxJobsPerUser = maxJobsPerUser1 < 0 ? Integer.MAX_VALUE : maxJobsPerUser1;
     minNodeCount = minNodeCount1;
