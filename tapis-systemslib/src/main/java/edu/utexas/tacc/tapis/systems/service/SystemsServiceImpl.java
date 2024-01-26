@@ -2437,7 +2437,7 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Check constraints on TSystem attributes.
    * If batchSchedulerProfile is set verify that the profile exists.
-   * If DTN is used verify that dtnSystemId exists
+   * If DTN is used verify that dtnSystemId exists and has matching rootDir
    * Collect and report as many errors as possible, so they can all be fixed before next attempt
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tSystem1 - the TSystem to check
@@ -2461,7 +2461,7 @@ public class SystemsServiceImpl implements SystemsService
       }
     }
 
-    // If DTN is used (i.e. dtnSystemId is set) verify that dtnSystemId exists
+    // If DTN is used (i.e. dtnSystemId is set) verify that dtnSystemId exists and has matching rootDir
     if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))
     {
       TSystem dtnSystem = null;
@@ -2478,6 +2478,14 @@ public class SystemsServiceImpl implements SystemsService
       if (dtnSystem == null)
       {
         msg = LibUtils.getMsg("SYSLIB_DTN_NO_SYSTEM", tSystem1.getDtnSystemId());
+        errMessages.add(msg);
+      }
+      String rootDir = tSystem1.getRootDir();
+      String dtnRootDir = (dtnSystem == null) ? null : dtnSystem.getRootDir();
+      if ( ((dtnRootDir == null && rootDir != null) || (dtnRootDir != null && rootDir == null)) ||
+           (dtnRootDir != null && !dtnRootDir.equals(rootDir)) )
+      {
+        msg = LibUtils.getMsg("SYSLIB_DTN_ROOTDIR_MISMATCH", tSystem1.getDtnSystemId(), dtnRootDir, rootDir);
         errMessages.add(msg);
       }
     }
