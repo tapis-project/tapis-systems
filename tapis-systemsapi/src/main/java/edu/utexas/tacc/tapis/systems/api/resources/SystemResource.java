@@ -562,7 +562,6 @@ public class SystemResource {
    *      authnCredential
    *      bucketName
    *      rootDir
-   *      isDtn
    *      canExec
    *  Note that the following attributes may be modified using other endpoints: owner, enabled, deleted, authnCredential
    *
@@ -1416,7 +1415,7 @@ public class SystemResource {
     var tSystem = new TSystem(-1, tenantId, req.id, req.description, req.systemType, req.owner, req.host,
                        req.enabled, req.effectiveUserId, req.defaultAuthnMethod, req.bucketName, req.rootDir,
                        req.port, req.useProxy, req.proxyHost, req.proxyPort,
-                       req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, req.isDtn,
+                       req.dtnSystemId,
                        req.canExec, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs,
                        req.jobMaxJobsPerUser, req.canRunBatch, req.enableCmdPrefix, req.mpiCmd, req.batchScheduler,
                        req.batchLogicalQueues, req.batchDefaultLogicalQueue, req.batchSchedulerProfile, req.jobCapabilities,
@@ -1439,12 +1438,11 @@ public class SystemResource {
     boolean enabledTrue = true;
     String bucketNameNull = null;
     String rootDirNull = null;
-    boolean isDtnFalse = false;
     boolean canExecTrue = true;
     var tSystem = new TSystem(-1, tenantId, systemId, req.description, systemTypeNull, ownerNull, req.host,
             enabledTrue, req.effectiveUserId, req.defaultAuthnMethod, bucketNameNull, rootDirNull,
             req.port, req.useProxy, req.proxyHost, req.proxyPort,
-            req.dtnSystemId, req.dtnMountPoint, req.dtnMountSourcePath, isDtnFalse,
+            req.dtnSystemId,
             canExecTrue, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
             req.canRunBatch, req.enableCmdPrefix, req.mpiCmd, req.batchScheduler, req.batchLogicalQueues, req.batchDefaultLogicalQueue,
             req.batchSchedulerProfile, req.jobCapabilities, req.tags, notes, req.importRefId, null, false,
@@ -1456,7 +1454,6 @@ public class SystemResource {
   /**
    * Check restrictions on TSystem attributes
    * Use TSystem method to check internal consistency of attributes.
-   * If DTN is used verify that dtnSystemId exists with isDtn = true
    * Collect and report as many errors as possible, so they can all be fixed before next attempt
    * NOTE: JsonSchema validation should handle some of these checks, but we check here again for robustness.
    *
@@ -1471,7 +1468,7 @@ public class SystemResource {
 
     // Now validate attributes that have special handling at API level.
 
-    // If DTN is used (i.e. dtnSystemId is set) verify that dtnSystemId exists with isDtn = true
+    // If DTN is used (i.e. dtnSystemId is set) verify that dtnSystemId
     if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))
     {
       TSystem dtnSystem = null;
@@ -1500,11 +1497,6 @@ public class SystemResource {
       {
         msg = ApiUtils.getMsg("SYSAPI_DTN_NO_SYSTEM", tSystem1.getDtnSystemId());
         errMessages.add(msg);
-      }
-      else if (!dtnSystem.isDtn())
-      {
-          msg = ApiUtils.getMsg("SYSAPI_DTN_NOT_DTN", tSystem1.getDtnSystemId());
-          errMessages.add(msg);
       }
     }
 

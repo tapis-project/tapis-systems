@@ -105,8 +105,6 @@ public final class IntegrationUtils
   public static final String proxyHostNull = null;
   public static final Integer proxyPortNull = null;
   public static final boolean isEnabledTrue = true;
-  public static final boolean isDtnTrue = true;
-  public static final boolean isDtnFalse = false;
   public static final boolean canExecTrue = true;
   public static final boolean canExecFalse = false;
   public static final boolean skipCredCheckTrue = true;
@@ -126,12 +124,6 @@ public final class IntegrationUtils
   public static final String dtnSystemIdNull = null;
   public static final String dtnSystemValidHostname = "dtn.system.org";
   public static final String dtnSystemFakeHostname = "fakeDTNSystem";
-  public static final String dtnMountPoint1 = "/fake/mountpoint1";
-  public static final String dtnMountPoint2 = "/fake/mountpoint2";
-  public static final String dtnMountPointNull = null;
-  public static final String dtnMountSourcePath1 = "/fake/mountsourcepath1";
-  public static final String dtnMountSourcePath2 = "/fake/mountsourcepath2";
-  public static final String dtnMountSourcePathNull = null;
   public static final String jobWorkingDir1 = "/fake/job/working_dir1";
   public static final String jobWorkingDir2 = "/fake/job/working_dir2";
   public static final String jobWorkingDirNull = null;
@@ -341,7 +333,7 @@ public final class IntegrationUtils
     return new TSystem(-1, tenantName, dtnSystemName1 , "DTN System1 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn1", prot1.getAuthnMethod(), "bucketDtn1", "/root/dtn1",
             prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
-            dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
+            dtnSystemIdNull,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
             canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
             batchSchedulerProfileNull, capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse,
@@ -361,7 +353,7 @@ public final class IntegrationUtils
     return new TSystem(-1, tenantName, dtnSystemName2, "DTN System2 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn2", prot2.getAuthnMethod(), "bucketDtn2", "/root/dtn2",
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
-            dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
+            dtnSystemIdNull,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs2, jobMaxJobsPerUser2,
             canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
             batchSchedulerProfileNull, capListNull, tags2, notes2, importRefId2, uuidNull, isDeletedFalse,
@@ -387,7 +379,7 @@ public final class IntegrationUtils
     dtnSystem1 = new TSystem(-1, tenantName, dtnSystemName1 , "DTN System1 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn1", prot1.getAuthnMethod(), "bucketDtn1", "/root/dtn1",
             prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
-            dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
+            dtnSystemIdNull,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
             canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
             batchSchedulerProfileNull, capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse,
@@ -395,7 +387,7 @@ public final class IntegrationUtils
     dtnSystem2 = new TSystem(-1, tenantName, dtnSystemName2, "DTN System2 for tests", TSystem.SystemType.LINUX, owner1,
             dtnSystemValidHostname, isEnabledTrue,"effUserDtn2", prot2.getAuthnMethod(), "bucketDtn2", "/root/dtn2",
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
-            dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnTrue,
+            dtnSystemIdNull,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs2, jobMaxJobsPerUser2,
             canRunBatchFalse, enableCmdPrefixTrue, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
             batchSchedulerProfileNull, capListNull, tags2, notes2, importRefId2, uuidNull, isDeletedFalse,
@@ -411,7 +403,7 @@ public final class IntegrationUtils
       systems[i] = new TSystem(-1, tenantName, name, description1+suffix, TSystem.SystemType.LINUX, owner1,
               hostName, isEnabledTrue,effectiveUserId1+suffix, prot1.getAuthnMethod(), "bucket"+suffix, "/root"+suffix,
               prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
-              dtnSystem1.getId(), dtnMountPoint1, dtnMountSourcePath1, isDtnFalse,
+              dtnSystem1.getId(),
               canExecTrue, jobRuntimes1, "jobWorkDir"+suffix, jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1,
               canRunBatchTrue, enableCmdPrefixTrue, mpiCmd1, batchScheduler1, logicalQueueList1, queueA1.getName(),
               batchSchedulerProfile1, capList1, tags1, notes1, importRefId1, uuidNull, isDeletedFalse,
@@ -436,7 +428,7 @@ public final class IntegrationUtils
     {
       return new TSystem(-1, tenantName, id, null, tSys.getSystemType(), ownerNull,
               hostMinimalId, isEnabledTrue, effectiveUserIdNull, tSys.getDefaultAuthnMethod(), null, rootDir1,
-              prot1.getPort(), prot1.isUseProxy(), null, prot1.getProxyPort(), null, null, null, isDtnFalse,
+              prot1.getPort(), prot1.isUseProxy(), null, prot1.getProxyPort(), null,
               canExecFalse, jobRuntimesNull, null, null, jobMaxJobs1, jobMaxJobsPerUser1,
               canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull,
               batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull, tagsNull, notesNull,
@@ -447,7 +439,7 @@ public final class IntegrationUtils
     {
       return new TSystem(-1, tenantName, tSys.getId(), null, tSys.getSystemType(), ownerNull,
               hostMinimalId, isEnabledTrue, effectiveUserIdNull, tSys.getDefaultAuthnMethod(), null, rootDir1,
-              prot1.getPort(), prot1.isUseProxy(), null, prot1.getProxyPort(), null, null, null, isDtnFalse,
+              prot1.getPort(), prot1.isUseProxy(), null, prot1.getProxyPort(), null,
               canExecFalse, jobRuntimesNull, null, null, jobMaxJobs1, jobMaxJobsPerUser1,
               canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull,
               batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull,
@@ -468,7 +460,7 @@ public final class IntegrationUtils
                        system.getOwner(), hostname2, system.isEnabled(), effectiveUserId2,
                        prot2.getAuthnMethod(), system.getBucketName(), system.getRootDir(), prot2.getPort(),
                        prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
-                       sysNamePrefix+key+dtnSystemId2, dtnMountPoint2, dtnMountSourcePath2, system.isDtn(),
+                       sysNamePrefix+key+dtnSystemId2,
                        system.getCanExec(), jobRuntimes2, jobWorkingDir2, jobEnvVariables2, jobMaxJobs2,
                        jobMaxJobsPerUser2, canRunBatchTrue, enableCmdPrefixTrue, mpiCmd2, batchScheduler2,
                        logicalQueueList2, batchDefaultLogicalQueue2, batchSchedulerProfile2,
@@ -490,20 +482,20 @@ public final class IntegrationUtils
   {
     return new PatchSystem(description2, hostname2, effectiveUserId2,
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
-            sysNamePrefix+key+dtnSystemId2, dtnMountPoint2, dtnMountSourcePath2, jobRuntimes2, jobWorkingDir2,
+            sysNamePrefix+key+dtnSystemId2, jobRuntimes2, jobWorkingDir2,
             jobEnvVariables2, jobMaxJobs2, jobMaxJobsPerUser2, canRunBatchTrue, enableCmdPrefixTrue, mpiCmd2, batchScheduler2,
             logicalQueueList2, batchDefaultLogicalQueue2, batchSchedulerProfile2, capList2, tags2, notes2, importRefId2, allowChildrenFalse);
   }
 
   /**
    * Create a PatchSystem in memory for use in testing.
-   * Some attributes are to be updated: description, authnMethod, dtnMountPoint, runtimeList, jobMaxJobsPerUser
+   * Some attributes are to be updated: description, authnMethod, runtimeList, jobMaxJobsPerUser
    */
   public static PatchSystem makePatchSystemPartial(String key, String systemId)
   {
     return new PatchSystem(description2, hostnameNull, effectiveUserIdNull,
             prot2.getAuthnMethod(), portNull, userProxyNull, proxyHostNull, proxyPortNull,
-            dtnSystemIdNull, dtnMountPoint2, dtnMountSourcePathNull, jobRuntimes2, jobWorkingDirNull, jobEnvVariablesNull,
+            dtnSystemIdNull, jobRuntimes2, jobWorkingDirNull, jobEnvVariablesNull,
             jobMaxJobsNull, jobMaxJobsPerUser2, canRunBatchNull, enableCmdPrefixTrue, mpiCmd2, batchSchedulerNull, logicalQueueListNull,
             batchDefaultLogicalQueueNull, batchSchedulerProfileNull, capListNull, tagsNull, notesNull, importRefIdNull, allowChildrenFalse);
   }
@@ -519,7 +511,7 @@ public final class IntegrationUtils
             TAPIS_TEST_S3_HOST, isEnabledTrue, TAPIS_TEST_S3_HOST_LOGIN_USER, protS3.getAuthnMethod(),
             TAPIS_TEST_S3_BUCKET, TAPIS_TEST_S3_ROOTDIR,
             protS3.getPort(), protS3.isUseProxy(), protS3.getProxyHost(), protS3.getProxyPort(),
-            dtnSystemIdNull, dtnMountPointNull, dtnMountSourcePathNull, isDtnFalse,
+            dtnSystemIdNull,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
             canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull, batchSchedulerProfileNull,
             capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse,

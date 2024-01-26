@@ -47,9 +47,6 @@ public final class TapisSystemDTO
   public String proxyHost;
   public int proxyPort;
   public String dtnSystemId;
-  public String dtnMountPoint;
-  public String dtnMountSourcePath;
-  public boolean isDtn;
   public boolean canExec;
   public boolean canRunBatch;
   public boolean enableCmdPrefix;
@@ -94,9 +91,6 @@ public final class TapisSystemDTO
     proxyHost = s.getProxyHost();
     proxyPort = s.getProxyPort();
     dtnSystemId = s.getDtnSystemId();
-    dtnMountPoint = s.getDtnMountPoint();
-    dtnMountSourcePath = s.getDtnMountSourcePath();
-    isDtn = s.isDtn();
     canExec = s.getCanExec();
     canRunBatch = s.getCanRunBatch();
     enableCmdPrefix = s.isEnableCmdPrefix();
@@ -206,10 +200,7 @@ public final class TapisSystemDTO
       case USE_PROXY_FIELD -> jsonObject.addProperty(USE_PROXY_FIELD, Boolean.toString(useProxy));
       case PROXY_HOST_FIELD -> jsonObject.addProperty(PROXY_HOST_FIELD, proxyHost);
       case PROXY_PORT_FIELD -> jsonObject.addProperty(PROXY_PORT_FIELD, proxyPort);
-      case DTN_MOUNT_POINT_FIELD -> jsonObject.addProperty(DTN_MOUNT_POINT_FIELD, dtnMountPoint);
-      case DTN_MOUNT_SOURCE_PATH_FIELD -> jsonObject.addProperty(DTN_MOUNT_SOURCE_PATH_FIELD, dtnMountSourcePath);
       case DTN_SYSTEM_ID_FIELD -> jsonObject.addProperty(DTN_SYSTEM_ID_FIELD, dtnSystemId);
-      case IS_DTN_FIELD -> jsonObject.addProperty(IS_DTN_FIELD, Boolean.toString(isDtn));
       case CAN_EXEC_FIELD -> jsonObject.addProperty(CAN_EXEC_FIELD, Boolean.toString(canExec));
       case CAN_RUN_BATCH_FIELD -> jsonObject.addProperty(CAN_RUN_BATCH_FIELD, Boolean.toString(canRunBatch));
       case ENABLE_CMD_PREFIX_FIELD -> jsonObject.addProperty(ENABLE_CMD_PREFIX_FIELD, Boolean.toString(enableCmdPrefix));

@@ -152,8 +152,7 @@ public final class SchedulerProfile
 
   /**
    * Check for attribute strings that exceed limits
-   *   id, description, owner, effectiveUserId, bucketName, rootDir
-   *   dtnSystemId, dtnMountPoint, dtnMountSourcePath, jobWorkingDir
+   *   name, description, owner
    */
   private void checkAttrStringLengths(List<String> errMessages)
   {

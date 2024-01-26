@@ -47,9 +47,6 @@ public final class ReqPostSystem
   public String proxyHost = DEFAULT_PROXYHOST;
   public int proxyPort = DEFAULT_PROXYPORT;
   public String dtnSystemId;
-  public String dtnMountPoint;
-  public String dtnMountSourcePath;
-  public boolean isDtn;
   public boolean canExec;
   public boolean canRunBatch = DEFAULT_CAN_RUN_BATCH;
   public boolean enableCmdPrefix = DEFAULT_ENABLE_CMD_PREFIX;

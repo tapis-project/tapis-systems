@@ -491,8 +491,6 @@ public class SystemsServiceTest
     sys0.setProxyHost(prot2.getProxyHost());
     sys0.setProxyPort(prot2.getProxyPort());
     sys0.setDtnSystemId(sysNamePrefix + testKey + dtnSystemId2);
-    sys0.setDtnMountPoint(dtnMountPoint2);
-    sys0.setDtnMountSourcePath(dtnMountSourcePath2);
     sys0.setMpiCmd(mpiCmd2);
     sys0.setJobWorkingDir(jobWorkingDir2);
     sys0.setJobEnvVariables(jobEnvVariables2);
@@ -557,8 +555,6 @@ public class SystemsServiceTest
     sys0.setProxyHost(prot2.getProxyHost());
     sys0.setProxyPort(prot2.getProxyPort());
     sys0.setDtnSystemId(sysNamePrefix+ testKey +dtnSystemId2);
-    sys0.setDtnMountPoint(dtnMountPoint2);
-    sys0.setDtnMountSourcePath(dtnMountSourcePath2);
     sys0.setMpiCmd(mpiCmd2);
     sys0.setJobWorkingDir(jobWorkingDir2);
     sys0.setJobEnvVariables(jobEnvVariables2);
@@ -588,7 +584,7 @@ public class SystemsServiceTest
     rawDataCreate = "{\"testUpdate\": \"0-create2\"}";
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataCreate);
     // Create patchSystem where some attributes are changed
-    //   * Some attributes are to be updated: description, authnMethod, dtnMountPoint, runtimeList, jobMaxJobsPerUser
+    //   * Some attributes are to be updated: description, authnMethod, runtimeList, jobMaxJobsPerUser
     String rawDataPatch2 = "{\"testUpdate\": \"1-patch2\"}";
     PatchSystem patchSystemPartial = IntegrationUtils.makePatchSystemPartial(testKey, systemId);
 
@@ -599,7 +595,6 @@ public class SystemsServiceTest
     // Update original definition with patched values, so we can use the checkCommon method.
     sys0.setDescription(description2);
     sys0.setDefaultAuthnMethod(prot2.getAuthnMethod());
-    sys0.setDtnMountPoint(dtnMountPoint2);
     sys0.setMpiCmd(mpiCmd2);
     sys0.setJobMaxJobsPerUser(jobMaxJobsPerUser2);
     sys0.setJobRuntimes(jobRuntimes2);
@@ -1019,8 +1014,6 @@ public class SystemsServiceTest
   // Note that these checks are in addition to other similar tests such as: testReservedNames, testInvalidPrivateSshKey
   // NOTE: Not all combinations are checked.
   // - If canExec is true then jobWorkingDir must be set and jobRuntimes must have at least one entry.
-  // - If isDtn is true then canExec must be false and the following attributes may not be set:
-  //       dtnSystemId, dtnMountSourcePath, dtnMountPoint, all job execution related attributes.
   // - If canRunBatch is true
   //     batchScheduler must be specified
   //     batchLogicalQueues must not be empty
@@ -1028,7 +1021,7 @@ public class SystemsServiceTest
   //     batchLogicalDefaultQueue must be in the list of queues
   //     If batchLogicalQueues has more then one item then batchDefaultLogicalQueue must be set
   //     batchDefaultLogicalQueue must be in the list of logical queues.
-  // - If type is OBJECT_STORE then bucketName must be set, isExec and isDtn must be false.
+  // - If type is OBJECT_STORE then bucketName must be set, isExec must be false.
   // - If systemType is LINUX then rootDir is required.
   // - effectiveUserId is restricted.
   // - If effectiveUserId is dynamic then providing credentials is disallowed
@@ -1362,7 +1355,7 @@ public class SystemsServiceTest
     // -------------------------
     // Patch the system
     String rawDataPatch = "{\"effectiveUserId\": \"testuser5LinuxUser\"}";
-    PatchSystem patchSystem = new PatchSystem(null, null, testUser5LinuxUser, null, null, null, null, null, null, null, null,
+    PatchSystem patchSystem = new PatchSystem(null, null, testUser5LinuxUser, null, null, null, null, null, null,
                               null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
     // Retrieve with resolve of effUser, effUser should be static value
@@ -1395,7 +1388,7 @@ public class SystemsServiceTest
     // -------------------------
     // Patch the system
     rawDataPatch = "{\"effectiveUserId\": \"${apiUserId}\"}";
-    patchSystem = new PatchSystem(null, null, TSystem.APIUSERID_VAR, null, null, null, null, null, null, null, null,
+    patchSystem = new PatchSystem(null, null, TSystem.APIUSERID_VAR, null, null, null, null, null, null,
                                   null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
     // Retrieve with resolve, check effUser
@@ -1666,7 +1659,7 @@ public class SystemsServiceTest
     String systemId = sys0.getId();
     PatchSystem patchSys = new PatchSystem("description PATCHED", "hostPATCHED", "effUserPATCHED",
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
-            dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, jobRuntimes1, jobWorkingDir1, jobEnvVariables1, jobMaxJobs1,
+            dtnSystemFakeHostname, jobRuntimes1, jobWorkingDir1, jobEnvVariables1, jobMaxJobs1,
             jobMaxJobsPerUser1, canRunBatchTrue, enableCmdPrefixTrue, mpiCmd1, batchScheduler1, logicalQueueList1,
             batchDefaultLogicalQueue1, batchSchedulerProfile1, capList2, tags2, notes2, importRefId2, allowChildrenFalse);
 
@@ -2106,9 +2099,6 @@ public class SystemsServiceTest
     Assert.assertEquals(sys2.getProxyHost(), sys1.getProxyHost());
     Assert.assertEquals(sys2.getProxyPort(), sys1.getProxyPort());
     Assert.assertEquals(sys2.getDtnSystemId(), sys1.getDtnSystemId());
-    Assert.assertEquals(sys2.getDtnMountSourcePath(), sys1.getDtnMountSourcePath());
-    Assert.assertEquals(sys2.getDtnMountPoint(), sys1.getDtnMountPoint());
-    Assert.assertEquals(sys2.isDtn(), sys1.isDtn());
     Assert.assertEquals(sys2.getCanExec(), sys1.getCanExec());
     Assert.assertEquals(sys2.getJobWorkingDir(), sys1.getJobWorkingDir());
 
@@ -2661,7 +2651,7 @@ public class SystemsServiceTest
     system = new TSystem(-1, tenantName, name, description1 + indexString, TSystem.SystemType.LINUX, null,
             hostName, isEnabledTrue, effectiveUserId1 + indexString, prot1.getAuthnMethod(), "bucket" + indexString, "/root" + indexString,
             prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
-            null, dtnMountPoint1, dtnMountSourcePath1, isDtnFalse,
+            null,
             canExecTrue, jobRuntimes1, "jobWorkDir" + indexString, jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1,
             canRunBatchTrue, enableCmdPrefixTrue, mpiCmd1, batchScheduler1, logicalQueueList1, queueA1.getName(),
             batchSchedulerProfile1, capList1, tags1, notes1, importRefId1, uuidNull, isDeletedFalse,

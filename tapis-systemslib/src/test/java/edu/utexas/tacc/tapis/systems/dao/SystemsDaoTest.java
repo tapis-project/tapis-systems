@@ -130,9 +130,6 @@ public class SystemsDaoTest
     Assert.assertEquals(tmpSys.getProxyHost(), sys0.getProxyHost());
     Assert.assertEquals(tmpSys.getProxyPort(), sys0.getProxyPort());
     Assert.assertEquals(tmpSys.getDtnSystemId(), sys0.getDtnSystemId());
-    Assert.assertEquals(tmpSys.getDtnMountSourcePath(), sys0.getDtnMountSourcePath());
-    Assert.assertEquals(tmpSys.getDtnMountPoint(), sys0.getDtnMountPoint());
-    Assert.assertEquals(tmpSys.isDtn(), sys0.isDtn());
     Assert.assertEquals(tmpSys.getCanExec(), sys0.getCanExec());
     Assert.assertEquals(tmpSys.getJobWorkingDir(), sys0.getJobWorkingDir());
 
@@ -320,7 +317,7 @@ public class SystemsDaoTest
     TSystem patchedSystem = new TSystem(1, tenantName, fakeSystemName, "description", SystemType.LINUX, "owner", "host",
             isEnabledTrue, "effUser", prot2.getAuthnMethod(), "bucket", "/root",
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
-            dtnSystemFakeHostname, dtnMountPoint1, dtnMountSourcePath1, isDtnFalse,
+            dtnSystemFakeHostname,
             canExecTrue, jobRuntimes1, "jobWorkDir", jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1,
             canRunBatchTrue, enableCmdPrefixTrue, mpiCmd1, batchScheduler1, logicalQueueList1,
             "batchDefaultLogicalQueue", batchSchedulerProfile1, capList1, tags1, notes1,
