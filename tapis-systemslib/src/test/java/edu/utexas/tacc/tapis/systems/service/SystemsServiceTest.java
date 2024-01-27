@@ -449,7 +449,7 @@ public class SystemsServiceTest
   }
 
   // Test updating a system using put
-  // Both update of all possible attributes and only some attributes
+  // Both update of all possible attributes (except dtnSystemId) and only some attributes
   @Test
   public void testPutSystem() throws Exception
   {
@@ -490,7 +490,6 @@ public class SystemsServiceTest
     sys0.setUseProxy(prot2.isUseProxy());
     sys0.setProxyHost(prot2.getProxyHost());
     sys0.setProxyPort(prot2.getProxyPort());
-    sys0.setDtnSystemId(sysNamePrefix + testKey + dtnSystemId2);
     sys0.setMpiCmd(mpiCmd2);
     sys0.setJobWorkingDir(jobWorkingDir2);
     sys0.setJobEnvVariables(jobEnvVariables2);
@@ -554,7 +553,6 @@ public class SystemsServiceTest
     sys0.setUseProxy(prot2.isUseProxy());
     sys0.setProxyHost(prot2.getProxyHost());
     sys0.setProxyPort(prot2.getProxyPort());
-    sys0.setDtnSystemId(sysNamePrefix+ testKey +dtnSystemId2);
     sys0.setMpiCmd(mpiCmd2);
     sys0.setJobWorkingDir(jobWorkingDir2);
     sys0.setJobEnvVariables(jobEnvVariables2);

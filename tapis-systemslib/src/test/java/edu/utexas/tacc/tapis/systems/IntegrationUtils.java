@@ -328,10 +328,11 @@ public final class IntegrationUtils
   {
     // Start ID with a number to validate the update that allows for IDs starting with a number.
     String dtnSystemName1 = "1" +sysNamePrefix+key+dtnSystemId1;
+    String dtnRootDir = "/root"+key+"_001"; // testCreateSystem
 
     // Create DTN systems for other systems to reference. Otherwise, some system definitions are not valid.
     return new TSystem(-1, tenantName, dtnSystemName1 , "DTN System1 for tests", TSystem.SystemType.LINUX, owner1,
-            dtnSystemValidHostname, isEnabledTrue,"effUserDtn1", prot1.getAuthnMethod(), "bucketDtn1", "/root/dtn1",
+            dtnSystemValidHostname, isEnabledTrue,"effUserDtn1", prot1.getAuthnMethod(), "bucketDtn1", dtnRootDir,
             prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
             dtnSystemIdNull,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
@@ -348,10 +349,11 @@ public final class IntegrationUtils
   public static TSystem makeDtnSystem2(String key)
   {
     String dtnSystemName2 = sysNamePrefix+key+dtnSystemId2;
+    String dtnRootDir = "/root"+key+"_002"; // testGetSystem
 
     // Create DTN systems for other systems to reference. Otherwise, some system definitions are not valid.
     return new TSystem(-1, tenantName, dtnSystemName2, "DTN System2 for tests", TSystem.SystemType.LINUX, owner1,
-            dtnSystemValidHostname, isEnabledTrue,"effUserDtn2", prot2.getAuthnMethod(), "bucketDtn2", "/root/dtn2",
+            dtnSystemValidHostname, isEnabledTrue,"effUserDtn2", prot2.getAuthnMethod(), "bucketDtn2", dtnRootDir,
             prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
             dtnSystemIdNull,
             canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs2, jobMaxJobsPerUser2,
@@ -362,7 +364,7 @@ public final class IntegrationUtils
 
   /**
    * Create an array of TSystem objects in memory
-   * NOTE: DTN systems must be created first.
+   * NOTE: If any DTN systems used, they must be created first and the rootDir values must match.
    * Names will be of format TestSys_K_NNN where K is the key and NNN runs from 000 to 999
    * We need a key because maven runs the tests in parallel so each set of systems created by an integration
    *   test will need its own namespace.
@@ -376,22 +378,9 @@ public final class IntegrationUtils
     String dtnSystemName2 = sysNamePrefix+key+dtnSystemId2;
 
     // Create DTN systems for other systems to reference. Otherwise, some system definitions are not valid.
-    dtnSystem1 = new TSystem(-1, tenantName, dtnSystemName1 , "DTN System1 for tests", TSystem.SystemType.LINUX, owner1,
-            dtnSystemValidHostname, isEnabledTrue,"effUserDtn1", prot1.getAuthnMethod(), "bucketDtn1", "/root/dtn1",
-            prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
-            dtnSystemIdNull,
-            canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs1, jobMaxJobsPerUser1,
-            canRunBatchFalse, enableCmdPrefixFalse, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
-            batchSchedulerProfileNull, capListNull, tags1, notes1, importRefId1, uuidNull, isDeletedFalse,
-            allowChildrenFalse, parentIdNull, createdNull, updatedNull);
-    dtnSystem2 = new TSystem(-1, tenantName, dtnSystemName2, "DTN System2 for tests", TSystem.SystemType.LINUX, owner1,
-            dtnSystemValidHostname, isEnabledTrue,"effUserDtn2", prot2.getAuthnMethod(), "bucketDtn2", "/root/dtn2",
-            prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
-            dtnSystemIdNull,
-            canExecFalse, jobRuntimesNull, jobWorkingDirNull, jobEnvVariablesNull, jobMaxJobs2, jobMaxJobsPerUser2,
-            canRunBatchFalse, enableCmdPrefixTrue, mpiCmdNull, batchSchedulerNull, logicalQueueListNull, queueNameNull,
-            batchSchedulerProfileNull, capListNull, tags2, notes2, importRefId2, uuidNull, isDeletedFalse,
-            allowChildrenFalse, parentIdNull, createdNull, updatedNull);
+    dtnSystem1 = IntegrationUtils.makeDtnSystem1(key);
+    dtnSystem2 = IntegrationUtils.makeDtnSystem2(key);
+
     for (int i = 0; i < n; i++)
     {
       // Suffix which should be unique for each system within each integration test
@@ -399,11 +388,16 @@ public final class IntegrationUtils
       String suffix = key + "_" + iStr;
       String name = getSysName(key, i+1);
       String hostName = "host" + key + iStr + ".test.org";
+      // Set dtnSystemId to not be null for a couple of cases (getSys, createSys), so we check dtnSystemId validation.
+      // All others have dtnSystemId = null, so we do not have to worry about rootDir values not matching.
+      String dtnSystemId = null;
+      if (i == 0) dtnSystemId = dtnSystem1.getId(); // testCreateSystem
+      if (i == 1) dtnSystemId = dtnSystem2.getId(); // testGetSystem
       // Constructor initializes all attributes except for JobCapabilities and Credential
       systems[i] = new TSystem(-1, tenantName, name, description1+suffix, TSystem.SystemType.LINUX, owner1,
               hostName, isEnabledTrue,effectiveUserId1+suffix, prot1.getAuthnMethod(), "bucket"+suffix, "/root"+suffix,
               prot1.getPort(), prot1.isUseProxy(), prot1.getProxyHost(), prot1.getProxyPort(),
-              dtnSystem1.getId(),
+              dtnSystemId,
               canExecTrue, jobRuntimes1, "jobWorkDir"+suffix, jobEnvVariables1, jobMaxJobs1, jobMaxJobsPerUser1,
               canRunBatchTrue, enableCmdPrefixTrue, mpiCmd1, batchScheduler1, logicalQueueList1, queueA1.getName(),
               batchSchedulerProfile1, capList1, tags1, notes1, importRefId1, uuidNull, isDeletedFalse,
@@ -460,7 +454,7 @@ public final class IntegrationUtils
                        system.getOwner(), hostname2, system.isEnabled(), effectiveUserId2,
                        prot2.getAuthnMethod(), system.getBucketName(), system.getRootDir(), prot2.getPort(),
                        prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
-                       sysNamePrefix+key+dtnSystemId2,
+                       dtnSystemIdNull,
                        system.getCanExec(), jobRuntimes2, jobWorkingDir2, jobEnvVariables2, jobMaxJobs2,
                        jobMaxJobsPerUser2, canRunBatchTrue, enableCmdPrefixTrue, mpiCmd2, batchScheduler2,
                        logicalQueueList2, batchDefaultLogicalQueue2, batchSchedulerProfile2,
@@ -476,13 +470,13 @@ public final class IntegrationUtils
   public static final Protocol prot2 = new Protocol(AuthnMethod.PASSWORD, 0, true, "localhost",2222);
 
    * Create a PatchSystem in memory for use in testing.
-   * All attributes are to be updated.
+   * All attributes are to be updated, except dtnSystemId
    */
   public static PatchSystem makePatchSystemFull(String key, String systemId)
   {
     return new PatchSystem(description2, hostname2, effectiveUserId2,
             prot2.getAuthnMethod(), prot2.getPort(), prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
-            sysNamePrefix+key+dtnSystemId2, jobRuntimes2, jobWorkingDir2,
+            dtnSystemIdNull, jobRuntimes2, jobWorkingDir2,
             jobEnvVariables2, jobMaxJobs2, jobMaxJobsPerUser2, canRunBatchTrue, enableCmdPrefixTrue, mpiCmd2, batchScheduler2,
             logicalQueueList2, batchDefaultLogicalQueue2, batchSchedulerProfile2, capList2, tags2, notes2, importRefId2, allowChildrenFalse);
   }
