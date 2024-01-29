@@ -1026,6 +1026,7 @@ public class SystemsServiceTest
   // - If credential is provided and contains ssh keys then validate them
   // - SchedulerProfile must exist
   // - envVariables contains a FIXED entry then value cannot be !tapis_not_set
+  // - If canExec is false then dtnSystemId may not be set.
   @Test
   public void testCreateInvalidMiscFail()
   {
@@ -1120,6 +1121,20 @@ public class SystemsServiceTest
     // Reset in prep for continued checking
     sys0.setJobEnvVariables(tmpJobEnvVars);
 
+    // If canExec is false then dtnSystemId may not be set
+    pass = false;
+    // A minimal system has canExec=false
+    TSystem sTest = makeMinimalSystem(sys0, null);
+    sTest.setDtnSystemId(dtnSystemId1);
+    try { svc.createSystem(rOwner1, sTest, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_DTN_CANEXEC_FALSE"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    // Reset in prep for continued checking
+    pass = false;
   }
 
   // Test that attempting to create a system with control characters in attributes
