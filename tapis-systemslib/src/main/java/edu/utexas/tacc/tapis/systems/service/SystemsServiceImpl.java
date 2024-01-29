@@ -2468,6 +2468,15 @@ public class SystemsServiceImpl implements SystemsService
       try
       {
         dtnSystem = dao.getSystem(tSystem1.getTenant(), tSystem1.getDtnSystemId());
+        // Check for matching rootDir
+        String rootDir = tSystem1.getRootDir();
+        String dtnRootDir = (dtnSystem == null) ? null : dtnSystem.getRootDir();
+        if ( ((dtnRootDir == null && rootDir != null) || (dtnRootDir != null && rootDir == null)) ||
+                (dtnRootDir != null && !dtnRootDir.equals(rootDir)) )
+        {
+          msg = LibUtils.getMsg("SYSLIB_DTN_ROOTDIR_MISMATCH", tSystem1.getDtnSystemId(), dtnRootDir, rootDir);
+          errMessages.add(msg);
+        }
       }
       catch (TapisException e)
       {
@@ -2478,14 +2487,6 @@ public class SystemsServiceImpl implements SystemsService
       if (dtnSystem == null)
       {
         msg = LibUtils.getMsg("SYSLIB_DTN_NO_SYSTEM", tSystem1.getDtnSystemId());
-        errMessages.add(msg);
-      }
-      String rootDir = tSystem1.getRootDir();
-      String dtnRootDir = (dtnSystem == null) ? null : dtnSystem.getRootDir();
-      if ( ((dtnRootDir == null && rootDir != null) || (dtnRootDir != null && rootDir == null)) ||
-           (dtnRootDir != null && !dtnRootDir.equals(rootDir)) )
-      {
-        msg = LibUtils.getMsg("SYSLIB_DTN_ROOTDIR_MISMATCH", tSystem1.getDtnSystemId(), dtnRootDir, rootDir);
         errMessages.add(msg);
       }
     }

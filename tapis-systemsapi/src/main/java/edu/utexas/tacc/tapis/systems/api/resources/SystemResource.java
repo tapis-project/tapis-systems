@@ -75,6 +75,7 @@ import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.*;
+import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
@@ -113,8 +114,6 @@ public class SystemResource {
   private static final String UPDATE_ERR = "SYSAPI_UPDATE_ERROR";
   private static final String CREATE_ERR = "SYSAPI_CREATE_ERROR";
   private static final String SELECT_ERR = "SYSAPI_SELECT_ERROR";
-  private static final String LIB_UNAUTH = "SYSLIB_UNAUTH";
-  private static final String API_UNAUTH = "SYSAPI_SYS_UNAUTH";
   private static final String TAPIS_FOUND = "TAPIS_FOUND";
   private static final String NOT_FOUND = "SYSAPI_NOT_FOUND";
   private static final String UPDATED = "SYSAPI_UPDATED";
@@ -1468,7 +1467,9 @@ public class SystemResource {
 
     // Now validate attributes that have special handling at API level.
 
-    // If DTN is used (i.e. dtnSystemId is set) verify that dtnSystemId
+    // If DTN is used (i.e. dtnSystemId is set):
+    //   - verify that dtnSystemId exists
+    //   - verify that rootDir of DTN matches this rootDir.
     if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))
     {
       TSystem dtnSystem = null;
@@ -1476,7 +1477,16 @@ public class SystemResource {
       {
         dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false,
                          null, null, null, false);
-      }
+        // Check for matching rootDir
+        String rootDir = tSystem1.getRootDir();
+        String dtnRootDir = (dtnSystem == null) ? null : dtnSystem.getRootDir();
+        if ( ((dtnRootDir == null && rootDir != null) || (dtnRootDir != null && rootDir == null)) ||
+                (dtnRootDir != null && !dtnRootDir.equals(rootDir)) )
+        {
+          msg = LibUtils.getMsg("SYSLIB_DTN_ROOTDIR_MISMATCH", tSystem1.getDtnSystemId(), dtnRootDir, rootDir);
+          errMessages.add(msg);
+        }
+     }
       catch (NotAuthorizedException e)
       {
         msg = ApiUtils.getMsg("SYSAPI_DTN_401", tSystem1.getDtnSystemId());
