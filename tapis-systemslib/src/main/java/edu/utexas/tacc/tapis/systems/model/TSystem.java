@@ -682,6 +682,7 @@ public final class TSystem
    *  effectiveUserId is restricted.
    *  If effectiveUserId is dynamic then providing credentials is disallowed
    *  If credential is provided and contains ssh keys then validate them
+   *  If canExec is false then dtnSystemId may not be set.
    *  If jobEnvVariables set then check them (see below for restrictions)
    */
   private void checkAttrMisc(List<String> errMessages)
@@ -720,6 +721,10 @@ public final class TSystem
       if (!authnCredential.isValidPrivateSshKey())
         errMessages.add(LibUtils.getMsg("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1"));
     }
+
+    // If canExec is false then dtnSystemId may not be set.
+    if (!canExec && !StringUtils.isBlank(dtnSystemId))
+      errMessages.add(LibUtils.getMsg("SYSLIB_DTN_CANEXEC_FALSE", dtnSystemId));
 
     // Check for inputMode=FIXED and value == "!tapis_not_set"
     // Check for inputMode=REQUIRED and value != "!tapis_not_set"
