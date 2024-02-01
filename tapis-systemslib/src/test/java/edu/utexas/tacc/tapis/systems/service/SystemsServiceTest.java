@@ -222,14 +222,17 @@ public class SystemsServiceTest
       }
     }
     SystemsDaoImpl dao = new SystemsDaoImpl();
-    for(String pSystemId : parentIds) {
-      List<TSystem> childSystems = dao.getSystems(rAdminUser, null, Arrays.asList("parentId.eq." + pSystemId),
-              null, -1, null, 0, null, true, null, null, null);
-      for(TSystem cSystem : childSystems) {
-        svcImpl.hardDeleteSystem(rAdminUser, tenantName, cSystem.getId());
-      }
-      svcImpl.hardDeleteSystem(rAdminUser, tenantName, pSystemId);
+
+    // Delete all child systems.
+    for(String childUser : childUsers)
+    {
+      List<TSystem> childSystems = dao.getSystems(rAdminUser, childUser, null, null, -1, null,
+                                             0, null, true, listTypeOwned, null, null);
+      for(TSystem cSystem : childSystems) { svcImpl.hardDeleteSystem(rAdminUser, tenantName, cSystem.getId()); }
     }
+
+    // Delete all parent systems.
+    for(String pSystemId : parentIds) { svcImpl.hardDeleteSystem(rAdminUser, tenantName, pSystemId); }
 
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, s3System1.getId());
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem2.getId());
