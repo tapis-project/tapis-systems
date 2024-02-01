@@ -202,7 +202,7 @@ public class SystemsDaoTest
     TSystem sys0 = systems[4];
     boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmptyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sys0.getId());
-    List<TSystem> systems = dao.getSystems(rOwner1, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP,
+    List<TSystem> systems = dao.getSystems(rOwner1, null, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP,
                                            startAfterNull, showDeletedFalse, listTypeAll, setOfIDsNull, setOfIDsNull);
     for (TSystem system : systems)
     {
@@ -235,19 +235,19 @@ public class SystemsDaoTest
     sharedIDs.add(sys0.getId());
     List<TSystem> systems;
     // Simulate getting just OWNED
-    systems = dao.getSystems(rOwner7, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP, startAfterNull,
+    systems = dao.getSystems(rOwner7, null, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP, startAfterNull,
                              showDeletedFalse, listTypeOwned, setOfIDsNull, setOfIDsNull);
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeOwned);
     Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypeOwned);
     // Simulate getting just getting PUBLIC
-    systems = dao.getSystems(rOwner7, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP, startAfterNull,
+    systems = dao.getSystems(rOwner7, null, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP, startAfterNull,
                              showDeletedFalse, listTypePublic, setOfIDsNull, sharedPublicIDS);
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypePublic);
     Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypePublic);
     // Simulate getting ALL
-    systems = dao.getSystems(rOwner7, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP, startAfterNull,
+    systems = dao.getSystems(rOwner7, null, null, null, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP, startAfterNull,
                              showDeletedFalse, listTypeAll, viewableIDs, sharedIDs);
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeAll);
