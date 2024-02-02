@@ -746,6 +746,7 @@ public class SystemsServiceTest
   }
 
   // Test getSystems using listType parameter
+  //   also test impersonation by tenant admin user or a service.
   @Test
   public void testGetSystemsByListType() throws Exception
   {
@@ -790,6 +791,22 @@ public class SystemsServiceTest
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeAll);
     Assert.assertEquals(systems.size(), 4, "Wrong number of returned systems for listType=" + listTypeAll);
+
+    // Test tenant admin impersonating rOwner5 - should see 2 (1 owned + 1 public)
+    systems = svc.getSystems(rAdminUser, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
+                             showDeletedFalse, listTypeAll.name(), fetchShareInfoFalse, owner5);
+    Assert.assertNotNull(systems, "Returned list of systems should not be null");
+    System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeAll);
+    Assert.assertEquals(systems.size(), 2, "Wrong number of returned systems tenant for admin impersonation");
+
+    // Test service impersonating rOwner5 - should see 2 (1 owned + 1 public)
+    systems = svc.getSystems(rJobsSvcOwner1, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
+                             showDeletedFalse, listTypeAll.name(), fetchShareInfoFalse, owner5);
+    Assert.assertNotNull(systems, "Returned list of systems should not be null");
+    System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeAll);
+    Assert.assertEquals(systems.size(), 2, "Wrong number of returned systems for service impersonation");
+
+
   }
 
   // Check that user only sees systems they are authorized to see.
@@ -1843,12 +1860,35 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
 
-    // User should not be able to impersonate another user.
+    // Regular (non-admin) user should not be able to impersonate another user.
     pass = false;
-    try { svc.getSystem(rTestUser1, systemId, null, false, false, owner1, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse); }
+    try { svc.getSystem(rTestUser1, systemId, null, false, false,
+                        impersonationIdTestUser9, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_IMPERSONATE"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+
+    // Regular (non-admin) user should not be able to set the resource tenant.
+    pass = false;
+    try { svc.getSystem(rTestUser1, systemId, null, false, false,
+                        impersonationIdNull, sharedCtxNull, "dev2", fetchShareInfoFalse); }
+    catch (ForbiddenException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_RESOURCETENANT"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+
+    // Admin user should not be able to set the resource tenant.
+    pass = false;
+    try { svc.getSystem(rAdminUser, systemId, null, false, false,
+                        impersonationIdNull, sharedCtxNull, "dev2", fetchShareInfoFalse); }
+    catch (ForbiddenException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_RESOURCETENANT"));
       pass = true;
     }
     Assert.assertTrue(pass);
