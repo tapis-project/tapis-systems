@@ -9,6 +9,16 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
+## 1.6.1 - 2024-??-??
+
+Incremental improvements and new features
+
+### New features:
+- Allow tenant admin to impersonate a Tapis user when calling getSystem, getSystems.
+
+### Bug fixes:
+- Add sharing related keywords to list of reserved IDs.
+
 ---------------------------------------------------------------------------
 ## 1.6.0 - 2024-01-17
 

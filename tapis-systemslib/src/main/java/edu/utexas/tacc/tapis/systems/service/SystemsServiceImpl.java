@@ -392,7 +392,7 @@ public class SystemsServiceImpl implements SystemsService
     // Check if system already exists
     if (dao.checkForSystem(system.getTenant(), childId, true))
     {
-      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, systemId));
+      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, childId));
     }
 
     if(StringUtils.isBlank(childOwner)) {
