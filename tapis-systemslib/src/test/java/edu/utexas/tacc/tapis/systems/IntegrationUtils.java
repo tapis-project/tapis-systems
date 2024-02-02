@@ -70,6 +70,7 @@ public final class IntegrationUtils
   public static final String parentChild1 = "parentChildUser1";
   public static final String parentChild2 = "parentChildUser2";
   public static final String parentChild3 = "parentChildUser3";
+  public static final List<String> childUsers = new ArrayList<>(List.of(parentChild1, parentChild2, parentChild3));
   public static final String testUser4LinuxUser = "testuser4LinuxUser";
   public static final String testUser5LinuxUser = "testuser5LinuxUser";
   public static final String impersonationIdTestUser9 = "testuser9";

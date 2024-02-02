@@ -913,6 +913,8 @@ public class SystemResource {
    * @param securityContext - user identity
    * @param showDeleted - flag indicating resources marked as deleted should be included.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
+   *                          resolving effectiveUserId
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @GET
@@ -920,7 +922,8 @@ public class SystemResource {
   @Produces(MediaType.APPLICATION_JSON)
   public Response getSystems(@Context SecurityContext securityContext,
                              @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
-                             @QueryParam("listType") @DefaultValue("OWNED") String listType) throws TapisClientException
+                             @QueryParam("listType") @DefaultValue("OWNED") String listType,
+                             @QueryParam("impersonationId") String impersonationId) throws TapisClientException
   {
     String opName = "getSystems";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
@@ -934,7 +937,8 @@ public class SystemResource {
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "listType="+listType);
+                                                   "listType="+listType,
+                                                   "impersonationId="+impersonationId);
 
     // ThreadContext designed to never return null for SearchParameters
     SearchParameters srchParms = threadContext.getSearchParameters();
@@ -943,7 +947,7 @@ public class SystemResource {
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType);
+      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, impersonationId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1011,7 +1015,7 @@ public class SystemResource {
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType);
+      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, null);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1104,7 +1108,7 @@ public class SystemResource {
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, showDeleted, listType);
+      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, showDeleted, listType, null);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1583,7 +1587,7 @@ public class SystemResource {
    *  One of srchParms.searchList or sqlSearchStr must be non-null
    */
   private Response getSearchResponse(ResourceRequestUser rUser, String sqlSearchStr, SearchParameters srchParms,
-                                     boolean showDeleted, String listType)
+                                     boolean showDeleted, String listType, String impersonationId)
           throws TapisException, TapisClientException
   {
     RespAbstract resp1;
@@ -1610,7 +1614,7 @@ public class SystemResource {
     // Call service method to fetch systems
     if (StringUtils.isBlank(sqlSearchStr))
       systems = service.getSystems(rUser, searchList, limit, orderByList, skip, startAfter, showDeleted,
-                                   listType, fetchShareInfo);
+                                   listType, fetchShareInfo, impersonationId);
     else
       systems = service.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit, orderByList, skip, startAfter,
                                                     showDeleted, listType, fetchShareInfo);
