@@ -1248,7 +1248,8 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException - on error
    */
   @Override
-  public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, ASTNode searchAST, int limit,
+  public List<TSystem> getSystems(ResourceRequestUser rUser, String oboUser,
+                                  List<String> searchList, ASTNode searchAST, int limit,
                                   List<OrderBy> orderByList, int skip, String startAfter, boolean includeDeleted,
                                   AuthListType listType, Set<String> viewableIDs, Set<String> sharedIDs)
           throws TapisException
@@ -1256,18 +1257,20 @@ public class SystemsDaoImpl implements SystemsDao
     // The result list should always be non-null.
     List<TSystem> retList = new ArrayList<>();
 
+    // Ensure we have a valid listType
+    if (listType == null) listType = DEFAULT_LIST_TYPE;
+
+    // Ensure we have a valid oboUser
+    if (StringUtils.isBlank(oboUser)) oboUser = rUser.getOboUserId();
+
     // For convenience
     String oboTenant = rUser.getOboTenantId();
-    String oboUser = rUser.getOboUserId();
     boolean allItems = AuthListType.ALL.equals(listType);
     boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listType);
     boolean ownedOnly = AuthListType.OWNED.equals(listType);
 
     // If only looking for public items and there are none in the list we are done.
     if (publicOnly && (sharedIDs == null || sharedIDs.isEmpty())) return retList;
-
-    // Ensure we have a valid listType
-    if (listType == null) listType = DEFAULT_LIST_TYPE;
 
     // Ensure we have a non-null orderByList
     List<OrderBy> tmpOrderByList = new ArrayList<>();

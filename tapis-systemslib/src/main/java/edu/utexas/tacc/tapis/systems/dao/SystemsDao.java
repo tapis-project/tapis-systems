@@ -67,9 +67,9 @@ public interface SystemsDao
                       Set<String> sharedIDs)
           throws TapisException;
 
-  List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, ASTNode searchAST, int limit,
-                           List<OrderBy> orderByList, int skip, String startAfter, boolean includeDeleted, AuthListType listType,
-                           Set<String> viewableIDs, Set<String> sharedIDs)
+  List<TSystem> getSystems(ResourceRequestUser rUser, String oboUser, List<String> searchList, ASTNode searchAST,
+                           int limit, List<OrderBy> orderByList, int skip, String startAfter, boolean includeDeleted,
+                           AuthListType listType, Set<String> viewableIDs, Set<String> sharedIDs)
           throws TapisException;
 
   Set<String> getSystemIDs(String tenant, boolean includeDeleted) throws TapisException;

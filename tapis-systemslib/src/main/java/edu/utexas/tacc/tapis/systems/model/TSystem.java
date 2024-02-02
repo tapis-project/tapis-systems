@@ -40,8 +40,9 @@ public final class TSystem
   // ************************************************************************
 
   // Set of reserved system names
-  public static final Set<String> RESERVED_ID_SET = new HashSet<>(Set.of("HEALTHCHECK", "READYCHECK", "SEARCH",
-                                                                         "SCHEDULERPROFILE"));
+  public static final Set<String> RESERVED_ID_SET
+          = new HashSet<>(Set.of("HEALTHCHECK", "READYCHECK", "SEARCH", "SCHEDULERPROFILE",
+                                 "SHARE", "UNSHARE", "SHARE_PUBLIC", "UNSHARE_PUBLIC"));
 
   // Set of attributes (i.e. column names) not supported in searches
   public static final Set<String> SEARCH_ATTRS_UNSUPPORTED =

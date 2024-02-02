@@ -377,12 +377,10 @@ public class SystemsServiceImpl implements SystemsService
   public TSystem createChildSystem(ResourceRequestUser rUser, String systemId, String childId, String childEffectiveUserId,
                                    String childRootDir, String childOwner, boolean enabled, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException {
-    String sharedAppCtxGrantor = null;
-    String impersonationId = null;
     String resourceTenant = null;
 
-    TSystem system = getSystem(rUser, systemId, null, false, false, impersonationId,
-                               sharedAppCtxGrantor, resourceTenant, false);
+    TSystem system = getSystem(rUser, systemId, null, false, false, nullImpersonationId,
+                               nullSharedAppCtx, resourceTenant, false);
     if(!system.isAllowChildren()) {
       throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_CHILDREN_NOT_PERMITTED", rUser, systemId));
     }
@@ -394,7 +392,7 @@ public class SystemsServiceImpl implements SystemsService
     // Check if system already exists
     if (dao.checkForSystem(system.getTenant(), childId, true))
     {
-      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, systemId));
+      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, childId));
     }
 
     if(StringUtils.isBlank(childOwner)) {
@@ -1063,14 +1061,14 @@ public class SystemsServiceImpl implements SystemsService
    * @param getCreds - flag indicating if credentials for effectiveUserId should be included
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @param sharedAppCtxGrantor - Share grantor for the case of a shared application context.
-   * @param resourceTenant - use provided tenant instead of oboTenant which fetching resource
+   * @param resourceTenant - use provided tenant instead of oboTenant when fetching resource
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod accMethod, boolean requireExecPerm,
-                           boolean getCreds, String impersonationId, String sharedAppCtxGrantor, String resourceTenant,
-                           boolean fetchShareInfo)
+                           boolean getCreds, String impersonationId, String sharedAppCtxGrantor,
+                           String resourceTenant, boolean fetchShareInfo)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
@@ -1081,17 +1079,22 @@ public class SystemsServiceImpl implements SystemsService
     // For clarity and convenience
     // Allow for option of impersonation. Auth checked below.
     String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
-    String oboOrResourceTenant = StringUtils.isBlank(resourceTenant) ? rUser.getOboTenantId() : resourceTenant;
+
+    // Determine the tenant for the resource. For user request always oboTenant, for svc request may be overridden
+    String resTenant;
+    if (!rUser.isServiceRequest()) resTenant = rUser.getOboTenantId();
+    else resTenant = (StringUtils.isBlank(resourceTenant)) ? rUser.getOboTenantId() : resourceTenant;
 
     // If impersonationId set confirm that it is allowed
-    if (!StringUtils.isBlank(impersonationId)) checkImpersonationAllowed(rUser, op, systemId, impersonationId);
-    // If sharedAppCtx set confirm it is allowed
-    if (!StringUtils.isBlank(sharedAppCtxGrantor)) checkSharedAppCtxAllowed(rUser, op, systemId);
-    // If resourceTenant set confirm it is allowed
+    //  - allowed for certain Tapis services and for a tenant admin
+    if (!StringUtils.isBlank(impersonationId)) checkImpersonateUserAllowed(rUser, op, systemId, impersonationId, resTenant);
+    // If resourceTenant set confirm it is allowed. Only allowed for certain Tapis services.
     if (!StringUtils.isBlank(resourceTenant)) checkResourceTenantAllowed(rUser, op, systemId, resourceTenant);
+    // If sharedAppCtx set confirm it is allowed. Only allowed for certain Tapis services.
+    if (!StringUtils.isBlank(sharedAppCtxGrantor)) checkSharedAppCtxAllowed(rUser, op, systemId);
 
     // We will need info from system, so fetch it now
-    TSystem system = dao.getSystem(oboOrResourceTenant, systemId);
+    TSystem system = dao.getSystem(resTenant, systemId);
     // We need owner to check auth and if system not there cannot find owner, so return null if no system.
     if (system == null) return null;
 
@@ -1225,12 +1228,12 @@ public class SystemsServiceImpl implements SystemsService
 
     // If needed, get IDs for items for which requester has READ or MODIFY permission
     Set<String> viewableIDs = new HashSet<>();
-    if (allItems) viewableIDs = getViewableSystemIDs(rUser);
+    if (allItems) viewableIDs = getViewableSystemIDs(rUser, rUser.getOboUserId());
 
     // If needed, get IDs for items shared with the requester or only shared publicly.
     Set<String> sharedIDs = new HashSet<>();
-    if (allItems) sharedIDs = getSharedSystemIDs(rUser, false);
-    else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, true);
+    if (allItems) sharedIDs = getSharedSystemIDs(rUser, rUser.getOboUserId(), false);
+    else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, rUser.getOboUserId(), true);
 
     // Count all allowed systems matching the search conditions
     return dao.getSystemsCount(rUser, verifiedSearchList, null, orderByList, startAfter, includeDeleted,
@@ -1247,16 +1250,25 @@ public class SystemsServiceImpl implements SystemsService
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList,
-                                  int limit, List<OrderBy> orderByList, int skip, String startAfter,
-                                  boolean includeDeleted, String listType, boolean fetchShareInfo)
+  public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, int limit,
+                                  List<OrderBy> orderByList, int skip, String startAfter, boolean includeDeleted,
+                                  String listType, boolean fetchShareInfo, String impersonationId)
           throws TapisException, TapisClientException
   {
+    SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    // For convenience and clarity
+    String tenant = rUser.getOboTenantId();
+    // Allow for option of impersonation.
+    String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
+    // If impersonationId set confirm that it is allowed
+    //  - allowed for certain Tapis services and for a tenant admin
+    if (!StringUtils.isBlank(impersonationId)) checkImpersonateUserAllowed(rUser, op, null, impersonationId, tenant);
 
     // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
     // If no listType provided use the default
@@ -1298,15 +1310,16 @@ public class SystemsServiceImpl implements SystemsService
 
     // If needed, get IDs for items for which requester has READ or MODIFY permission
     Set<String> viewableIDs = new HashSet<>();
-    if (allItems) viewableIDs = getViewableSystemIDs(rUser);
+    if (allItems) viewableIDs = getViewableSystemIDs(rUser, oboOrImpersonatedUser);
 
     // If needed, get IDs for items shared with the requester or only shared publicly.
     Set<String> sharedIDs = new HashSet<>();
-    if (allItems) sharedIDs = getSharedSystemIDs(rUser, false);
-    else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, true);
+    if (allItems) sharedIDs = getSharedSystemIDs(rUser, oboOrImpersonatedUser, false);
+    else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, oboOrImpersonatedUser, true);
 
     // Get all allowed systems matching the search conditions
-    List<TSystem> systems = dao.getSystems(rUser, verifiedSearchList, null,  limit, orderByList, skip, startAfter,
+    List<TSystem> systems = dao.getSystems(rUser, oboOrImpersonatedUser, verifiedSearchList,
+                                      null,  limit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
@@ -1319,7 +1332,7 @@ public class SystemsServiceImpl implements SystemsService
         system.setSharedWithUsers(systemShare.getUserList());
       }
       system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
-      system.setEffectiveUserId(resolveEffectiveUserId(system, rUser.getOboUserId()));
+      system.setEffectiveUserId(resolveEffectiveUserId(system, oboOrImpersonatedUser));
     }
     return systems;
   }
@@ -1345,8 +1358,8 @@ public class SystemsServiceImpl implements SystemsService
           throws TapisException, TapisClientException
   {
     // If search string is empty delegate to getSystems()
-    if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip,
-                                                             startAfter, includeDeleted, listType, fetchShareInfo);
+    if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip, startAfter,
+                                                             includeDeleted, listType, fetchShareInfo, nullImpersonationId);
 
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
@@ -1388,16 +1401,16 @@ public class SystemsServiceImpl implements SystemsService
 
     // If needed, get IDs for items for which requester has READ or MODIFY permission
     Set<String> viewableIDs = new HashSet<>();
-    if (allItems) viewableIDs = getViewableSystemIDs(rUser);
+    if (allItems) viewableIDs = getViewableSystemIDs(rUser, rUser.getOboUserId());
 
     // If needed, get IDs for items shared with the requester or only shared publicly.
     Set<String> sharedIDs = new HashSet<>();
-    if (allItems) sharedIDs = getSharedSystemIDs(rUser, false);
-    else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, true);
+    if (allItems) sharedIDs = getSharedSystemIDs(rUser, rUser.getOboUserId(), false);
+    else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, rUser.getOboUserId(), true);
 
     // Get all allowed systems matching the search conditions
-    List<TSystem> systems = dao.getSystems(rUser, null, searchAST, limit, orderByList, skip, startAfter,
-                                           includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
+    List<TSystem> systems = dao.getSystems(rUser, rUser.getOboUserId(), null, searchAST, limit, orderByList,
+                                           skip, startAfter, includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
     {
@@ -1430,7 +1443,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Get list of IDs of systems for which requester has READ permission.
     // This is either all systems (null) or a list of IDs.
-    Set<String> allowedSysIDs = getViewableSystemIDs(rUser);
+    Set<String> allowedSysIDs = getViewableSystemIDs(rUser, rUser.getOboUserId());
 
     // Validate and parse the sql string into an abstract syntax tree (AST)
     ASTNode matchAST;
@@ -2697,13 +2710,14 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Determine all systems for which the user has READ or MODIFY permission.
    */
-  private Set<String> getViewableSystemIDs(ResourceRequestUser rUser) throws TapisException, TapisClientException
+  private Set<String> getViewableSystemIDs(ResourceRequestUser rUser, String oboUser)
+          throws TapisException, TapisClientException
   {
     var systemIDs = new HashSet<String>();
     // Use implies to filter permissions returned. Without implies all permissions for apps, etc. are returned.
     String impliedBy = null;
     String implies = String.format("%s:%s:*:*", PERM_SPEC_PREFIX, rUser.getOboTenantId());
-    var userPerms = getSKClient(rUser).getUserPerms(rUser.getOboTenantId(), rUser.getOboUserId(), implies, impliedBy);
+    var userPerms = getSKClient(rUser).getUserPerms(rUser.getOboTenantId(), oboUser, implies, impliedBy);
 
     // Check each perm to see if it allows user READ access.
     for (String userPerm : userPerms)
@@ -2739,7 +2753,7 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Determine all systems that are shared with a user.
    */
-  private Set<String> getSharedSystemIDs(ResourceRequestUser rUser, boolean publicOnly)
+  private Set<String> getSharedSystemIDs(ResourceRequestUser rUser, String oboUser, boolean publicOnly)
           throws TapisException, TapisClientException
   {
     var systemIDs = new HashSet<String>();
@@ -2751,7 +2765,7 @@ public class SystemsServiceImpl implements SystemsService
     skParms.setTenant(rUser.getOboTenantId());
     // Set grantee based on whether we want just public or not.
     if (publicOnly) skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
-    else skParms.setGrantee(rUser.getOboUserId());
+    else skParms.setGrantee(oboUser);
 
     // Call SK to get all shared with oboUser and add them to the set
     var skShares = getSKClient(rUser).getShares(skParms);
@@ -3263,7 +3277,7 @@ public class SystemsServiceImpl implements SystemsService
 
 
   /**
-   * Overloaded method for callers that do not support impersonation
+   * Overloaded method for callers that do not support impersonation or sharing
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param op - operation name
    * @param systemId - name of the system
@@ -3290,7 +3304,7 @@ public class SystemsServiceImpl implements SystemsService
    *  - if svc not calling as itself do the normal checks using oboUserOrImpersonationId.
    *  - Note that if svc request and no special cases apply then final standard user request type check is done.
    *
-   * Many callers do not support impersonation, so make impersonationId the final argument and provide an overloaded
+   * Many callers do not support impersonation or sharing, so make them the final arguments and provide an overloaded
    *   method for simplicity.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
@@ -3527,21 +3541,57 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Confirm that caller is allowed to impersonate a Tapis user.
    * Must be a service request from a service allowed to impersonate
+   * impersonationId and resourceTenant used for logging only.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param op - operation name
    * @param systemId - name of the system
    */
-  private void checkImpersonationAllowed(ResourceRequestUser rUser, SystemOperation op, String systemId, String impersonationId)
+  private void checkImpersonateUserAllowed(ResourceRequestUser rUser, SystemOperation op, String systemId,
+                                           String impersonationId, String resourceTenant)
+          throws TapisException, TapisClientException
+  {
+    // If a user request and user is a tenant admin then log message and allow.
+    if (!rUser.isServiceRequest() && hasAdminRole(rUser))
+    {
+      // A tenant admin is impersonating, log message and allow
+      log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_USR_IMPERSONATE", rUser, systemId, op.name(), impersonationId));
+      return;
+    }
+    // If a service request the username will be the service name. E.g. files, jobs, streams, etc
+    String svcName = rUser.getJwtUserId();
+    // If a service request and service is in the allowed list then log message and allow.
+    if (rUser.isServiceRequest() && SVCLIST_IMPERSONATE.contains(svcName))
+    {
+      // An allowed service is impersonating, log it
+      log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_SVC_IMPERSONATE", rUser, systemId, op.name(), impersonationId, resourceTenant));
+      return;
+    }
+    // Deny authorization
+    throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_IMPERSONATE", rUser, systemId, op.name(), impersonationId, resourceTenant));
+  }
+
+  /**
+   * Confirm that caller is allowed to set resourceTenant
+   * Must be a service request from a service in the allowed list.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param op - operation name
+   * @param systemId - name of the system
+   */
+  private void checkResourceTenantAllowed(ResourceRequestUser rUser, SystemOperation op, String systemId,
+                                          String resourceTenant)
   {
     // If a service request the username will be the service name. E.g. files, jobs, streams, etc
     String svcName = rUser.getJwtUserId();
-    if (!rUser.isServiceRequest() || !SVCLIST_IMPERSONATE.contains(svcName))
+    // If a service request and service is in the allowed list then log message and allow.
+    if (rUser.isServiceRequest() && SVCLIST_RESOURCETENANT.contains(svcName))
     {
-      throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_IMPERSONATE", rUser, systemId, op.name(), impersonationId));
+      // An allowed service is impersonating, log it
+      log.trace(LibUtils.getMsgAuth("SYSLIB_AUTH_RESOURCETENANT", rUser, systemId, op.name(), resourceTenant));
+      return;
     }
-    // An allowed service is impersonating, log it
-    log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_IMPERSONATE", rUser, systemId, op.name(), impersonationId));
+    throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_RESOURCETENANT", rUser, systemId, op.name(), resourceTenant));
   }
 
   /**
@@ -3556,32 +3606,14 @@ public class SystemsServiceImpl implements SystemsService
   {
     // If a service request the username will be the service name. E.g. files, jobs, streams, etc
     String svcName = rUser.getJwtUserId();
-    if (!rUser.isServiceRequest() || !SVCLIST_SHAREDAPPCTX.contains(svcName))
+    // If a service request and service is in the allowed list then log message and allow.
+    if (rUser.isServiceRequest() && SVCLIST_SHAREDAPPCTX.contains(svcName))
     {
-      throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_SHAREDAPPCTX", rUser, systemId, op.name()));
+      // An allowed service is setting shared context, log message and allow
+      log.trace(LibUtils.getMsgAuth("SYSLIB_AUTH_SHAREDAPPCTX", rUser, systemId, op.name()));
+      return;
     }
-    // An allowed service is impersonating, log it
-    log.trace(LibUtils.getMsgAuth("SYSLIB_AUTH_SHAREDAPPCTX", rUser, systemId, op.name()));
-  }
-
-  /**
-   * Confirm that caller is allowed to set resourceTenant
-   * Must be a service request from a service in the allowed list.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param op - operation name
-   * @param systemId - name of the system
-   */
-  private void checkResourceTenantAllowed(ResourceRequestUser rUser, SystemOperation op, String systemId, String resourceTenant)
-  {
-    // If a service request the username will be the service name. E.g. files, jobs, streams, etc
-    String svcName = rUser.getJwtUserId();
-    if (!rUser.isServiceRequest() || !SVCLIST_RESOURCETENANT.contains(svcName))
-    {
-      throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_RESOURCETENANT", rUser, systemId, op.name(), resourceTenant));
-    }
-    // An allowed service is impersonating, log it
-    log.trace(LibUtils.getMsgAuth("SYSLIB_AUTH_RESOURCETENANT", rUser, systemId, op.name(), resourceTenant));
+    throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_SHAREDAPPCTX", rUser, systemId, op.name()));
   }
 
   /**

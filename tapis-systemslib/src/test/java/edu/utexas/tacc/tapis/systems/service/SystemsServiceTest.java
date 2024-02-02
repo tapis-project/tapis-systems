@@ -69,9 +69,9 @@ public class SystemsServiceTest
   private ResourceRequestUser rOwner1, rOwner3, rOwner4, rOwner5, rOwner6,
           rTestUser0, rTestUser1, rTestUser2, rTestUser3, rTestUser4, rTestUser5,
           rParentChild1, rParentChild2, rParentChild3,
-          rAdminUser, rSystemsSvc, rAppsSvcTestUser1, rFilesSvcAsFiles,
+          rAdminUser, rAppsSvcTestUser1, rFilesSvcAsFiles,
           rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rFilesSvcTestUser5,
-          rJobsSvcTestUser1, rJobsSvcOwner1;
+          rJobsSvcOwner1, rAppsSvcOwner1;
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
@@ -145,8 +145,6 @@ public class SystemsServiceTest
                                                    null, parentChild2, tenantName, null, null, null));
     rParentChild3 = new ResourceRequestUser(new AuthenticatedUser(parentChild3, tenantName, TapisThreadContext.AccountType.user.name(),
                                                    null, parentChild3, tenantName, null, null, null));
-    rSystemsSvc = new ResourceRequestUser(new AuthenticatedUser(svcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
-                                                    null, svcName, adminTenantName, null, null, null));
     rFilesSvcAsFiles = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                     null, filesSvcName, adminTenantName, null, null, null));
     rFilesSvcOwner1 = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
@@ -157,9 +155,9 @@ public class SystemsServiceTest
                                                    null, testUser4, tenantName, null, null, null));
     rFilesSvcTestUser5 = new ResourceRequestUser(new AuthenticatedUser(filesSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                    null, testUser5, tenantName, null, null, null));
-    rJobsSvcTestUser1 = new ResourceRequestUser(new AuthenticatedUser(jobsSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
-                                                null, testUser1, tenantName, null, null, null));
     rJobsSvcOwner1 = new ResourceRequestUser(new AuthenticatedUser(jobsSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
+                                             null, owner1, tenantName, null, null, null));
+    rAppsSvcOwner1 = new ResourceRequestUser(new AuthenticatedUser(appsSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                              null, owner1, tenantName, null, null, null));
     rAppsSvcTestUser1 = new ResourceRequestUser(new AuthenticatedUser(appsSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                 null, testUser1, tenantName, null, null, null));
@@ -209,7 +207,7 @@ public class SystemsServiceTest
     }
 
     // if this assertion fails, it means that tests have been added that create more parent systems.  We need to
-    // know what the max number is so that when this method is called at the begining of the test, we know how many
+    // know what the max number is so that when this method is called at the beginning of the test, we know how many
     // parent/child systems to look for to clean up.  At the end of the tests we always know which ones to clean up.
     // Just make MAX_PARENT_SYSTEMS larger - it's not a "real" error.
     Assert.assertTrue(parentSystems.size() <= MAX_PARENT_SYSTEMS);
@@ -224,14 +222,17 @@ public class SystemsServiceTest
       }
     }
     SystemsDaoImpl dao = new SystemsDaoImpl();
-    for(String pSystemId : parentIds) {
-      List<TSystem> childSystems = dao.getSystems(rAdminUser, Arrays.asList("parentId.eq." + pSystemId),
-              null, -1, null, 0, null, true, null, null, null);
-      for(TSystem cSystem : childSystems) {
-        svcImpl.hardDeleteSystem(rAdminUser, tenantName, cSystem.getId());
-      }
-      svcImpl.hardDeleteSystem(rAdminUser, tenantName, pSystemId);
+
+    // Delete all child systems.
+    for(String childUser : childUsers)
+    {
+      List<TSystem> childSystems = dao.getSystems(rAdminUser, childUser, null, null, -1, null,
+                                             0, null, true, listTypeOwned, null, null);
+      for(TSystem cSystem : childSystems) { svcImpl.hardDeleteSystem(rAdminUser, tenantName, cSystem.getId()); }
     }
+
+    // Delete all parent systems.
+    for(String pSystemId : parentIds) { svcImpl.hardDeleteSystem(rAdminUser, tenantName, pSystemId); }
 
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, s3System1.getId());
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem2.getId());
@@ -736,7 +737,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[4];
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     List<TSystem> systems = svc.getSystems(rOwner1, searchListNull, limitNone, orderByListNull, skipZero,
-                                           startAferEmpty, showDeletedFalse, listTypeNull, fetchShareInfoFalse);
+                                           startAferEmpty, showDeletedFalse, listTypeNull, fetchShareInfoFalse, impersonationIdNull);
     Assert.assertNotNull(systems, "getSystems returned null");
     Assert.assertFalse(systems.isEmpty(), "getSystems returned empty list");
     for (TSystem system : systems) {
@@ -745,6 +746,7 @@ public class SystemsServiceTest
   }
 
   // Test getSystems using listType parameter
+  //   also test impersonation by tenant admin user or a service.
   @Test
   public void testGetSystemsByListType() throws Exception
   {
@@ -773,22 +775,38 @@ public class SystemsServiceTest
     List<TSystem> systems;
     // OWNED - should return 1
     systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
-            showDeletedFalse, listTypeOwned.name(), fetchShareInfoFalse);
+            showDeletedFalse, listTypeOwned.name(), fetchShareInfoFalse, impersonationIdNull);
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeOwned);
     Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypeOwned);
     // PUBLIC - should return 1
     systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
-            showDeletedFalse, listTypePublic.name(), fetchShareInfoFalse);
+            showDeletedFalse, listTypePublic.name(), fetchShareInfoFalse, impersonationIdNull);
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypePublic);
     Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypePublic);
     // ALL - should return 4
     systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
-            showDeletedFalse, listTypeAll.name(), fetchShareInfoFalse);
+            showDeletedFalse, listTypeAll.name(), fetchShareInfoFalse, impersonationIdNull);
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeAll);
     Assert.assertEquals(systems.size(), 4, "Wrong number of returned systems for listType=" + listTypeAll);
+
+    // Test tenant admin impersonating rOwner5 - should see 2 (1 owned + 1 public)
+    systems = svc.getSystems(rAdminUser, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
+                             showDeletedFalse, listTypeAll.name(), fetchShareInfoFalse, owner5);
+    Assert.assertNotNull(systems, "Returned list of systems should not be null");
+    System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeAll);
+    Assert.assertEquals(systems.size(), 2, "Wrong number of returned systems tenant for admin impersonation");
+
+    // Test service impersonating rOwner5 - should see 2 (1 owned + 1 public)
+    systems = svc.getSystems(rJobsSvcOwner1, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
+                             showDeletedFalse, listTypeAll.name(), fetchShareInfoFalse, owner5);
+    Assert.assertNotNull(systems, "Returned list of systems should not be null");
+    System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeAll);
+    Assert.assertEquals(systems.size(), 2, "Wrong number of returned systems for service impersonation");
+
+
   }
 
   // Check that user only sees systems they are authorized to see.
@@ -809,7 +827,7 @@ public class SystemsServiceTest
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // When retrieving systems as testUser4 only 2 should be returned
     List<TSystem> systems = svc.getSystems(rTestUser4, searchListNull, limitNone, orderByListNull, skipZero,
-                                           startAferEmpty, showDeletedFalse, listTypeNull, fetchShareInfoFalse);
+                                           startAferEmpty, showDeletedFalse, listTypeNull, fetchShareInfoFalse, impersonationIdNull);
     Assert.assertNotNull(systems, "getSystems returned null");
     Assert.assertFalse(systems.isEmpty(), "getSystems returned empty list");
     System.out.println("Total number of systems retrieved by testuser4: " + systems.size());
@@ -822,7 +840,7 @@ public class SystemsServiceTest
 
     // When retrieving systems as a service with oboUser = testuser4 only 2 should be returned.
     systems = svc.getSystems(rFilesSvcTestUser4, searchListNull, limitNone, orderByListNull, skipZero,
-                             startAferEmpty, showDeletedFalse, listTypeNull, fetchShareInfoFalse);
+                             startAferEmpty, showDeletedFalse, listTypeNull, fetchShareInfoFalse, impersonationIdNull);
     System.out.println("Total number of systems retrieved by Files svc calling with oboUser=testuser4: " + systems.size());
     Assert.assertNotNull(systems, "getSystems returned null");
     Assert.assertFalse(systems.isEmpty(), "getSystems returned empty list");
@@ -1842,12 +1860,35 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
 
-    // User should not be able to impersonate another user.
+    // Regular (non-admin) user should not be able to impersonate another user.
     pass = false;
-    try { svc.getSystem(rTestUser1, systemId, null, false, false, owner1, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse); }
+    try { svc.getSystem(rTestUser1, systemId, null, false, false,
+                        impersonationIdTestUser9, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_IMPERSONATE"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+
+    // Regular (non-admin) user should not be able to set the resource tenant.
+    pass = false;
+    try { svc.getSystem(rTestUser1, systemId, null, false, false,
+                        impersonationIdNull, sharedCtxNull, "dev2", fetchShareInfoFalse); }
+    catch (ForbiddenException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_RESOURCETENANT"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+
+    // Admin user should not be able to set the resource tenant.
+    pass = false;
+    try { svc.getSystem(rAdminUser, systemId, null, false, false,
+                        impersonationIdNull, sharedCtxNull, "dev2", fetchShareInfoFalse); }
+    catch (ForbiddenException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_RESOURCETENANT"));
       pass = true;
     }
     Assert.assertTrue(pass);
@@ -1911,14 +1952,21 @@ public class SystemsServiceTest
     svc.getSystem(rTestUser3, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     svc.getSystem(rTestUser3, sys0.getId(), null, true, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     svc.getSystem(rTestUser2, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-    // Files should be allowed to impersonate another user
-    svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, owner1, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    // Files and Jobs should be allowed to impersonate user and tenant
+    svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, testUser3, sharedCtxNull, tenantName, fetchShareInfoFalse);
+    svc.getSystem(rJobsSvcOwner1, sys0.getId(), null, false, false, testUser3, sharedCtxNull, tenantName, fetchShareInfoFalse);
+    // Apps should be allowed to impersonate user
+    svc.getSystem(rAppsSvcOwner1, sys0.getId(), null, false, false, testUser3, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     // Jobs and Files should be allowed to set sharedAppCtx
     svc.getSystem(rJobsSvcOwner1, sys0.getId(), null, false, false, impersonationIdNull, sharedCtxOwner, resourceTenantNull, fetchShareInfoFalse);
     svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, impersonationIdNull, sharedCtxOwner, resourceTenantNull, fetchShareInfoFalse);
 
     // When a service impersonates another user it should be allowed if sharedAppCtx set to true even if normally denied.
     svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, impersonationIdTestUser9, sharedCtxOwner, resourceTenantNull, fetchShareInfoFalse);
+
+    // When a tenant admin user impersonates another user it should be allowed for getSystem, getSystems.
+    svc.getSystem(rAdminUser, sys0.getId(), null, false, false, testUser3, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    svc.getSystems(rAdminUser, searchListNull, limitNone, orderByListNull, skipZero, startAfterNull, false, listTypeNull, fetchShareInfoFalse, testUser3);
   }
 
   // ******************************************************************
@@ -2574,7 +2622,7 @@ public class SystemsServiceTest
     Assert.assertEquals(svc.unlinkFromParent(rParentChild1, childIds.get(2)), 1);
 
     List<TSystem>  childSystems = svc.getSystems(rParentChild1, Arrays.asList("parentId.eq." + createdParent.getId()),
-            -1, null, 0, null, false, null, fetchShareInfoFalse);
+            -1, null, 0, null, false, null, fetchShareInfoFalse, impersonationIdNull);
     Assert.assertEquals(childSystems.size(), 3);
 
     TSystem unlinkedChild = svc.getSystem(rParentChild1, childIds.get(2), null, false,
@@ -2585,7 +2633,7 @@ public class SystemsServiceTest
     // unlinkChild
     Assert.assertEquals(svc.unlinkChildren(rParentChild1, createdParent.getId(), Arrays.asList(childIds.get(3))), 1);
     childSystems = svc.getSystems(rParentChild1, Arrays.asList("parentId.eq." + createdParent.getId()), -1,
-            null, 0, null, false, null, fetchShareInfoFalse);
+            null, 0, null, false, null, fetchShareInfoFalse, impersonationIdNull);
     Assert.assertEquals(childSystems.size(), 2);
 
     unlinkedChild = svc.getSystem(rParentChild1, childIds.get(3), null, false, false,
@@ -2605,7 +2653,7 @@ public class SystemsServiceTest
     // unlinkAllChildren
     Assert.assertEquals(svc.unlinkAllChildren(rParentChild1, createdParent.getId()), 4);
     childSystems = svc.getSystems(rParentChild1, Arrays.asList("parentId.eq." + createdParent.getId()), -1,
-            null, 0, null, false, null, fetchShareInfoFalse);
+            null, 0, null, false, null, fetchShareInfoFalse, impersonationIdNull);
     Assert.assertEquals(childSystems.size(), 0);
   }
 
