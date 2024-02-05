@@ -28,8 +28,6 @@ public final class PatchSystem
   private final String proxyHost;
   private final Integer proxyPort;
   private final String dtnSystemId;
-  private final String dtnMountPoint;
-  private final String dtnMountSourcePath;
   private final Boolean canRunBatch;
   private final Boolean enableCmdPrefix;
   private final String mpiCmd;
@@ -58,7 +56,7 @@ public final class PatchSystem
   public PatchSystem(String description1, String host1, String effectiveUserId1,
                      AuthnMethod defaultAuthnMethod1,
                      Integer port1, Boolean useProxy1, String proxyHost1, Integer proxyPort1,
-                     String dtnSystemId1, String dtnMountPoint1, String dtnMountSourcePath1,
+                     String dtnSystemId1,
                      List<JobRuntime> jobRuntimes1, String jobWorkingDir1, List<KeyValuePair> jobEnvVariables1,
                      Integer jobMaxJobs1, Integer jobMaxJobsPerUser1, Boolean canRunBatch1, Boolean enableCmdPrefix1,
                      String mpiCmd1, SchedulerType batchScheduler1, List<LogicalQueue> batchLogicalQueues1,
@@ -74,8 +72,6 @@ public final class PatchSystem
     proxyHost = proxyHost1;
     proxyPort = proxyPort1;
     dtnSystemId = dtnSystemId1;
-    dtnMountPoint = dtnMountPoint1;
-    dtnMountSourcePath = dtnMountSourcePath1;
     canRunBatch = canRunBatch1;
     enableCmdPrefix = enableCmdPrefix1;
     mpiCmd = mpiCmd1;
@@ -115,10 +111,6 @@ public final class PatchSystem
   public Integer getProxyPort() { return proxyPort; }
 
   public String getDtnSystemId() { return dtnSystemId; }
-
-  public String getDtnMountPoint() { return dtnMountPoint; }
-
-  public String getDtnMountSourcePath() { return dtnMountSourcePath; }
 
   public List<JobRuntime> getJobRuntimes() {
     return (jobRuntimes == null) ? null : new ArrayList<>(jobRuntimes);

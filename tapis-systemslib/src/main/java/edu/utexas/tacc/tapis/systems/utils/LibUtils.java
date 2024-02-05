@@ -31,14 +31,11 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.CAN_RUN_BATCH_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_AUTHN_METHOD_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DELETED_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DESCRIPTION_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_MOUNT_POINT_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_MOUNT_SOURCE_PATH_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DTN_SYSTEM_ID_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.EFFECTIVE_USER_ID_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.ENABLED_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.ENABLE_CMD_PREFIX_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.HOST_FIELD;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.IS_DTN_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_CAPABILITIES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_ENV_VARIABLES_FIELD;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.JOB_MAX_JOBS_FIELD;
@@ -262,7 +259,7 @@ public class LibUtils
    *   of the changes. If no changes then return null.
    * NOTE that although some attributes should never change in this code path we include them here in case there is
    *   a bug or the design changes and this code path does include them.
-   * Attributes that should not change: systemType, isEnabled, owner, bucketName, rootDir, isDtn, canExec, isDeleted
+   * Attributes that should not change: systemType, isEnabled, owner, bucketName, rootDir, canExec, isDeleted
    *
    * @param o - original TSystem
    * @param n - new TSystem
@@ -300,14 +297,8 @@ public class LibUtils
       {noChanges=false;addChange(jo, PROXY_HOST_FIELD, o.getProxyHost(), n.getProxyHost());}
     if (!Objects.equals(o.getProxyPort(),n.getProxyPort()))
       {noChanges=false;addChange(jo, PROXY_PORT_FIELD, o.getProxyPort(), n.getProxyPort());}
-    if (!Objects.equals(o.getDtnMountPoint(),n.getDtnMountPoint()))
-      {noChanges=false;addChange(jo, DTN_MOUNT_POINT_FIELD, o.getDtnMountPoint(), n.getDtnMountPoint());}
-    if (!Objects.equals(o.getDtnMountSourcePath(),n.getDtnMountSourcePath()))
-      {noChanges=false;addChange(jo, DTN_MOUNT_SOURCE_PATH_FIELD, o.getDtnMountSourcePath(), n.getDtnMountSourcePath());}
     if (!Objects.equals(o.getDtnSystemId(),n.getDtnSystemId()))
       {noChanges=false;addChange(jo, DTN_SYSTEM_ID_FIELD, o.getDtnSystemId(), n.getDtnSystemId());}
-    if (!Objects.equals(o.isDtn(),n.isDtn()))
-      {noChanges=false;addChange(jo, IS_DTN_FIELD, o.isDtn(), n.isDtn());}
     if (!Objects.equals(o.getCanExec(),n.getCanExec()))
       {noChanges=false;addChange(jo, CAN_EXEC_FIELD, o.getCanExec(), n.getCanExec());}
     if (!Objects.equals(o.getCanRunBatch(),n.getCanRunBatch()))

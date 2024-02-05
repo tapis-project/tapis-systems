@@ -289,57 +289,11 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     }
 
     /**
-     * Setter for <code>tapis_sys.systems.dtn_mount_point</code>. Mount point on
-     * local system for the DTN
-     */
-    public void setDtnMountPoint(String value) {
-        set(17, value);
-    }
-
-    /**
-     * Getter for <code>tapis_sys.systems.dtn_mount_point</code>. Mount point on
-     * local system for the DTN
-     */
-    public String getDtnMountPoint() {
-        return (String) get(17);
-    }
-
-    /**
-     * Setter for <code>tapis_sys.systems.dtn_mount_source_path</code>.
-     */
-    public void setDtnMountSourcePath(String value) {
-        set(18, value);
-    }
-
-    /**
-     * Getter for <code>tapis_sys.systems.dtn_mount_source_path</code>.
-     */
-    public String getDtnMountSourcePath() {
-        return (String) get(18);
-    }
-
-    /**
-     * Setter for <code>tapis_sys.systems.is_dtn</code>. Indicates if system is
-     * to serve as a data transfer node
-     */
-    public void setIsDtn(Boolean value) {
-        set(19, value);
-    }
-
-    /**
-     * Getter for <code>tapis_sys.systems.is_dtn</code>. Indicates if system is
-     * to serve as a data transfer node
-     */
-    public Boolean getIsDtn() {
-        return (Boolean) get(19);
-    }
-
-    /**
      * Setter for <code>tapis_sys.systems.can_exec</code>. Indicates if system
      * can be used to execute jobs
      */
     public void setCanExec(Boolean value) {
-        set(20, value);
+        set(17, value);
     }
 
     /**
@@ -347,7 +301,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * can be used to execute jobs
      */
     public Boolean getCanExec() {
-        return (Boolean) get(20);
+        return (Boolean) get(17);
     }
 
     /**
@@ -355,7 +309,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * if system supports running jobs using a batch scheduler.
      */
     public void setCanRunBatch(Boolean value) {
-        set(21, value);
+        set(18, value);
     }
 
     /**
@@ -363,21 +317,21 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * if system supports running jobs using a batch scheduler.
      */
     public Boolean getCanRunBatch() {
-        return (Boolean) get(21);
+        return (Boolean) get(18);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.mpi_cmd</code>.
      */
     public void setMpiCmd(String value) {
-        set(22, value);
+        set(19, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.mpi_cmd</code>.
      */
     public String getMpiCmd() {
-        return (String) get(22);
+        return (String) get(19);
     }
 
     /**
@@ -385,7 +339,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * associated with system
      */
     public void setJobRuntimes(JsonElement value) {
-        set(23, value);
+        set(20, value);
     }
 
     /**
@@ -393,7 +347,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * associated with system
      */
     public JsonElement getJobRuntimes() {
-        return (JsonElement) get(23);
+        return (JsonElement) get(20);
     }
 
     /**
@@ -401,7 +355,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * directory from which a job is run. Relative to effective root directory.
      */
     public void setJobWorkingDir(String value) {
-        set(24, value);
+        set(21, value);
     }
 
     /**
@@ -409,7 +363,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * directory from which a job is run. Relative to effective root directory.
      */
     public String getJobWorkingDir() {
-        return (String) get(24);
+        return (String) get(21);
     }
 
     /**
@@ -417,7 +371,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * variables added to shell environment
      */
     public void setJobEnvVariables(JsonElement value) {
-        set(25, value);
+        set(22, value);
     }
 
     /**
@@ -425,7 +379,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * variables added to shell environment
      */
     public JsonElement getJobEnvVariables() {
-        return (JsonElement) get(25);
+        return (JsonElement) get(22);
     }
 
     /**
@@ -434,7 +388,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * time.
      */
     public void setJobMaxJobs(Integer value) {
-        set(26, value);
+        set(23, value);
     }
 
     /**
@@ -443,7 +397,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * time.
      */
     public Integer getJobMaxJobs() {
-        return (Integer) get(26);
+        return (Integer) get(23);
     }
 
     /**
@@ -452,7 +406,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * or running on the system at a given time.
      */
     public void setJobMaxJobsPerUser(Integer value) {
-        set(27, value);
+        set(24, value);
     }
 
     /**
@@ -461,7 +415,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * or running on the system at a given time.
      */
     public Integer getJobMaxJobsPerUser() {
-        return (Integer) get(27);
+        return (Integer) get(24);
     }
 
     /**
@@ -469,7 +423,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * scheduler used when running batch jobs
      */
     public void setBatchScheduler(SchedulerType value) {
-        set(28, value);
+        set(25, value);
     }
 
     /**
@@ -477,7 +431,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * scheduler used when running batch jobs
      */
     public SchedulerType getBatchScheduler() {
-        return (SchedulerType) get(28);
+        return (SchedulerType) get(25);
     }
 
     /**
@@ -485,7 +439,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * queues associated with system
      */
     public void setBatchLogicalQueues(JsonElement value) {
-        set(29, value);
+        set(26, value);
     }
 
     /**
@@ -493,7 +447,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * queues associated with system
      */
     public JsonElement getBatchLogicalQueues() {
-        return (JsonElement) get(29);
+        return (JsonElement) get(26);
     }
 
     /**
@@ -501,7 +455,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * Default logical batch queue for the system
      */
     public void setBatchDefaultLogicalQueue(String value) {
-        set(30, value);
+        set(27, value);
     }
 
     /**
@@ -509,7 +463,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * Default logical batch queue for the system
      */
     public String getBatchDefaultLogicalQueue() {
-        return (String) get(30);
+        return (String) get(27);
     }
 
     /**
@@ -517,7 +471,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * Scheduler profile for the system
      */
     public void setBatchSchedulerProfile(String value) {
-        set(31, value);
+        set(28, value);
     }
 
     /**
@@ -525,7 +479,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * Scheduler profile for the system
      */
     public String getBatchSchedulerProfile() {
-        return (String) get(31);
+        return (String) get(28);
     }
 
     /**
@@ -533,7 +487,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * associated with system
      */
     public void setJobCapabilities(JsonElement value) {
-        set(32, value);
+        set(29, value);
     }
 
     /**
@@ -541,7 +495,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * associated with system
      */
     public JsonElement getJobCapabilities() {
-        return (JsonElement) get(32);
+        return (JsonElement) get(29);
     }
 
     /**
@@ -549,7 +503,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * key:value pairs
      */
     public void setTags(String[] value) {
-        set(33, value);
+        set(30, value);
     }
 
     /**
@@ -557,7 +511,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * key:value pairs
      */
     public String[] getTags() {
-        return (String[]) get(33);
+        return (String[]) get(30);
     }
 
     /**
@@ -565,7 +519,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * information stored as JSON
      */
     public void setNotes(JsonElement value) {
-        set(34, value);
+        set(31, value);
     }
 
     /**
@@ -573,7 +527,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * information stored as JSON
      */
     public JsonElement getNotes() {
-        return (JsonElement) get(34);
+        return (JsonElement) get(31);
     }
 
     /**
@@ -581,7 +535,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * systems created via import
      */
     public void setImportRefId(String value) {
-        set(35, value);
+        set(32, value);
     }
 
     /**
@@ -589,21 +543,21 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * systems created via import
      */
     public String getImportRefId() {
-        return (String) get(35);
+        return (String) get(32);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.uuid</code>.
      */
     public void setUuid(UUID value) {
-        set(36, value);
+        set(33, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.uuid</code>.
      */
     public UUID getUuid() {
-        return (UUID) get(36);
+        return (UUID) get(33);
     }
 
     /**
@@ -611,7 +565,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * has been soft deleted
      */
     public void setDeleted(Boolean value) {
-        set(37, value);
+        set(34, value);
     }
 
     /**
@@ -619,7 +573,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * has been soft deleted
      */
     public Boolean getDeleted() {
-        return (Boolean) get(37);
+        return (Boolean) get(34);
     }
 
     /**
@@ -627,7 +581,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * record was created
      */
     public void setCreated(LocalDateTime value) {
-        set(38, value);
+        set(35, value);
     }
 
     /**
@@ -635,7 +589,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * record was created
      */
     public LocalDateTime getCreated() {
-        return (LocalDateTime) get(38);
+        return (LocalDateTime) get(35);
     }
 
     /**
@@ -643,7 +597,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * record was last updated
      */
     public void setUpdated(LocalDateTime value) {
-        set(39, value);
+        set(36, value);
     }
 
     /**
@@ -651,49 +605,49 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
      * record was last updated
      */
     public LocalDateTime getUpdated() {
-        return (LocalDateTime) get(39);
+        return (LocalDateTime) get(36);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.enable_cmd_prefix</code>.
      */
     public void setEnableCmdPrefix(Boolean value) {
-        set(40, value);
+        set(37, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.enable_cmd_prefix</code>.
      */
     public Boolean getEnableCmdPrefix() {
-        return (Boolean) get(40);
+        return (Boolean) get(37);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.parent_id</code>.
      */
     public void setParentId(String value) {
-        set(41, value);
+        set(38, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.parent_id</code>.
      */
     public String getParentId() {
-        return (String) get(41);
+        return (String) get(38);
     }
 
     /**
      * Setter for <code>tapis_sys.systems.allow_children</code>.
      */
     public void setAllowChildren(Boolean value) {
-        set(42, value);
+        set(39, value);
     }
 
     /**
      * Getter for <code>tapis_sys.systems.allow_children</code>.
      */
     public Boolean getAllowChildren() {
-        return (Boolean) get(42);
+        return (Boolean) get(39);
     }
 
     // -------------------------------------------------------------------------
@@ -719,7 +673,7 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
     /**
      * Create a detached, initialised SystemsRecord
      */
-    public SystemsRecord(Integer seqId, String tenant, String id, String description, SystemType systemType, String owner, String host, Boolean enabled, String effectiveUserId, AuthnMethod defaultAuthnMethod, String bucketName, String rootDir, Integer port, Boolean useProxy, String proxyHost, Integer proxyPort, String dtnSystemId, String dtnMountPoint, String dtnMountSourcePath, Boolean isDtn, Boolean canExec, Boolean canRunBatch, String mpiCmd, JsonElement jobRuntimes, String jobWorkingDir, JsonElement jobEnvVariables, Integer jobMaxJobs, Integer jobMaxJobsPerUser, SchedulerType batchScheduler, JsonElement batchLogicalQueues, String batchDefaultLogicalQueue, String batchSchedulerProfile, JsonElement jobCapabilities, String[] tags, JsonElement notes, String importRefId, UUID uuid, Boolean deleted, LocalDateTime created, LocalDateTime updated, Boolean enableCmdPrefix, String parentId, Boolean allowChildren) {
+    public SystemsRecord(Integer seqId, String tenant, String id, String description, SystemType systemType, String owner, String host, Boolean enabled, String effectiveUserId, AuthnMethod defaultAuthnMethod, String bucketName, String rootDir, Integer port, Boolean useProxy, String proxyHost, Integer proxyPort, String dtnSystemId, Boolean canExec, Boolean canRunBatch, String mpiCmd, JsonElement jobRuntimes, String jobWorkingDir, JsonElement jobEnvVariables, Integer jobMaxJobs, Integer jobMaxJobsPerUser, SchedulerType batchScheduler, JsonElement batchLogicalQueues, String batchDefaultLogicalQueue, String batchSchedulerProfile, JsonElement jobCapabilities, String[] tags, JsonElement notes, String importRefId, UUID uuid, Boolean deleted, LocalDateTime created, LocalDateTime updated, Boolean enableCmdPrefix, String parentId, Boolean allowChildren) {
         super(Systems.SYSTEMS);
 
         setSeqId(seqId);
@@ -739,9 +693,6 @@ public class SystemsRecord extends UpdatableRecordImpl<SystemsRecord> {
         setProxyHost(proxyHost);
         setProxyPort(proxyPort);
         setDtnSystemId(dtnSystemId);
-        setDtnMountPoint(dtnMountPoint);
-        setDtnMountSourcePath(dtnMountSourcePath);
-        setIsDtn(isDtn);
         setCanExec(canExec);
         setCanRunBatch(canRunBatch);
         setMpiCmd(mpiCmd);

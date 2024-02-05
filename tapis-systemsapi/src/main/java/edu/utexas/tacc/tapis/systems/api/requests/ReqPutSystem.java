@@ -36,8 +36,6 @@ public final class ReqPutSystem
   public String proxyHost = DEFAULT_PROXYHOST;
   public int proxyPort = DEFAULT_PROXYPORT;
   public String dtnSystemId;
-  public String dtnMountPoint;
-  public String dtnMountSourcePath;
   public boolean canRunBatch;
   public boolean enableCmdPrefix;
   public String mpiCmd;

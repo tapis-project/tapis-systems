@@ -155,23 +155,6 @@ public class Systems extends TableImpl<SystemsRecord> {
     public final TableField<SystemsRecord, String> DTN_SYSTEM_ID = createField(DSL.name("dtn_system_id"), SQLDataType.CLOB, this, "Alternate system to use as a Data Transfer Node (DTN)");
 
     /**
-     * The column <code>tapis_sys.systems.dtn_mount_point</code>. Mount point on
-     * local system for the DTN
-     */
-    public final TableField<SystemsRecord, String> DTN_MOUNT_POINT = createField(DSL.name("dtn_mount_point"), SQLDataType.CLOB, this, "Mount point on local system for the DTN");
-
-    /**
-     * The column <code>tapis_sys.systems.dtn_mount_source_path</code>.
-     */
-    public final TableField<SystemsRecord, String> DTN_MOUNT_SOURCE_PATH = createField(DSL.name("dtn_mount_source_path"), SQLDataType.CLOB, this, "");
-
-    /**
-     * The column <code>tapis_sys.systems.is_dtn</code>. Indicates if system is
-     * to serve as a data transfer node
-     */
-    public final TableField<SystemsRecord, Boolean> IS_DTN = createField(DSL.name("is_dtn"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "Indicates if system is to serve as a data transfer node");
-
-    /**
      * The column <code>tapis_sys.systems.can_exec</code>. Indicates if system
      * can be used to execute jobs
      */

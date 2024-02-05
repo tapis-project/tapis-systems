@@ -179,9 +179,6 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.PROXY_HOST, system.getProxyHost())
               .set(SYSTEMS.PROXY_PORT, system.getProxyPort())
               .set(SYSTEMS.DTN_SYSTEM_ID, system.getDtnSystemId())
-              .set(SYSTEMS.DTN_MOUNT_SOURCE_PATH, system.getDtnMountSourcePath())
-              .set(SYSTEMS.DTN_MOUNT_POINT, system.getDtnMountPoint())
-              .set(SYSTEMS.IS_DTN, system.isDtn())
               .set(SYSTEMS.CAN_EXEC, system.getCanExec())
               .set(SYSTEMS.CAN_RUN_BATCH, system.getCanRunBatch())
               .set(SYSTEMS.ENABLE_CMD_PREFIX, system.isEnableCmdPrefix())
@@ -239,7 +236,7 @@ public class SystemsDaoImpl implements SystemsDao
    * Update all updatable attributes of an existing system.
    * Following columns will be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
-   *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
+   *   port, useProxy, proxyHost, proxyPort, dtnSystemId,
    *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, canRunBatch,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * @throws TapisException - on error
@@ -314,8 +311,6 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.PROXY_HOST, putSystem.getProxyHost())
               .set(SYSTEMS.PROXY_PORT, putSystem.getProxyPort())
               .set(SYSTEMS.DTN_SYSTEM_ID, putSystem.getDtnSystemId())
-              .set(SYSTEMS.DTN_MOUNT_POINT, putSystem.getDtnMountPoint())
-              .set(SYSTEMS.DTN_MOUNT_SOURCE_PATH, putSystem.getDtnMountSourcePath())
               .set(SYSTEMS.CAN_RUN_BATCH, putSystem.getCanRunBatch())
               .set(SYSTEMS.ENABLE_CMD_PREFIX, putSystem.isEnableCmdPrefix())
               .set(SYSTEMS.MPI_CMD, putSystem.getMpiCmd())
@@ -368,7 +363,7 @@ public class SystemsDaoImpl implements SystemsDao
    * Patch selected attributes of an existing system.
    * Following columns will be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
-   *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
+   *   port, useProxy, proxyHost, proxyPort, dtnSystemId,
    *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, canRunBatch,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * @throws TapisException - on error
@@ -442,8 +437,6 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS.PROXY_HOST, patchedSystem.getProxyHost())
               .set(SYSTEMS.PROXY_PORT, patchedSystem.getProxyPort())
               .set(SYSTEMS.DTN_SYSTEM_ID, patchedSystem.getDtnSystemId())
-              .set(SYSTEMS.DTN_MOUNT_POINT, patchedSystem.getDtnMountPoint())
-              .set(SYSTEMS.DTN_MOUNT_SOURCE_PATH, patchedSystem.getDtnMountSourcePath())
               .set(SYSTEMS.CAN_RUN_BATCH, patchedSystem.getCanRunBatch())
               .set(SYSTEMS.ENABLE_CMD_PREFIX, patchedSystem.isEnableCmdPrefix())
               .set(SYSTEMS.MPI_CMD, patchedSystem.getMpiCmd())
@@ -2882,8 +2875,8 @@ public class SystemsDaoImpl implements SystemsDao
             r.getEffectiveUserId(), r.getDefaultAuthnMethod(), r.getBucketName(),
             r.getRootDir(),
             r.getPort(), r.getUseProxy(), r.getProxyHost(), r.getProxyPort(),
-            r.getDtnSystemId(), r.getDtnMountPoint(), r.getDtnMountSourcePath(),
-            r.getIsDtn(), r.getCanExec(), jobRuntimes, r.getJobWorkingDir(),
+            r.getDtnSystemId(),
+            r.getCanExec(), jobRuntimes, r.getJobWorkingDir(),
             jobEnvVariables, r.getJobMaxJobs(), r.getJobMaxJobsPerUser(),
             r.getCanRunBatch(), r.getEnableCmdPrefix(), r.getMpiCmd(),
             r.getBatchScheduler(), logicalQueues, r.getBatchDefaultLogicalQueue(),
@@ -2932,9 +2925,6 @@ public class SystemsDaoImpl implements SystemsDao
             .set(SYSTEMS.PROXY_HOST, parentSystem.getProxyHost())
             .set(SYSTEMS.PROXY_PORT, parentSystem.getProxyPort())
             .set(SYSTEMS.DTN_SYSTEM_ID, parentSystem.getDtnSystemId())
-            .set(SYSTEMS.DTN_MOUNT_SOURCE_PATH, parentSystem.getDtnMountSourcePath())
-            .set(SYSTEMS.DTN_MOUNT_POINT, parentSystem.getDtnMountPoint())
-            .set(SYSTEMS.IS_DTN, parentSystem.isDtn())
             .set(SYSTEMS.CAN_EXEC, parentSystem.getCanExec())
             .set(SYSTEMS.CAN_RUN_BATCH, parentSystem.getCanRunBatch())
             .set(SYSTEMS.ENABLE_CMD_PREFIX, parentSystem.isEnableCmdPrefix())

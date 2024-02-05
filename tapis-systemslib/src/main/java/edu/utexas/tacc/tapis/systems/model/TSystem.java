@@ -87,11 +87,8 @@ public final class TSystem
   public static final String PROXY_HOST_FIELD = "proxyHost";
   public static final String PROXY_PORT_FIELD = "proxyPort";
   public static final String DTN_SYSTEM_ID_FIELD = "dtnSystemId";
-  public static final String DTN_MOUNT_POINT_FIELD = "dtnMountPoint";
-  public static final String DTN_MOUNT_SOURCE_PATH_FIELD = "dtnMountSourcePath";
   public static final String IS_PUBLIC_FIELD = "isPublic";
   public static final String IS_DYNAMIC_EFFECTIVE_USER = "isDynamicEffectiveUser";
-  public static final String IS_DTN_FIELD = "isDtn";
   public static final String CAN_EXEC_FIELD = "canExec";
   public static final String CAN_RUN_BATCH_FIELD = "canRunBatch";
   public static final String ENABLE_CMD_PREFIX_FIELD = "enableCmdPrefix";
@@ -208,9 +205,6 @@ public final class TSystem
   private String proxyHost;  // Name or IP address of proxy host
   private int proxyPort;     // Port number for proxy host
   private String dtnSystemId;
-  private String dtnMountPoint;
-  private String dtnMountSourcePath;
-  private boolean isDtn;
   private final boolean canExec; // Indicates if system will be used to execute jobs
   private boolean canRunBatch;
   private boolean enableCmdPrefix = DEFAULT_ENABLE_CMD_PREFIX;
@@ -256,14 +250,13 @@ public final class TSystem
    * Constructor using non-updatable attributes.
    * Rather than exposing otherwise unnecessary setters we use a special constructor.
    */
-  public TSystem(TSystem t, String tenant1, String id1, SystemType systemType1, boolean isDtn1, boolean canExec1)
+  public TSystem(TSystem t, String tenant1, String id1, SystemType systemType1, boolean canExec1)
   {
     if (t==null || StringUtils.isBlank(tenant1) || StringUtils.isBlank(id1) || systemType1 == null )
       throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT"));
     tenant = LibUtils.stripStr(tenant1);
     id = LibUtils.stripStr(id1);
     systemType = systemType1;
-    isDtn = isDtn1;
     canExec = canExec1;
 
     seqId = t.getSeqId();
@@ -283,8 +276,6 @@ public final class TSystem
     proxyHost = LibUtils.stripStr(t.getProxyHost());
     proxyPort = t.getProxyPort();
     dtnSystemId = LibUtils.stripStr(t.getDtnSystemId());
-    dtnMountPoint = LibUtils.stripStr(t.getDtnMountPoint());
-    dtnMountSourcePath = LibUtils.stripStr(t.dtnMountSourcePath);
     canRunBatch = t.getCanRunBatch();
     enableCmdPrefix = t.isEnableCmdPrefix();
     mpiCmd = LibUtils.stripStr(t.getMpiCmd());
@@ -324,8 +315,8 @@ public final class TSystem
             parentSystem.getSystemType(), childOwner, parentSystem.getHost(), enabled,
             childEffectiveUserId, parentSystem.getDefaultAuthnMethod(), parentSystem.getBucketName(),
             childRootDir, parentSystem.getPort(), parentSystem.isUseProxy(), parentSystem.getProxyHost(),
-            parentSystem.getProxyPort(), parentSystem.getDtnSystemId(), parentSystem.getDtnMountPoint(), parentSystem.getDtnMountSourcePath(),
-            parentSystem.isDtn(), parentSystem.getCanExec(), parentSystem.getJobRuntimes(), parentSystem.getJobWorkingDir(),
+            parentSystem.getProxyPort(), parentSystem.getDtnSystemId(),
+            parentSystem.getCanExec(), parentSystem.getJobRuntimes(), parentSystem.getJobWorkingDir(),
             parentSystem.getJobEnvVariables(), parentSystem.getJobMaxJobs(), parentSystem.getJobMaxJobsPerUser(), parentSystem.getCanRunBatch(),
             parentSystem.isEnableCmdPrefix(), parentSystem.getMpiCmd(), parentSystem.getBatchScheduler(), parentSystem.getBatchLogicalQueues(),
             parentSystem.getBatchDefaultLogicalQueue(), parentSystem.getBatchSchedulerProfile(), parentSystem.getJobCapabilities(),
@@ -342,7 +333,7 @@ public final class TSystem
                  String owner1, String host1, boolean enabled1, String effectiveUserId1, AuthnMethod defaultAuthnMethod1,
                  String bucketName1, String rootDir1,
                  int port1, boolean useProxy1, String proxyHost1, int proxyPort1,
-                 String dtnSystemId1, String dtnMountPoint1, String dtnMountSourcePath1, boolean isDtn1,
+                 String dtnSystemId1,
                  boolean canExec1, List<JobRuntime> jobRuntimes1, String jobWorkingDir1, List<KeyValuePair> jobEnvVariables1,
                  int jobMaxJobs1, int jobMaxJobsPerUser1, boolean canRunBatch1, boolean enableCmdPrefix1, String mpiCmd1,
                  SchedulerType batchScheduler1, List<LogicalQueue> batchLogicalQueues1, String batchDefaultLogicalQueue1,
@@ -367,9 +358,6 @@ public final class TSystem
     proxyHost = LibUtils.stripStr(proxyHost1);
     proxyPort = proxyPort1;
     dtnSystemId = LibUtils.stripStr(dtnSystemId1);
-    dtnMountPoint = LibUtils.stripStr(dtnMountPoint1);
-    dtnMountSourcePath = LibUtils.stripStr(dtnMountSourcePath1);
-    isDtn = isDtn1;
     canExec = canExec1;
     jobRuntimes = jobRuntimes1;
     jobWorkingDir = LibUtils.stripStr(jobWorkingDir1);
@@ -426,9 +414,6 @@ public final class TSystem
     proxyHost = LibUtils.stripStr(t.getProxyHost());
     proxyPort = t.getProxyPort();
     dtnSystemId = LibUtils.stripStr(t.getDtnSystemId());
-    dtnMountPoint = LibUtils.stripStr(t.getDtnMountPoint());
-    dtnMountSourcePath = LibUtils.stripStr(t.dtnMountSourcePath);
-    isDtn = t.isDtn();
     canExec = t.getCanExec();
     jobRuntimes = t.getJobRuntimes();
     jobWorkingDir = LibUtils.stripStr(t.getJobWorkingDir());
@@ -512,7 +497,6 @@ public final class TSystem
     checkAttrValidity(errMessages);
     checkAttrStringLengths(errMessages);
     if (canExec) checkAttrCanExec(errMessages);
-    if (isDtn) checkAttrIsDtn(errMessages);
     if (canRunBatch) checkAttrCanRunBatch(errMessages);
     if (systemType == SystemType.S3) checkAttrS3(errMessages);
     checkAttrMisc(errMessages);
@@ -580,7 +564,7 @@ public final class TSystem
   /**
    * Check for attribute strings that exceed limits
    *   id, description, owner, effectiveUserId, bucketName, rootDir
-   *   dtnSystemId, dtnMountPoint, dtnMountSourcePath, jobWorkingDir
+   *   dtnSystemId, jobWorkingDir
    */
   private void checkAttrStringLengths(List<String> errMessages)
   {
@@ -619,16 +603,6 @@ public final class TSystem
       errMessages.add(LibUtils.getMsg(TOO_LONG_ATTR, ROOT_DIR_FIELD, MAX_PATH_LEN));
     }
 
-    if (!StringUtils.isBlank(dtnMountPoint) && dtnMountPoint.length() > MAX_PATH_LEN)
-    {
-      errMessages.add(LibUtils.getMsg(TOO_LONG_ATTR, DTN_MOUNT_POINT_FIELD, MAX_PATH_LEN));
-    }
-
-    if (!StringUtils.isBlank(dtnMountSourcePath) && dtnMountSourcePath.length() > MAX_PATH_LEN)
-    {
-      errMessages.add(LibUtils.getMsg(TOO_LONG_ATTR, DTN_MOUNT_SOURCE_PATH_FIELD, MAX_PATH_LEN));
-    }
-
     if (!StringUtils.isBlank(jobWorkingDir) && jobWorkingDir.length() > MAX_PATH_LEN)
     {
       errMessages.add(LibUtils.getMsg(TOO_LONG_ATTR, JOB_WORKING_DIR_FIELD, MAX_PATH_LEN));
@@ -647,33 +621,6 @@ public final class TSystem
     if (!SystemType.LINUX.equals(systemType)) errMessages.add(LibUtils.getMsg("SYSLIB_CANEXEC_INVALID_SYSTYPE", systemType.name()));
     if (StringUtils.isBlank(jobWorkingDir)) errMessages.add(LibUtils.getMsg("SYSLIB_CANEXEC_NO_JOBWORKINGDIR_INPUT"));
     if (jobRuntimes == null || jobRuntimes.isEmpty()) errMessages.add(LibUtils.getMsg("SYSLIB_CANEXEC_NO_JOBRUNTIME_INPUT"));
-  }
-
-  /**
-   * Check attributes related to isDtn
-   *  If isDtn is true then canExec must be false and the following attributes may not be set:
-   *    dtnSystemId, dtnMountSourcePath, dtnMountPoint, all job execution related attributes.
-   */
-  private void checkAttrIsDtn(List<String> errMessages)
-  {
-    if (canExec) errMessages.add(LibUtils.getMsg("SYSLIB_DTN_CANEXEC"));
-
-    if (!StringUtils.isBlank(dtnSystemId) || !StringUtils.isBlank(dtnMountPoint) ||
-            !StringUtils.isBlank(dtnMountSourcePath))
-    {
-      errMessages.add(LibUtils.getMsg("SYSLIB_DTN_DTNATTRS"));
-    }
-    if (!StringUtils.isBlank(jobWorkingDir) ||
-              !(jobCapabilities == null || jobCapabilities.isEmpty()) ||
-              !(jobRuntimes == null || jobRuntimes.isEmpty()) ||
-              !(jobEnvVariables == null || jobEnvVariables.isEmpty()) ||
-              !(batchScheduler == null) ||
-              !StringUtils.isBlank(batchDefaultLogicalQueue) ||
-              !StringUtils.isBlank(batchSchedulerProfile) ||
-              !(batchLogicalQueues == null || batchLogicalQueues.isEmpty()) )
-    {
-      errMessages.add(LibUtils.getMsg("SYSLIB_DTN_JOBATTRS"));
-    }
   }
 
   /**
@@ -718,7 +665,7 @@ public final class TSystem
 
   /**
    * Check attributes related to systems of type S3
-   *  If type is S3 then bucketName must be set, isExec and isDtn must be false.
+   *  If type is S3 then bucketName must be set, isExec must be false.
    */
   private void checkAttrS3(List<String> errMessages)
   {
@@ -726,8 +673,6 @@ public final class TSystem
     if (StringUtils.isBlank(bucketName)) errMessages.add(LibUtils.getMsg("SYSLIB_S3_NOBUCKET_INPUT"));
     // canExec must be false
     if (canExec) errMessages.add(LibUtils.getMsg("SYSLIB_S3_CANEXEC_INPUT"));
-    // isDtn must be false
-    if (isDtn) errMessages.add(LibUtils.getMsg("SYSLIB_S3_ISDTN_INPUT"));
   }
 
   /**
@@ -738,6 +683,7 @@ public final class TSystem
    *  effectiveUserId is restricted.
    *  If effectiveUserId is dynamic then providing credentials is disallowed
    *  If credential is provided and contains ssh keys then validate them
+   *  If canExec is false then dtnSystemId may not be set.
    *  If jobEnvVariables set then check them (see below for restrictions)
    */
   private void checkAttrMisc(List<String> errMessages)
@@ -776,6 +722,10 @@ public final class TSystem
       if (!authnCredential.isValidPrivateSshKey())
         errMessages.add(LibUtils.getMsg("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1"));
     }
+
+    // If canExec is false then dtnSystemId may not be set.
+    if (!canExec && !StringUtils.isBlank(dtnSystemId))
+      errMessages.add(LibUtils.getMsg("SYSLIB_DTN_CANEXEC_FALSE", dtnSystemId));
 
     // Check for inputMode=FIXED and value == "!tapis_not_set"
     // Check for inputMode=REQUIRED and value != "!tapis_not_set"
@@ -819,8 +769,6 @@ public final class TSystem
     checkForControlChars(errMessages, rootDir, ROOT_DIR_FIELD);
     checkForControlChars(errMessages, proxyHost, PROXY_HOST_FIELD);
     checkForControlChars(errMessages, dtnSystemId, DTN_SYSTEM_ID_FIELD);
-    checkForControlChars(errMessages, dtnMountPoint, DTN_MOUNT_POINT_FIELD);
-    checkForControlChars(errMessages, dtnMountSourcePath, DTN_MOUNT_SOURCE_PATH_FIELD);
     checkForControlChars(errMessages, mpiCmd, MPI_CMD_FIELD);
     checkForControlChars(errMessages, batchDefaultLogicalQueue, BATCH_DEFAULT_LOGICAL_QUEUE_FIELD);
     checkForControlChars(errMessages, batchSchedulerProfile, BATCH_SCHEDULER_PROFILE_FIELD);
@@ -1015,14 +963,6 @@ public final class TSystem
 
   public String getDtnSystemId() { return dtnSystemId; }
   public TSystem setDtnSystemId(String s) { dtnSystemId = LibUtils.stripStr(s); return this; }
-
-  public String getDtnMountPoint() { return dtnMountPoint; }
-  public TSystem setDtnMountPoint(String s) { dtnMountPoint = LibUtils.stripStr(s); return this; }
-
-  public String getDtnMountSourcePath() { return dtnMountSourcePath; }
-  public TSystem setDtnMountSourcePath(String s) { dtnMountSourcePath = LibUtils.stripStr(s); return this; }
-
-  public boolean isDtn() { return isDtn; }
 
   public boolean getCanExec() { return canExec; }
 

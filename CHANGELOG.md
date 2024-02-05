@@ -20,6 +20,17 @@ Incremental improvements and new features
 - Add sharing related keywords to list of reserved IDs.
 
 ---------------------------------------------------------------------------
+## 1.6.1 - 2024-??-??
+
+???
+
+### New features:
+- ???When fetching systems get shareInfo only when needed.
+
+### Bug fixes:
+- None.???
+
+---------------------------------------------------------------------------
 ## 1.6.0 - 2024-01-17
 
 Incremental improvements.

@@ -409,11 +409,11 @@ public class SystemsServiceImpl implements SystemsService
    * Secrets in the text should be masked.
    * Attributes that can be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
-   *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
+   *   port, useProxy, proxyHost, proxyPort, dtnSystemId,
    *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUser, canRunBatch, mpiCmd,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * Attributes that cannot be updated:
-   *   tenant, id, systemType, owner, authnCredential, bucketName, rootDir, canExec, isDtn
+   *   tenant, id, systemType, owner, authnCredential, bucketName, rootDir, canExec
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param patchSystem - Pre-populated PatchSystem object (including tenantId and systemId)
    * @param rawData - Text used to create the PatchSystem object - secrets should be scrubbed. Saved in update record.
@@ -494,7 +494,7 @@ public class SystemsServiceImpl implements SystemsService
    * Incoming TSystem must contain the tenantId and systemId.
    * Secrets in the text should be masked.
    * Attributes that cannot be updated and so will be looked up and filled in:
-   *   tenant, id, systemType, owner, enabled, bucketName, rootDir, canExec, isDtn
+   *   tenant, id, systemType, owner, enabled, bucketName, rootDir, canExec
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param putSystem - Pre-populated TSystem object (including tenantId and systemId)
    * @param skipCredCheck - Indicates if cred check should happen (for LINUX, S3)
@@ -2450,7 +2450,7 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Check constraints on TSystem attributes.
    * If batchSchedulerProfile is set verify that the profile exists.
-   * If DTN is used verify that dtnSystemId exists with isDtn = true
+   * If DTN is used verify that dtnSystemId exists and has matching rootDir
    * Collect and report as many errors as possible, so they can all be fixed before next attempt
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tSystem1 - the TSystem to check
@@ -2474,13 +2474,22 @@ public class SystemsServiceImpl implements SystemsService
       }
     }
 
-    // If DTN is used (i.e. dtnSystemId is set) verify that dtnSystemId exists with isDtn = true
+    // If DTN is used (i.e. dtnSystemId is set) verify that dtnSystemId exists and has matching rootDir
     if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))
     {
       TSystem dtnSystem = null;
       try
       {
         dtnSystem = dao.getSystem(tSystem1.getTenant(), tSystem1.getDtnSystemId());
+        // Check for matching rootDir
+        String rootDir = tSystem1.getRootDir();
+        String dtnRootDir = (dtnSystem == null) ? null : dtnSystem.getRootDir();
+        if ( ((dtnRootDir == null && rootDir != null) || (dtnRootDir != null && rootDir == null)) ||
+                (dtnRootDir != null && !dtnRootDir.equals(rootDir)) )
+        {
+          msg = LibUtils.getMsg("SYSLIB_DTN_ROOTDIR_MISMATCH", tSystem1.getDtnSystemId(), dtnRootDir, rootDir);
+          errMessages.add(msg);
+        }
       }
       catch (TapisException e)
       {
@@ -2491,11 +2500,6 @@ public class SystemsServiceImpl implements SystemsService
       if (dtnSystem == null)
       {
         msg = LibUtils.getMsg("SYSLIB_DTN_NO_SYSTEM", tSystem1.getDtnSystemId());
-        errMessages.add(msg);
-      }
-      else if (!dtnSystem.isDtn())
-      {
-        msg = LibUtils.getMsg("SYSLIB_DTN_NOT_DTN", tSystem1.getDtnSystemId());
         errMessages.add(msg);
       }
     }
@@ -2596,11 +2600,8 @@ public class SystemsServiceImpl implements SystemsService
     tapisSystem.setProxyHost(s.getProxyHost());
     tapisSystem.setProxyPort(s.getProxyPort());
     tapisSystem.setDtnSystemId(s.getDtnSystemId());
-    tapisSystem.setDtnMountPoint(s.getDtnMountPoint());
-    tapisSystem.setDtnMountSourcePath(s.getDtnMountSourcePath());
     tapisSystem.setIsPublic(s.isPublic());
     if (s.getSharedWithUsers() != null) tapisSystem.setSharedWithUsers(new ArrayList<>(s.getSharedWithUsers()));
-    tapisSystem.setIsDtn(s.isDtn());
     tapisSystem.setCanExec(s.getCanExec());
 //    tapisSystem.setJobRuntimes(s.getJobRuntimes());
     tapisSystem.setJobWorkingDir(s.getJobWorkingDir());
@@ -3142,13 +3143,13 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Create an updated TSystem based on the system created from a PUT request.
    * Attributes that cannot be updated and must be filled in from the original system:
-   *   tenant, id, systemType, owner, enabled, bucketName, rootDir, isDtn, canExec
+   *   tenant, id, systemType, owner, enabled, bucketName, rootDir, canExec
    */
   private TSystem createUpdatedTSystem(TSystem origSys, TSystem putSys)
   {
     // Rather than exposing otherwise unnecessary setters we use a special constructor.
     TSystem updatedSys = new TSystem(putSys, origSys.getTenant(), origSys.getId(), origSys.getSystemType(),
-                                     origSys.isDtn(), origSys.getCanExec());
+                                     origSys.getCanExec());
     updatedSys.setOwner(origSys.getOwner());
     updatedSys.setEnabled(origSys.isEnabled());
     updatedSys.setBucketName(origSys.getBucketName());
@@ -3160,7 +3161,7 @@ public class SystemsServiceImpl implements SystemsService
    * Merge a patch into an existing TSystem
    * Attributes that can be updated:
    *   description, host, effectiveUserId, defaultAuthnMethod,
-   *   port, useProxy, proxyHost, proxyPort, dtnSystemId, dtnMountPoint, dtnMountSourcePath,
+   *   port, useProxy, proxyHost, proxyPort, dtnSystemId,
    *   jobRuntimes, jobWorkingDir, jobEnvVariables, jobMaxJobs, jobMaxJobsPerUers, canRunBatch, mpiCmd,
    *   batchScheduler, batchLogicalQueues, batchDefaultLogicalQueue, batchSchedulerProfile, jobCapabilities, tags, notes.
    * The only attribute that can be reset to default is effectiveUserId. It is reset when
@@ -3191,8 +3192,6 @@ public class SystemsServiceImpl implements SystemsService
     if (p.getProxyHost() != null) p1.setProxyHost(p.getProxyHost());
     if (p.getProxyPort() != null) p1.setProxyPort(p.getProxyPort());
     if (p.getDtnSystemId() != null) p1.setDtnSystemId(p.getDtnSystemId());
-    if (p.getDtnMountPoint() != null) p1.setDtnMountPoint(p.getDtnMountPoint());
-    if (p.getDtnMountSourcePath() != null) p1.setDtnMountSourcePath(p.getDtnMountSourcePath());
     if (p.getJobRuntimes() != null) p1.setJobRuntimes(p.getJobRuntimes());
     if (p.getJobWorkingDir() != null) p1.setJobWorkingDir(p.getJobWorkingDir());
     if (p.getJobEnvVariables() != null) p1.setJobEnvVariables(p.getJobEnvVariables());
