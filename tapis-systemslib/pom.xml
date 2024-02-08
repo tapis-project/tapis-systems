@@ -22,7 +22,6 @@
     <db.schema>tapis_sys</db.schema>
     <!-- If necessary set a specific version of the shared code. Parent pom file from tapis-bom has a range. -->
     <!-- <tapis-shared-java.version>1.11.2-SNAPSHOT</tapis-shared-java.version> -->
-    <json-org.version>20231013</json-org.version>
   </properties>
  
   <dependencies>
