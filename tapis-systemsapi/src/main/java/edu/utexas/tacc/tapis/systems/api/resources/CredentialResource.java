@@ -493,7 +493,7 @@ public class CredentialResource
    * @return Response
    */
   @GET
-  @Path("/globus/authUrl")
+  @Path("/{systemId}/globus/authUrl")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getGlobusAuthUrl(@PathParam("systemId") String systemId,
