@@ -2003,24 +2003,31 @@ public class SystemsServiceImpl implements SystemsService
    * The clientId must be configured as a runtime setting.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param systemId System
+   * @param systemId System - GlobusProxy requires endpoint/collection ID - stored as host in system definition
    * @return URL to be used for obtaining a Globus Native App Authorization Code
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser, String systemId)
-          throws TapisException, TapisClientException
+          throws NotFoundException, TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.getGlobusAuthInfo;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_SYS", rUser, systemId));
 
     // Get clientId configured for Tapis. If none throw an exception
     String clientId = RuntimeParameters.getInstance().getGlobusClientId();
     if (StringUtils.isBlank(clientId))
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
 
+    // We will need info from system, so fetch it now
+    // If system does not exist or has been deleted then throw an exception
+    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, false);
+    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+
     // Call Tapis GlobusProxy service and create a GlobusAuthInfo from the client response;
-    ResultGlobusAuthInfo r = getGlobusProxyClient(rUser).getAuthInfo(clientId, systemId);
+    ResultGlobusAuthInfo r = getGlobusProxyClient(rUser).getAuthInfo(clientId, system.getHost());
 
     // Check that we got something reasonable.
     if (r == null) throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL", rUser, op.name()));
@@ -2051,10 +2058,11 @@ public class SystemsServiceImpl implements SystemsService
   {
     SystemOperation op = SystemOperation.setAccessRefreshTokens;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_SYS", rUser, systemId));
 
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(userName) || StringUtils.isBlank(authCode)
-        || StringUtils.isBlank(sessionId))
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_TOKENS", rUser, systemId,
+    if (StringUtils.isBlank(userName) || StringUtils.isBlank(authCode) || StringUtils.isBlank(sessionId))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_TOKENS", rUser,
                                                              userName, authCode, sessionId));
 
     // Get clientId configured for Tapis. If none throw an exception

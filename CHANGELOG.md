@@ -9,9 +9,14 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
-## 1.6.1 - 2024-??-??
+## 1.6.1 - 2024-02-09
 
 Incremental improvements and new features
+
+### Breaking changes:
+- Endpoint to get the initial Globus authentication URL now requires the system ID to be passed in.
+  - Endpoint */v3/systems/credential/globus/authUrl* is now */v3/systems/credential/{systemId}/globus/authUrl*
+- Obsolete attributes removed from System definition: *isDtn*, *dtnMountPoint*, *dtnMountSourcePath*
 
 ### New features:
 - Allow tenant admin to impersonate a Tapis user when calling getSystem, getSystems.
