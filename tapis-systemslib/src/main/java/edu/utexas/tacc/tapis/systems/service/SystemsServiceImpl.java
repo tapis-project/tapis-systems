@@ -1998,15 +1998,17 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Obtain a URL+SessionId that can be used to obtain a Globus Native App Authorization Code.
+   * Obtain a URL+SessionId that can be used to obtain a Globus Native App Authorization Code associated
+   * with given system.
    * The clientId must be configured as a runtime setting.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId System
    * @return URL to be used for obtaining a Globus Native App Authorization Code
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser)
+  public GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser, String systemId)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.getGlobusAuthInfo;
@@ -2018,7 +2020,7 @@ public class SystemsServiceImpl implements SystemsService
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
 
     // Call Tapis GlobusProxy service and create a GlobusAuthInfo from the client response;
-    ResultGlobusAuthInfo r = getGlobusProxyClient(rUser).getAuthInfo(clientId);
+    ResultGlobusAuthInfo r = getGlobusProxyClient(rUser).getAuthInfo(clientId, systemId);
 
     // Check that we got something reasonable.
     if (r == null) throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL", rUser, op.name()));
@@ -2028,7 +2030,7 @@ public class SystemsServiceImpl implements SystemsService
       String sessId = StringUtils.isBlank(r.getSessionId()) ? "<empty>" : r.getSessionId();
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NO_URL", rUser, url, sessId));
     }
-    return new GlobusAuthInfo(r.getUrl(), r.getSessionId());
+    return new GlobusAuthInfo(r.getUrl(), r.getSessionId(), systemId);
   }
 
   /**

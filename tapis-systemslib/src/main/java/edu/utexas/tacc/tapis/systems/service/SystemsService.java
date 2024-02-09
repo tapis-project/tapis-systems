@@ -123,7 +123,7 @@ public interface SystemsService
   Credential getUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
           throws TapisException, TapisClientException;
 
-  GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser) throws TapisException, TapisClientException;
+  GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser, String systemId) throws TapisException, TapisClientException;
 
   void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName, String authCode,
                                    String sessionId)

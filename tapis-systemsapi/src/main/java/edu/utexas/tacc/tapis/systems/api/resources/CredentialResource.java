@@ -496,7 +496,8 @@ public class CredentialResource
   @Path("/globus/authUrl")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getGlobusAuthUrl(@Context SecurityContext securityContext)
+  public Response getGlobusAuthUrl(@PathParam("systemId") String systemId,
+                                   @Context SecurityContext securityContext)
   {
     String opName = "getGlobusAuthUrl";
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
@@ -510,7 +511,7 @@ public class CredentialResource
 
     // Trace this request.
     if (_log.isTraceEnabled())
-      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString());
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
 
     // ------------------------- Perform the operation -------------------------
     // Make the service call to get the globus auth url
@@ -518,11 +519,11 @@ public class CredentialResource
     String msg;
     try
     {
-      globusAuthInfo = service.getGlobusAuthInfo(rUser);
+      globusAuthInfo = service.getGlobusAuthInfo(rUser, systemId);
     }
     catch (Exception e)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL_ERR", rUser, e.getMessage());
+      msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL_ERR", rUser, systemId, e.getMessage());
       _log.error(msg, e);
       return Response.status(TapisRestUtils.getStatus(e)).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -534,7 +535,7 @@ public class CredentialResource
     else if (StringUtils.isBlank(globusAuthInfo.getSessionId())) notFoundMsg = "Empty SessionId";
     if (notFoundMsg != null)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL_ERR", rUser, notFoundMsg);
+      msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL_ERR", rUser, systemId, notFoundMsg);
       _log.warn(msg);
       return Response.status(Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
@@ -542,7 +543,7 @@ public class CredentialResource
     // ---------------------------- Success -------------------------------
     // All looks good. Create a response containing the result.
     RespGlobusAuthUrl resp1 = new RespGlobusAuthUrl(globusAuthInfo);
-    msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL", rUser);
+    msg = ApiUtils.getMsgAuth("SYSAPI_GLOBUS_AUTHURL", rUser, systemId);
     return Response.status(Status.OK).entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp1)).build();
   }
 
