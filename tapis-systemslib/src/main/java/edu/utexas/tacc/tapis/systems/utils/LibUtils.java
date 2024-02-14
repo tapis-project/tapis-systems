@@ -548,4 +548,32 @@ public class LibUtils
   {
     if (s == null) return s; else return s.strip();
   }
+
+  /*
+   * If DTN is used in a system definition (i.e. dtnSystemId is set):
+   *   - verify that dtnSystemId exists
+   *   - verify that rootDir of DTN matches this rootDir.
+   */
+  public static void validateDtnConfig(TSystem system, TSystem dtnSystem, List<String> errMessages)
+  {
+    String msg;
+    String dtnSystemId = system.getDtnSystemId();
+    if (dtnSystem == null)
+    {
+      msg = LibUtils.getMsg("SYSLIB_DTN_NO_SYSTEM", dtnSystemId);
+      errMessages.add(msg);
+    }
+    else
+    {
+      // Check for matching rootDir
+      String rootDir = system.getRootDir();
+      String dtnRootDir = dtnSystem.getRootDir();
+      if ( ((dtnRootDir == null && rootDir != null) || (dtnRootDir != null && rootDir == null)) ||
+              (dtnRootDir != null && !dtnRootDir.equals(rootDir)) )
+      {
+        msg = LibUtils.getMsg("SYSLIB_DTN_ROOTDIR_MISMATCH", dtnSystemId, dtnRootDir, rootDir);
+        errMessages.add(msg);
+      }
+    }
+  }
 }
