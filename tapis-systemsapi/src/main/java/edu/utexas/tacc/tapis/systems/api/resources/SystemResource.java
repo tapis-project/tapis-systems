@@ -642,7 +642,7 @@ public class SystemResource {
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_PUT_TRACE", rUser, scrubbedJson));
 
     // Fill in defaults and check constraints on TSystem attributes
-    // NOTE: We do not have all the Tapis System attributes yet so we cannot validate it
+    // NOTE: We do not have all the Tapis System attributes yet, so we cannot validate it
     putSystem.setDefaults();
 
     // ---------------------------- Make service call to update the system -------------------------------
@@ -1471,25 +1471,14 @@ public class SystemResource {
 
     // Now validate attributes that have special handling at API level.
 
-    // If DTN is used (i.e. dtnSystemId is set):
-    //   - verify that dtnSystemId exists
-    //   - verify that rootDir of DTN matches this rootDir.
+    // If DTN is used (i.e. dtnSystemId is set) validate it
     if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))
     {
-      TSystem dtnSystem = null;
       try
       {
-        dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false,
+        TSystem dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false,
                          null, null, null, false);
-        // Check for matching rootDir
-        String rootDir = tSystem1.getRootDir();
-        String dtnRootDir = (dtnSystem == null) ? null : dtnSystem.getRootDir();
-        if ( ((dtnRootDir == null && rootDir != null) || (dtnRootDir != null && rootDir == null)) ||
-                (dtnRootDir != null && !dtnRootDir.equals(rootDir)) )
-        {
-          msg = LibUtils.getMsg("SYSLIB_DTN_ROOTDIR_MISMATCH", tSystem1.getDtnSystemId(), dtnRootDir, rootDir);
-          errMessages.add(msg);
-        }
+        LibUtils.validateDtnConfig(tSystem1, dtnSystem, errMessages);
      }
       catch (NotAuthorizedException e)
       {
@@ -1505,11 +1494,6 @@ public class SystemResource {
       {
         msg = ApiUtils.getMsg("SYSAPI_DTN_CHECK_ERROR", tSystem1.getDtnSystemId(), e.getMessage());
         _log.error(msg, e);
-        errMessages.add(msg);
-      }
-      if (dtnSystem == null)
-      {
-        msg = ApiUtils.getMsg("SYSAPI_DTN_NO_SYSTEM", tSystem1.getDtnSystemId());
         errMessages.add(msg);
       }
     }
