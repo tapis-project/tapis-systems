@@ -108,8 +108,8 @@ public final class TSystem
   public static final String SHARED_WITH_USERS_FIELD = "sharedWithUsers";
   public static final String TAGS_FIELD = "tags";
   public static final String NOTES_FIELD = "notes";
-  public static final String PARENT_ID = "parentId";
-  public static final String ALLOW_CHILDREN = "allowChildren";
+  public static final String PARENT_ID_FIELD = "parentId";
+  public static final String ALLOW_CHILDREN_FIELD = "allowChildren";
   public static final String IMPORT_REF_ID = "importRefId";
   public static final String UUID_FIELD = "uuid";
   public static final String CREATED_FIELD = "created";

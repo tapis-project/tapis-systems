@@ -145,7 +145,7 @@ public class SystemResource {
   // Top level summary attributes to be included by default in some cases.
   public static final List<String> SUMMARY_ATTRS =
           new ArrayList<>(List.of(ID_FIELD, SYSTEM_TYPE_FIELD, OWNER_FIELD, HOST_FIELD,
-                  EFFECTIVE_USER_ID_FIELD, DEFAULT_AUTHN_METHOD_FIELD, CAN_EXEC_FIELD, PARENT_ID));
+                  EFFECTIVE_USER_ID_FIELD, DEFAULT_AUTHN_METHOD_FIELD, CAN_EXEC_FIELD, PARENT_ID_FIELD));
 
   // Default for getSystem
   public static final List<String> DEFAULT_GETSYS_ATTRS = new ArrayList<>(List.of(SEL_ALL_ATTRS));
