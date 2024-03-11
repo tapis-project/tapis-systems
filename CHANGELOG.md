@@ -9,6 +9,17 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
+## 1.6.2 - 2024-03-11
+
+Incremental improvements.
+
+### New features:
+- Run service in docker container as non-root user.
+
+### Bug fixes:
+- None
+
+---------------------------------------------------------------------------
 ## 1.6.1 - 2024-03-06
 
 Incremental improvements and new features

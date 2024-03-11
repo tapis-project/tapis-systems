@@ -7,7 +7,13 @@ FROM eclipse-temurin:17-jdk-jammy
 
 MAINTAINER CIC Support <cicsupport@tacc.utexas.edu>
 
-WORKDIR /app
+# Install sudo, less. Add user tapis
+RUN apt update && apt install -y sudo && \
+    useradd -m tapis && echo 'tapis ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+
+USER tapis
+
+WORKDIR /home/tapis/app
 
 # Copy jar file into place
 COPY "systems.jar" .
