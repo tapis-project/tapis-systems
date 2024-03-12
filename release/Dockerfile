@@ -7,9 +7,8 @@ FROM eclipse-temurin:17-jdk-jammy
 
 MAINTAINER CIC Support <cicsupport@tacc.utexas.edu>
 
-# Install sudo, less. Add user tapis
-RUN apt update && apt install -y sudo && \
-    useradd -m tapis && echo 'tapis ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+# Install less. Add user tapis
+RUN apt update && apt install -y less && useradd -m tapis
 
 USER tapis
 
