@@ -98,10 +98,10 @@ public class ShowDeletedDaoTest
 
     // None deleted yet so should have all systems
     // First check counts. showDeleted = true or false should have total number of systems.
-    int count = dao.getSystemsCount(rOwner, searchListAll, searchASTNull, orderByListNull, startAfterNull,
+    int count = dao.getSystemsCount(rOwner, null, searchListAll, searchASTNull, orderByListNull, startAfterNull,
                                     showDeletedFalse, listTypeOwned, setOfIDsNull, setOfIDsNull);
     assertEquals(count, numSystems, "Incorrect count for getSystemsCount/showDel=false before delete of system");
-    count = dao.getSystemsCount(rOwner, searchListAll, searchASTNull, orderByListNull, startAfterNull, showDeletedTrue,
+    count = dao.getSystemsCount(rOwner, null, searchListAll, searchASTNull, orderByListNull, startAfterNull, showDeletedTrue,
                                 listTypeOwned, setOfIDsNull, setOfIDsNull);
     assertEquals(count, numSystems, "Incorrect count for getSystemsCount/showDel=true before delete of system");
     // Check retrieving all systems
@@ -117,10 +117,10 @@ public class ShowDeletedDaoTest
     dao.updateDeleted(rOwner, tenantName, sys0Id, true);
 
     // First check counts. showDeleted = false should return 1 less than total.
-    count = dao.getSystemsCount(rOwner, searchListAll, searchASTNull, orderByListNull,
+    count = dao.getSystemsCount(rOwner, null, searchListAll, searchASTNull, orderByListNull,
                                 startAfterNull, showDeletedFalse, listTypeOwned, setOfIDsNull, setOfIDsNull);
     assertEquals(count, numSystems-1, "Incorrect count for getSystemsCount/showDel=false after delete of system");
-    count = dao.getSystemsCount(rOwner, searchListAll, searchASTNull, orderByListNull, startAfterNull, showDeletedTrue,
+    count = dao.getSystemsCount(rOwner, null, searchListAll, searchASTNull, orderByListNull, startAfterNull, showDeletedTrue,
                                 listTypeOwned, setOfIDsNull, setOfIDsNull);
     assertEquals(count, numSystems, "Incorrect count for getSystemsCount/showDel=true after delete of system");
 

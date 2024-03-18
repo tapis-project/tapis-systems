@@ -1178,15 +1178,24 @@ public class SystemsServiceImpl implements SystemsService
    * @param startAfter - where to start when sorting, e.g. orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param impersonationId - use provided Tapis username instead of oboUser when checking auth
    * @return Count of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public int getSystemsTotalCount(ResourceRequestUser rUser, List<String> searchList, List<OrderBy> orderByList,
-                               String startAfter, boolean includeDeleted, String listType)
+                               String startAfter, boolean includeDeleted, String listType, String impersonationId)
           throws TapisException, TapisClientException
   {
+    SystemOperation op = SystemOperation.read;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    // For convenience and clarity
+    String tenant = rUser.getOboTenantId();
+    // Allow for option of impersonation.
+    String oboOrImpersonatedUser = StringUtils.isBlank(impersonationId) ? rUser.getOboUserId() : impersonationId;
+    // If impersonationId set confirm that it is allowed
+    //  - allowed for certain Tapis services and for a tenant admin
+    if (!StringUtils.isBlank(impersonationId)) checkImpersonateUserAllowed(rUser, op, null, impersonationId, tenant);
 
     // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
     // If no listType provided use the default
@@ -1228,16 +1237,16 @@ public class SystemsServiceImpl implements SystemsService
 
     // If needed, get IDs for items for which requester has READ or MODIFY permission
     Set<String> viewableIDs = new HashSet<>();
-    if (allItems) viewableIDs = getViewableSystemIDs(rUser, rUser.getOboUserId());
+    if (allItems) viewableIDs = getViewableSystemIDs(rUser, oboOrImpersonatedUser);
 
     // If needed, get IDs for items shared with the requester or only shared publicly.
     Set<String> sharedIDs = new HashSet<>();
-    if (allItems) sharedIDs = getSharedSystemIDs(rUser, rUser.getOboUserId(), false);
-    else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, rUser.getOboUserId(), true);
+    if (allItems) sharedIDs = getSharedSystemIDs(rUser, oboOrImpersonatedUser, false);
+    else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, oboOrImpersonatedUser, true);
 
     // Count all allowed systems matching the search conditions
-    return dao.getSystemsCount(rUser, verifiedSearchList, null, orderByList, startAfter, includeDeleted,
-                               listTypeEnum, viewableIDs, sharedIDs);
+    return dao.getSystemsCount(rUser, oboOrImpersonatedUser, verifiedSearchList, null, orderByList,
+                               startAfter, includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
   }
 
   /**
@@ -3550,7 +3559,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!rUser.isServiceRequest() && hasAdminRole(rUser))
     {
       // A tenant admin is impersonating, log message and allow
-      log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_USR_IMPERSONATE", rUser, systemId, op.name(), impersonationId));
+      log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_USR_IMPERSONATE", rUser, systemId, op.name(), impersonationId, resourceTenant));
       return;
     }
     // If a service request the username will be the service name. E.g. files, jobs, streams, etc
