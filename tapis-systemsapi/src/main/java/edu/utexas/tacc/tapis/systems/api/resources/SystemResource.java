@@ -1612,7 +1612,8 @@ public class SystemResource {
     //   compared to attempting to fold everything into getSystems().
     if (computeTotal && limit > 0)
     {
-      totalCount = service.getSystemsTotalCount(rUser, searchList, orderByList, startAfter, showDeleted, listType);
+      totalCount = service.getSystemsTotalCount(rUser, searchList, orderByList, startAfter, showDeleted,
+                                                listType, impersonationId);
     }
 
     // ---------------------------- Success -------------------------------

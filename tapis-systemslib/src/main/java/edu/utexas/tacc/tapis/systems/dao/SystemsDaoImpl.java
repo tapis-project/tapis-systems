@@ -1084,6 +1084,7 @@ public class SystemsDaoImpl implements SystemsDao
    *   prior to this call for proper validation and treatment of special characters.
    * WARNING: If both searchList and searchAST provided only searchList is used.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param oboUser - since a tenant admin can impersonate, obo User is not always rUser.getOboUser()
    * @param searchList - optional list of conditions used for searching
    * @param searchAST - AST containing search conditions
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
@@ -1096,16 +1097,19 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException - on error
    */
   @Override
-  public int getSystemsCount(ResourceRequestUser rUser, List<String> searchList, ASTNode searchAST,
+  public int getSystemsCount(ResourceRequestUser rUser, String oboUser, List<String> searchList, ASTNode searchAST,
                              List<OrderBy> orderByList, String startAfter, boolean includeDeleted,
                              AuthListType listType, Set<String> viewableIDs, Set<String> sharedIDs)
           throws TapisException
   {
     // For convenience
     String oboTenant = rUser.getOboTenantId();
-    String oboUser = rUser.getOboUserId();
     boolean allItems = AuthListType.ALL.equals(listType);
     boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listType);
+    boolean ownedOnly = AuthListType.OWNED.equals(listType);
+
+    // Ensure we have a valid oboUser
+    if (StringUtils.isBlank(oboUser)) oboUser = rUser.getOboUserId();
 
     // If only looking for public items and there are none in the list we are done.
     if (publicOnly && (sharedIDs == null || sharedIDs.isEmpty())) return 0;
@@ -1156,9 +1160,6 @@ public class SystemsDaoImpl implements SystemsDao
     if (includeDeleted) whereCondition = SYSTEMS.TENANT.eq(oboTenant);
     else whereCondition = (SYSTEMS.TENANT.eq(oboTenant)).and(SYSTEMS.DELETED.eq(false));
 
-    // If only selecting items owned by requester we add the condition now.
-    if (AuthListType.OWNED.equals(listType)) whereCondition = whereCondition.and(SYSTEMS.OWNER.eq(oboUser));
-
     // Add searchList or searchAST to where condition
     if (searchList != null)
     {
@@ -1180,13 +1181,32 @@ public class SystemsDaoImpl implements SystemsDao
       whereCondition = addSearchCondStrToWhere(whereCondition, searchStr, "AND");
     }
 
-    // If selecting allItems or publicOnly, add IN condition
-    var setOfIDs = new HashSet<String>();
-    if (allItems && viewableIDs != null) setOfIDs.addAll(viewableIDs);
-    if (allItems && sharedIDs != null) setOfIDs.addAll(sharedIDs);
-    if (publicOnly && sharedIDs != null) setOfIDs.addAll(sharedIDs);
-
-    if (!setOfIDs.isEmpty()) whereCondition = whereCondition.and(SYSTEMS.ID.in(setOfIDs));
+    // Build and add the listType condition:
+    //  OWNED = single condition where owner = oboUser
+    //  PUBLIC = single condition where id in setOfIDs
+    //  ALL = where (owner = oboUser) OR (id in setOfIDs)
+    Condition listTypeCondition = null;
+    if (ownedOnly)
+    {
+      listTypeCondition = SYSTEMS.OWNER.eq(oboUser);
+    }
+    else if (publicOnly)
+    {
+      // NOTE: We check above for sharedIDs == null or is empty so no need to do it here
+      listTypeCondition = SYSTEMS.ID.in(sharedIDs);
+    }
+    else if (allItems)
+    {
+      listTypeCondition = SYSTEMS.OWNER.eq(oboUser);
+      var setOfIDs = new HashSet<String>();
+      if (sharedIDs != null && !sharedIDs.isEmpty()) setOfIDs.addAll(sharedIDs);
+      if (viewableIDs != null && !viewableIDs.isEmpty()) setOfIDs.addAll(viewableIDs);
+      if (!setOfIDs.isEmpty())
+      {
+        listTypeCondition = listTypeCondition.or(SYSTEMS.ID.in(setOfIDs));
+      }
+    }
+    whereCondition = whereCondition.and(listTypeCondition);
 
     // ------------------------- Build and execute SQL ----------------------------
     int count = 0;
@@ -1227,6 +1247,7 @@ public class SystemsDaoImpl implements SystemsDao
    *   prior to this call for proper validation and treatment of special characters.
    * WARNING: If both searchList and searchAST provided only searchList is used.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param oboUser - since a tenant admin can impersonate, obo User is not always rUser.getOboUser()
    * @param searchList - optional list of conditions used for searching
    * @param searchAST - AST containing search conditions
    * @param limit - indicates maximum number of results to be included, -1 for unlimited
