@@ -166,6 +166,9 @@ public final class TSystem
   // Label to use when name is missing.
   private static final String UNNAMED = "unnamed";
 
+  // HOST_EVAL
+  private static final String HOST_EVAL_PREFIX = "HOST_EVAL(";
+
 
   // ************************************************************************
   // *********************** Enums ******************************************
@@ -350,6 +353,8 @@ public final class TSystem
     host = LibUtils.stripStr(host1);
     enabled = enabled1;
     effectiveUserId = LibUtils.stripStr(effectiveUserId1);
+    // Set flag indicating if effectiveUserId is static
+    isDynamicEffectiveUser = effectiveUserId.equals(APIUSERID_VAR);
     defaultAuthnMethod = defaultAuthnMethod1;
     bucketName = LibUtils.stripStr(bucketName1);
     rootDir = (rootDir1 == null) ? DEFAULT_ROOTDIR : LibUtils.stripStr(rootDir1);
@@ -449,7 +454,11 @@ public final class TSystem
   public void setDefaults()
   {
     if (StringUtils.isBlank(getOwner())) setOwner(DEFAULT_OWNER);
-    if (StringUtils.isBlank(getEffectiveUserId())) setEffectiveUserId(DEFAULT_EFFECTIVEUSERID);
+    if (StringUtils.isBlank(getEffectiveUserId()))
+    {
+      setEffectiveUserId(DEFAULT_EFFECTIVEUSERID);
+      isDynamicEffectiveUser = effectiveUserId.equals(APIUSERID_VAR);
+    }
     if (getTags() == null) setTags(EMPTY_STR_ARRAY);
     if (getNotes() == null) setNotes(DEFAULT_NOTES);
     // If canRunBatch and qlist has one value then set default q to that value
@@ -481,6 +490,12 @@ public final class TSystem
     setBucketName(StringUtils.replaceEach(bucketName, ALL_VARS, allVarSubstitutions));
     setJobWorkingDir(StringUtils.replaceEach(jobWorkingDir, ALL_VARS, allVarSubstitutions));
     setRootDir(StringUtils.replaceEach(rootDir, ROOTDIR_VARS, rootDirVarSubstitutions));
+
+    // TODO: If needed resolve HOST_EVAL in rootDir
+    if (rootDir.startsWith(HOST_EVAL_PREFIX))
+    {
+
+    }
   }
 
   /**
@@ -502,6 +517,35 @@ public final class TSystem
     checkAttrMisc(errMessages);
     checkAttrControlCharacters(errMessages);
     return errMessages;
+  }
+
+  /**
+   *  Validate rootDir in the context of system creation
+   *  If rootDir uses HOST_EVAL:
+   *   - system type must be LINUX
+   *   - credentials must be provided
+   *   - HOST_EVAL must appear only once
+   *   - HOST_EVAL must be first element in the path (no leading slash)
+   *   - effectiveUserId must be static
+   */
+  public void checkRootDirHostEvalDuringCreate(List<String> errMessages)
+  {
+    // If not using HOST_EVAL we are done.
+    if (!rootDir.contains(HOST_EVAL_PREFIX)) return;
+    // System must be of type LINUX
+    if (!SystemType.LINUX.equals(systemType)) errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_SYSTYPE", systemType.name()));
+    // Must have credentials if using HOST_EVAL
+    if (getAuthnCredential() == null) errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_CREDS"));
+    // rootDir must start with HOST_EVAL
+    if (!rootDir.startsWith(HOST_EVAL_PREFIX)) errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_ERR", rootDir));;
+    // HOST_EVAL may only appear once
+    int firstIndex = rootDir.indexOf(HOST_EVAL_PREFIX);
+    if (firstIndex >= 0 && rootDir.indexOf(HOST_EVAL_PREFIX, firstIndex+HOST_EVAL_PREFIX.length()) != -1)
+    {
+      errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_MULTIPLE", rootDir));
+    }
+    //effectiveUserId must be static
+    if (isDynamicEffectiveUser) errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_EFFUSR"));
   }
 
   /**

@@ -1469,7 +1469,12 @@ public class SystemResource {
     // Make call for lib level validation
     List<String> errMessages = tSystem1.checkAttributeRestrictions();
 
-    // Now validate attributes that have special handling at API level.
+    // Validate special rootDir restrictions that only apply when creating a system.
+    // This is primarily for checking valid use of HOST_EVAL for rootDir
+    // Note that rootDir can only be set at create, so we do not need to do this during updates.
+    tSystem1.checkRootDirHostEvalDuringCreate(errMessages);
+
+      // Now validate attributes that have special handling at API level.
 
     // If DTN is used (i.e. dtnSystemId is set) validate it
     if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))

@@ -253,6 +253,7 @@ public class SystemsServiceImpl implements SystemsService
     // ----------------- Resolve variables for any attributes that might contain them --------------------
     // NOTE: That this also handles case where effectiveUserId is ${owner},
     //       so after this effUser is either a resolved static string or ${apiUserId}
+    // NOTE: This method evaluates the HOST_EVAL macro if necessary
     system.resolveVariablesAtCreate(rUser.getOboUserId());
 
     // Determine if effectiveUserId is static
@@ -1054,6 +1055,7 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * getSystem
+   * Retrieve specified system.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - Name of the system
    * @param accMethod - (optional) return credentials for specified authn method instead of default authn method
@@ -1085,7 +1087,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!rUser.isServiceRequest()) resTenant = rUser.getOboTenantId();
     else resTenant = (StringUtils.isBlank(resourceTenant)) ? rUser.getOboTenantId() : resourceTenant;
 
-    // If impersonationId set confirm that it is allowed
+    // If impersonationId set confirm that it is allowed.
     //  - allowed for certain Tapis services and for a tenant admin
     if (!StringUtils.isBlank(impersonationId)) checkImpersonateUserAllowed(rUser, op, systemId, impersonationId, resTenant);
     // If resourceTenant set confirm it is allowed. Only allowed for certain Tapis services.
@@ -1101,6 +1103,7 @@ public class SystemsServiceImpl implements SystemsService
     String rootDir = system.getRootDir();
     if (rootDir == null) rootDir = "";
     String owner = system.getOwner();
+    boolean isOwner = oboOrImpersonatedUser.equals(owner);
 
     // Determine the effectiveUser type, either static or dynamic
     // Secrets get stored on different paths based on this
@@ -1114,7 +1117,11 @@ public class SystemsServiceImpl implements SystemsService
     // Call checkAuth (this can throw ForbiddenException)
     //   - always allow a service calling as itself to read/execute a system.
     //   - if svc not calling as itself do the normal checks using oboUserOrImpersonationId.
-    checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
+    // If owner is making the request we can skip this check.
+    if (!isOwner)
+    {
+      checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
+    }
 
     // If caller asks for credentials, explicitly check auth now
     // That way we can call private getCredential and not have overhead of getUserCredential().
@@ -1200,7 +1207,7 @@ public class SystemsServiceImpl implements SystemsService
     // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
     // If no listType provided use the default
     if (StringUtils.isBlank(listType)) listType = DEFAULT_LIST_TYPE.name();
-    // Validate the listType enum (case insensitive).
+    // Validate the listType enum (case-insensitive).
     listType = listType.toUpperCase();
     if (!EnumUtils.isValidEnum(AuthListType.class, listType))
     {
@@ -3567,7 +3574,6 @@ public class SystemsServiceImpl implements SystemsService
     // If a service request and service is in the allowed list then log message and allow.
     if (rUser.isServiceRequest() && SVCLIST_IMPERSONATE.contains(svcName))
     {
-      // An allowed service is impersonating, log it
       log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_SVC_IMPERSONATE", rUser, systemId, op.name(), impersonationId, resourceTenant));
       return;
     }
@@ -3591,10 +3597,10 @@ public class SystemsServiceImpl implements SystemsService
     // If a service request and service is in the allowed list then log message and allow.
     if (rUser.isServiceRequest() && SVCLIST_RESOURCETENANT.contains(svcName))
     {
-      // An allowed service is impersonating, log it
       log.trace(LibUtils.getMsgAuth("SYSLIB_AUTH_RESOURCETENANT", rUser, systemId, op.name(), resourceTenant));
       return;
     }
+    // Deny authorization
     throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_RESOURCETENANT", rUser, systemId, op.name(), resourceTenant));
   }
 
