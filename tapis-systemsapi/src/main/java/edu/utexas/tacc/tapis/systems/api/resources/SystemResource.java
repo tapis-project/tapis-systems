@@ -249,7 +249,7 @@ public class SystemResource {
       _log.error(msg, e);
       throw new BadRequestException(msg, e);
     }
-    // ------------------------- Create a TSystem from the json and validate constraints -------------------------
+    // ------------------------- Create a TSystem from the json -------------------------
     ReqPostSystem req;
     try { req = TapisGsonUtils.getGson().fromJson(rawJson, ReqPostSystem.class); }
     catch (JsonSyntaxException e)
@@ -274,11 +274,6 @@ public class SystemResource {
     String scrubbedJson = rawJson;
     if (creatingCreds) scrubbedJson = maskCredSecrets(rawJson);
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_CREATE_TRACE", rUser, scrubbedJson));
-
-    // Fill in defaults and check constraints on TSystem attributes
-    tSystem.setDefaults();
-    resp = validateTSystemAtCreate(tSystem, rUser);
-    if (resp != null) return resp;
 
     // ---------------------------- Make service call to create the system -------------------------------
     // Pull out system name for convenience
@@ -346,6 +341,13 @@ public class SystemResource {
     return createSuccessResponse(Status.CREATED, ApiUtils.getMsgAuth("SYSAPI_CREATED", rUser, systemId), resp1);
   }
 
+  /**
+   * Create a child system given a parent system id
+   * @param payloadStream - request body
+   * @param securityContext - user identity
+   * @param systemId - parent system id
+   * @return response containing reference to created object
+   */
   @POST
   @Path("{systemId}/createChildSystem")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -426,7 +428,6 @@ public class SystemResource {
     respUrl.url = uri.toString();
     return createSuccessResponse(Status.CREATED, ApiUtils.getMsgAuth("SYSAPI_CREATED", rUser, systemId),
             new RespResourceUrl(respUrl));
-
   }
 
   /**
@@ -615,7 +616,7 @@ public class SystemResource {
       throw new BadRequestException(msg, e);
     }
 
-    // ------------------------- Create a System from the json and validate constraints -------------------------
+    // ------------------------- Create a System from the json -------------------------
     ReqPutSystem req;
     try { req = TapisGsonUtils.getGson().fromJson(rawJson, ReqPutSystem.class); }
     catch (JsonSyntaxException e)
@@ -640,10 +641,6 @@ public class SystemResource {
     String scrubbedJson = rawJson;
     if (putSystem.getAuthnCredential() != null) scrubbedJson = maskCredSecrets(rawJson);
     if (_log.isTraceEnabled()) _log.trace(ApiUtils.getMsgAuth("SYSAPI_PUT_TRACE", rUser, scrubbedJson));
-
-    // Fill in defaults and check constraints on TSystem attributes
-    // NOTE: We do not have all the Tapis System attributes yet, so we cannot validate it
-    putSystem.setDefaults();
 
     // ---------------------------- Make service call to update the system -------------------------------
     try
@@ -1452,66 +1449,6 @@ public class SystemResource {
             req.allowChildren, req.parentId, null, null);
     tSystem.setAuthnCredential(req.authnCredential);
     return tSystem;
-  }
-
-  /**
-   * Check restrictions on TSystem attributes
-   * Use TSystem method to check internal consistency of attributes.
-   * Collect and report as many errors as possible, so they can all be fixed before next attempt
-   * NOTE: JsonSchema validation should handle some of these checks, but we check here again for robustness.
-   *
-   * @return null if OK or error Response
-   */
-  private Response validateTSystemAtCreate(TSystem tSystem1, ResourceRequestUser rUser)
-  {
-    String msg;
-
-    // Make call for lib level validation
-    List<String> errMessages = tSystem1.checkAttributeRestrictions();
-
-    // Validate special rootDir restrictions that only apply when creating a system.
-    // This is primarily for checking valid use of HOST_EVAL for rootDir
-    // Note that rootDir can only be set at create, so we do not need to do this during updates.
-    tSystem1.checkRootDirHostEvalDuringCreate(errMessages);
-
-      // Now validate attributes that have special handling at API level.
-
-    // If DTN is used (i.e. dtnSystemId is set) validate it
-    if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))
-    {
-      try
-      {
-        TSystem dtnSystem = service.getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false,
-                         null, null, null, false);
-        LibUtils.validateDtnConfig(tSystem1, dtnSystem, errMessages);
-     }
-      catch (NotAuthorizedException e)
-      {
-        msg = ApiUtils.getMsg("SYSAPI_DTN_401", tSystem1.getDtnSystemId());
-        errMessages.add(msg);
-      }
-      catch (ForbiddenException e)
-      {
-        msg = ApiUtils.getMsg("SYSAPI_DTN_403", tSystem1.getDtnSystemId());
-        errMessages.add(msg);
-      }
-      catch (Exception e)
-      {
-        msg = ApiUtils.getMsg("SYSAPI_DTN_CHECK_ERROR", tSystem1.getDtnSystemId(), e.getMessage());
-        _log.error(msg, e);
-        errMessages.add(msg);
-      }
-    }
-
-    // If validation failed log error message and return response
-    if (!errMessages.isEmpty())
-    {
-      // Construct message reporting all errors
-      String allErrors = ApiUtils.getListOfErrors(errMessages, rUser, tSystem1.getId());
-      _log.error(allErrors);
-      throw new BadRequestException(allErrors);
-    }
-    return null;
   }
 
   /*

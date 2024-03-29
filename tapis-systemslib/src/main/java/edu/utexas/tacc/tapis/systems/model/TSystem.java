@@ -6,6 +6,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -167,7 +169,17 @@ public final class TSystem
   private static final String UNNAMED = "unnamed";
 
   // HOST_EVAL
-  private static final String HOST_EVAL_PREFIX = "HOST_EVAL(";
+  public static final String HOST_EVAL_PREFIX = "HOST_EVAL(";
+  // Host eval pattern. Two capture groups. Group 1 = variable name, group 2 = remaining string.
+  // Regex matching: start with literal 'HOST_EVAL('
+  //                 followed by 0 or more characters (group 1)
+  //                 followed by literal ')'
+  //                 followed by any characters (group 2)
+  public static final Pattern HOST_EVAL_PATTERN = Pattern.compile("HOST_EVAL\\((.*)\\)(.*)");
+  //TODO  Limit environment variable key names to alphanumeric and "_", starting with an alpha or _.
+  //   ???allow whitespace around name, use \\s*. Probably not, trim first and then match
+  private static final String ENV_VAR_NAME_PATTERN = "^[a-zA-Z_][a-zA-Z0-9_]*";
+
 
 
   // ************************************************************************
@@ -307,11 +319,11 @@ public final class TSystem
 
   /**
    * Constructor for creating a child system based on a parent system.
-   * @param parentSystem
-   * @param childId
-   * @param childEffectiveUserId
-   * @param childRootDir
-   * @param childOwner
+   * @param parentSystem - parent of child system to be created
+   * @param childId - id for child system
+   * @param childEffectiveUserId - effective user for child system
+   * @param childRootDir - rootDir for child system
+   * @param childOwner - owner for child system
    */
   public TSystem(TSystem parentSystem, String childId, String childEffectiveUserId, String childRootDir, String childOwner, boolean enabled) {
     this(parentSystem.getSeqId(), parentSystem.getTenant(), childId, parentSystem.getDescription(),
@@ -353,6 +365,7 @@ public final class TSystem
     host = LibUtils.stripStr(host1);
     enabled = enabled1;
     effectiveUserId = LibUtils.stripStr(effectiveUserId1);
+    if (StringUtils.isBlank(effectiveUserId)) effectiveUserId = DEFAULT_EFFECTIVEUSERID;
     // Set flag indicating if effectiveUserId is static
     isDynamicEffectiveUser = effectiveUserId.equals(APIUSERID_VAR);
     defaultAuthnMethod = defaultAuthnMethod1;
@@ -490,18 +503,14 @@ public final class TSystem
     setBucketName(StringUtils.replaceEach(bucketName, ALL_VARS, allVarSubstitutions));
     setJobWorkingDir(StringUtils.replaceEach(jobWorkingDir, ALL_VARS, allVarSubstitutions));
     setRootDir(StringUtils.replaceEach(rootDir, ROOTDIR_VARS, rootDirVarSubstitutions));
-
-    // TODO: If needed resolve HOST_EVAL in rootDir
-    if (rootDir.startsWith(HOST_EVAL_PREFIX))
-    {
-
-    }
   }
 
   /**
    * Check constraints on TSystem attributes.
    * Make checks that do not require a dao or service call.
    * Check only internal consistency and restrictions.
+   * Create the initial list of error messages and return it.
+   * Subsequent validation methods should add the list of error messages.
    *
    * @return  list of error messages, empty list if no errors
    */
@@ -520,8 +529,7 @@ public final class TSystem
   }
 
   /**
-   *  Validate rootDir in the context of system creation
-   *  If rootDir uses HOST_EVAL:
+   *  Validate use of HOST_EVAL in rootDir in the context of system creation
    *   - system type must be LINUX
    *   - credentials must be provided
    *   - HOST_EVAL must appear only once

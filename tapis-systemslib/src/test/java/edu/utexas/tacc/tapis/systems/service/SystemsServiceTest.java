@@ -79,7 +79,8 @@ public class SystemsServiceTest
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
-  TSystem s3System1 = IntegrationUtils.makeS3System(testKey);
+  TSystem s3System1 = IntegrationUtils.makeS3System(testKey+"1"); // Used in testCredCheckS3
+  TSystem s3System2 = IntegrationUtils.makeS3System(testKey+"2"); // Used in testCreateInvalidHostEvalRootDir
   TSystem[] systems = IntegrationUtils.makeSystems(numSystems, testKey);
 
   // used for cleanup
@@ -235,6 +236,7 @@ public class SystemsServiceTest
     for(String pSystemId : parentIds) { svcImpl.hardDeleteSystem(rAdminUser, tenantName, pSystemId); }
 
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, s3System1.getId());
+    svcImpl.hardDeleteSystem(rAdminUser, tenantName, s3System2.getId());
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem2.getId());
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem1.getId());
 
@@ -1153,6 +1155,69 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     // Reset in prep for continued checking
     pass = false;
+  }
+
+  // Test restrictions on creating a system that uses HOST_EVAL in rootDir
+  //  - System must be of type LINUX
+  //  - Credentials must be provided
+  //  - HOST_EVAL must appear only once.
+  //  - HOST_EVAL must be first element in path
+  @Test
+  public void testCreateInvalidHostEvalRootDir()
+  {
+    TSystem sys0 = systems[24];
+    String validRootDir = "HOST_EVAL($SCRATCH)/a/b/c";
+    String invalidRootDir1 = "/a/b/c/HOST_EVAL($SCRATCH)";
+    String invalidRootDir2 = "HOST_EVAL($SCRATCH)/a/b/HOST_EVAL($USER)/c";
+    String invalidRootDir3 = "/a/b/HOST_EVAL($SCRATCH)/a/b/HOST_EVAL($USER)/c";
+
+    // Check cases where HOST_EVAL in rootDir is valid but other conditions are not met
+    sys0.setRootDir(validRootDir);
+
+    // Test that system type must be linux
+    boolean pass = false;
+    String tmpStr = s3System2.getRootDir();
+    s3System2.setRootDir(validRootDir);
+    try { svc.createSystem(rOwner1, s3System2, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_ROOT_HOST_EVAL_SYSTYPE"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    // Reset in prep for continued checking
+    s3System1.setRootDir(tmpStr);
+    pass = false;
+
+    // Check that effectiveUserId cannot be dynamic
+    tmpStr = sys0.getEffectiveUserId();
+    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_ROOT_HOST_EVAL_EFFUSR"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setEffectiveUserId(tmpStr);
+    pass = false;
+
+    // Check that credentials must be set
+    var tmpCreds = sys0.getAuthnCredential();
+    sys0.setAuthnCredential(null);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_ROOT_HOST_EVAL_CREDS"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setAuthnCredential(tmpCreds);
+    pass = false;
+
   }
 
   // Test that attempting to create a system with control characters in attributes
