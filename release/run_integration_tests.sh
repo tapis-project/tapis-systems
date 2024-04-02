@@ -8,6 +8,9 @@
 #   set the following:
 #     TAPIS_TENANT_SVC_BASEURL=https://admin.develop.tapis.io
 #     TAPIS_SERVICE_PASSWORD=****
+# The following environment variables must also be set:
+#     TAPIS_VM_TESTUSER_NAME
+#     TAPIS_VM_TESTUSER_PASSWORD
 #
 # In general the following env variables should be set prior to running this script:
 #   TAPIS_DB_USER
