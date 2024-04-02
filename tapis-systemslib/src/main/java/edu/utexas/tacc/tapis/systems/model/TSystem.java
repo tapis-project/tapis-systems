@@ -169,18 +169,28 @@ public final class TSystem
   private static final String UNNAMED = "unnamed";
 
   // HOST_EVAL
-  public static final String HOST_EVAL_PREFIX = "HOST_EVAL(";
-  // Host eval pattern. Two capture groups. Group 1 = variable name, group 2 = remaining string.
+  public static final String HOST_EVAL_PREFIX1 = "HOST_EVAL(";
+  public static final String HOST_EVAL_PREFIX2 = "/HOST_EVAL(";
+  // Pattern for HOST_EVAL() method. Two capture groups. Group 1 = variable name, group 2 = remaining string.
   // Regex matching: start with literal 'HOST_EVAL('
   //                 followed by 0 or more characters (group 1)
   //                 followed by literal ')'
-  //                 followed by any characters (group 2)
-  public static final Pattern HOST_EVAL_PATTERN = Pattern.compile("HOST_EVAL\\((.*)\\)(.*)");
-  //TODO  Limit environment variable key names to alphanumeric and "_", starting with an alpha or _.
-  //   ???allow whitespace around name, use \\s*. Probably not, trim first and then match
-  private static final String ENV_VAR_NAME_PATTERN = "^[a-zA-Z_][a-zA-Z0-9_]*";
+  //                 followed by 0 or more characters (group 2)
+  public static final Pattern HOST_EVAL_PATTERN = Pattern.compile("^\\/?HOST_EVAL\\((.*)\\)(.*)");
 
-
+  // Pattern for environment variable name with optional default value pattern
+  // Regex matching: start with 1 letter or underscore (part of group 1 - the env var name)
+  //                 followed by 0 or more alphanumeric or underscore (part of group 1 - the env var name)
+  //                 followed by whitespace
+  //                 Optionally followed by:
+  //                   a comma (part of group 2)
+  //                   whitespace (part of group 2)
+  //                   1 or more non-whitespace (part of groups 2 and 3 - the default value)
+  //                   whitespace (part of group 2)
+  // The optional value is separated from the name with a comma, which can have whitespace on either side of it.
+  // The value itself consists of non-whitespace characters. Trailing whitespace is ignored.
+  public static final Pattern ENV_VAR_NAME_PATTERN =
+          Pattern.compile("(^[a-zA-Z_][a-zA-Z0-9_]*)\\s*(,\\s*(\\S+)\\s*)?");
 
   // ************************************************************************
   // *********************** Enums ******************************************
@@ -470,8 +480,8 @@ public final class TSystem
     if (StringUtils.isBlank(getEffectiveUserId()))
     {
       setEffectiveUserId(DEFAULT_EFFECTIVEUSERID);
-      isDynamicEffectiveUser = effectiveUserId.equals(APIUSERID_VAR);
     }
+    isDynamicEffectiveUser = effectiveUserId.equals(APIUSERID_VAR);
     if (getTags() == null) setTags(EMPTY_STR_ARRAY);
     if (getNotes() == null) setNotes(DEFAULT_NOTES);
     // If canRunBatch and qlist has one value then set default q to that value
@@ -539,21 +549,34 @@ public final class TSystem
   public void checkRootDirHostEvalDuringCreate(List<String> errMessages)
   {
     // If not using HOST_EVAL we are done.
-    if (!rootDir.contains(HOST_EVAL_PREFIX)) return;
+    if (rootDir == null || !rootDir.contains(HOST_EVAL_PREFIX1)) return;
+
     // System must be of type LINUX
-    if (!SystemType.LINUX.equals(systemType)) errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_SYSTYPE", systemType.name()));
+    if (!SystemType.LINUX.equals(systemType))
+    {
+      errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_SYSTYPE", systemType.name()));
+    }
     // Must have credentials if using HOST_EVAL
-    if (getAuthnCredential() == null) errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_CREDS"));
-    // rootDir must start with HOST_EVAL
-    if (!rootDir.startsWith(HOST_EVAL_PREFIX)) errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_ERR", rootDir));;
+    if (getAuthnCredential() == null)
+    {
+      errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_CREDS"));
+    }
+    // rootDir must start with HOST_EVAL or /HOST_EVAL
+    if (!rootDir.startsWith(HOST_EVAL_PREFIX1) && !rootDir.startsWith(HOST_EVAL_PREFIX2))
+    {
+      errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_ERR", rootDir));
+    }
     // HOST_EVAL may only appear once
-    int firstIndex = rootDir.indexOf(HOST_EVAL_PREFIX);
-    if (firstIndex >= 0 && rootDir.indexOf(HOST_EVAL_PREFIX, firstIndex+HOST_EVAL_PREFIX.length()) != -1)
+    int firstIndex = rootDir.indexOf(HOST_EVAL_PREFIX1);
+    if (firstIndex >= 0 && rootDir.indexOf(HOST_EVAL_PREFIX1, firstIndex+ HOST_EVAL_PREFIX1.length()) != -1)
     {
       errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_MULTIPLE", rootDir));
     }
     //effectiveUserId must be static
-    if (isDynamicEffectiveUser) errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_EFFUSR"));
+    if (isDynamicEffectiveUser)
+    {
+      errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_EFFUSR"));
+    }
   }
 
   /**
@@ -598,7 +621,7 @@ public final class TSystem
   /**
    * Check for invalid attributes
    *   systemId, host
-   *   For LINUX or IRODS rootDir must start with /
+   *   For LINUX or IRODS rootDir must start with / or HOST_EVAL(
    */
   private void checkAttrValidity(List<String> errMessages)
   {
@@ -608,7 +631,7 @@ public final class TSystem
     {
       if (StringUtils.isBlank(rootDir))
         errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR1", id, systemType));
-      else if (!rootDir.startsWith("/"))
+      else if (!rootDir.startsWith("/") && !rootDir.startsWith(HOST_EVAL_PREFIX1))
         errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NOSLASH", rootDir));
     }
   }

@@ -1159,24 +1159,39 @@ public class SystemsServiceTest
 
   // Test restrictions on creating a system that uses HOST_EVAL in rootDir
   //  - System must be of type LINUX
+  //  - effectiveUserId must be static
   //  - Credentials must be provided
-  //  - HOST_EVAL must appear only once.
   //  - HOST_EVAL must be first element in path
+  //  - HOST_EVAL must appear only once - case 1 - starts with HOST_EVAL
+  //  - HOST_EVAL must appear only once - case 2 - does not start with HOST_EVAL
+  //  - Invalid syntax - missing parenthesis
   @Test
   public void testCreateInvalidHostEvalRootDir()
   {
     TSystem sys0 = systems[24];
+    // Set up the system definition such that it looks like it could have valid credentials.
+    sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
+    Credential fakeCred = new Credential(AuthnMethod.PASSWORD, null, "fakePassword", null, null, null, null, null, null, null);
+    sys0.setAuthnCredential(fakeCred);
+    // Save off the original rootDir, cred and effUser. Used to reset test conditions
+    String origRootDir = sys0.getRootDir();
+    String origEffUser = sys0.getEffectiveUserId();
+    Credential origCred = sys0.getAuthnCredential();
+    // Define valid and invalid root directories involving HOST_EVAL
     String validRootDir = "HOST_EVAL($SCRATCH)/a/b/c";
     String invalidRootDir1 = "/a/b/c/HOST_EVAL($SCRATCH)";
     String invalidRootDir2 = "HOST_EVAL($SCRATCH)/a/b/HOST_EVAL($USER)/c";
     String invalidRootDir3 = "/a/b/HOST_EVAL($SCRATCH)/a/b/HOST_EVAL($USER)/c";
+    String invalidRootDir4 = "HOST_EVAL($SCRATCH/a/b";
+    String invalidRootDir5 = "HOST_EVAL()/a/b";
+    String invalidRootDir6 = "HOST_EVAL($0SCRATCH)/a/b";
 
     // Check cases where HOST_EVAL in rootDir is valid but other conditions are not met
     sys0.setRootDir(validRootDir);
 
     // Test that system type must be linux
     boolean pass = false;
-    String tmpStr = s3System2.getRootDir();
+    String tmpRootDir = s3System2.getRootDir();
     s3System2.setRootDir(validRootDir);
     try { svc.createSystem(rOwner1, s3System2, skipCredCheckTrue, rawDataEmptyJson); }
     catch (Exception e)
@@ -1187,12 +1202,12 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     // Reset in prep for continued checking
-    s3System1.setRootDir(tmpStr);
+    s3System1.setRootDir(tmpRootDir);
     pass = false;
 
     // Check that effectiveUserId cannot be dynamic
-    tmpStr = sys0.getEffectiveUserId();
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
+    sys0.setAuthnCredential(null); // Must set cred to null, or we never get to rootDir validation code
     try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
     catch (Exception e)
     {
@@ -1201,11 +1216,11 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
-    sys0.setEffectiveUserId(tmpStr);
+    sys0.setEffectiveUserId(origEffUser);
+    sys0.setAuthnCredential(origCred);
     pass = false;
 
     // Check that credentials must be set
-    var tmpCreds = sys0.getAuthnCredential();
     sys0.setAuthnCredential(null);
     try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
     catch (Exception e)
@@ -1215,9 +1230,86 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
-    sys0.setAuthnCredential(tmpCreds);
+    sys0.setAuthnCredential(origCred);
     pass = false;
 
+    // Check that HOST_EVAL must be at start
+    sys0.setRootDir(invalidRootDir1);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_ROOT_HOST_EVAL_ERR"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
+    pass = false;
+
+    // Check that HOST_EVAL must appear only once - case 1 - starts with HOST_EVAL
+    sys0.setRootDir(invalidRootDir2);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_ROOT_HOST_EVAL_MULTIPLE"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
+    pass = false;
+
+    // Check that HOST_EVAL must appear only once - case 2 - does not start with HOST_EVAL
+    sys0.setRootDir(invalidRootDir3);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_ROOT_HOST_EVAL_MULTIPLE"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
+    pass = false;
+
+    // Check that validation catches a missing parenthesis
+    sys0.setRootDir(invalidRootDir4);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_HOST_EVAL_NO_MATCHES"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
+    pass = false;
+
+    // Check that validation catches a missing env var name
+    sys0.setRootDir(invalidRootDir5);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_HOST_EVAL_NO_ENV_VAR"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
+    pass = false;
+
+    // Check that validation catches an invalid env var name
+    sys0.setRootDir(invalidRootDir6);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_HOST_EVAL_INVALID_ENV_VAR"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
+    pass = false;
   }
 
   // Test that attempting to create a system with control characters in attributes

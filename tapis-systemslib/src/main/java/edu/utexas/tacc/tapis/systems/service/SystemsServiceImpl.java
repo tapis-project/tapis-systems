@@ -249,7 +249,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // ==========================================================================================================
     // WARNING: Be very careful of ordering of steps from here on.
-    //          Ordering of setting defaults, resolving variables and validating attributes is critical.
+    //          Ordering of setting defaults, resolving variables and validating attributes can be critical.
     // ==========================================================================================================
 
     // Make sure owner, effectiveUserId, notes and tags are all set
@@ -259,6 +259,7 @@ public class SystemsServiceImpl implements SystemsService
     // ----------------- Resolve variables for any attributes that might contain them --------------------
     // NOTE: This also handles case where effectiveUserId is ${owner},
     //       so after this effUser is either a resolved static string or ${apiUserId}
+    //       and the only variable of interest in rootDir should be HOST_EVAL($var)
     system.resolveVariablesAtCreate(rUser.getOboUserId());
 
     // Determine if effectiveUserId is static
@@ -305,9 +306,9 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // Evaluate HOST_EVAL macro if necessary. ssh connection to the host will be required.
-    // Due to constraints on use of HOST_EVAL in rootDir, we should have checked the credentials above,
-    // so they should be OK.
-    if (system.getRootDir().startsWith(HOST_EVAL_PREFIX))
+    // Due to constraints on use of HOST_EVAL in rootDir, we should have already checked the credentials above,
+    // so they should be OK (unless caller has specified skipCredentialCheck=true)
+    if (system.getRootDir().startsWith(HOST_EVAL_PREFIX1) || system.getRootDir().startsWith(HOST_EVAL_PREFIX2))
     {
       String resolvedRootDir = resolveRootDirHostEval(rUser, system);
       system.setRootDir(resolvedRootDir);
@@ -2663,11 +2664,13 @@ public class SystemsServiceImpl implements SystemsService
     String resolvedRootDir;
     String msg;
     String systemId = system.getId();
-    String tenant = system.getTenant();
-    String effUser = system.getEffectiveUserId();
-    String rootDir = system.getRootDir();
 
-    // Parse rootDir to determine the environment variable we will need.
+    // Parse full rootDir string to:
+    //  - validate it
+    //  - extract the argument provided to HOST_EVAL()
+    //  - extract the remaining path following the initial HOST_EVAL
+    // First trim any leading or trailing whitespace
+    String rootDir = system.getRootDir().strip();
     Matcher m = HOST_EVAL_PATTERN.matcher(rootDir);
     // If no matches found then something went wrong. Most likely HOST_EVAL syntax problem
     if (!m.matches())
@@ -2677,61 +2680,67 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalArgumentException(msg);
     }
 
-    // ????
     // There are always 2 groups, either of which might be the empty string.
-    String parms = m.group(1);
+    String hostEvalParm = m.group(1);
     String remainingPath = m.group(2);
 
-    // Make sure we have non-empty parms.
-    if (StringUtils.isBlank(parms))
+    // Make sure we have non-empty env var name.
+    if (StringUtils.isBlank(hostEvalParm))
     {
       msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_NO_ENV_VAR", rUser,rootDir);
       throw new IllegalArgumentException(msg);
     }
 
-    // Validate that variable name and optional default path are well-defined.
-    parms = parms.strip();
-    m = _envVarPattern.matcher(parms);
+    // Parse the HOST_EVAL argument extracted from rootDir to:
+    //  - validate it
+    //  - extract env var name
+    //  - extract optional default value
+    // First trim any leading or trailing whitespace and strip off optional leading $
+    hostEvalParm = StringUtils.removeStart(hostEvalParm.strip(), '$');
+    m = ENV_VAR_NAME_PATTERN.matcher(hostEvalParm);
     if (!m.matches())
     {
-      msg = MsgUtils.getMsg("SYSLIB_HOST_EVAL_INVALID_ENV_VAR", rUser, rootDir, parms);
+      msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_INVALID_ENV_VAR", rUser, systemId, rootDir, hostEvalParm);
       throw new IllegalArgumentException(msg);
     }
 
-    // Extract the variable and an optional default path,
-    // the latter of which can be null.
+    // Extract the variable and an optional default value, the latter of which can be null.
     String varName = m.group(1);
-    String defaultPath = m.group(3);
-
-    // Canonicalize the variable name.
-    if (!varName.startsWith("$")) varName = "$" + varName;
-
-    // ????
+    String defaultValue = m.group(3);
 
     // We will need to make an ssh connection to the host.
-    // Easiest way to do that is to use TapisRunCommand
-    //   which requires a client base TapisSystem object. Create one now.
+    // Easiest way to do that is to use TapisRunCommand, which requires a client base TapisSystem object.
     TapisSystem tapisSystem = createTapisSystemFromTSystem(system);
-// ??????????????????????????????????????????????????
-    // Run the command on the host system and cache results.
-    String cmd = "echo " + varName;
+    // Run the command on the host system.
+    String cmd = String.format("echo $%s", varName);
+    msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_RESOLVE_CMD", rUser, systemId, system.getHost(), cmd);
+    log.trace(msg);
     var runCmd = new TapisRunCommand(tapisSystem);
-    int rc = runCmd.execute(cmd, true); // connection automatically closed
+    int exitStatus = runCmd.execute(cmd, true); // connection automatically closed
     runCmd.logNonZeroExitCode();
-    String result = runCmd.getOutAsString();
+    String result = runCmd.getOutAsTrimmedString();
+    // Trace the result
+    msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_RESOLVE_EXIT", rUser, systemId, system.getHost(), cmd, exitStatus, result);
+    log.trace(msg);
     if (StringUtils.isBlank(result))
-      if (!StringUtils.isBlank(defaultPath)) result = defaultPath;
-      else {
-        String msg = MsgUtils.getMsg("JOBS_RESOLVE_HOST_EVAL_ERROR", text, varName);
+    {
+      if (!StringUtils.isBlank(defaultValue))
+      {
+        result = defaultValue;
+      }
+      else
+      {
+        msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_RESOLVE_EMPTY", rUser, systemId, rootDir, varName);
         throw new TapisException(msg);
       }
-    result = result.strip(); // Always remove leading and trailing ws
-
-    // Remove leading and trailing whitespace and retain only the last line in multi-line value.
+    }
+    // Retain only the last line in multi-line value.
     // This removes any login banner message that the host might display.
-    result = LibUtils.getLastLineFromResultString(result);
-// ??????????????????????????????????????????????????
+    String resolvedVar = LibUtils.getLastLineFromResultString(result);
 
+    // Replace HOST_EVAL() in rootDir with resolved env var and make sure there is a leading slash
+    resolvedRootDir = resolvedVar + remainingPath;
+    resolvedRootDir = StringUtils.prependIfMissing(resolvedRootDir, "/");
     return resolvedRootDir;
   }
 
