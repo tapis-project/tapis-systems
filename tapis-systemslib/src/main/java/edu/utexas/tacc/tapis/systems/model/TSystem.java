@@ -64,7 +64,6 @@ public final class TSystem
   public static final String TENANT_VAR = "${tenant}";
 
   private static final String[] ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
-  private static final String[] ROOTDIR_VARS = {OWNER_VAR, TENANT_VAR};
 
   // Special select strings used for determining what attributes are returned in a response
   public static final String SEL_ALL_ATTRS = "allAttributes";
@@ -509,10 +508,9 @@ public final class TSystem
     //    ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
     //    ROOTDIR_VARS = {OWNER_VAR, TENANT_VAR};
     String[] allVarSubstitutions = {oboUser, owner, tenant};
-    String[] rootDirVarSubstitutions = {owner, tenant};
     setBucketName(StringUtils.replaceEach(bucketName, ALL_VARS, allVarSubstitutions));
     setJobWorkingDir(StringUtils.replaceEach(jobWorkingDir, ALL_VARS, allVarSubstitutions));
-    setRootDir(StringUtils.replaceEach(rootDir, ROOTDIR_VARS, rootDirVarSubstitutions));
+    setRootDir(StringUtils.replaceEach(rootDir, ALL_VARS, allVarSubstitutions));
   }
 
   /**

@@ -75,7 +75,7 @@ public class SystemsServiceTest
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
-  int numSystems = 39; // UNUSED SYSTEMS: None
+  int numSystems = 40; // UNUSED SYSTEMS: None
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
@@ -695,7 +695,7 @@ public class SystemsServiceTest
   //   TAPIS_SERVICE_PASSWORD=****
   //   TAPIS_VM_TESTUSER_NAME=testuser3
   //   TAPIS_VM_TESTUSER_PASSWORD=****
-  // Uses sysetms[33,35,36,37,38]
+  // Uses sysetms[33,35,36,37,38,39]
   @Test
   public void testCreateSystemResolveRootDir() throws Exception
   {
@@ -724,6 +724,8 @@ public class SystemsServiceTest
     String resultRootDir3 = "/tmp/test";
     String testRootDir4 = "/HOST_EVAL($MY_MISSING_VAR, /tmp)/test";
     String resultRootDir4 = "/tmp/test";
+    String testRootDir5 = "/HOST_EVAL($USER)/test/${tenant}/${owner}/${apiUserId}";
+    String resultRootDir5 = String.format("/%s/test/%s/%s/%s", loginUser, tenantName, systemOwner, systemOwner);
     // Negative cases
     String testRootDirBad1 = "HOST_EVAL($MY_MISSING_VAR)";
 
@@ -732,12 +734,13 @@ public class SystemsServiceTest
     testResolveRootDir(systems[35], loginUser, cred0, testRootDir2, resultRootDir2);
     testResolveRootDir(systems[36], loginUser, cred0, testRootDir3, resultRootDir3);
     testResolveRootDir(systems[37], loginUser, cred0, testRootDir4, resultRootDir4);
+    testResolveRootDir(systems[38], loginUser, cred0, testRootDir5, resultRootDir5);
 
     // Negative cases
     boolean pass = false;
 
     // Check that if env var is not defined and no default provided then error includes correct message
-    TSystem sys0 = systems[38];
+    TSystem sys0 = systems[39];
     sys0.setHost(TAPIS_TEST_HOST_IP);
     sys0.setEffectiveUserId(loginUser);
     sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
