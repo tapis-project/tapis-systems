@@ -506,7 +506,6 @@ public final class TSystem
 
     // Perform variable substitutions that happen at create time: bucketName, rootDir, jobWorkingDir
     //    ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
-    //    ROOTDIR_VARS = {OWNER_VAR, TENANT_VAR};
     String[] allVarSubstitutions = {oboUser, owner, tenant};
     setBucketName(StringUtils.replaceEach(bucketName, ALL_VARS, allVarSubstitutions));
     setJobWorkingDir(StringUtils.replaceEach(jobWorkingDir, ALL_VARS, allVarSubstitutions));
