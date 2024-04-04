@@ -75,11 +75,12 @@ public class SystemsServiceTest
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
-  int numSystems = 35; // UNUSED SYSTEMS: None
+  int numSystems = 40; // UNUSED SYSTEMS: None
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
-  TSystem s3System1 = IntegrationUtils.makeS3System(testKey);
+  TSystem s3System1 = IntegrationUtils.makeS3System(testKey+"1"); // Used in testCredCheckS3
+  TSystem s3System2 = IntegrationUtils.makeS3System(testKey+"2"); // Used in testCreateInvalidHostEvalRootDir
   TSystem[] systems = IntegrationUtils.makeSystems(numSystems, testKey);
 
   // used for cleanup
@@ -235,6 +236,7 @@ public class SystemsServiceTest
     for(String pSystemId : parentIds) { svcImpl.hardDeleteSystem(rAdminUser, tenantName, pSystemId); }
 
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, s3System1.getId());
+    svcImpl.hardDeleteSystem(rAdminUser, tenantName, s3System2.getId());
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem2.getId());
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem1.getId());
 
@@ -282,10 +284,14 @@ public class SystemsServiceTest
     System.out.println("Found item: " + sys0.getId());
 
     String targetUser = owner1;
-    String loginUser = TAPIS_TEST_HOST_LOGIN_USER;
-    // Get password from environment - TAPIS_VM_TESTUSER3_PASSWORD
-    String testUser3P = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
-    if (StringUtils.isBlank(testUser3P))
+    // Get username and password from environment
+    String loginUser = System.getenv(TAPIS_TEST_NAME_ENV_VAR);
+    String testTapisUserP = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
+    if (StringUtils.isBlank(loginUser))
+    {
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_NAME_ENV_VAR);
+    }
+    if (StringUtils.isBlank(testTapisUserP))
     {
       Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_PASSWORD_ENV_VAR);
     }
@@ -299,7 +305,7 @@ public class SystemsServiceTest
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
 
     // Using valid credentials should succeed.
-    Credential credGood = new Credential(null, loginUser, testUser3P, null, null, null, null, null, null, null);
+    Credential credGood = new Credential(null, loginUser, testTapisUserP, null, null, null, null, null, null, null);
     sys0.setAuthnCredential(credGood);
 
     // Test create and check with valid credentials
@@ -682,47 +688,74 @@ public class SystemsServiceTest
     Assert.assertEquals(tmpSys.getEffectiveUserId(), rOwner1.getJwtUserId());
   }
 
-//  // Check resolving of dynamic rootDir
-//  @Test
-//  public void testGetSystemResolveRootDir() throws Exception
-//  {
-//    String rootDir = "HOST_EVAL($HOME)/test/${effectiveUserId}";
-//    TSystem sys0 = systems[33];
-//    sys0.setHost(TAPIS_TEST_HOST_IP);
-//    sys0.setRootDir(rootDir);
-//    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
-//    sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
-//    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
-//
-//    // Fetch system without resolving rootDir. Returned rootDir should match original.
-//    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-//    Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
-//    System.out.println("Found item: " + sys0.getId());
-//    checkCommonSysAttrs(sys0, tmpSys);
-//
-//    // Set up for evaluating HOST_EVAL. Tapis will need to ssh to the host.
-//    String targetUser = owner1;
-//    String loginUser = TAPIS_TEST_HOST_LOGIN_USER;
-//    // Get password from environment - TAPIS_VM_TESTUSER3_PASSWORD
-//    String testUser3P = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
-//    if (StringUtils.isBlank(testUser3P))
-//    {
-//      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_PASSWORD_ENV_VAR);
-//    }
-//    Credential cred0 = new Credential(null, loginUser, testUser3P, null, null, null, null, null);
-//    sys0.setAuthnCredential(cred0);
-//    svc.createUserCredential(rOwner1, sys0.getId(), targetUser, cred0, skipCredCheckFalse, rawDataEmptyJson);
-//
-//    // Fetch system with resolving rootDir. Returned rootDir should have been updated.
-//    tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, resolveTypeALL, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-//    // Update original definition, so we can use the checkCommon method.
-//    String resolvedRootDir = String.format("/home/%s/test/%s", loginUser, loginUser);
-//    sys0.setRootDir(resolvedRootDir);
-//    sys0.setEffectiveUserId(loginUser);
-//    checkCommonSysAttrs(sys0, tmpSys);
-//    // Reset rootDir
-//    sys0.setRootDir(rootDir);
-//  }
+  // Check use of HOST_EVAL in rootDir during system creation
+  // Requires env variables:
+  //   TAPIS_SITE_ID=tacc
+  //   TAPIS_TENANT_SVC_BASEURL=https://admin.develop.tapis.io
+  //   TAPIS_SERVICE_PASSWORD=****
+  //   TAPIS_VM_TESTUSER_NAME=testuser3
+  //   TAPIS_VM_TESTUSER_PASSWORD=****
+  // Uses sysetms[33,35,36,37,38,39]
+  @Test
+  public void testCreateSystemResolveRootDir() throws Exception
+  {
+    // Set up for evaluating HOST_EVAL. Tapis will need to ssh to the host.
+    // Get username and password from environment
+    String loginUser = System.getenv(TAPIS_TEST_NAME_ENV_VAR);
+    String testTapisUserP = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
+    if (StringUtils.isBlank(loginUser))
+    {
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_NAME_ENV_VAR);
+    }
+    if (StringUtils.isBlank(testTapisUserP))
+    {
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_PASSWORD_ENV_VAR);
+    }
+    String systemOwner = owner1;
+    Credential cred0 = new Credential(null, null, testTapisUserP, null, null, null, null, null, null, null);
+
+    // Test case data
+    // Positive cases
+    String testRootDir1 = "HOST_EVAL($HOME)/test/${owner}";
+    String resultRootDir1 = String.format("/home/%s/test/%s", loginUser, systemOwner);
+    String testRootDir2 = "/HOST_EVAL(HOME)/test/${owner}";
+    String resultRootDir2 = String.format("/home/%s/test/%s", loginUser, systemOwner);
+    String testRootDir3 = "/HOST_EVAL($MY_MISSING_VAR, tmp)/test";
+    String resultRootDir3 = "/tmp/test";
+    String testRootDir4 = "/HOST_EVAL($MY_MISSING_VAR, /tmp)/test";
+    String resultRootDir4 = "/tmp/test";
+    String testRootDir5 = "/HOST_EVAL($USER)/test/${tenant}/${owner}/${apiUserId}";
+    String resultRootDir5 = String.format("/%s/test/%s/%s/%s", loginUser, tenantName, systemOwner, systemOwner);
+    // Negative cases
+    String testRootDirBad1 = "HOST_EVAL($MY_MISSING_VAR)";
+
+    // Positive cases
+    testResolveRootDir(systems[33], loginUser, cred0, testRootDir1, resultRootDir1);
+    testResolveRootDir(systems[35], loginUser, cred0, testRootDir2, resultRootDir2);
+    testResolveRootDir(systems[36], loginUser, cred0, testRootDir3, resultRootDir3);
+    testResolveRootDir(systems[37], loginUser, cred0, testRootDir4, resultRootDir4);
+    testResolveRootDir(systems[38], loginUser, cred0, testRootDir5, resultRootDir5);
+
+    // Negative cases
+    boolean pass = false;
+
+    // Check that if env var is not defined and no default provided then error includes correct message
+    TSystem sys0 = systems[39];
+    sys0.setHost(TAPIS_TEST_HOST_IP);
+    sys0.setEffectiveUserId(loginUser);
+    sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
+    sys0.setAuthnCredential(cred0);
+    sys0.setRootDir(testRootDirBad1);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_HOST_EVAL_RESOLVE_EMPTY"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    pass = false;
+  }
 
   @Test
   public void testGetSystems() throws Exception
@@ -1152,6 +1185,175 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     // Reset in prep for continued checking
+    pass = false;
+  }
+
+  // Test restrictions on creating a system that uses HOST_EVAL in rootDir
+  //  - System must be of type LINUX
+  //  - effectiveUserId must be static
+  //  - Credentials must be provided
+  //  - HOST_EVAL must be first element in path
+  //  - HOST_EVAL must appear only once - case 1 - starts with HOST_EVAL
+  //  - HOST_EVAL must appear only once - case 2 - does not start with HOST_EVAL
+  //  - Invalid syntax - missing parenthesis
+  @Test
+  public void testCreateInvalidHostEvalRootDir()
+  {
+    TSystem sys0 = systems[24];
+    // Set up the system definition such that it looks like it could have valid credentials.
+    sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
+    Credential fakeCred = new Credential(AuthnMethod.PASSWORD, null, "fakePassword", null, null, null, null, null, null, null);
+    sys0.setAuthnCredential(fakeCred);
+    // Save off the original rootDir, cred and effUser. Used to reset test conditions
+    String origRootDir = sys0.getRootDir();
+    String origEffUser = sys0.getEffectiveUserId();
+    Credential origCred = sys0.getAuthnCredential();
+    // Define valid and invalid root directories involving HOST_EVAL
+    String validRootDir = "HOST_EVAL($SCRATCH)/a/b/c";
+    String invalidRootDir1 = "/a/b/c/HOST_EVAL($SCRATCH)";
+    String invalidRootDir2 = "HOST_EVAL($SCRATCH)/a/b/HOST_EVAL($USER)/c";
+    String invalidRootDir3 = "/a/b/HOST_EVAL($SCRATCH)/a/b/HOST_EVAL($USER)/c";
+    String invalidRootDir4 = "HOST_EVAL($SCRATCH/a/b";
+    String invalidRootDir5 = "HOST_EVAL()/a/b";
+    String invalidRootDir6 = "HOST_EVAL($0SCRATCH)/a/b";
+    String invalidRootDir7 = "HOST_EVAL($MISSING_PAREN/a/b";
+
+    // Check cases where HOST_EVAL in rootDir is valid but other conditions are not met
+    sys0.setRootDir(validRootDir);
+
+    // Test that system type must be linux
+    boolean pass = false;
+    String tmpRootDir = s3System2.getRootDir();
+    s3System2.setRootDir(validRootDir);
+    try { svc.createSystem(rOwner1, s3System2, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_ROOT_HOST_EVAL_SYSTYPE"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    // Reset in prep for continued checking
+    s3System1.setRootDir(tmpRootDir);
+    pass = false;
+
+    // Check that effectiveUserId cannot be dynamic
+    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
+    sys0.setAuthnCredential(null); // Must set cred to null, or we never get to rootDir validation code
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_ROOT_HOST_EVAL_EFFUSR"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setEffectiveUserId(origEffUser);
+    sys0.setAuthnCredential(origCred);
+    pass = false;
+
+    // Check that credentials must be set
+    sys0.setAuthnCredential(null);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_ROOT_HOST_EVAL_CREDS"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setAuthnCredential(origCred);
+    pass = false;
+
+    // Check that HOST_EVAL must be at start
+    sys0.setRootDir(invalidRootDir1);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_ROOT_HOST_EVAL_ERR"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
+    pass = false;
+
+    // Check that HOST_EVAL must appear only once - case 1 - starts with HOST_EVAL
+    sys0.setRootDir(invalidRootDir2);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_ROOT_HOST_EVAL_MULTIPLE"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
+    pass = false;
+
+    // Check that HOST_EVAL must appear only once - case 2 - does not start with HOST_EVAL
+    sys0.setRootDir(invalidRootDir3);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_ROOT_HOST_EVAL_MULTIPLE"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
+    pass = false;
+
+    // Check that validation catches a missing parenthesis
+    sys0.setRootDir(invalidRootDir4);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_HOST_EVAL_NO_MATCHES"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
+    pass = false;
+
+    // Check that validation catches a missing env var name
+    sys0.setRootDir(invalidRootDir5);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_HOST_EVAL_NO_ENV_VAR"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
+    pass = false;
+
+    // Check that validation catches an invalid env var name
+    sys0.setRootDir(invalidRootDir6);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_HOST_EVAL_INVALID_ENV_VAR"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
+    pass = false;
+
+    // Check that validation catches a missing closing paren
+    sys0.setRootDir(invalidRootDir7);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_HOST_EVAL_NO_MATCHES"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
     pass = false;
   }
 
@@ -2599,10 +2801,6 @@ public class SystemsServiceTest
     svc.createChildSystem(rParentChild2, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
   }
 
- // ************************************************************************
- // **************************  Private Methods  ***************************
- // ************************************************************************
-
   @Test
   public void testUnlinkChildren() throws TapisException, TapisClientException {
     // create a parent with 4 children
@@ -2660,7 +2858,9 @@ public class SystemsServiceTest
     Assert.assertEquals(childSystems.size(), 0);
   }
 
-
+  // ************************************************************************
+  // **************************  Private Methods  ***************************
+  // ************************************************************************
 
   // Retrieve and display history for manual checking of system history records
  private void displaySystemHistory(ResourceRequestUser rUser, String systemId) throws TapisException, TapisClientException
@@ -2722,5 +2922,24 @@ public class SystemsServiceTest
     system.setJobCapabilities(capList1);
     parentSystems.add(system);
     return system;
+  }
+
+  private void testResolveRootDir(TSystem sys0, String loginUser, Credential cred0, String testRootDir, String resultRootDir)
+          throws TapisException, TapisClientException
+  {
+    sys0.setHost(TAPIS_TEST_HOST_IP);
+    sys0.setEffectiveUserId(loginUser);
+    sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
+    sys0.setAuthnCredential(cred0);
+    sys0.setRootDir(testRootDir);
+
+    // Create the system. Fetch it. Validate rootDir
+    svc.createSystem(rOwner1, sys0, skipCredCheckFalse, rawDataEmptyJson);
+    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null,
+                                   sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    System.out.println(String.format("Resolved rootDir: System:%s testRootDir: %s resolvedRootDir: %s", sys0.getId(), testRootDir, tmpSys.getRootDir()));
+    // Update rootDir to match expected result, then use common method for validating attributes
+    sys0.setRootDir(resultRootDir);
+    checkCommonSysAttrs(sys0, tmpSys);
   }
 }

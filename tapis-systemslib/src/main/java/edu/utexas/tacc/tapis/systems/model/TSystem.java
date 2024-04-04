@@ -6,6 +6,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
+
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -62,7 +64,6 @@ public final class TSystem
   public static final String TENANT_VAR = "${tenant}";
 
   private static final String[] ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
-  private static final String[] ROOTDIR_VARS = {OWNER_VAR, TENANT_VAR};
 
   // Special select strings used for determining what attributes are returned in a response
   public static final String SEL_ALL_ATTRS = "allAttributes";
@@ -166,6 +167,29 @@ public final class TSystem
   // Label to use when name is missing.
   private static final String UNNAMED = "unnamed";
 
+  // HOST_EVAL
+  public static final String HOST_EVAL_PREFIX1 = "HOST_EVAL(";
+  public static final String HOST_EVAL_PREFIX2 = "/HOST_EVAL(";
+  // Pattern for HOST_EVAL() method. Two capture groups. Group 1 = variable name, group 2 = remaining string.
+  // Regex matching: start with literal 'HOST_EVAL('
+  //                 followed by 0 or more characters (group 1)
+  //                 followed by literal ')'
+  //                 followed by 0 or more characters (group 2)
+  public static final Pattern HOST_EVAL_PATTERN = Pattern.compile("^\\/?HOST_EVAL\\((.*)\\)(.*)");
+
+  // Pattern for environment variable name with optional default value pattern
+  // Regex matching: start with 1 letter or underscore (part of group 1 - the env var name)
+  //                 followed by 0 or more alphanumeric or underscore (part of group 1 - the env var name)
+  //                 followed by whitespace
+  //                 Optionally followed by:
+  //                   a comma (part of group 2)
+  //                   whitespace (part of group 2)
+  //                   1 or more non-whitespace (part of groups 2 and 3 - the default value)
+  //                   whitespace (part of group 2)
+  // The optional value is separated from the name with a comma, which can have whitespace on either side of it.
+  // The value itself consists of non-whitespace characters. Trailing whitespace is ignored.
+  public static final Pattern ENV_VAR_NAME_PATTERN =
+          Pattern.compile("(^[a-zA-Z_][a-zA-Z0-9_]*)\\s*(,\\s*(\\S+)\\s*)?");
 
   // ************************************************************************
   // *********************** Enums ******************************************
@@ -304,11 +328,11 @@ public final class TSystem
 
   /**
    * Constructor for creating a child system based on a parent system.
-   * @param parentSystem
-   * @param childId
-   * @param childEffectiveUserId
-   * @param childRootDir
-   * @param childOwner
+   * @param parentSystem - parent of child system to be created
+   * @param childId - id for child system
+   * @param childEffectiveUserId - effective user for child system
+   * @param childRootDir - rootDir for child system
+   * @param childOwner - owner for child system
    */
   public TSystem(TSystem parentSystem, String childId, String childEffectiveUserId, String childRootDir, String childOwner, boolean enabled) {
     this(parentSystem.getSeqId(), parentSystem.getTenant(), childId, parentSystem.getDescription(),
@@ -350,6 +374,9 @@ public final class TSystem
     host = LibUtils.stripStr(host1);
     enabled = enabled1;
     effectiveUserId = LibUtils.stripStr(effectiveUserId1);
+    if (StringUtils.isBlank(effectiveUserId)) effectiveUserId = DEFAULT_EFFECTIVEUSERID;
+    // Set flag indicating if effectiveUserId is static
+    isDynamicEffectiveUser = effectiveUserId.equals(APIUSERID_VAR);
     defaultAuthnMethod = defaultAuthnMethod1;
     bucketName = LibUtils.stripStr(bucketName1);
     rootDir = (rootDir1 == null) ? DEFAULT_ROOTDIR : LibUtils.stripStr(rootDir1);
@@ -449,7 +476,11 @@ public final class TSystem
   public void setDefaults()
   {
     if (StringUtils.isBlank(getOwner())) setOwner(DEFAULT_OWNER);
-    if (StringUtils.isBlank(getEffectiveUserId())) setEffectiveUserId(DEFAULT_EFFECTIVEUSERID);
+    if (StringUtils.isBlank(getEffectiveUserId()))
+    {
+      setEffectiveUserId(DEFAULT_EFFECTIVEUSERID);
+    }
+    isDynamicEffectiveUser = effectiveUserId.equals(APIUSERID_VAR);
     if (getTags() == null) setTags(EMPTY_STR_ARRAY);
     if (getNotes() == null) setNotes(DEFAULT_NOTES);
     // If canRunBatch and qlist has one value then set default q to that value
@@ -475,18 +506,18 @@ public final class TSystem
 
     // Perform variable substitutions that happen at create time: bucketName, rootDir, jobWorkingDir
     //    ALL_VARS = {APIUSERID_VAR, OWNER_VAR, TENANT_VAR};
-    //    ROOTDIR_VARS = {OWNER_VAR, TENANT_VAR};
     String[] allVarSubstitutions = {oboUser, owner, tenant};
-    String[] rootDirVarSubstitutions = {owner, tenant};
     setBucketName(StringUtils.replaceEach(bucketName, ALL_VARS, allVarSubstitutions));
     setJobWorkingDir(StringUtils.replaceEach(jobWorkingDir, ALL_VARS, allVarSubstitutions));
-    setRootDir(StringUtils.replaceEach(rootDir, ROOTDIR_VARS, rootDirVarSubstitutions));
+    setRootDir(StringUtils.replaceEach(rootDir, ALL_VARS, allVarSubstitutions));
   }
 
   /**
    * Check constraints on TSystem attributes.
    * Make checks that do not require a dao or service call.
    * Check only internal consistency and restrictions.
+   * Create the initial list of error messages and return it.
+   * Subsequent validation methods should add the list of error messages.
    *
    * @return  list of error messages, empty list if no errors
    */
@@ -502,6 +533,47 @@ public final class TSystem
     checkAttrMisc(errMessages);
     checkAttrControlCharacters(errMessages);
     return errMessages;
+  }
+
+  /**
+   *  Validate use of HOST_EVAL in rootDir in the context of system creation
+   *   - system type must be LINUX
+   *   - credentials must be provided
+   *   - HOST_EVAL must appear only once
+   *   - HOST_EVAL must be first element in the path (no leading slash)
+   *   - effectiveUserId must be static
+   */
+  public void checkRootDirHostEvalDuringCreate(List<String> errMessages)
+  {
+    // If not using HOST_EVAL we are done.
+    if (rootDir == null || !rootDir.contains(HOST_EVAL_PREFIX1)) return;
+
+    // System must be of type LINUX
+    if (!SystemType.LINUX.equals(systemType))
+    {
+      errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_SYSTYPE", systemType.name()));
+    }
+    // Must have credentials if using HOST_EVAL
+    if (getAuthnCredential() == null)
+    {
+      errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_CREDS"));
+    }
+    // rootDir must start with HOST_EVAL or /HOST_EVAL
+    if (!rootDir.startsWith(HOST_EVAL_PREFIX1) && !rootDir.startsWith(HOST_EVAL_PREFIX2))
+    {
+      errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_ERR", rootDir));
+    }
+    // HOST_EVAL may only appear once
+    int firstIndex = rootDir.indexOf(HOST_EVAL_PREFIX1);
+    if (firstIndex >= 0 && rootDir.indexOf(HOST_EVAL_PREFIX1, firstIndex+ HOST_EVAL_PREFIX1.length()) != -1)
+    {
+      errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_MULTIPLE", rootDir));
+    }
+    //effectiveUserId must be static
+    if (isDynamicEffectiveUser)
+    {
+      errMessages.add(LibUtils.getMsg("SYSLIB_ROOT_HOST_EVAL_EFFUSR"));
+    }
   }
 
   /**
@@ -546,7 +618,7 @@ public final class TSystem
   /**
    * Check for invalid attributes
    *   systemId, host
-   *   For LINUX or IRODS rootDir must start with /
+   *   For LINUX or IRODS rootDir must start with / or HOST_EVAL(
    */
   private void checkAttrValidity(List<String> errMessages)
   {
@@ -556,7 +628,7 @@ public final class TSystem
     {
       if (StringUtils.isBlank(rootDir))
         errMessages.add(LibUtils.getMsg("SYSLIB_NOROOTDIR1", id, systemType));
-      else if (!rootDir.startsWith("/"))
+      else if (!rootDir.startsWith("/") && !rootDir.startsWith(HOST_EVAL_PREFIX1))
         errMessages.add(LibUtils.getMsg("SYSLIB_ROOTDIR_NOSLASH", rootDir));
     }
   }

@@ -548,6 +548,24 @@ public class LibUtils
     if (s == null) return s; else return s.strip();
   }
 
+  /**
+   * Get all characters after the last newline character is a string.  The string must be non-null and must
+   * already be trimmed of leading and trailing whitespace.
+   * This method is useful in stripping the banner information from the output of remote commands.
+   * Copied from JobUtils in tapis-job repo
+   *
+   * @param resultString the remote result string
+   * @return the last line of the string
+   */
+  public static String getLastLineFromResultString(String resultString)
+  {
+    // The input is a non-null, trimmed string so a non-negative index must be at least one character
+    // from the end of the string.
+    int index = resultString.lastIndexOf('\n');
+    if (index < 0) return resultString;
+    return resultString.substring(index + 1);
+  }
+
   /*
    * If DTN is used in a system definition (i.e. dtnSystemId is set):
    *   - verify that dtnSystemId exists
