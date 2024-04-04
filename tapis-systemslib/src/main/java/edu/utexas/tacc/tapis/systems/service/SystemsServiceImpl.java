@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.ws.rs.core.Response.Status;
@@ -14,6 +15,7 @@ import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 
+import edu.utexas.tacc.tapis.shared.ssh.apache.system.TapisRunCommand;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -77,8 +79,7 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_EFFECTIVEUSERID;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
 
 /*
  * Service level methods for Systems.
@@ -246,17 +247,26 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, systemId));
     }
 
+    // ==========================================================================================================
+    // WARNING: Be very careful of ordering of steps from here on.
+    //          Ordering of setting defaults, resolving variables and validating attributes can be critical.
+    // ==========================================================================================================
+
     // Make sure owner, effectiveUserId, notes and tags are all set
     // Note that this is done before auth so owner can get resolved and used during auth check.
     system.setDefaults();
 
     // ----------------- Resolve variables for any attributes that might contain them --------------------
-    // NOTE: That this also handles case where effectiveUserId is ${owner},
+    // NOTE: This also handles case where effectiveUserId is ${owner},
     //       so after this effUser is either a resolved static string or ${apiUserId}
+    //       and the only variable of interest in rootDir should be HOST_EVAL($var)
     system.resolveVariablesAtCreate(rUser.getOboUserId());
 
     // Determine if effectiveUserId is static
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+
+    // ---------------- Check constraints on TSystem attributes ------------------------
+    validateTSystem(rUser, system, true);
 
     // Set flag indicating if we will deal with credentials.
     // We only do that when credentials provided and effectiveUser is static
@@ -268,16 +278,6 @@ public class SystemsServiceImpl implements SystemsService
 
     // ---------------- Check for reserved names ------------------------
     checkReservedIds(rUser, systemId);
-
-    // ---------------- Check constraints on TSystem attributes ------------------------
-    validateTSystem(rUser, system);
-
-    // For LINUX and IRODS, normalize the rootDir.
-    if (SystemType.LINUX.equals(systemType) || SystemType.IRODS.equals(systemType))
-    {
-      String normalizedRootDir = PathUtils.getAbsolutePath("/", system.getRootDir()).toString();
-      system.setRootDir(normalizedRootDir);
-    }
 
     // If credentials provided validate constraints and verify credentials
     if (cred != null)
@@ -303,6 +303,22 @@ public class SystemsServiceImpl implements SystemsService
         // If credential validation failed we do not create the system. Return now.
         if (Boolean.FALSE.equals(c.getValidationResult())) return system;
       }
+    }
+
+    // Evaluate HOST_EVAL macro if necessary. ssh connection to the host will be required.
+    // Due to constraints on use of HOST_EVAL in rootDir, we should have already checked the credentials above,
+    // so they should be OK (unless caller has specified skipCredentialCheck=true)
+    if (system.getRootDir().startsWith(HOST_EVAL_PREFIX1) || system.getRootDir().startsWith(HOST_EVAL_PREFIX2))
+    {
+      String resolvedRootDir = resolveRootDirHostEval(rUser, system);
+      system.setRootDir(resolvedRootDir);
+    }
+
+    // For LINUX and IRODS, normalize the rootDir.
+    if (SystemType.LINUX.equals(systemType) || SystemType.IRODS.equals(systemType))
+    {
+      String normalizedRootDir = PathUtils.getAbsolutePath("/", system.getRootDir()).toString();
+      system.setRootDir(normalizedRootDir);
     }
 
     // Construct Json string representing the TSystem (without credentials) about to be created
@@ -467,7 +483,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // ---------------- Check constraints on TSystem attributes ------------------------
     patchedTSystem.setDefaults();
-    validateTSystem(rUser, patchedTSystem);
+    validateTSystem(rUser, patchedTSystem, false);
 
     // This is a WIP and, in fact, probably not even a good idea to attempt.
     // We should instead generate the change history on demand from the raw data.
@@ -527,6 +543,9 @@ public class SystemsServiceImpl implements SystemsService
     if (!dao.checkForSystem(oboTenant, systemId, false))
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
+    // Fill in defaults
+    putSystem.setDefaults();
+
     // Set flag indicating if effectiveUserId is static
     boolean isStaticEffectiveUser = !effectiveUserId.equals(APIUSERID_VAR);
 
@@ -552,7 +571,7 @@ public class SystemsServiceImpl implements SystemsService
     checkAuthOwnerKnown(rUser, op, systemId, origTSystem.getOwner());
 
     // ---------------- Check constraints on TSystem attributes ------------------------
-    validateTSystem(rUser, updatedTSystem);
+    validateTSystem(rUser, updatedTSystem, false);
 
     // If credentials provided validate constraints and verify credentials
     if (cred != null)
@@ -1054,6 +1073,7 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * getSystem
+   * Retrieve specified system.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - Name of the system
    * @param accMethod - (optional) return credentials for specified authn method instead of default authn method
@@ -1085,7 +1105,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!rUser.isServiceRequest()) resTenant = rUser.getOboTenantId();
     else resTenant = (StringUtils.isBlank(resourceTenant)) ? rUser.getOboTenantId() : resourceTenant;
 
-    // If impersonationId set confirm that it is allowed
+    // If impersonationId set confirm that it is allowed.
     //  - allowed for certain Tapis services and for a tenant admin
     if (!StringUtils.isBlank(impersonationId)) checkImpersonateUserAllowed(rUser, op, systemId, impersonationId, resTenant);
     // If resourceTenant set confirm it is allowed. Only allowed for certain Tapis services.
@@ -1101,6 +1121,7 @@ public class SystemsServiceImpl implements SystemsService
     String rootDir = system.getRootDir();
     if (rootDir == null) rootDir = "";
     String owner = system.getOwner();
+    boolean isOwner = oboOrImpersonatedUser.equals(owner);
 
     // Determine the effectiveUser type, either static or dynamic
     // Secrets get stored on different paths based on this
@@ -1114,7 +1135,11 @@ public class SystemsServiceImpl implements SystemsService
     // Call checkAuth (this can throw ForbiddenException)
     //   - always allow a service calling as itself to read/execute a system.
     //   - if svc not calling as itself do the normal checks using oboUserOrImpersonationId.
-    checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
+    // If owner is making the request we can skip this check.
+    if (!isOwner)
+    {
+      checkAuth(rUser, op, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
+    }
 
     // If caller asks for credentials, explicitly check auth now
     // That way we can call private getCredential and not have overhead of getUserCredential().
@@ -1200,7 +1225,7 @@ public class SystemsServiceImpl implements SystemsService
     // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
     // If no listType provided use the default
     if (StringUtils.isBlank(listType)) listType = DEFAULT_LIST_TYPE.name();
-    // Validate the listType enum (case insensitive).
+    // Validate the listType enum (case-insensitive).
     listType = listType.toUpperCase();
     if (!EnumUtils.isValidEnum(AuthListType.class, listType))
     {
@@ -2365,6 +2390,38 @@ public class SystemsServiceImpl implements SystemsService
   // **************************  Private Methods  ***************************
   // ************************************************************************
 
+  /*
+   * Given a child system id get the parent system id
+   */
+  public String getParentId(ResourceRequestUser rUser, String systemId) throws TapisException, TapisClientException
+  {
+    SystemOperation op = SystemOperation.read;
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId)) {
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+    }
+
+    String oboTenant = rUser.getOboTenantId();
+
+    // Resource must exist and not be deleted
+    if (!dao.checkForSystem(oboTenant, systemId, false)) {
+      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    }
+
+    // ------------------------- Check authorization -------------------------
+    checkAuthOwnerUnkown(rUser, op, systemId);
+
+    return dao.getParent(oboTenant, systemId);
+  }
+
+  /*
+   * Determine if a system is a child system
+   */
+  private static boolean isChildSystem(TSystem system)
+  {
+    return !StringUtils.isBlank(system.getParentId());
+  }
+
   /**
    * Update enabled attribute for a system
    * @param rUser - ResourceRequestUser containing tenant, user and request info
@@ -2473,15 +2530,51 @@ public class SystemsServiceImpl implements SystemsService
    * Collect and report as many errors as possible, so they can all be fixed before next attempt
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tSystem1 - the TSystem to check
+   * @param creating - indicates validation is part of a system create operation
    * @throws IllegalStateException - if any constraints are violated
    */
-  private void validateTSystem(ResourceRequestUser rUser, TSystem tSystem1) throws TapisException, IllegalStateException
+  private void validateTSystem(ResourceRequestUser rUser, TSystem tSystem1, boolean creating)
+          throws TapisException, IllegalStateException
   {
     String msg;
-    // Make api level checks, i.e. checks that do not involve a dao or service call.
+    // Make checks that do not involve a dao or service call. This creates the initial list of err messages.
     List<String> errMessages = tSystem1.checkAttributeRestrictions();
 
-    // Now make checks that do require a dao or service call.
+    // Perform validations only done when a system is first created.
+    if (creating)
+    {
+      // Validate use of HOST_EVAL in rootDir in the context of system creation
+      // Note that rootDir can only be set at create, so we do not need to do this during updates.
+      tSystem1.checkRootDirHostEvalDuringCreate(errMessages);
+    }
+
+    // If DTN is used (i.e. dtnSystemId is set) validate it
+    // This checks that the DTN system exists, user has access to it, and the root directories match.
+    if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))
+    {
+      try
+      {
+        TSystem dtnSystem = getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false,
+                         null, null, null, false);
+        LibUtils.validateDtnConfig(tSystem1, dtnSystem, errMessages);
+      }
+      catch (NotAuthorizedException e)
+      {
+        msg = LibUtils.getMsg("SYSLIB_DTN_401", tSystem1.getDtnSystemId());
+        errMessages.add(msg);
+      }
+      catch (ForbiddenException e)
+      {
+        msg = LibUtils.getMsg("SYSLIB_DTN_403", tSystem1.getDtnSystemId());
+        errMessages.add(msg);
+      }
+      catch (Exception e)
+      {
+        msg = LibUtils.getMsg("SYSLIB_DTN_CHECK_ERROR", tSystem1.getDtnSystemId(), e.getMessage());
+        log.error(msg, e);
+        errMessages.add(msg);
+      }
+    }
 
     // If batchSchedulerProfile is set verify that the profile exists.
     if (!StringUtils.isBlank(tSystem1.getBatchSchedulerProfile()))
@@ -2489,22 +2582,6 @@ public class SystemsServiceImpl implements SystemsService
       if (!dao.checkForSchedulerProfile(tSystem1.getTenant(), tSystem1.getBatchSchedulerProfile()))
       {
         msg = LibUtils.getMsg("SYSLIB_PRF_NO_PROFILE", tSystem1.getBatchSchedulerProfile());
-        errMessages.add(msg);
-      }
-    }
-
-    // If DTN is used (i.e. dtnSystemId is set) verify that dtnSystemId exists and has matching rootDir
-    if (!StringUtils.isBlank(tSystem1.getDtnSystemId()))
-    {
-      try
-      {
-        TSystem dtnSystem = dao.getSystem(tSystem1.getTenant(), tSystem1.getDtnSystemId());
-        LibUtils.validateDtnConfig(tSystem1, dtnSystem, errMessages);
-      }
-      catch (TapisException e)
-      {
-        msg = LibUtils.getMsg("SYSLIB_DTN_CHECK_ERROR", tSystem1.getDtnSystemId(), e.getMessage());
-        log.error(msg, e);
         errMessages.add(msg);
       }
     }
@@ -2576,6 +2653,100 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
+   * Resolve HOST_EVAL in rootDir by connecting to the host
+   * Much of this code copied from tapis-job repo, MacroResolver.replaceHostEval.
+   *
+   * @param system - the system
+   * @return Resolved rootDir
+   */
+  private String resolveRootDirHostEval(ResourceRequestUser rUser, TSystem system) throws TapisException
+  {
+    String resolvedRootDir;
+    String msg;
+    String systemId = system.getId();
+
+    // Parse full rootDir string to:
+    //  - validate it
+    //  - extract the argument provided to HOST_EVAL()
+    //  - extract the remaining path following the initial HOST_EVAL
+    // First trim any leading or trailing whitespace
+    String rootDir = system.getRootDir().strip();
+    Matcher m = HOST_EVAL_PATTERN.matcher(rootDir);
+    // If no matches found then something went wrong. Most likely HOST_EVAL syntax problem
+    if (!m.matches())
+    {
+      msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_NO_MATCHES", rUser, systemId, rootDir);
+      log.error(msg);
+      throw new IllegalArgumentException(msg);
+    }
+
+    // There are always 2 groups, either of which might be the empty string.
+    String hostEvalParm = m.group(1);
+    String remainingPath = m.group(2);
+
+    // Make sure we have non-empty env var name.
+    if (StringUtils.isBlank(hostEvalParm))
+    {
+      msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_NO_ENV_VAR", rUser,rootDir);
+      throw new IllegalArgumentException(msg);
+    }
+
+    // Parse the HOST_EVAL argument extracted from rootDir to:
+    //  - validate it
+    //  - extract env var name
+    //  - extract optional default value
+    // First trim any leading or trailing whitespace and strip off optional leading $
+    hostEvalParm = StringUtils.removeStart(hostEvalParm.strip(), '$');
+    m = ENV_VAR_NAME_PATTERN.matcher(hostEvalParm);
+    if (!m.matches())
+    {
+      msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_INVALID_ENV_VAR", rUser, systemId, rootDir, hostEvalParm);
+      throw new IllegalArgumentException(msg);
+    }
+
+    // Extract the variable and an optional default value, the latter of which can be null.
+    String varName = m.group(1);
+    String defaultValue = m.group(3);
+
+    // We will need to make an ssh connection to the host.
+    // Easiest way to do that is to use TapisRunCommand, which requires a client base TapisSystem object.
+    TapisSystem tapisSystem = createTapisSystemFromTSystem(system);
+    // Run the command on the host system.
+    String cmd = String.format("echo $%s", varName);
+    msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_RESOLVE_CMD", rUser, systemId, system.getHost(), cmd);
+    log.trace(msg);
+    var runCmd = new TapisRunCommand(tapisSystem);
+    int exitStatus = runCmd.execute(cmd, true); // connection automatically closed
+    runCmd.logNonZeroExitCode();
+    String result = runCmd.getOutAsTrimmedString();
+    // Trace the result
+    msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_RESOLVE_EXIT", rUser, systemId, system.getHost(), cmd, exitStatus, result);
+    log.trace(msg);
+    if (StringUtils.isBlank(result))
+    {
+      if (!StringUtils.isBlank(defaultValue))
+      {
+        result = defaultValue;
+      }
+      else
+      {
+        msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_RESOLVE_EMPTY", rUser, systemId, rootDir, varName);
+        throw new TapisException(msg);
+      }
+    }
+    // Retain only the last line in multi-line value.
+    // This removes any login banner message that the host might display.
+    String resolvedVar = LibUtils.getLastLineFromResultString(result);
+
+    // Replace HOST_EVAL() in rootDir with resolved env var and make sure there is a leading slash
+    resolvedRootDir = resolvedVar + remainingPath;
+    resolvedRootDir = StringUtils.prependIfMissing(resolvedRootDir, "/");
+    return resolvedRootDir;
+  }
+
+
+
+  /**
    * Build a client based TapisSystem from a TSystem for use by MacroResolver and other shared code.
    * Need to fill in credentials and authn method if HOST_EVAL needs evaluation
    * NOTE: Following attributes are not needed and so are not set:
@@ -2584,10 +2755,10 @@ public class SystemsServiceImpl implements SystemsService
    * @param s - a TSystem
    * @return client-based TapisSystem built from a TSystem
    */
-  private TapisSystem createTapisSystemFromTSystem(TSystem s, Credential cred)
+  private TapisSystem createTapisSystemFromTSystem(TSystem s)
   {
+    Credential cred = s.getAuthnCredential();
     TapisSystem tapisSystem = new TapisSystem();
-    if (s == null) return tapisSystem;
     tapisSystem.setTenant(s.getTenant());
     tapisSystem.setId(s.getId());
     tapisSystem.setDescription(s.getDescription());
@@ -3567,7 +3738,6 @@ public class SystemsServiceImpl implements SystemsService
     // If a service request and service is in the allowed list then log message and allow.
     if (rUser.isServiceRequest() && SVCLIST_IMPERSONATE.contains(svcName))
     {
-      // An allowed service is impersonating, log it
       log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_SVC_IMPERSONATE", rUser, systemId, op.name(), impersonationId, resourceTenant));
       return;
     }
@@ -3591,10 +3761,10 @@ public class SystemsServiceImpl implements SystemsService
     // If a service request and service is in the allowed list then log message and allow.
     if (rUser.isServiceRequest() && SVCLIST_RESOURCETENANT.contains(svcName))
     {
-      // An allowed service is impersonating, log it
       log.trace(LibUtils.getMsgAuth("SYSLIB_AUTH_RESOURCETENANT", rUser, systemId, op.name(), resourceTenant));
       return;
     }
+    // Deny authorization
     throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_RESOURCETENANT", rUser, systemId, op.name(), resourceTenant));
   }
 
@@ -4018,29 +4188,5 @@ public class SystemsServiceImpl implements SystemsService
     log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
                                    effectiveUser, authnMethod));
     return retCred;
-  }
-
-  public String getParentId(ResourceRequestUser rUser, String systemId) throws TapisException, TapisClientException {
-    SystemOperation op = SystemOperation.read;
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId)) {
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
-    }
-
-    String oboTenant = rUser.getOboTenantId();
-
-    // Resource must exist and not be deleted
-    if (!dao.checkForSystem(oboTenant, systemId, false)) {
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
-    }
-
-    // ------------------------- Check authorization -------------------------
-    checkAuthOwnerUnkown(rUser, op, systemId);
-
-    return dao.getParent(oboTenant, systemId);
-  }
-
-  private boolean isChildSystem(TSystem system) {
-    return !StringUtils.isBlank(system.getParentId());
   }
 }

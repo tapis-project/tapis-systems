@@ -79,7 +79,8 @@ public final class IntegrationUtils
 
   // Properties for one of the Tapis v3 test VMs
   public static final String TAPIS_TEST_HOST_LOGIN_USER = testUser3;
-  public static final String TAPIS_TEST_PASSWORD_ENV_VAR = "TAPIS_VM_TESTUSER3_PASSWORD";
+  public static final String TAPIS_TEST_NAME_ENV_VAR = "TAPIS_VM_TESTUSER_NAME";
+  public static final String TAPIS_TEST_PASSWORD_ENV_VAR = "TAPIS_VM_TESTUSER_PASSWORD";
   public static final String TAPIS_TEST_HOST_IP = "129.114.35.53";
   public static final String TAPIS_TEST_S3_KEY_ENV_VAR = "TAPIS_S3_SCBLACK_KEY";
   public static final String TAPIS_TEST_S3_SECRET_ENV_VAR = "TAPIS_S3_SCBLACK_SECRET";
