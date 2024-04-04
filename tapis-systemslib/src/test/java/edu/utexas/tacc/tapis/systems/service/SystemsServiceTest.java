@@ -1216,6 +1216,7 @@ public class SystemsServiceTest
     String invalidRootDir4 = "HOST_EVAL($SCRATCH/a/b";
     String invalidRootDir5 = "HOST_EVAL()/a/b";
     String invalidRootDir6 = "HOST_EVAL($0SCRATCH)/a/b";
+    String invalidRootDir7 = "HOST_EVAL($MISSING_PAREN/a/b";
 
     // Check cases where HOST_EVAL in rootDir is valid but other conditions are not met
     sys0.setRootDir(validRootDir);
@@ -1336,6 +1337,19 @@ public class SystemsServiceTest
     {
       // Check that error message contains expected strings
       Assert.assertTrue(e.getMessage().contains("SYSLIB_HOST_EVAL_INVALID_ENV_VAR"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    sys0.setRootDir(origRootDir);
+    pass = false;
+
+    // Check that validation catches a missing closing paren
+    sys0.setRootDir(invalidRootDir7);
+    try { svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (Exception e)
+    {
+      // Check that error message contains expected strings
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_HOST_EVAL_NO_MATCHES"));
       pass = true;
     }
     Assert.assertTrue(pass);
