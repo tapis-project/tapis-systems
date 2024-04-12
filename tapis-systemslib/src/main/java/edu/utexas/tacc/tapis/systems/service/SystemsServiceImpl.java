@@ -1184,7 +1184,7 @@ public class SystemsServiceImpl implements SystemsService
     // If effUsr is static then secrets stored using the "static" path in SK and static string used to build the path.
     // If effUsr is dynamic then secrets stored using the "dynamic" path in SK and a Tapis user
     //    (oboUser or impersonationId) used to build the path.
-    // NOTE: Having a separate method for checkHasCredentions would not help much. We still need the call to SK.
+    // NOTE: Having a separate method for checkHasCredentials would not help much. We still need the call to SK.
     if (returnCreds || checkHasCredentials)
     {
       // Determine targetUser for fetching/checking credential.
@@ -1303,7 +1303,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @param fetchShareInfo - indicates if share info should be included in result
-   * @param checkHasCredentials - TODO indicates if hasCredentials info should be included in the result
+   * @param checkHasCredentials - indicates if hasCredentials info should be included in the result
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
@@ -1378,6 +1378,24 @@ public class SystemsServiceImpl implements SystemsService
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
     {
+      // Fetch credentials if we need to compute the dynamic attribute hasCredentials.
+      // NOTE: Having a separate method for checkHasCredentials would not help much. We still need the call to SK.
+      if (checkHasCredentials)
+      {
+        // Determine targetUser for fetching/checking credential.
+        // If static use effectiveUserId, else use oboOrImpersonatedUser
+        boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+        String credTargetUser;
+        if (isStaticEffectiveUser)
+          credTargetUser = system.getEffectiveUserId();
+        else
+          credTargetUser = oboOrImpersonatedUser;
+        // Use private internal method instead of public API to skip auth and other checks not needed here.
+        Credential cred = getCredential(rUser, system, credTargetUser, system.getDefaultAuthnMethod(), isStaticEffectiveUser,
+                                        system.getTenant());
+        system.setHasCredentials(cred != null);
+      }
+
       // Fetch share info only if requested by caller
       if (fetchShareInfo)
       {
@@ -1403,7 +1421,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @param fetchShareInfo - indicates if share info should be included in result
-   * @param checkHasCredentials - TODO indicates if hasCredentials info should be included in the result
+   * @param checkHasCredentials - indicates if hasCredentials info should be included in the result
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
@@ -1423,7 +1441,7 @@ public class SystemsServiceImpl implements SystemsService
     // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
     // If no listType provided use the default
     if (StringUtils.isBlank(listType)) listType = DEFAULT_LIST_TYPE.name();
-    // Validate the listType enum (case insensitive).
+    // Validate the listType enum (case-insensitive).
     listType = listType.toUpperCase();
     if (!EnumUtils.isValidEnum(AuthListType.class, listType))
     {
@@ -1471,6 +1489,24 @@ public class SystemsServiceImpl implements SystemsService
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
     {
+      boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+      // Fetch credentials if we need to compute the dynamic attribute hasCredentials.
+      // NOTE: Having a separate method for checkHasCredentials would not help much. We still need the call to SK.
+      if (checkHasCredentials)
+      {
+        // Determine targetUser for fetching/checking credential.
+        // If static use effectiveUserId, else use oboUser
+        String credTargetUser;
+        if (isStaticEffectiveUser)
+          credTargetUser = system.getEffectiveUserId();
+        else
+          credTargetUser = rUser.getOboUserId();
+        // Use private internal method instead of public API to skip auth and other checks not needed here.
+        Credential cred = getCredential(rUser, system, credTargetUser, system.getDefaultAuthnMethod(), isStaticEffectiveUser,
+                system.getTenant());
+        system.setHasCredentials(cred != null);
+      }
+
       // Fetch share info only if requested by caller
       if (fetchShareInfo)
       {
@@ -1478,7 +1514,7 @@ public class SystemsServiceImpl implements SystemsService
         system.setIsPublic(systemShare.isPublic());
         system.setSharedWithUsers(systemShare.getUserList());
       }
-      system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
+      system.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
       system.setEffectiveUserId(resolveEffectiveUserId(system, rUser.getOboUserId()));
     }
     return systems;
