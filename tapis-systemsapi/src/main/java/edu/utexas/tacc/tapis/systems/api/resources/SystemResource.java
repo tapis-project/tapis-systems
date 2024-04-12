@@ -823,9 +823,11 @@ public class SystemResource {
    * @param systemId - name of the system
    * @param authnMethodStr - authn method to use instead of default
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
+   * @param returnCreds - Fetch credentials and include them in the result
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
    *                          resolving effectiveUserId
    * @param sharedAppCtx - Share grantor for the case of a shared application context.
+   * @param resourceTenant - Use specified tenant instead of tenant in securityContext
    * @param securityContext - user identity
    * @return Response with system object as the result
    */
@@ -836,7 +838,7 @@ public class SystemResource {
   public Response getSystem(@PathParam("systemId") String systemId,
                             @QueryParam("authnMethod") @DefaultValue("") String authnMethodStr,
                             @QueryParam("requireExecPerm") @DefaultValue("false") boolean requireExecPerm,
-                            @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
+                            @QueryParam("returnCredentials") @DefaultValue("false") boolean returnCreds,
                             @QueryParam("impersonationId") String impersonationId,
                             @QueryParam("sharedAppCtx") String sharedAppCtx,
                             @QueryParam("resourceTenant") String resourceTenant,
@@ -856,12 +858,12 @@ public class SystemResource {
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
                                                    "systemId="+systemId, "authnMethod="+authnMethodStr,
                                                    "requireExecPerm="+requireExecPerm,
-                                                   "returnCredentials="+getCreds,
+                                                   "returnCredentials="+returnCreds,
                                                    "impersonationId="+impersonationId,
                                                    "resourceTenant="+resourceTenant,
                                                    "sharedAppCtx="+sharedAppCtx);
 
-    // Check that authnMethodStr is valid if is passed in
+    // Check that authnMethodStr is valid if it is passed in
     AuthnMethod authnMethod = null;
     try { if (!StringUtils.isBlank(authnMethodStr)) authnMethod =  AuthnMethod.valueOf(authnMethodStr); }
     catch (IllegalArgumentException e)
@@ -877,12 +879,15 @@ public class SystemResource {
     // Determine if select contains shareInfo
     boolean fetchShareInfo = isShareInfoRequested(selectList);
 
+    // Determine if select contains hasCredentials
+    boolean checkHasCredentials = isHasCredentialsRequested(selectList);
+
     // ---------------------------- Make service call -------------------------------
     TSystem tSystem;
     try
     {
-      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId,
-                                  sharedAppCtx, resourceTenant, fetchShareInfo);
+      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, returnCreds, impersonationId,
+                                  sharedAppCtx, resourceTenant, fetchShareInfo, checkHasCredentials);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1537,13 +1542,16 @@ public class SystemResource {
     // Determine if select contains shareInfo
     boolean fetchShareInfo = isShareInfoRequested(selectList);
 
+    // Determine if select contains hasCredentials
+    boolean checkHasCredentials = isHasCredentialsRequested(selectList);
+
     // Call service method to fetch systems
     if (StringUtils.isBlank(sqlSearchStr))
       systems = service.getSystems(rUser, searchList, limit, orderByList, skip, startAfter, showDeleted,
-                                   listType, fetchShareInfo, impersonationId);
+                                   listType, fetchShareInfo, checkHasCredentials, impersonationId);
     else
       systems = service.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit, orderByList, skip, startAfter,
-                                                    showDeleted, listType, fetchShareInfo);
+                                                    showDeleted, listType, fetchShareInfo, checkHasCredentials);
     if (systems == null) systems = Collections.emptyList();
     itemCountStr = String.format(SYS_CNT_STR, systems.size());
     if (computeTotal && limit <= 0) totalCount = systems.size();
@@ -1598,5 +1606,13 @@ public class SystemResource {
     return (selectList.contains(IS_PUBLIC_FIELD) ||
             selectList.contains(SHARED_WITH_USERS_FIELD) ||
             selectList.contains(SEL_ALL_ATTRS));
+  }
+  /*
+   * Determine if selectList will trigger need to compute dynamic attribute hasCredentials
+   */
+  private static boolean isHasCredentialsRequested(List<String> selectList)
+  {
+    if (selectList == null || selectList.isEmpty()) selectList = Collections.emptyList();
+    return (selectList.contains(HAS_CREDENTIALS_FIELD) || selectList.contains(SEL_ALL_ATTRS));
   }
 }

@@ -28,6 +28,7 @@ public final class TapisSystemDTO
 
   public boolean isPublic;
   public boolean isDynamicEffectiveUser;
+  public boolean hasCredentials;
   public Set<String> sharedWithUsers;
 
   public String tenant;
@@ -118,6 +119,7 @@ public final class TapisSystemDTO
     if (jobMaxJobsPerUser < 0) jobMaxJobsPerUser = Integer.MAX_VALUE;
     isPublic = s.isPublic();
     isDynamicEffectiveUser = s.isDynamicEffectiveUser();
+    hasCredentials = s.hasCredentials();
     sharedWithUsers = s.getSharedWithUsers();
     allowChildren = s.isAllowChildren();
     parentId = s.getParentId();
@@ -229,6 +231,7 @@ public final class TapisSystemDTO
       case UPDATED_FIELD -> jsonObject.addProperty(UPDATED_FIELD, updated.toString());
       case IS_PUBLIC_FIELD -> jsonObject.addProperty(IS_PUBLIC_FIELD, Boolean.toString(isPublic));
       case IS_DYNAMIC_EFFECTIVE_USER -> jsonObject.addProperty(IS_DYNAMIC_EFFECTIVE_USER, Boolean.toString(isDynamicEffectiveUser));
+      case HAS_CREDENTIALS_FIELD -> jsonObject.addProperty(HAS_CREDENTIALS_FIELD, Boolean.toString(hasCredentials));
       case SHARED_WITH_USERS_FIELD -> jsonObject.add(SHARED_WITH_USERS_FIELD, gson.toJsonTree(sharedWithUsers));
     }
   }

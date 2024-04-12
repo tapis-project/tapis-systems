@@ -390,13 +390,29 @@ public class SystemsServiceImpl implements SystemsService
     return system;
   }
 
+  /**
+   * Create a new child system object given parent system id and attributes for the child system.
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - parent system id
+   * @param childId - desired id for child
+   * @param childEffectiveUserId - child attribute
+   * @param childRootDir - child attribute
+   * @param childOwner - child attribute
+   * @param childEnabled - child attribute
+   * @param rawData - Json used to create the TSystem object - secrets should be scrubbed. Saved in update record.
+   * @return TSystem with defaults set and validated credentials filled in as needed
+   * @throws TapisException - for Tapis related exceptions
+   * @throws IllegalStateException - system exists OR TSystem in invalid state
+   * @throws IllegalArgumentException - invalid parameter passed in
+   */
+  @Override
   public TSystem createChildSystem(ResourceRequestUser rUser, String systemId, String childId, String childEffectiveUserId,
-                                   String childRootDir, String childOwner, boolean enabled, String rawData)
+                                   String childRootDir, String childOwner, boolean childEnabled, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException {
     String resourceTenant = null;
 
     TSystem system = getSystem(rUser, systemId, null, false, false, nullImpersonationId,
-                               nullSharedAppCtx, resourceTenant, false);
+                               nullSharedAppCtx, resourceTenant, false, false);
     if(!system.isAllowChildren()) {
       throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_CHILDREN_NOT_PERMITTED", rUser, systemId));
     }
@@ -415,7 +431,7 @@ public class SystemsServiceImpl implements SystemsService
       childOwner = rUser.getOboUserId();
     }
 
-    TSystem childSystem = new TSystem(system, childId, childEffectiveUserId, childRootDir, childOwner, enabled);
+    TSystem childSystem = new TSystem(system, childId, childEffectiveUserId, childRootDir, childOwner, childEnabled);
 
     return createSystem(rUser, childSystem, true, rawData);
   }
@@ -1076,19 +1092,21 @@ public class SystemsServiceImpl implements SystemsService
    * Retrieve specified system.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - Name of the system
-   * @param accMethod - (optional) return credentials for specified authn method instead of default authn method
+   * @param authnMethod - (optional) return credentials for specified authn method instead of default authn method
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
-   * @param getCreds - flag indicating if credentials for effectiveUserId should be included
+   * @param returnCreds - flag indicating if credentials for effectiveUserId should be included
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @param sharedAppCtxGrantor - Share grantor for the case of a shared application context.
    * @param resourceTenant - use provided tenant instead of oboTenant when fetching resource
+   * @param fetchShareInfo - indicates if share info should be included in result
+   * @param checkHasCredentials - indicates if hasCredentials info should be included in the result
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod accMethod, boolean requireExecPerm,
-                           boolean getCreds, String impersonationId, String sharedAppCtxGrantor,
-                           String resourceTenant, boolean fetchShareInfo)
+  public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod authnMethod, boolean requireExecPerm,
+                           boolean returnCreds, String impersonationId, String sharedAppCtxGrantor,
+                           String resourceTenant, boolean fetchShareInfo, boolean checkHasCredentials)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
@@ -1143,7 +1161,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // If caller asks for credentials, explicitly check auth now
     // That way we can call private getCredential and not have overhead of getUserCredential().
-    if (getCreds) checkAuth(rUser, SystemOperation.getCred, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
+    if (returnCreds) checkAuth(rUser, SystemOperation.getCred, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
 
     // If flag is set to also require EXECUTE perm then make explicit auth call to make sure user has exec perm
     if (requireExecPerm)
@@ -1160,27 +1178,27 @@ public class SystemsServiceImpl implements SystemsService
 
     system.setEffectiveUserId(resolvedEffectiveUserId);
 
-    // If credentials are requested, fetch them now.
+    // Fetch the credentials if credentials are requested
+    //   or if we need to compute the dynamic attribute hasCredentials.
     // Note that resolved effectiveUserId not used to look up credentials.
     // If effUsr is static then secrets stored using the "static" path in SK and static string used to build the path.
     // If effUsr is dynamic then secrets stored using the "dynamic" path in SK and a Tapis user
     //    (oboUser or impersonationId) used to build the path.
-    if (getCreds)
+    // NOTE: Having a separate method for checkHasCredentions would not help much. We still need the call to SK.
+    if (returnCreds || checkHasCredentials)
     {
-      AuthnMethod tmpAccMethod = system.getDefaultAuthnMethod();
-      // If authnMethod specified then use it instead of default authn method defined for the system.
-      if (accMethod != null) tmpAccMethod = accMethod;
-      // Determine targetUser for fetching credential.
-      //   If static use effectiveUserId, else use oboOrImpersonatedUser
+      // Determine targetUser for fetching/checking credential.
+      // If static use effectiveUserId, else use oboOrImpersonatedUser
       String credTargetUser;
       if (isStaticEffectiveUser)
         credTargetUser = system.getEffectiveUserId();
       else
         credTargetUser = oboOrImpersonatedUser;
       // Use private internal method instead of public API to skip auth and other checks not needed here.
-      Credential cred = getCredential(rUser, system, credTargetUser, tmpAccMethod, isStaticEffectiveUser,
+      Credential cred = getCredential(rUser, system, credTargetUser, authnMethod, isStaticEffectiveUser,
                                       resourceTenant);
-      system.setAuthnCredential(cred);
+      if (returnCreds) system.setAuthnCredential(cred);
+      system.setHasCredentials(cred != null);
     }
 
     // Update dynamically computed info.
@@ -1284,6 +1302,8 @@ public class SystemsServiceImpl implements SystemsService
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param fetchShareInfo - indicates if share info should be included in result
+   * @param checkHasCredentials - TODO indicates if hasCredentials info should be included in the result
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
@@ -1291,7 +1311,7 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, int limit,
                                   List<OrderBy> orderByList, int skip, String startAfter, boolean includeDeleted,
-                                  String listType, boolean fetchShareInfo, String impersonationId)
+                                  String listType, boolean fetchShareInfo, boolean checkHasCredentials, String impersonationId)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
@@ -1382,18 +1402,21 @@ public class SystemsServiceImpl implements SystemsService
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param fetchShareInfo - indicates if share info should be included in result
+   * @param checkHasCredentials - TODO indicates if hasCredentials info should be included in the result
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser, String sqlSearchStr, int limit,
                                                    List<OrderBy> orderByList, int skip, String startAfter,
-                                                   boolean includeDeleted, String listType, boolean fetchShareInfo)
+                                                   boolean includeDeleted, String listType, boolean fetchShareInfo,
+                                                   boolean checkHasCredentials)
           throws TapisException, TapisClientException
   {
     // If search string is empty delegate to getSystems()
     if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip, startAfter,
-                                                             includeDeleted, listType, fetchShareInfo, nullImpersonationId);
+                                                             includeDeleted, listType, fetchShareInfo, checkHasCredentials, nullImpersonationId);
 
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
@@ -2555,7 +2578,7 @@ public class SystemsServiceImpl implements SystemsService
       try
       {
         TSystem dtnSystem = getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false,
-                         null, null, null, false);
+                         null, null, null, false, false);
         LibUtils.validateDtnConfig(tSystem1, dtnSystem, errMessages);
       }
       catch (NotAuthorizedException e)
@@ -2743,7 +2766,6 @@ public class SystemsServiceImpl implements SystemsService
     resolvedRootDir = StringUtils.prependIfMissing(resolvedRootDir, "/");
     return resolvedRootDir;
   }
-
 
 
   /**
@@ -2993,6 +3015,7 @@ public class SystemsServiceImpl implements SystemsService
    * Get a credential given system, targetUser, isStatic and authnMethod
    * No checks are done for incoming arguments and the system must exist
    * resourceTenant used when a service is calling as itself and needs to specify the tenant for the resource
+   * Return null if no registered credentials found for specified authnMethod
    */
   private Credential getCredential(ResourceRequestUser rUser, TSystem system, String targetUser,
                                    AuthnMethod authnMethod, boolean isStaticEffectiveUser, String resourceTenant)
@@ -3244,7 +3267,7 @@ public class SystemsServiceImpl implements SystemsService
    * Remove SK artifacts associated with a System: user credentials, user permissions
    * No checks are done for incoming arguments and the system must exist
    */
-  private void removeSKArtifacts(ResourceRequestUser rUser, TSystem system)
+  void removeSKArtifacts(ResourceRequestUser rUser, TSystem system)
           throws TapisException, TapisClientException
   {
     String systemId = system.getId();
