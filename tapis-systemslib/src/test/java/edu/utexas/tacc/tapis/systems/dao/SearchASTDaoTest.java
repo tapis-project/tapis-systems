@@ -247,7 +247,7 @@ public class SearchASTDaoTest
       System.out.println("  Created AST with leaf node count: " + searchAST.countLeaves());
       List<TSystem> searchResults = dao.getSystems(rOwner, null, null, searchAST, DEFAULT_LIMIT, orderByListNull,
                                                    DEFAULT_SKIP, startAfterNull, showDeletedFalse,
-                                                   listTypeAll, owner2IDSet, setOfIDsNull);
+                                                   listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
       System.out.println("  Result size: " + searchResults.size());
       assertEquals(searchResults.size(), cd.count, "SearchASTDaoTest.testValidCases: Incorrect result count for case number: " + caseNum);
     }
@@ -266,50 +266,50 @@ public class SearchASTDaoTest
 
     int limit = -1;
     searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, DEFAULT_SKIP, startAfterNull,
-                                   showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+                                   showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems, "Incorrect result count");
     limit = 0;
     searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, DEFAULT_SKIP, startAfterNull,
-                                   showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+                                   showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), limit, "Incorrect result count");
     limit = 1;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), limit, "Incorrect result count");
     limit = 5;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), limit, "Incorrect result count");
     limit = 19;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), limit, "Incorrect result count");
     limit = 20;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), limit, "Incorrect result count");
     limit = 200;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems, "Incorrect result count");
     // Test limit + skip combination that reduces result size
     int resultSize = 3;
     limit = numSystems;
     int skip = limit - resultSize;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), resultSize, "Incorrect result count");
 
     // Check some corner cases
     limit = 100;
     skip = 0;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems, "Incorrect result count");
     limit = 0;
     skip = 1;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), 0, "Incorrect result count");
     limit = 10;
     skip = 15;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems - skip, "Incorrect result count");
     limit = 10;
     skip = 100;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListNull, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), 0, "Incorrect result count");
   }
 
@@ -327,31 +327,31 @@ public class SearchASTDaoTest
     int limit;
     int skip;
     // Sort and check order with no limit or skip
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, DEFAULT_LIMIT, orderByListAsc, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, DEFAULT_LIMIT, orderByListAsc, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems, "Incorrect result count");
     checkOrder(searchResults, 1, numSystems);
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, DEFAULT_LIMIT, orderByListDesc, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, DEFAULT_LIMIT, orderByListDesc, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems, "Incorrect result count");
     checkOrder(searchResults, numSystems, 1);
     // Sort and check order with limit and no skip
     limit = 4;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListAsc, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListAsc, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), limit, "Incorrect result count");
     checkOrder(searchResults, 1, limit);
     limit = 19;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListDesc, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListDesc, DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), limit, "Incorrect result count");
     checkOrder(searchResults, numSystems, numSystems - (limit-1));
     // Sort and check order with limit and skip
     limit = 2;
     skip = 5;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListAsc, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListAsc, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), limit, "Incorrect result count");
     // Should get systems named SrchGet_006 to SrchGet_007
     checkOrder(searchResults, skip + 1, skip + limit);
     limit = 4;
     skip = 3;
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListDesc, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListDesc, skip, startAfterNull, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), limit, "Incorrect result count");
     // Should get systems named SrchGet_017 to SrchGet_014
     checkOrder(searchResults, numSystems - skip, numSystems - limit);
@@ -375,7 +375,7 @@ public class SearchASTDaoTest
     limit = 2;
     startAfterIdx = 5;
     startAfter = getSysName(testKey, startAfterIdx);
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListAsc, DEFAULT_SKIP, startAfter, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListAsc, DEFAULT_SKIP, startAfter, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), limit, "Incorrect result count");
     // Should get systems named SrchGet_006 to SrchGet_007
     checkOrder(searchResults, startAfterIdx + 1, startAfterIdx + limit);
@@ -383,7 +383,7 @@ public class SearchASTDaoTest
     startAfterIdx = 18;
     int startWith = numSystems - startAfterIdx + 1;
     startAfter = getSysName(testKey, startAfterIdx);
-    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListDesc, DEFAULT_SKIP, startAfter, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull);
+    searchResults = dao.getSystems(rOwner, null, null, searchAST, limit, orderByListDesc, DEFAULT_SKIP, startAfter, showDeletedFalse, listTypeAll, owner2IDSet, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), limit, "Incorrect result count");
     // Should get systems named SrchGet_017 to SrchGet_014
     checkOrder(searchResults, numSystems - startWith, numSystems - limit);

@@ -131,6 +131,7 @@ public class SystemsServiceImpl implements SystemsService
   // Named and typed null values to make it clear what is being passed in to a method
   private static final String nullOwner = null;
   private static final String nullImpersonationId = null;
+  private static final String nullFilterByCreds = null;
   private static final String nullSharedAppCtx = null;
   private static final String nullTargetUser = null;
   private static final Set<Permission> nullPermSet = null;
@@ -151,7 +152,9 @@ public class SystemsServiceImpl implements SystemsService
   // *********************** Enums ******************************************
   // ************************************************************************
   public enum AuthListType  {OWNED, SHARED_PUBLIC, ALL}
+  public enum FilterByCredsType {ANY, WITH_CREDENTIALS, NO_CREDENTIALS}
   public static final AuthListType DEFAULT_LIST_TYPE = AuthListType.OWNED;
+  public static final FilterByCredsType DEFAULT_FILTER_BY_CREDS = FilterByCredsType.ANY;
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -1223,18 +1226,11 @@ public class SystemsServiceImpl implements SystemsService
     if (!StringUtils.isBlank(impersonationId)) checkImpersonateUserAllowed(rUser, op, null, impersonationId, tenant);
 
     // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
-    // If no listType provided use the default
+    // TODO Set defaults and validate enums used for filtering: listType, filterByCredentials
     if (StringUtils.isBlank(listType)) listType = DEFAULT_LIST_TYPE.name();
-    // Validate the listType enum (case-insensitive).
-    listType = listType.toUpperCase();
-    if (!EnumUtils.isValidEnum(AuthListType.class, listType))
-    {
-      String msg = LibUtils.getMsgAuth("SYSLIB_LISTTYPE_ERROR", rUser, listType);
-      log.error(msg);
-      throw new IllegalArgumentException(msg);
-    }
-    AuthListType listTypeEnum = AuthListType.valueOf(listType);
+    validateSearchAndFilterOptions(rUser, listType, nullFilterByCreds);
 
+    AuthListType listTypeEnum = AuthListType.valueOf(listType);
     // Set some flags for convenience and clarity
     boolean allItems = AuthListType.ALL.equals(listTypeEnum);
     boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listTypeEnum);
@@ -1285,13 +1281,14 @@ public class SystemsServiceImpl implements SystemsService
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
+   * @param filterByCredentials - Determines additional filtering based on credentials.
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
   public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, int limit,
                                   List<OrderBy> orderByList, int skip, String startAfter, boolean includeDeleted,
-                                  String listType, boolean fetchShareInfo, String impersonationId)
+                                  String listType, boolean fetchShareInfo, String impersonationId, String filterByCredentials)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
@@ -1305,21 +1302,18 @@ public class SystemsServiceImpl implements SystemsService
     if (!StringUtils.isBlank(impersonationId)) checkImpersonateUserAllowed(rUser, op, null, impersonationId, tenant);
 
     // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
-    // If no listType provided use the default
+    // And filterByCredentials. Figure out how we will filter based on status of registered credentials.
+    // Set defaults and validate enums used for filtering: listType, filterByCredentials
     if (StringUtils.isBlank(listType)) listType = DEFAULT_LIST_TYPE.name();
-    // Validate the listType enum (case-insensitive).
-    listType = listType.toUpperCase();
-    if (!EnumUtils.isValidEnum(AuthListType.class, listType))
-    {
-      String msg = LibUtils.getMsgAuth("SYSLIB_LISTTYPE_ERROR", rUser, listType);
-      log.error(msg);
-      throw new IllegalArgumentException(msg);
-    }
-    AuthListType listTypeEnum = AuthListType.valueOf(listType);
+    if (StringUtils.isBlank(filterByCredentials)) filterByCredentials = DEFAULT_FILTER_BY_CREDS.name();
+    validateSearchAndFilterOptions(rUser, listType, filterByCredentials);
 
+    AuthListType listTypeEnum = AuthListType.valueOf(listType);
     // Set some flags for convenience and clarity
     boolean allItems = AuthListType.ALL.equals(listTypeEnum);
     boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listTypeEnum);
+
+    FilterByCredsType filterByCredsEnum = FilterByCredsType.valueOf(filterByCredentials);
 
     // Build verified list of search conditions
     var verifiedSearchList = new ArrayList<String>();
@@ -1343,18 +1337,28 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // If needed, get IDs for items for which requester has READ or MODIFY permission
-    Set<String> viewableIDs = new HashSet<>();
-    if (allItems) viewableIDs = getViewableSystemIDs(rUser, oboOrImpersonatedUser);
+    Set<String> viewableIDs;
+    if (!allItems ) viewableIDs = new HashSet<>();
+    else viewableIDs = getViewableSystemIDs(rUser, oboOrImpersonatedUser);
 
     // If needed, get IDs for items shared with the requester or only shared publicly.
-    Set<String> sharedIDs = new HashSet<>();
+    // If allItems then get all shared systems, do not restrict to systems only shared publicly
+    // else if not getting all but only getting public, get only systems shared publicly
+    // else no need to get shared systems, use an empty list.
+    Set<String> sharedIDs;
     if (allItems) sharedIDs = getSharedSystemIDs(rUser, oboOrImpersonatedUser, false);
     else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, oboOrImpersonatedUser, true);
+    else sharedIDs = new HashSet<>();
+
+    // TODO If needed, get IDs for items based on filterByCredentials.
+    Set<String> filterCredIDs = null;
+    if (filterByCredsEnum != FilterByCredsType.ANY) filterCredIDs = getCredFilterIDs(rUser, oboOrImpersonatedUser, filterByCredsEnum);
 
     // Get all allowed systems matching the search conditions
-    List<TSystem> systems = dao.getSystems(rUser, oboOrImpersonatedUser, verifiedSearchList,
-                                      null,  limit, orderByList, skip, startAfter,
-                                           includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
+    // NOTE: Must pass in null for filterCredIDs if not filtering by credential status
+    List<TSystem> systems = dao.getSystems(rUser, oboOrImpersonatedUser, verifiedSearchList, null,  limit, orderByList,
+                                           skip, startAfter, includeDeleted, listTypeEnum,
+                                           viewableIDs, sharedIDs, filterCredIDs);
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
     {
@@ -1392,8 +1396,9 @@ public class SystemsServiceImpl implements SystemsService
           throws TapisException, TapisClientException
   {
     // If search string is empty delegate to getSystems()
-    if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip, startAfter,
-                                                             includeDeleted, listType, fetchShareInfo, nullImpersonationId);
+    if (StringUtils.isBlank(sqlSearchStr))
+      return getSystems(rUser, null, limit, orderByList, skip, startAfter, includeDeleted, listType,
+                        fetchShareInfo, nullImpersonationId, nullFilterByCreds);
 
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
@@ -1441,10 +1446,11 @@ public class SystemsServiceImpl implements SystemsService
     Set<String> sharedIDs = new HashSet<>();
     if (allItems) sharedIDs = getSharedSystemIDs(rUser, rUser.getOboUserId(), false);
     else if (publicOnly) sharedIDs = getSharedSystemIDs(rUser, rUser.getOboUserId(), true);
+    Set<String> credFilterIDs = null;
 
     // Get all allowed systems matching the search conditions
     List<TSystem> systems = dao.getSystems(rUser, rUser.getOboUserId(), null, searchAST, limit, orderByList,
-                                           skip, startAfter, includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
+                                           skip, startAfter, includeDeleted, listTypeEnum, viewableIDs, sharedIDs, credFilterIDs);
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
     {
@@ -2385,11 +2391,6 @@ public class SystemsServiceImpl implements SystemsService
     updateUserShares(rUser, OP_UNSHARE, systemId, nullSystemShare, true);
   }
   
-
-  // ************************************************************************
-  // **************************  Private Methods  ***************************
-  // ************************************************************************
-
   /*
    * Given a child system id get the parent system id
    */
@@ -2412,6 +2413,43 @@ public class SystemsServiceImpl implements SystemsService
     checkAuthOwnerUnkown(rUser, op, systemId);
 
     return dao.getParent(oboTenant, systemId);
+  }
+
+  // ************************************************************************
+  // **************************  Private Methods  ***************************
+  // ************************************************************************
+
+  /*
+   * Check that search and filter options are valid and supported.
+   *  - TODO check supported - if filterByCredentials is not ANY then following may not be used: computeTotal, limit, skip
+   *  - validate the listType enum (case-insensitive).
+   *  - validatefilterByCredsType enum (case-insensitive).
+   */
+  private static void validateSearchAndFilterOptions(ResourceRequestUser rUser, String listType, String filterByCreds)
+  {
+    // Validate listType
+    if (!StringUtils.isBlank(listType))
+    {
+      listType = listType.toUpperCase();
+      if (!EnumUtils.isValidEnum(AuthListType.class, listType))
+      {
+        String msg = LibUtils.getMsgAuth("SYSLIB_LISTTYPE_ERROR", rUser, listType);
+        log.error(msg);
+        throw new IllegalArgumentException(msg);
+      }
+    }
+
+    // Validate filterByCreds
+    if (!StringUtils.isBlank(filterByCreds))
+    {
+      filterByCreds = filterByCreds.toUpperCase();
+      if (!EnumUtils.isValidEnum(FilterByCredsType.class, filterByCreds))
+      {
+        String msg = LibUtils.getMsgAuth("SYSLIB_FILTERBYCREDS_ERROR", rUser, filterByCreds);
+        log.error(msg);
+        throw new IllegalArgumentException(msg);
+      }
+    }
   }
 
   /*
@@ -2908,6 +2946,70 @@ public class SystemsServiceImpl implements SystemsService
           (permFields[2].contains(Permission.READ.name()) ||
            permFields[2].contains(Permission.MODIFY.name()) ||
            permFields[2].contains(TSystem.PERMISSION_WILDCARD)))
+      {
+        // If system exists add ID to the list
+        // else resource no longer exists or has been deleted so remove orphaned permissions
+        if (dao.checkForSystem(rUser.getOboTenantId(), permFields[3], false))
+        {
+          systemIDs.add(permFields[3]);
+        }
+        else
+        {
+          // Log a warning and remove the permission
+          String msg = LibUtils.getMsgAuth("SYSLIB_PERM_ORPHAN", rUser, permFields[3]);
+          log.warn(msg);
+          removeOrphanedSKPerms(rUser, permFields[3], rUser.getOboTenantId());
+        }
+      }
+    }
+    return systemIDs;
+  }
+
+  /**
+   * Determine all systems based on credential availability
+   * Always return a non-null Set, set may be empty.
+   */
+  private Set<String> getCredFilterIDs(ResourceRequestUser rUser, String oboUser, FilterByCredsType filterByCredsEnum)
+          throws TapisException, TapisClientException
+  {
+    Set<String> filterCredIDs = new HashSet<>();
+    // TODO
+    var userCredentialPerms = getSKClient(rUser).readSecret()
+    switch (filterByCredsEnum)
+    {
+      case WITH_CREDENTIALS ->
+      {
+        ?
+      }
+      case NO_CREDENTIALS ->
+      {
+        ?
+      }
+      return filterCredIDs;
+    }
+//    String msg = LibUtils.getMsgAuth("SYSLIB_FILTERBYCREDS_ERROR", rUser, filterByCredsEnum.name());
+//    log.error(msg);
+//    throw new IllegalArgumentException(msg);
+    // TODO ?????????????????????????????????????????????????????????????????????????
+    var systemIDs = new HashSet<String>();
+    // Use implies to filter permissions returned. Without implies all permissions for apps, etc. are returned.
+    String impliedBy = null;
+    String implies = String.format("%s:%s:*:*", PERM_SPEC_PREFIX, rUser.getOboTenantId());
+
+    var userPerms = getSKClient(rUser).getUserPerms(rUser.getOboTenantId(), oboUser, implies, impliedBy);
+
+    // Check each perm to see if it allows user READ access.
+    for (String userPerm : userPerms)
+    {
+      if (StringUtils.isBlank(userPerm)) continue;
+      // Split based on :, permSpec has the format system:<tenant>:<perms>:<system_name>
+      // NOTE: This assumes value in last field is always an id and never a wildcard.
+      String[] permFields = COLON_SPLIT.split(userPerm);
+      if (permFields.length < 4) continue;
+      if (permFields[0].equals(PERM_SPEC_PREFIX) &&
+              (permFields[2].contains(Permission.READ.name()) ||
+                      permFields[2].contains(Permission.MODIFY.name()) ||
+                      permFields[2].contains(TSystem.PERMISSION_WILDCARD)))
       {
         // If system exists add ID to the list
         // else resource no longer exists or has been deleted so remove orphaned permissions

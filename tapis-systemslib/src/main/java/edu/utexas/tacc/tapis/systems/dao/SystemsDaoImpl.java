@@ -1102,20 +1102,20 @@ public class SystemsDaoImpl implements SystemsDao
                              AuthListType listType, Set<String> viewableIDs, Set<String> sharedIDs)
           throws TapisException
   {
+    // Ensure we have a valid listType
+    if (listType == null) listType = DEFAULT_LIST_TYPE;
+
+    // Ensure we have a valid oboUser
+    if (StringUtils.isBlank(oboUser)) oboUser = rUser.getOboUserId();
+
     // For convenience
     String oboTenant = rUser.getOboTenantId();
     boolean allItems = AuthListType.ALL.equals(listType);
     boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listType);
     boolean ownedOnly = AuthListType.OWNED.equals(listType);
 
-    // Ensure we have a valid oboUser
-    if (StringUtils.isBlank(oboUser)) oboUser = rUser.getOboUserId();
-
     // If only looking for public items and there are none in the list we are done.
     if (publicOnly && (sharedIDs == null || sharedIDs.isEmpty())) return 0;
-
-    // Ensure we have a valid listType
-    if (listType == null) listType = DEFAULT_LIST_TYPE;
 
     // Ensure we have a non-null orderByList
     List<OrderBy> tmpOrderByList = new ArrayList<>();
@@ -1258,16 +1258,16 @@ public class SystemsDaoImpl implements SystemsDao
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @param viewableIDs - list of IDs to include due to permission READ or MODIFY
    * @param sharedIDs - list of IDs shared with the requester or only shared publicly.
+   * @param credFilterIDs - list of IDs to be used when filtering by credential status. Must be null if not filtering by credentials.
    * @return - list of TSystem objects
    * @throws TapisException - on error
    */
   @Override
   public List<TSystem> getSystems(ResourceRequestUser rUser, String oboUser,
-                                  List<String> searchList, ASTNode searchAST, int limit,
-                                  List<OrderBy> orderByList, int skip, String startAfter, boolean includeDeleted,
-                                  AuthListType listType, Set<String> viewableIDs, Set<String> sharedIDs)
-          throws TapisException
-  {
+                                  List<String> searchList, ASTNode searchAST, int limit, List<OrderBy> orderByList,
+                                  int skip, String startAfter, boolean includeDeleted, AuthListType listType,
+                                  Set<String> viewableIDs, Set<String> sharedIDs, Set<String> credFilterIDs)
+          throws TapisException {
     // The result list should always be non-null.
     List<TSystem> retList = new ArrayList<>();
 
@@ -1286,6 +1286,10 @@ public class SystemsDaoImpl implements SystemsDao
     // If only looking for public items and there are none in the list we are done.
     if (publicOnly && (sharedIDs == null || sharedIDs.isEmpty())) return retList;
 
+    // If filtering by credential status and credFilterIDs is empty then we are done.
+    // NOTE: This relies on caller passing in null for credFilterIDs if filtering by credentials has not been requested.
+    if (credFilterIDs != null && credFilterIDs.isEmpty()) return retList;
+
     // Ensure we have a non-null orderByList
     List<OrderBy> tmpOrderByList = new ArrayList<>();
     if (orderByList != null) tmpOrderByList = orderByList;
@@ -1293,8 +1297,7 @@ public class SystemsDaoImpl implements SystemsDao
     // Determine the primary orderBy column (i.e. first in list). Used for startAfter
     String majorOrderByStr = null;
     OrderByDir majorSortDirection = DEFAULT_ORDERBY_DIRECTION;
-    if (!tmpOrderByList.isEmpty())
-    {
+    if (!tmpOrderByList.isEmpty()) {
       majorOrderByStr = tmpOrderByList.get(0).getOrderByAttr();
       majorSortDirection = tmpOrderByList.get(0).getOrderByDir();
     }
@@ -1306,8 +1309,7 @@ public class SystemsDaoImpl implements SystemsDao
     boolean sortAsc = majorSortDirection != OrderByDir.DESC;
 
     // If startAfter is given then orderBy is required
-    if (!StringUtils.isBlank(startAfter) && StringUtils.isBlank(majorOrderByStr))
-    {
+    if (!StringUtils.isBlank(startAfter) && StringUtils.isBlank(majorOrderByStr)) {
       throw new TapisException(LibUtils.getMsg("SYSLIB_DB_INVALID_SORT_START", SYSTEMS.getName()));
     }
 
@@ -1324,12 +1326,10 @@ public class SystemsDaoImpl implements SystemsDao
     // Determine and check orderBy columns, build orderFieldList
     // Each OrderField contains the column and direction
     List<OrderField> orderFieldList = new ArrayList<>();
-    for (OrderBy orderBy : tmpOrderByList)
-    {
+    for (OrderBy orderBy : tmpOrderByList) {
       String orderByStr = orderBy.getOrderByAttr();
       Field<?> colOrderBy = SYSTEMS.field(DSL.name(SearchUtils.camelCaseToSnakeCase(orderByStr)));
-      if (StringUtils.isBlank(orderByStr) || colOrderBy == null)
-      {
+      if (StringUtils.isBlank(orderByStr) || colOrderBy == null) {
         String msg = LibUtils.getMsg("SYSLIB_DB_NO_COLUMN_SORT", SYSTEMS.getName(), DSL.name(orderByStr));
         throw new TapisException(msg);
       }
@@ -1343,19 +1343,15 @@ public class SystemsDaoImpl implements SystemsDao
     else whereCondition = (SYSTEMS.TENANT.eq(oboTenant)).and(SYSTEMS.DELETED.eq(false));
 
     // Add searchList or searchAST to where condition
-    if (searchList != null)
-    {
+    if (searchList != null) {
       whereCondition = addSearchListToWhere(whereCondition, searchList);
-    }
-    else if (searchAST != null)
-    {
+    } else if (searchAST != null) {
       Condition astCondition = createConditionFromAst(searchAST);
       if (astCondition != null) whereCondition = whereCondition.and(astCondition);
     }
 
     // Add startAfter
-    if (!StringUtils.isBlank(startAfter))
-    {
+    if (!StringUtils.isBlank(startAfter)) {
       // Build search string, so we can re-use code for checking and adding a condition
       String searchStr;
       if (sortAsc) searchStr = majorOrderByStr + ".gt." + startAfter;
@@ -1368,27 +1364,27 @@ public class SystemsDaoImpl implements SystemsDao
     //  PUBLIC = single condition where id in setOfIDs
     //  ALL = where (owner = oboUser) OR (id in setOfIDs)
     Condition listTypeCondition = null;
-    if (ownedOnly)
-    {
+    if (ownedOnly) {
       listTypeCondition = SYSTEMS.OWNER.eq(oboUser);
-    }
-    else if (publicOnly)
-    {
-      // NOTE: We check above for sharedIDs == null or is empty so no need to do it here
+    } else if (publicOnly) {
+      // NOTE: We check above for publicOnly and (sharedIDs == null or empty) so no need to do it here
       listTypeCondition = SYSTEMS.ID.in(sharedIDs);
-    }
-    else if (allItems)
-    {
+    } else if (allItems) {
       listTypeCondition = SYSTEMS.OWNER.eq(oboUser);
       var setOfIDs = new HashSet<String>();
       if (sharedIDs != null && !sharedIDs.isEmpty()) setOfIDs.addAll(sharedIDs);
       if (viewableIDs != null && !viewableIDs.isEmpty()) setOfIDs.addAll(viewableIDs);
-      if (!setOfIDs.isEmpty())
-      {
+      if (!setOfIDs.isEmpty()) {
         listTypeCondition = listTypeCondition.or(SYSTEMS.ID.in(setOfIDs));
       }
     }
     whereCondition = whereCondition.and(listTypeCondition);
+
+    // If needed add the filterByCred condition TODO - Test
+    if (credFilterIDs != null && !credFilterIDs.isEmpty())
+    {
+      whereCondition = whereCondition.and(SYSTEMS.ID.in(credFilterIDs));
+    }
 
     // ------------------------- Build and execute SQL ----------------------------
     Connection conn = null;

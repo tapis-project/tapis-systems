@@ -84,7 +84,7 @@ public interface SystemsService
 
   List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, int limit, List<OrderBy> orderByList,
                            int skip, String startAfter, boolean includeDeleted, String listType, boolean fetchShareInfo,
-                           String impersonationId)
+                           String impersonationId, String filterByCredentials)
           throws TapisException, TapisClientException;
 
   List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser, String searchStr, int limit,

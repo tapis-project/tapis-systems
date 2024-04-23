@@ -107,10 +107,10 @@ public class ShowDeletedDaoTest
     // Check retrieving all systems
     List<TSystem> searchResults = dao.getSystems(rOwner, null, searchListAll, searchASTNull, DEFAULT_LIMIT,
                                                  orderByListNull, DEFAULT_SKIP, startAfterNull, showDeletedFalse,
-                                                 listTypeOwned, setOfIDsNull, setOfIDsNull);
+                                                 listTypeOwned, setOfIDsNull, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems, "Incorrect result count for getSystems/showDel=false");
     searchResults = dao.getSystems(rOwner, null, searchListAll, searchASTNull, DEFAULT_LIMIT, orderByListNull, DEFAULT_SKIP,
-                                   startAfterNull, showDeletedTrue, listTypeOwned, setOfIDsNull, setOfIDsNull);
+                                   startAfterNull, showDeletedTrue, listTypeOwned, setOfIDsNull, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems, "Incorrect result count for getSystems/showDel=true");
 
     // Now delete a system
@@ -126,10 +126,10 @@ public class ShowDeletedDaoTest
 
     // Check retrieving all systems
     searchResults = dao.getSystems(rOwner, null, searchListAll, searchASTNull, DEFAULT_LIMIT, orderByListNull,
-                                   DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeOwned, setOfIDsNull, setOfIDsNull);
+                                   DEFAULT_SKIP, startAfterNull, showDeletedFalse, listTypeOwned, setOfIDsNull, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems-1, "Incorrect result count for getSystems/showDel=false after delete of system");
     searchResults = dao.getSystems(rOwner, null, searchListAll, searchASTNull, DEFAULT_LIMIT, orderByListNull,
-                                   DEFAULT_SKIP, startAfterNull, showDeletedTrue, listTypeOwned, setOfIDsNull, setOfIDsNull);
+                                   DEFAULT_SKIP, startAfterNull, showDeletedTrue, listTypeOwned, setOfIDsNull, setOfIDsNull, setOfIDsNull);
     assertEquals(searchResults.size(), numSystems, "Incorrect result count for getSystems/showDel=true after delete of system");
   }
 
