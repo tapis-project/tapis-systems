@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configuration debug="false">
+<configuration debug="false" scan="true">
     <!-- Set the above debug attribute to true to see logback status information. -->
 
     <!-- The encoder uses a default class.  This can be changed using the class attribute -->
@@ -46,10 +46,15 @@
     <!-- Set additivity attribute to false to not inherit ancestor appenders. -->
     <logger name="edu.utexas.tacc.tapis" level="TRACE"/>
 
-    <!-- Following 2 lines might apply if that is change -->
+    <!-- Currently apache sshd logging is hard coded to ERROR in tapis-shared-java SSHConnection.java -->
+    <!-- Following 2 lines might apply if that is changed -->
     <!-- To turn off DEBUG logging for apache sshd uncomment following line -->
 <!--    <logger name="org.apache.sshd" level="ERROR" additivity="false" />-->
 
     <!-- Control library logging. -->
     <logger name="com.zaxxer.hikari" level="ERROR"/>
+    
+    <!-- Control jOOQ logging. -->
+    <logger name="org.jooq" level="WARN"/>
+
 </configuration>
