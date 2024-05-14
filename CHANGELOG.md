@@ -9,13 +9,14 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
-## 1.6.2 - 2024-04-04
+## 1.6.2 - 2024-04-24
 
 Incremental improvements and new features.
 
 ### New features:
-- Run service in docker container as non-root user.
 - Support use of HOST_EVAL in attribute *rootDir* during system creation.
+- Run service in docker container as non-root user.
+- Set default log level to INFO. Allow for dynamic changing of log level.
 
 ### Bug fixes:
 - Fix bug where total count might be incorrect for getSystems when a tenant admin impersonates a Tapis user.
