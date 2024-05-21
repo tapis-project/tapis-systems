@@ -3042,9 +3042,7 @@ public class SystemsServiceImpl implements SystemsService
       // These values are used to build the vault path to the secret.
       sParms.setTenant(oboTenant).setSysId(systemId).setSysUser(targetUserPath);
 
-      // NOTE: Next line is needed for the SK call. Not clear if it should be targetUser, serviceUserId, oboUser.
-      //       If not set then the first getAuthnCred in SystemsServiceTest.testUserCredentials
-      //          fails. But it appears the value does not matter. Even an invalid userId appears to be OK.
+      // NOTE: For secrets of type "system" setUser value not used in the path, but SK requires that it be set.
       sParms.setUser(oboUser);
       // Set key type based on authn method
       if (authnMethod.equals(AuthnMethod.PASSWORD))sParms.setKeyType(KeyType.password);
@@ -3145,6 +3143,9 @@ public class SystemsServiceImpl implements SystemsService
     Map<String, String> dataMap;
     // Check for each secret type and write values if they are present
     // Note that multiple secrets may be present.
+    // NOTE: For secrets of type "system" the oboUser in the writeSecret() calls is not used in the path,
+    //       but SK requires that it be set. The oboTenant is used in the path for the secret.
+
     // Store password if present
     if (!StringUtils.isBlank(credential.getPassword()))
     {
@@ -3204,6 +3205,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Return 0 if credential does not exist
     var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
+    // NOTE: For secrets of type "system" setUser value not used in the path, but SK requires that it be set.
     sMetaParms.setTenant(oboTenant).setUser(oboUser);
     sMetaParms.setSysId(systemId).setSysUser(targetUserPath);
     // NOTE: To be sure we know that the secret does not exist we need to check each key type
