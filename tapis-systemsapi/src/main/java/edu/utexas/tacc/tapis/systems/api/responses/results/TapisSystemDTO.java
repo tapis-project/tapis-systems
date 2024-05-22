@@ -222,7 +222,8 @@ public final class TapisSystemDTO
         jsonStr = gson.toJson(notes);
         jsonObject.add(NOTES_FIELD, gson.fromJson(jsonStr, JsonObject.class));
       }
-      case IMPORT_REF_ID -> jsonObject.addProperty(IMPORT_REF_ID, importRefId);
+      // importRefId is not currently used.
+//      case IMPORT_REF_ID -> jsonObject.addProperty(IMPORT_REF_ID, importRefId);
       case UUID_FIELD -> jsonObject.addProperty(UUID_FIELD, uuid.toString());
       case DELETED_FIELD -> jsonObject.addProperty(DELETED_FIELD, Boolean.toString(deleted));
       case CREATED_FIELD -> jsonObject.addProperty(CREATED_FIELD, created.toString());
