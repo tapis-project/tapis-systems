@@ -1735,9 +1735,9 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
       // Run the sql
-      loginUser = db.selectFrom(SYSTEMS_LOGIN_USER)
-              .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(id),SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
-              .fetchOne(SYSTEMS_LOGIN_USER.LOGIN_USER);
+      loginUser = db.selectFrom(SYSTEMS_CRED_INFO)
+              .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(id),SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser))
+              .fetchOne(SYSTEMS_CRED_INFO.LOGIN_USER);
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -1772,30 +1772,30 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      boolean recordExists = db.fetchExists(SYSTEMS_LOGIN_USER,SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),
-                                            SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(systemId),
-                                            SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser));
+      boolean recordExists = db.fetchExists(SYSTEMS_CRED_INFO,SYSTEMS_CRED_INFO.TENANT.eq(tenantId),
+                                            SYSTEMS_CRED_INFO.SYSTEM_ID.eq(systemId),
+                                            SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser));
       // If record not there insert it, else update it
       if (!recordExists)
       {
         log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_INSERT_LOGINMAP", tenantId, systemId, tapisUser, loginUser));
         int sysSeqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId)).fetchOne(SYSTEMS.SEQ_ID);
-        db.insertInto(SYSTEMS_LOGIN_USER)
-                .set(SYSTEMS_LOGIN_USER.SYSTEM_SEQ_ID, sysSeqId)
-                .set(SYSTEMS_LOGIN_USER.TENANT, tenantId)
-                .set(SYSTEMS_LOGIN_USER.SYSTEM_ID, systemId)
-                .set(SYSTEMS_LOGIN_USER.TAPIS_USER, tapisUser)
-                .set(SYSTEMS_LOGIN_USER.LOGIN_USER, loginUser)
+        db.insertInto(SYSTEMS_CRED_INFO)
+                .set(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID, sysSeqId)
+                .set(SYSTEMS_CRED_INFO.TENANT, tenantId)
+                .set(SYSTEMS_CRED_INFO.SYSTEM_ID, systemId)
+                .set(SYSTEMS_CRED_INFO.TAPIS_USER, tapisUser)
+                .set(SYSTEMS_CRED_INFO.LOGIN_USER, loginUser)
                 .execute();
       }
       else
       {
         log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_UPDATE_LOGINMAP", tenantId, systemId, tapisUser, loginUser));
-        db.update(SYSTEMS_LOGIN_USER)
-                .set(SYSTEMS_LOGIN_USER.LOGIN_USER, loginUser)
-                .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),
-                       SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(systemId),
-                       SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
+        db.update(SYSTEMS_CRED_INFO)
+                .set(SYSTEMS_CRED_INFO.LOGIN_USER, loginUser)
+                .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),
+                       SYSTEMS_CRED_INFO.SYSTEM_ID.eq(systemId),
+                       SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser))
                 .execute();
       }
       // Close out and commit
@@ -1804,7 +1804,7 @@ public class SystemsDaoImpl implements SystemsDao
     catch (Exception e)
     {
       // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "systems_login_user");
+      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "SYSTEMS_CRED_INFO");
     }
     finally
     {
@@ -1831,8 +1831,8 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      db.deleteFrom(SYSTEMS_LOGIN_USER)
-              .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(sysId),SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
+      db.deleteFrom(SYSTEMS_CRED_INFO)
+              .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser))
               .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -1840,7 +1840,7 @@ public class SystemsDaoImpl implements SystemsDao
     catch (Exception e)
     {
       // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_DELETE_FAILURE", "systems_login_user");
+      LibUtils.rollbackDB(conn, e,"DB_DELETE_FAILURE", "SYSTEMS_CRED_INFO");
     }
     finally
     {

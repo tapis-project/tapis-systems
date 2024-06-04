@@ -34,14 +34,15 @@
 --    is no mapping.
 -- Change primary key from (tenant, system_id, tapis_user) to (tenant, system_id, tapis_user, is_dynamic)
 --
+
 ALTER TABLE IF EXISTS systems_login_user RENAME TO systems_cred_info;
-ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_credentials boolean BOOLEAN;
-ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS is_dynamic boolean BOOLEAN NOT NULL DEFAULT true;
-ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_password boolean BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_pki_keys boolean BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_access_key boolean BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_token boolean BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_cert boolean BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_credentials BOOLEAN;
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS is_dynamic BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_password BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_pki_keys BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_access_key BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_token BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_cert BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_status TEXT NOT NULL DEFAULT 'PENDING';
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_fail_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_fail_message TEXT;
@@ -51,7 +52,8 @@ ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_fail_message TEXT;
 -- Drop existing primary key
 ALTER TABLE systems_cred_info DROP CONSTRAINT systems_login_user_pkey;
 -- Create new primary key
-ALTER TABLE systems_cred_info ADD CONSTRAINT primary key (tenant, system_id, tapis_user, is_dynamic)
+ALTER TABLE systems_cred_info ADD primary key (tenant, system_id, tapis_user, is_dynamic);
+
 --
 -- TODO  - NOTES
 -- TODO - check code to make sure entries in the login_user table are deleted when a system is deleted

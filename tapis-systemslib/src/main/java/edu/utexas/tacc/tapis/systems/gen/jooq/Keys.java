@@ -9,12 +9,12 @@ import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedProfileModLoad;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemUpdates;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.Systems;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsLoginUser;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsCredInfo;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.FlywaySchemaHistoryRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedProfileModLoadRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedulerProfilesRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemUpdatesRecord;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsLoginUserRecord;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsCredInfoRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsRecord;
 
 import org.jooq.ForeignKey;
@@ -42,7 +42,7 @@ public class Keys {
     public static final UniqueKey<SystemUpdatesRecord> SYSTEM_UPDATES_PKEY = Internal.createUniqueKey(SystemUpdates.SYSTEM_UPDATES, DSL.name("system_updates_pkey"), new TableField[] { SystemUpdates.SYSTEM_UPDATES.SEQ_ID }, true);
     public static final UniqueKey<SystemsRecord> SYSTEMS_PKEY = Internal.createUniqueKey(Systems.SYSTEMS, DSL.name("systems_pkey"), new TableField[] { Systems.SYSTEMS.SEQ_ID }, true);
     public static final UniqueKey<SystemsRecord> SYSTEMS_TENANT_ID_KEY = Internal.createUniqueKey(Systems.SYSTEMS, DSL.name("systems_tenant_id_key"), new TableField[] { Systems.SYSTEMS.TENANT, Systems.SYSTEMS.ID }, true);
-    public static final UniqueKey<SystemsLoginUserRecord> SYSTEMS_LOGIN_USER_PKEY = Internal.createUniqueKey(SystemsLoginUser.SYSTEMS_LOGIN_USER, DSL.name("systems_login_user_pkey"), new TableField[] { SystemsLoginUser.SYSTEMS_LOGIN_USER.TENANT, SystemsLoginUser.SYSTEMS_LOGIN_USER.SYSTEM_ID, SystemsLoginUser.SYSTEMS_LOGIN_USER.TAPIS_USER }, true);
+    public static final UniqueKey<SystemsCredInfoRecord> SYSTEMS_CRED_INFO_PKEY = Internal.createUniqueKey(SystemsCredInfo.SYSTEMS_CRED_INFO, DSL.name("systems_cred_info_pkey"), new TableField[] { SystemsCredInfo.SYSTEMS_CRED_INFO.TENANT, SystemsCredInfo.SYSTEMS_CRED_INFO.SYSTEM_ID, SystemsCredInfo.SYSTEMS_CRED_INFO.TAPIS_USER, SystemsCredInfo.SYSTEMS_CRED_INFO.IS_DYNAMIC }, true);
 
     // -------------------------------------------------------------------------
     // FOREIGN KEY definitions
@@ -50,5 +50,5 @@ public class Keys {
 
     public static final ForeignKey<SchedProfileModLoadRecord, SchedulerProfilesRecord> SCHED_PROFILE_MOD_LOAD__SCHED_PROFILE_MOD_LOAD_SCHED_PROFILE_SEQ_ID_FKEY = Internal.createForeignKey(SchedProfileModLoad.SCHED_PROFILE_MOD_LOAD, DSL.name("sched_profile_mod_load_sched_profile_seq_id_fkey"), new TableField[] { SchedProfileModLoad.SCHED_PROFILE_MOD_LOAD.SCHED_PROFILE_SEQ_ID }, Keys.SCHEDULER_PROFILES_PKEY, new TableField[] { SchedulerProfiles.SCHEDULER_PROFILES.SEQ_ID }, true);
     public static final ForeignKey<SystemUpdatesRecord, SystemsRecord> SYSTEM_UPDATES__SYSTEM_UPDATES_SYSTEM_SEQ_ID_FKEY = Internal.createForeignKey(SystemUpdates.SYSTEM_UPDATES, DSL.name("system_updates_system_seq_id_fkey"), new TableField[] { SystemUpdates.SYSTEM_UPDATES.SYSTEM_SEQ_ID }, Keys.SYSTEMS_PKEY, new TableField[] { Systems.SYSTEMS.SEQ_ID }, true);
-    public static final ForeignKey<SystemsLoginUserRecord, SystemsRecord> SYSTEMS_LOGIN_USER__SYSTEMS_LOGIN_USER_SYSTEM_SEQ_ID_FKEY = Internal.createForeignKey(SystemsLoginUser.SYSTEMS_LOGIN_USER, DSL.name("systems_login_user_system_seq_id_fkey"), new TableField[] { SystemsLoginUser.SYSTEMS_LOGIN_USER.SYSTEM_SEQ_ID }, Keys.SYSTEMS_PKEY, new TableField[] { Systems.SYSTEMS.SEQ_ID }, true);
+    public static final ForeignKey<SystemsCredInfoRecord, SystemsRecord> SYSTEMS_CRED_INFO__SYSTEMS_LOGIN_USER_SYSTEM_SEQ_ID_FKEY = Internal.createForeignKey(SystemsCredInfo.SYSTEMS_CRED_INFO, DSL.name("systems_login_user_system_seq_id_fkey"), new TableField[] { SystemsCredInfo.SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID }, Keys.SYSTEMS_PKEY, new TableField[] { Systems.SYSTEMS.SEQ_ID }, true);
 }
