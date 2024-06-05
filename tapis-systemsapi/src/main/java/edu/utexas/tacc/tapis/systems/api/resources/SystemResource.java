@@ -73,9 +73,11 @@ import edu.utexas.tacc.tapis.systems.api.responses.RespSystemHistory;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystems;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
+import edu.utexas.tacc.tapis.systems.model.PatchSystem;
+import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
+import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
-import edu.utexas.tacc.tapis.systems.model.*;
-import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+import edu.utexas.tacc.tapis.systems.model.UnlinkInfo;
 
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
@@ -773,10 +775,11 @@ public class SystemResource {
   }
 
   /**
-   * Unlink a child system from a parent.  This makes the child system a standalone system.
+   * Unlink a child system from a parent. This makes the child system a standalone system.
    * unlinkChild and unlinkFromParent are identical in that they each make a childSystem become a standalone
-   * system.  The difference is in the authorization.  unlinkFromParent requires access to the child.  unlinkChild
-   * requires access to the parent.
+   * system. The difference is in the authorization.
+   * unlinkFromParent requires access to the child.
+   * unlinkChild requires access to the parent.
    *
    * @param childSystemId - id of the child system to unlink
    * @param securityContext - user identity
@@ -786,16 +789,17 @@ public class SystemResource {
   @Path("{childSystemId}/unlinkFromParent")
   @Produces(MediaType.APPLICATION_JSON)
   public Response unlinkFromParent(@PathParam("childSystemId") String childSystemId,
-                               @Context SecurityContext securityContext) throws TapisClientException
+                                   @Context SecurityContext securityContext) throws TapisClientException
   {
     return postSystemSingleUpdate(OP_UNLINK_FROM_PARENT, childSystemId, NO_ADDITIONAL_ARGS, securityContext);
   }
 
   /**
-   * Unlink a child system from a parent.  This makes the child system a standalone system.
+   * Unlink a child system from a parent. This makes the child system a standalone system.
    * unlinkChild and unlinkFromParent are identical in that they each make a childSystem become a standalone
-   * system.  The difference is in the authorization.  unlinkFromParent requires access to the child.  unlinkChild
-   * requires access to the parent.
+   * system. The difference is in the authorization.
+   * unlinkFromParent requires access to the child.
+   * unlinkChild requires access to the parent.
    *
    * @param parentSystemId - id of the parent of the system to unlink
    * @param unlinkInfo - object containing the ids of the child systems to unlink
@@ -807,9 +811,9 @@ public class SystemResource {
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
   public Response unlinkChild(@PathParam("parentSystemId") String parentSystemId,
-                                   @QueryParam("all") @DefaultValue("false") boolean unlinkAll,
-                                   UnlinkInfo unlinkInfo,
-                                   @Context SecurityContext securityContext) throws TapisClientException
+                              @QueryParam("all") @DefaultValue("false") boolean unlinkAll,
+                              UnlinkInfo unlinkInfo,
+                              @Context SecurityContext securityContext) throws TapisClientException
   {
     if(unlinkAll) {
       return postSystemSingleUpdate(OP_UNLINK_ALL_CHILDREN, parentSystemId, NO_ADDITIONAL_ARGS, securityContext);
@@ -1575,11 +1579,14 @@ public class SystemResource {
     return Response.status(status).entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp)).build();
   }
 
+  /*
+   * Determine if a system is a child of some parent system.
+   */
   private boolean isChildSystem(ResourceRequestUser rUser, String systemId) throws TapisClientException {
     try {
       return !StringUtils.isBlank(service.getParentId(rUser, systemId));
     } catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) {
-      // Pass through not found or not auth to let exception mapper handle it.
+      // Pass through not found or not auth so let exception mapper handle it.
       throw e;
     } catch (Exception e) {
       // As final fallback

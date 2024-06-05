@@ -132,6 +132,7 @@ public class SystemsServiceImpl implements SystemsService
   private static final String nullOwner = null;
   private static final String nullImpersonationId = null;
   private static final String nullSharedAppCtx = null;
+  private static final String nullResourceTenant = null;
   private static final String nullTargetUser = null;
   private static final Set<Permission> nullPermSet = null;
   private static final SystemShare nullSystemShare = null;
@@ -390,32 +391,48 @@ public class SystemsServiceImpl implements SystemsService
     return system;
   }
 
-  public TSystem createChildSystem(ResourceRequestUser rUser, String systemId, String childId, String childEffectiveUserId,
+  /**
+   * Create a new child system object given a parent systemId and properties for the child system.
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param parentId - Parent system id
+   * @param childId - Child system id
+   * @param rawData - Json used to create the TSystem object - secrets should be scrubbed. Saved in update record.
+   * @return Child TSystem
+   * @throws TapisException - for Tapis related exceptions
+   * @throws IllegalStateException - system exists OR TSystem in invalid state
+   * @throws IllegalArgumentException - invalid parameter passed in
+   */
+  @Override
+  public TSystem createChildSystem(ResourceRequestUser rUser, String parentId, String childId, String childEffectiveUserId,
                                    String childRootDir, String childOwner, boolean enabled, String rawData)
-          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException {
-    String resourceTenant = null;
+          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException
+  {
+    String opName = "createChildSystem";
+    TSystem parentSystem = getSystem(rUser, parentId, null, false, false, nullImpersonationId,
+                               nullSharedAppCtx, nullResourceTenant, false);
+    if (parentSystem == null)
+    {
+      throw new NotFoundException(LibUtils.getMsgAuth("SYSLIB_CHILD_PARENT_NOT_FOUND", rUser, opName, parentId, childId));
+    }
 
-    TSystem system = getSystem(rUser, systemId, null, false, false, nullImpersonationId,
-                               nullSharedAppCtx, resourceTenant, false);
-    if(!system.isAllowChildren()) {
-      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_CHILDREN_NOT_PERMITTED", rUser, systemId));
+    if (!parentSystem.isAllowChildren())
+    {
+      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CHILD_NOT_PERMITTED", rUser, parentId));
     }
 
     if(StringUtils.isBlank(childId)) {
-      childId = system.getId() + "-" + rUser.getOboUserId();
+      childId = parentSystem.getId() + "-" + rUser.getOboUserId();
     }
 
     // Check if system already exists
-    if (dao.checkForSystem(system.getTenant(), childId, true))
+    if (dao.checkForSystem(parentSystem.getTenant(), childId, true))
     {
       throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, childId));
     }
 
-    if(StringUtils.isBlank(childOwner)) {
-      childOwner = rUser.getOboUserId();
-    }
+    if (StringUtils.isBlank(childOwner)) { childOwner = rUser.getOboUserId(); }
 
-    TSystem childSystem = new TSystem(system, childId, childEffectiveUserId, childRootDir, childOwner, enabled);
+    TSystem childSystem = new TSystem(parentSystem, childId, childEffectiveUserId, childRootDir, childOwner, enabled);
 
     return createSystem(rUser, childSystem, true, rawData);
   }
@@ -461,7 +478,7 @@ public class SystemsServiceImpl implements SystemsService
     Boolean changeAllowChildren = patchSystem.getAllowChildren();
     if (BooleanUtils.isFalse(changeAllowChildren)) {
       if (dao.hasChildren(rUser.getOboTenantId(), systemId)) {
-        String msg = LibUtils.getMsgAuth("SYSLIB_ERROR_HAS_CHILDREN", rUser);
+        String msg = LibUtils.getMsgAuth("SYSLIB_CHILD_HAS_CHILD_ERROR", rUser, systemId);
         throw new IllegalStateException(msg);
       }
     }
@@ -696,7 +713,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // cant delete a system if it has children
     if(dao.hasChildren(rUser.getOboTenantId(), systemId)) {
-      String msg = LibUtils.getMsg("SYSLIB_ERROR_HAS_CHILDREN", rUser);
+      String msg = LibUtils.getMsg("SYSLIB_CHILD_HAS_CHILD_ERROR", rUser, systemId);
       throw new IllegalStateException(msg);
     }
     // ------------------------- Check authorization -------------------------
@@ -750,7 +767,7 @@ public class SystemsServiceImpl implements SystemsService
       }
 
       if(!okToUndeleteChild) {
-        String msg = LibUtils.getMsgAuth("SYSLIB_ERROR_PARENT_CHILD_CONFLICT", rUser);
+        String msg = LibUtils.getMsgAuth("SYSLIB_CHILD_ALLOW_CONFLICT_ERROR", rUser, op.name(), systemId);
         throw new IllegalStateException(msg);
       }
     }
@@ -908,7 +925,7 @@ public class SystemsServiceImpl implements SystemsService
         throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, childSystemId));
       }
       if(!parentId.equals(childSystem.getParentId())) {
-        throw new NotFoundException(LibUtils.getMsgAuth("SYSLIB_PARENT_CHILD_NOT_FOUND", rUser, parentId, childSystemId));
+        throw new NotFoundException(LibUtils.getMsgAuth("SYSLIB_CHILD_CHILD_NOT_FOUND", rUser, parentId, childSystemId));
       }
     }
 
@@ -2384,11 +2401,6 @@ public class SystemsServiceImpl implements SystemsService
   {
     updateUserShares(rUser, OP_UNSHARE, systemId, nullSystemShare, true);
   }
-  
-
-  // ************************************************************************
-  // **************************  Private Methods  ***************************
-  // ************************************************************************
 
   /*
    * Given a child system id get the parent system id
@@ -2413,6 +2425,10 @@ public class SystemsServiceImpl implements SystemsService
 
     return dao.getParent(oboTenant, systemId);
   }
+
+  // ************************************************************************
+  // **************************  Private Methods  ***************************
+  // ************************************************************************
 
   /*
    * Determine if a system is a child system
