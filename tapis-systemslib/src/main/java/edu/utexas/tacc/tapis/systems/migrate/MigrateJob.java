@@ -46,7 +46,7 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_REFRESH_TOKEN;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
-import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.PERM_SPEC_TEMPLATE;
+import static edu.utexas.tacc.tapis.systems.service.AuthUtils.PERM_SPEC_TEMPLATE;
 
 /*
  * Perform a one-time java based non-DB migration of data for the Systems service.
