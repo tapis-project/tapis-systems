@@ -2268,7 +2268,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param id - the id to check
    * @throws IllegalStateException - if attempt to create a resource with a reserved name
    */
-  private void checkReservedIds(ResourceRequestUser rUser, String id) throws IllegalStateException
+  private static void checkReservedIds(ResourceRequestUser rUser, String id) throws IllegalStateException
   {
     if (TSystem.RESERVED_ID_SET.contains(id.toUpperCase()))
     {
@@ -2357,7 +2357,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param profile1 - the profile to check
    * @throws IllegalStateException - if any constraints are violated
    */
-  private void validateSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile profile1) throws IllegalStateException
+  private static void validateSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile profile1) throws IllegalStateException
   {
     String msg;
     // Make api level checks, i.e. checks that do not involve a dao or service call.
@@ -2383,7 +2383,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param system - the system
    * @return Resolved rootDir
    */
-  private String resolveRootDirHostEval(ResourceRequestUser rUser, TSystem system) throws TapisException
+  private static String resolveRootDirHostEval(ResourceRequestUser rUser, TSystem system) throws TapisException
   {
     String resolvedRootDir;
     String msg;
@@ -2477,7 +2477,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param s - a TSystem
    * @return client-based TapisSystem built from a TSystem
    */
-  private TapisSystem createTapisSystemFromTSystem(TSystem s)
+  private static TapisSystem createTapisSystemFromTSystem(TSystem s)
   {
     Credential cred = s.getAuthnCredential();
     TapisSystem tapisSystem = new TapisSystem();
@@ -2623,7 +2623,7 @@ public class SystemsServiceImpl implements SystemsService
    * Attributes that cannot be updated and must be filled in from the original system:
    *   tenant, id, systemType, owner, enabled, bucketName, rootDir, canExec
    */
-  private TSystem createUpdatedTSystem(TSystem origSys, TSystem putSys)
+  private static TSystem createUpdatedTSystem(TSystem origSys, TSystem putSys)
   {
     // Rather than exposing otherwise unnecessary setters we use a special constructor.
     TSystem updatedSys = new TSystem(putSys, origSys.getTenant(), origSys.getId(), origSys.getSystemType(),
@@ -2645,7 +2645,7 @@ public class SystemsServiceImpl implements SystemsService
    * The only attribute that can be reset to default is effectiveUserId. It is reset when
    *   a blank string is passed in.
    */
-  private TSystem createPatchedTSystem(TSystem o, PatchSystem p)
+  private static TSystem createPatchedTSystem(TSystem o, PatchSystem p)
   {
     // Start off with copy of original system
     TSystem p1 = new TSystem(o);
