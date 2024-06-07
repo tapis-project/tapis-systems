@@ -344,24 +344,6 @@ public class AuthUtils
   }
 
   /**
-   * Revoke permissions
-   * No checks are done for incoming arguments and the system must exist
-   */
-  int revokePermissions(ResourceRequestUser rUser, String oboTenant, String systemId, String userName,
-                        Set<Permission> permissions)
-          throws TapisClientException, TapisException
-  {
-    // Create a set of individual permSpec entries based on the list passed in
-    Set<String> permSpecSet = getPermSpecSet(oboTenant, systemId, permissions);
-    // Remove perms from default user role
-    for (String permSpec : permSpecSet)
-    {
-      getSKClient(rUser).revokeUserPermission(oboTenant, userName, permSpec);
-    }
-    return permSpecSet.size();
-  }
-
-  /**
    * Create a permSpec for all permissions
    * @return - permSpec entry for all permissions
    */
@@ -383,7 +365,7 @@ public class AuthUtils
     // Revoke all perms for all users
     for (String userName : userNames)
     {
-      revokePermissions(rUser, tenant, sysId, userName, ALL_PERMS);
+      revokeSKPermissions(rUser, tenant, sysId, userName, ALL_PERMS);
       // Remove wildcard perm
       getSKClient(rUser).revokeUserPermission(tenant, userName, AuthUtils.getPermSpecAllStr(tenant, sysId));
     }
@@ -531,7 +513,7 @@ public class AuthUtils
    * Remove SK artifacts associated with a System: user credentials, user permissions
    * No checks are done for incoming arguments and the system must exist
    */
-  void revokeSKPermissions(ResourceRequestUser rUser, TSystem system, String resolvedEffectiveUserId)
+  void revokeAllSKPermissions(ResourceRequestUser rUser, TSystem system, String resolvedEffectiveUserId)
           throws TapisException, TapisClientException
   {
     String systemId = system.getId();
@@ -544,7 +526,7 @@ public class AuthUtils
     // Revoke all perms for all users
     for (String userName : userNames)
     {
-      revokePermissions(rUser, oboTenant, systemId, userName, ALL_PERMS);
+      revokeSKPermissions(rUser, oboTenant, systemId, userName, ALL_PERMS);
       // Remove wildcard perm
       getSKClient(rUser).revokeUserPermission(oboTenant, userName, getPermSpecAllStr(oboTenant, systemId));
     }
@@ -555,6 +537,98 @@ public class AuthUtils
     getSKClient(rUser).revokeUserPermission(oboTenant, system.getOwner(), filesPermSpec);
     if (!effectiveUserId.equals(APIUSERID_VAR))
       getSKClient(rUser).revokeUserPermission(oboTenant, resolvedEffectiveUserId, filesPermSpec);;
+  }
+
+  /**
+   * Use SKClient to Grant permissions. Attempt rollback on error.
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - Tapis system
+   * @param targetUser - user receiving permissions
+   * @param permissions - permissions to grant
+   * @param opName - operation name
+   * @throws TapisException on error
+   */
+  void grantPermissions(ResourceRequestUser rUser, String systemId, String targetUser,
+                        Set<Permission> permissions, String opName)
+          throws TapisException
+  {
+    String oboTenant = rUser.getOboTenantId();
+    // Create a set of individual permSpec entries based on the list passed in
+    Set<String> permSpecSet = getPermSpecSet(rUser.getOboTenantId(), systemId, permissions);
+
+    // Assign perms to user.
+    // Start of updates. Will need to rollback on failure.
+    try {
+      // Assign perms to user. SK creates a default role for the user
+      for (String permSpec : permSpecSet) {
+        getSKClient(rUser).grantUserPermission(oboTenant, targetUser, permSpec);
+      }
+    } catch (TapisClientException tce) {
+      // Rollback
+      // Something went wrong. Attempt to undo all changes and then re-throw the exception
+      String msg = LibUtils.getMsgAuth("SYSLIB_PERM_ERROR_ROLLBACK", rUser, systemId, tce.getMessage());
+      log.error(msg);
+      // Revoke permissions that may have been granted.
+      for (String permSpec : permSpecSet) {
+        try {
+          getSKClient(rUser).revokeUserPermission(oboTenant, targetUser, permSpec);
+        } catch (Exception e) {
+          log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePerm", e.getMessage()));
+        }
+      }
+      // Convert to TapisException and re-throw
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_PERM_SK_ERROR", rUser, systemId, opName), tce);
+    }
+  }
+
+  /**
+   * Use SKClient to revoke permissions. Attempt rollback on error.
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - Tapis system
+   * @param targetUser - user losing permissions
+   * @param permissions - permissions to revoke
+   * @param opName - operation name
+   * @throws TapisException on error
+   */
+  int revokePermissions(ResourceRequestUser rUser, String systemId, String targetUser,
+                        Set<Permission> permissions, String opName)
+          throws TapisException
+  {
+    int changeCount;
+    String oboTenant = rUser.getOboTenantId();
+    // Create a set of individual permSpec entries based on the list passed in
+    Set<String> permSpecSet = getPermSpecSet(rUser.getOboTenantId(), systemId, permissions);
+
+    // Determine current set of user permissions
+    Set<Permission> userPermSet = new HashSet<>();
+    try
+    {
+      userPermSet = getUserPermSet(rUser, targetUser, oboTenant, systemId);
+      // Revoke perms
+      changeCount = revokeSKPermissions(rUser, oboTenant, systemId, targetUser, permissions);
+    }
+    catch (TapisClientException tce)
+    {
+      // Rollback
+      // Something went wrong. Attempt to undo all changes and then re-throw the exception
+      String msg = LibUtils.getMsgAuth("SYSLIB_PERM_ERROR_ROLLBACK", rUser, systemId, tce.getMessage());
+      log.error(msg);
+      // Grant permissions that may have been revoked and that the user previously held.
+      for (Permission perm : permissions)
+      {
+        if (userPermSet.contains(perm))
+        {
+          String permSpec = AuthUtils.getPermSpecStr(oboTenant, systemId, perm);
+          try { getSKClient(rUser).grantUserPermission(oboTenant, targetUser, permSpec); }
+          catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPerm", e.getMessage()));}
+        }
+      }
+
+      // Convert to TapisException and re-throw
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_PERM_SK_ERROR", rUser, systemId, opName), tce);
+    }
+
+    return changeCount;
   }
 
   /**
@@ -857,5 +931,23 @@ public class AuthUtils
     skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
     var skShares = getSKClient(rUser).getShares(skParms);
     return (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
+  }
+
+  /**
+   * Revoke permissions
+   * No checks are done for incoming arguments and the system must exist
+   */
+  private int revokeSKPermissions(ResourceRequestUser rUser, String oboTenant, String systemId, String userName,
+                                  Set<Permission> permissions)
+          throws TapisClientException, TapisException
+  {
+    // Create a set of individual permSpec entries based on the list passed in
+    Set<String> permSpecSet = getPermSpecSet(oboTenant, systemId, permissions);
+    // Remove perms from default user role
+    for (String permSpec : permSpecSet)
+    {
+      getSKClient(rUser).revokeUserPermission(oboTenant, userName, permSpec);
+    }
+    return permSpecSet.size();
   }
 }

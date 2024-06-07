@@ -2,6 +2,8 @@ package edu.utexas.tacc.tapis.systems.api;
 
 import java.net.URI;
 import javax.ws.rs.ApplicationPath;
+
+import edu.utexas.tacc.tapis.systems.service.*;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
@@ -31,10 +33,6 @@ import edu.utexas.tacc.tapis.sharedapi.providers.ValidationExceptionMapper;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDaoImpl;
-import edu.utexas.tacc.tapis.systems.service.SystemsService;
-import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
-import edu.utexas.tacc.tapis.systems.service.ServiceClientsFactory;
-import edu.utexas.tacc.tapis.systems.service.ServiceContextFactory;
 
 /*
  * Main startup class for the web application. Uses Jersey and Grizzly frameworks.
@@ -123,6 +121,7 @@ public class SystemsApplication extends ResourceConfig
           bind(SystemsServiceImpl.class).to(SystemsService.class); // Used in Resource classes for most service calls
           bind(SystemsServiceImpl.class).to(SystemsServiceImpl.class); // Used in GeneralResource for checkDB
           bind(SystemsDaoImpl.class).to(SystemsDao.class); // Used in service impl
+          bind(AuthUtils.class).to(AuthUtils.class); // Used in service impl
           bindFactory(ServiceContextFactory.class).to(ServiceContext.class); // Used in GeneralResource for checkJWT
           bindFactory(ServiceClientsFactory.class).to(ServiceClients.class); // Used in service impl
         }

@@ -100,6 +100,7 @@ public class SystemsServiceTest
         bind(SystemsServiceImpl.class).to(SystemsService.class);
         bind(SystemsServiceImpl.class).to(SystemsServiceImpl.class);
         bind(SystemsDaoImpl.class).to(SystemsDao.class);
+        bind(AuthUtils.class).to(AuthUtils.class);
         bindFactory(ServiceContextFactory.class).to(ServiceContext.class);
         bindFactory(ServiceClientsFactory.class).to(ServiceClients.class);
       }

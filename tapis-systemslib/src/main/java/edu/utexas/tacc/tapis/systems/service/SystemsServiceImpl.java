@@ -33,16 +33,11 @@ import edu.utexas.tacc.tapis.globusproxy.client.gen.model.ResultGlobusAuthInfo;
 import edu.utexas.tacc.tapis.search.SearchUtils;
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
 import edu.utexas.tacc.tapis.search.parser.ASTParser;
-import edu.utexas.tacc.tapis.security.client.SKClient;
-import edu.utexas.tacc.tapis.security.client.gen.model.ReqShareResource;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
-import edu.utexas.tacc.tapis.security.client.gen.model.SkShare;
 import edu.utexas.tacc.tapis.security.client.model.KeyType;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretMetaParms;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretReadParms;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretWriteParms;
-import edu.utexas.tacc.tapis.security.client.model.SKShareDeleteShareParms;
-import edu.utexas.tacc.tapis.security.client.model.SKShareGetSharesParms;
 import edu.utexas.tacc.tapis.security.client.model.SecretType;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisSSHAuthException;
@@ -102,7 +97,7 @@ public class SystemsServiceImpl implements SystemsService
 
   // Message keys
   static final String NOT_FOUND = "SYSLIB_NOT_FOUND";
-  private static final String ERROR_ROLLBACK = "SYSLIB_ERROR_ROLLBACK";
+  static final String ERROR_ROLLBACK = "SYSLIB_ERROR_ROLLBACK";
 
   // NotAuthorizedException requires a Challenge, although it serves no purpose here.
   private static final String NO_CHALLENGE = "NoChallenge";
@@ -1554,15 +1549,13 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
-    String oboTenant = rUser.getOboTenantId();
-
     // If system does not exist or has been deleted then throw an exception
-    if (!dao.checkForSystem(oboTenant, systemId, false))
+    if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false))
       throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
 
     // NOTE: Previously we did a check here to see if owner is trying to update permissions for themselves.
     // If so we threw an exception because this would be confusing since owner always has full permissions.
-    // Due to a request (github issue #47) to change the behavior of changeSystemOwner we now allow owner to
+    // Due to a request (github issue #47) to change the behavior of changeSystemOwner, we now allow owner to
     // grant/revoke permissions for themselves.
     // See previous code versions for implementation of checkForOwnerPermUpdate()
 
@@ -1578,39 +1571,7 @@ public class SystemsServiceImpl implements SystemsService
     // Grant of MODIFY implies grant of READ
     if (permissions.contains(Permission.MODIFY)) permissions.add(Permission.READ);
 
-    // TODO
-//TODO    authUtils.grantUserPermissions(oboTenant, targetUser, permissions);
-
-    // Create a set of individual permSpec entries based on the list passed in
-    Set<String> permSpecSet = getPermSpecSet(oboTenant, systemId, permissions);
-
-    // Assign perms to user.
-    // Start of updates. Will need to rollback on failure.
-    try
-    {
-      // Assign perms to user. SK creates a default role for the user
-      for (String permSpec : permSpecSet)
-      {
-        authUtils.getSKClient(rUser).grantUserPermission(oboTenant, targetUser, permSpec);
-      }
-    }
-    catch (TapisClientException tce)
-    {
-      // Rollback
-      // Something went wrong. Attempt to undo all changes and then re-throw the exception
-      String msg = LibUtils.getMsgAuth("SYSLIB_PERM_ERROR_ROLLBACK", rUser, systemId, tce.getMessage());
-      log.error(msg);
-
-      // Revoke permissions that may have been granted.
-      for (String permSpec : permSpecSet)
-      {
-        try { authUtils.getSKClient(rUser).revokeUserPermission(oboTenant, targetUser, permSpec); }
-        catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePerm", e.getMessage()));}
-      }
-
-      // Convert to TapisException and re-throw
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_PERM_SK_ERROR", rUser, systemId, op.name()), tce);
-    }
+    authUtils.grantPermissions(rUser, systemId, targetUser, permissions, op.name());
 
     // Get a complete and succinct description of the update.
     String changeDescription = LibUtils.getChangeDescriptionPermsUpdate(systemId, targetUser, permissions);
@@ -1646,7 +1607,6 @@ public class SystemsServiceImpl implements SystemsService
     // if system does not exist or has been deleted then return 0 changes
     if (!dao.checkForSystem(oboTenant, systemId, false)) return 0;
 
-
     // NOTE: Previously we did a check here to see if owner is trying to update permissions for themselves.
     // If so we threw an exception because this would be confusing since owner always has full permissions.
     // Due to a request (github issue #47) to change the behavior of changeSystemOwner we now allow owner to
@@ -1665,35 +1625,7 @@ public class SystemsServiceImpl implements SystemsService
     // Revoke of READ implies revoke of MODIFY
     if (permissions.contains(Permission.READ)) permissions.add(Permission.MODIFY);
 
-    int changeCount;
-    // Determine current set of user permissions
-    var userPermSet = authUtils.getUserPermSet(rUser, targetUser, oboTenant, systemId);
-    try
-    {
-      // Revoke perms
-      changeCount = authUtils.revokePermissions(rUser, oboTenant, systemId, targetUser, permissions);
-    }
-    catch (TapisClientException tce)
-    {
-      // Rollback
-      // Something went wrong. Attempt to undo all changes and then re-throw the exception
-      String msg = LibUtils.getMsgAuth("SYSLIB_PERM_ERROR_ROLLBACK", rUser, systemId, tce.getMessage());
-      log.error(msg);
-
-      // Grant permissions that may have been revoked and that the user previously held.
-      for (Permission perm : permissions)
-      {
-        if (userPermSet.contains(perm))
-        {
-          String permSpec = AuthUtils.getPermSpecStr(oboTenant, systemId, perm);
-          try { authUtils.getSKClient(rUser).grantUserPermission(oboTenant, targetUser, permSpec); }
-          catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPerm", e.getMessage()));}
-        }
-      }
-
-      // Convert to TapisException and re-throw
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_PERM_SK_ERROR", rUser, systemId, op.name()), tce);
-    }
+    int changeCount = authUtils.revokePermissions(rUser, systemId, targetUser, permissions, op.name());;
 
     // Get a complete and succinct description of the update.
     String changeDescription = LibUtils.getChangeDescriptionPermsUpdate(systemId, targetUser, permissions);
@@ -2314,8 +2246,7 @@ public class SystemsServiceImpl implements SystemsService
     authUtils.checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet);
 
     // Get the SystemShare object
-    SystemShare systemShare = authUtils.getSystemShareInfo(rUser, system.getTenant(), systemId);
-    return systemShare;
+    return authUtils.getSystemShareInfo(rUser, system.getTenant(), systemId);
   }
   
   /**
@@ -3106,7 +3037,7 @@ public class SystemsServiceImpl implements SystemsService
     String resolvedEffectiveUserId = resolveEffectiveUserId(system, rUser.getOboUserId());
 
     // Revoke all permissions in SK
-    authUtils.revokeSKPermissions(rUser, system, resolvedEffectiveUserId);
+    authUtils.revokeAllSKPermissions(rUser, system, resolvedEffectiveUserId);
 
     // Remove credentials associated with the system if system has a static effectiveUserId
     if (!effectiveUserId.equals(APIUSERID_VAR)) {
