@@ -121,7 +121,9 @@ public class SystemsApplication extends ResourceConfig
           bind(SystemsServiceImpl.class).to(SystemsService.class); // Used in Resource classes for most service calls
           bind(SystemsServiceImpl.class).to(SystemsServiceImpl.class); // Used in GeneralResource for checkDB
           bind(SystemsDaoImpl.class).to(SystemsDao.class); // Used in service impl
-          bind(AuthUtils.class).to(AuthUtils.class); // Used in service impl
+          bind(SysUtils.class).to(SysUtils.class);
+          bind(AuthUtils.class).to(AuthUtils.class);
+          bind(CredUtils.class).to(CredUtils.class);
           bindFactory(ServiceContextFactory.class).to(ServiceContext.class); // Used in GeneralResource for checkJWT
           bindFactory(ServiceClientsFactory.class).to(ServiceClients.class); // Used in service impl
         }

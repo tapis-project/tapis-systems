@@ -13,7 +13,9 @@ import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
-import edu.utexas.tacc.tapis.systems.model.*;
+import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
+import edu.utexas.tacc.tapis.systems.model.SystemShare;
+import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -22,7 +24,10 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotFoundException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.*;
@@ -38,10 +43,6 @@ public class AuthUtils
   /* ********************************************************************** */
   // Local logger.
   private static final Logger log = LoggerFactory.getLogger(AuthUtils.class);
-
-  // Connection timeouts for SKClient
-  static final int SK_READ_TIMEOUT_MS = 20000;
-  static final int SK_CONN_TIMEOUT_MS = 20000;
 
   // Permission constants
   // Permspec format for systems is "system:<tenant>:<perm_list>:<system_id>"
@@ -71,8 +72,6 @@ public class AuthUtils
   private static final String nullSharedAppCtx = null;
   private static final String nullTargetUser = null;
   private static final Set<Permission> nullPermSet = null;
-  private static final SystemShare nullSystemShare = null;
-  private static final Credential nullCredential = null;
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -83,6 +82,8 @@ public class AuthUtils
   private SystemsDao dao;
   @Inject
   private ServiceClients serviceClients;
+  @Inject
+  private SysUtils sysUtils;
 
   /* **************************************************************************** */
   /*                                Public Methods                                */
@@ -184,7 +185,7 @@ public class AuthUtils
     else skParms.setGrantee(oboUser);
 
     // Call SK to get all shared with oboUser and add them to the set
-    var skShares = getSKClient(rUser).getShares(skParms);
+    var skShares = sysUtils.getSKClient(rUser).getShares(skParms);
     if (skShares != null && skShares.getShares() != null)
     {
       for (SkShare skShare : skShares.getShares())
@@ -321,7 +322,7 @@ public class AuthUtils
    */
   boolean hasAdminRole(ResourceRequestUser rUser) throws TapisException, TapisClientException
   {
-    return getSKClient(rUser).isAdmin(rUser.getOboTenantId(), rUser.getOboUserId());
+    return sysUtils.getSKClient(rUser).isAdmin(rUser.getOboTenantId(), rUser.getOboUserId());
   }
 
   /**
@@ -338,7 +339,7 @@ public class AuthUtils
     for (Permission perm : Permission.values())
     {
       String permSpec = String.format(PERM_SPEC_TEMPLATE, oboTenant, perm.name(), systemId);
-      if (getSKClient(rUser).isPermitted(oboTenant, userName, permSpec)) userPerms.add(perm);
+      if (sysUtils.getSKClient(rUser).isPermitted(oboTenant, userName, permSpec)) userPerms.add(perm);
     }
     return userPerms;
   }
@@ -361,13 +362,13 @@ public class AuthUtils
   {
     // Use Security Kernel client to find all users with perms associated with the system.
     String permSpec = String.format(PERM_SPEC_TEMPLATE, tenant, "%", sysId);
-    var userNames = getSKClient(rUser).getUsersWithPermission(tenant, permSpec);
+    var userNames = sysUtils.getSKClient(rUser).getUsersWithPermission(tenant, permSpec);
     // Revoke all perms for all users
     for (String userName : userNames)
     {
       revokeSKPermissions(rUser, tenant, sysId, userName, ALL_PERMS);
       // Remove wildcard perm
-      getSKClient(rUser).revokeUserPermission(tenant, userName, AuthUtils.getPermSpecAllStr(tenant, sysId));
+      sysUtils.getSKClient(rUser).revokeUserPermission(tenant, userName, AuthUtils.getPermSpecAllStr(tenant, sysId));
     }
   }
 
@@ -409,7 +410,7 @@ public class AuthUtils
 
     // First determine if system is publicly shared. Search for share to grantee ~public
     skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
-    var skShares = getSKClient(rUser).getShares(skParms);
+    var skShares = sysUtils.getSKClient(rUser).getShares(skParms);
     // Set isPublic based on result.
     boolean isPublic = (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
 
@@ -417,7 +418,7 @@ public class AuthUtils
     var userSet = new HashSet<String>();
     skParms.setGrantee(null);
     skParms.setIncludePublicGrantees(false);
-    skShares = getSKClient(rUser).getShares(skParms);
+    skShares = sysUtils.getSKClient(rUser).getShares(skParms);
     if (skShares != null && skShares.getShares() != null)
     {
       for (SkShare skShare : skShares.getShares())
@@ -483,9 +484,9 @@ public class AuthUtils
         {
           reqShareResource.setGrantee(userName);
           reqShareResource.setPrivilege(Permission.READ.name());
-          getSKClient(rUser).shareResource(reqShareResource);
+          sysUtils.getSKClient(rUser).shareResource(reqShareResource);
           reqShareResource.setPrivilege(Permission.EXECUTE.name());
-          getSKClient(rUser).shareResource(reqShareResource);
+          sysUtils.getSKClient(rUser).shareResource(reqShareResource);
         }
       }
       case OP_UNSHARE ->
@@ -501,9 +502,9 @@ public class AuthUtils
         {
           deleteShareParms.setGrantee(userName);
           deleteShareParms.setPrivilege(Permission.READ.name());
-          getSKClient(rUser).deleteShare(deleteShareParms);
+          sysUtils.getSKClient(rUser).deleteShare(deleteShareParms);
           deleteShareParms.setPrivilege(Permission.EXECUTE.name());
-          getSKClient(rUser).deleteShare(deleteShareParms);
+          sysUtils.getSKClient(rUser).deleteShare(deleteShareParms);
         }
       }
     }
@@ -522,21 +523,21 @@ public class AuthUtils
 
     // Use Security Kernel client to find all users with perms associated with the system.
     String permSpec = String.format(PERM_SPEC_TEMPLATE, oboTenant, "%", systemId);
-    var userNames = getSKClient(rUser).getUsersWithPermission(oboTenant, permSpec);
+    var userNames = sysUtils.getSKClient(rUser).getUsersWithPermission(oboTenant, permSpec);
     // Revoke all perms for all users
     for (String userName : userNames)
     {
       revokeSKPermissions(rUser, oboTenant, systemId, userName, ALL_PERMS);
       // Remove wildcard perm
-      getSKClient(rUser).revokeUserPermission(oboTenant, userName, getPermSpecAllStr(oboTenant, systemId));
+      sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, userName, getPermSpecAllStr(oboTenant, systemId));
     }
 
     // NOTE: Consider using a notification instead(jira cic-3071)
     // Remove files perm for owner and possibly effectiveUser
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
-    getSKClient(rUser).revokeUserPermission(oboTenant, system.getOwner(), filesPermSpec);
+    sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, system.getOwner(), filesPermSpec);
     if (!effectiveUserId.equals(APIUSERID_VAR))
-      getSKClient(rUser).revokeUserPermission(oboTenant, resolvedEffectiveUserId, filesPermSpec);;
+      sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, resolvedEffectiveUserId, filesPermSpec);;
   }
 
   /**
@@ -545,11 +546,11 @@ public class AuthUtils
    * @param systemId - Tapis system
    * @param targetUser - user receiving permissions
    * @param permissions - permissions to grant
-   * @param opName - operation name
+   * @param op - operation
    * @throws TapisException on error
    */
   void grantPermissions(ResourceRequestUser rUser, String systemId, String targetUser,
-                        Set<Permission> permissions, String opName)
+                        Set<Permission> permissions, SystemOperation op, String rawData)
           throws TapisException
   {
     String oboTenant = rUser.getOboTenantId();
@@ -561,7 +562,7 @@ public class AuthUtils
     try {
       // Assign perms to user. SK creates a default role for the user
       for (String permSpec : permSpecSet) {
-        getSKClient(rUser).grantUserPermission(oboTenant, targetUser, permSpec);
+        sysUtils.getSKClient(rUser).grantUserPermission(oboTenant, targetUser, permSpec);
       }
     } catch (TapisClientException tce) {
       // Rollback
@@ -571,14 +572,18 @@ public class AuthUtils
       // Revoke permissions that may have been granted.
       for (String permSpec : permSpecSet) {
         try {
-          getSKClient(rUser).revokeUserPermission(oboTenant, targetUser, permSpec);
+          sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, targetUser, permSpec);
         } catch (Exception e) {
           log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePerm", e.getMessage()));
         }
       }
       // Convert to TapisException and re-throw
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_PERM_SK_ERROR", rUser, systemId, opName), tce);
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_PERM_SK_ERROR", rUser, systemId, op.name()), tce);
     }
+    // Get a complete and succinct description of the update.
+    String changeDescription = LibUtils.getChangeDescriptionPermsUpdate(systemId, targetUser, permissions);
+    // Create a record of the update
+    dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
   }
 
   /**
@@ -587,11 +592,11 @@ public class AuthUtils
    * @param systemId - Tapis system
    * @param targetUser - user losing permissions
    * @param permissions - permissions to revoke
-   * @param opName - operation name
+   * @param op - operation
    * @throws TapisException on error
    */
   int revokePermissions(ResourceRequestUser rUser, String systemId, String targetUser,
-                        Set<Permission> permissions, String opName)
+                        Set<Permission> permissions, SystemOperation op, String rawData)
           throws TapisException
   {
     int changeCount;
@@ -619,45 +624,21 @@ public class AuthUtils
         if (userPermSet.contains(perm))
         {
           String permSpec = AuthUtils.getPermSpecStr(oboTenant, systemId, perm);
-          try { getSKClient(rUser).grantUserPermission(oboTenant, targetUser, permSpec); }
+          try { sysUtils.getSKClient(rUser).grantUserPermission(oboTenant, targetUser, permSpec); }
           catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPerm", e.getMessage()));}
         }
       }
 
       // Convert to TapisException and re-throw
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_PERM_SK_ERROR", rUser, systemId, opName), tce);
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_PERM_SK_ERROR", rUser, systemId, op.name()), tce);
     }
+
+    // Get a complete and succinct description of the update.
+    String changeDescription = LibUtils.getChangeDescriptionPermsUpdate(systemId, targetUser, permissions);
+    // Create a record of the update
+    dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
 
     return changeCount;
-  }
-
-  /**
-   * Get Security Kernel client with obo tenant and user set to the service tenant and user.
-   * I.e. this is a client where the service calls SK as itself.
-   * Note: Systems service always calls SK as itself.
-   * Note: The ServiceClients class does caching
-   * @return SK client
-   * @throws TapisException - for Tapis related exceptions
-   */
-  SKClient getSKClient(ResourceRequestUser rUser) throws TapisException
-  {
-    SKClient skClient;
-    String oboUser = getServiceUserId();
-    String oboTenant = getServiceTenantId();
-    try { skClient = serviceClients.getClient(oboUser, oboTenant, SKClient.class); }
-    catch (Exception e)
-    {
-      String msg = MsgUtils.getMsg("TAPIS_CLIENT_NOT_FOUND", TapisConstants.SERVICE_NAME_SECURITY, oboTenant, oboUser);
-      throw new TapisException(msg, e);
-    }
-    if (skClient == null)
-    {
-      String msg = LibUtils.getMsgAuth("SYSLIB_SVC_CLIENT_NULL", rUser, TapisConstants.SERVICE_NAME_SECURITY, oboTenant, oboUser);
-      throw new TapisException(msg);
-    }
-    skClient.setReadTimeout(SK_READ_TIMEOUT_MS);
-    skClient.setConnectTimeout(SK_CONN_TIMEOUT_MS);
-    return skClient;
   }
 
   /* **************************************************************************** */
@@ -866,7 +847,7 @@ public class AuthUtils
     skParms.setResourceId1(systemId);
     skParms.setGrantee(targetUser);
     skParms.setPrivilege(privilege.name());
-    return getSKClient(rUser).hasPrivilege(skParms);
+    return sysUtils.getSKClient(rUser).hasPrivilege(skParms);
   }
 
   /**
@@ -897,7 +878,7 @@ public class AuthUtils
     String tenantName = (StringUtils.isBlank(tenantToCheck) ? rUser.getJwtTenantId() : tenantToCheck);
     String userName = (StringUtils.isBlank(userToCheck) ? rUser.getJwtUserId() : userToCheck);
     String permSpecStr = getPermSpecStr(tenantName, systemId, perm);
-    return getSKClient(rUser).isPermitted(tenantName, userName, permSpecStr);
+    return sysUtils.getSKClient(rUser).isPermitted(tenantName, userName, permSpecStr);
   }
 
   /**
@@ -915,7 +896,7 @@ public class AuthUtils
     for (Permission perm : perms) {
       permSpecs.add(getPermSpecStr(tenantName, systemId, perm));
     }
-    return getSKClient(rUser).isPermittedAny(tenantName, userName, permSpecs.toArray(TSystem.EMPTY_STR_ARRAY));
+    return sysUtils.getSKClient(rUser).isPermittedAny(tenantName, userName, permSpecs.toArray(TSystem.EMPTY_STR_ARRAY));
   }
   /*
    * Determine if a system is shared publicly
@@ -929,7 +910,7 @@ public class AuthUtils
     skParms.setTenant(tenant);
     skParms.setResourceId1(sysId);
     skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
-    var skShares = getSKClient(rUser).getShares(skParms);
+    var skShares = sysUtils.getSKClient(rUser).getShares(skParms);
     return (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
   }
 
@@ -946,7 +927,7 @@ public class AuthUtils
     // Remove perms from default user role
     for (String permSpec : permSpecSet)
     {
-      getSKClient(rUser).revokeUserPermission(oboTenant, userName, permSpec);
+      sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, userName, permSpec);
     }
     return permSpecSet.size();
   }

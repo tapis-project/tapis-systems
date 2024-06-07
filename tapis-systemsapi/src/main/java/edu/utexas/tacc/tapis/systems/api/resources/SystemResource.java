@@ -330,6 +330,7 @@ public class SystemResource {
     {
       // We only support registering credentials in the static effective user case, so in log messages report effUserId.
       String userName = tSystem.getEffectiveUserId();
+      // Check validation result. Return UNAUTHORIZED (401) if not valid.
       resp = ApiUtils.checkCredValidationResult(rUser, systemId, userName, tSystem.getAuthnCredential(),
                                                 tSystem.getDefaultAuthnMethod(), skipCredCheck);
       if (resp != null) return resp;
@@ -679,6 +680,7 @@ public class SystemResource {
     {
       // We only support registering credentials in the static effective user case, so in log messages report effUserId.
       String userName = putSystem.getEffectiveUserId();
+      // Check validation result. Return UNAUTHORIZED (401) if not valid.
       resp = ApiUtils.checkCredValidationResult(rUser, systemId, userName, putSystem.getAuthnCredential(),
                                                 putSystem.getDefaultAuthnMethod(), skipCredCheck);
       if (resp != null) return resp;
