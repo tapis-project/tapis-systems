@@ -66,6 +66,7 @@ public class SystemsServiceTest
 {
   private SystemsService svc;
   private SystemsServiceImpl svcImpl;
+  private SchedulerProfileServiceImpl svcSchedProfile;
   private ResourceRequestUser rOwner1, rOwner3, rOwner4, rOwner5, rOwner6,
           rTestUser0, rTestUser1, rTestUser2, rTestUser3, rTestUser4, rTestUser5,
           rParentChild1, rParentChild2, rParentChild3,
@@ -100,6 +101,7 @@ public class SystemsServiceTest
         bind(SystemsServiceImpl.class).to(SystemsService.class);
         bind(SystemsServiceImpl.class).to(SystemsServiceImpl.class);
         bind(SystemsDaoImpl.class).to(SystemsDao.class);
+        bind(SchedulerProfileServiceImpl.class).to(SchedulerProfileServiceImpl.class);
         bind(SysUtils.class).to(SysUtils.class);
         bind(AuthUtils.class).to(AuthUtils.class);
         bind(CredUtils.class).to(CredUtils.class);
@@ -116,6 +118,7 @@ public class SystemsServiceTest
     // Initialize services
     svc = locator.getService(SystemsService.class);
     svcImpl = locator.getService(SystemsServiceImpl.class);
+    svcSchedProfile = locator.getService(SchedulerProfileServiceImpl.class);
     svcImpl.initService(siteId, adminTenantName, RuntimeParameters.getInstance().getServicePassword());
 
     // Initialize users and service
@@ -181,11 +184,11 @@ public class SystemsServiceTest
     List<ModuleLoadSpec> moduleLoads = List.of(new ModuleLoadSpec(moduleLoadCmd, modulesToLoad));
     SchedulerProfile sp = new SchedulerProfile(tenantName, batchSchedulerProfile1, "test profile1",  owner1,
                                                moduleLoads, hiddenOptions, null, null, null);
-    svc.createSchedulerProfile(rOwner1, sp);
+    svcSchedProfile.createSchedulerProfile(rOwner1, sp);
     System.out.println("Creating scheduler profile with name: " + batchSchedulerProfile2);
     sp = new SchedulerProfile(tenantName, batchSchedulerProfile2, "test profile2",  owner1, moduleLoads, hiddenOptions,
                               null, null, null);
-    svc.createSchedulerProfile(rOwner1, sp);
+    svcSchedProfile.createSchedulerProfile(rOwner1, sp);
   }
 
   @AfterSuite
@@ -245,14 +248,14 @@ public class SystemsServiceTest
 
     for (int i = 0; i < numSchedulerProfiles; i++)
     {
-      svc.deleteSchedulerProfile(rTestUser2, schedulerProfiles[i].getName());
+      svcSchedProfile.deleteSchedulerProfile(rTestUser2, schedulerProfiles[i].getName());
     }
-    svc.deleteSchedulerProfile(rOwner1, batchSchedulerProfile1);
-    svc.deleteSchedulerProfile(rOwner1, batchSchedulerProfile2);
+    svcSchedProfile.deleteSchedulerProfile(rOwner1, batchSchedulerProfile1);
+    svcSchedProfile.deleteSchedulerProfile(rOwner1, batchSchedulerProfile2);
 
     Assert.assertFalse(svc.checkForSystem(rAdminUser, systems[0].getId()),
             "System not deleted. System name: " + systems[0].getId());
-    Assert.assertFalse(svc.checkForSchedulerProfile(rAdminUser, schedulerProfiles[0].getName()),
+    Assert.assertFalse(svcSchedProfile.checkForSchedulerProfile(rAdminUser, schedulerProfiles[0].getName()),
             "SchedulerProfile not deleted. Profile name: " + schedulerProfiles[0].getName());
   }
 
@@ -2188,7 +2191,7 @@ public class SystemsServiceTest
   public void testCreateSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[0];
-    svc.createSchedulerProfile(rTestUser2, p0);
+    svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
   }
 
@@ -2196,10 +2199,10 @@ public class SystemsServiceTest
   public void testGetSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[1];
-    svc.createSchedulerProfile(rTestUser2, p0);
+    svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
-    SchedulerProfile tmpProfile = svc.getSchedulerProfile(rTestUser2, p0.getName());
+    SchedulerProfile tmpProfile = svcSchedProfile.getSchedulerProfile(rTestUser2, p0.getName());
     Assert.assertNotNull(tmpProfile, "Retrieving scheduler profile resulted in null");
     System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
     Assert.assertEquals(tmpProfile.getTenant(), p0.getTenant());
@@ -2227,19 +2230,19 @@ public class SystemsServiceTest
     Assert.assertFalse(StringUtils.isBlank(tmpProfile.getUpdated().toString()));
 
     // Anyone should be able to get
-    tmpProfile = svc.getSchedulerProfile(rTestUser1, p0.getName());
+    tmpProfile = svcSchedProfile.getSchedulerProfile(rTestUser1, p0.getName());
     Assert.assertNotNull(tmpProfile, "Retrieving scheduler profile resulted in null");
     System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
-    tmpProfile = svc.getSchedulerProfile(rTestUser2, p0.getName());
+    tmpProfile = svcSchedProfile.getSchedulerProfile(rTestUser2, p0.getName());
     Assert.assertNotNull(tmpProfile, "Retrieving scheduler profile resulted in null");
     System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
-    tmpProfile = svc.getSchedulerProfile(rAdminUser, p0.getName());
+    tmpProfile = svcSchedProfile.getSchedulerProfile(rAdminUser, p0.getName());
     Assert.assertNotNull(tmpProfile, "Retrieving scheduler profile resulted in null");
     System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
-    tmpProfile = svc.getSchedulerProfile(rFilesSvcOwner1, p0.getName());
+    tmpProfile = svcSchedProfile.getSchedulerProfile(rFilesSvcOwner1, p0.getName());
     Assert.assertNotNull(tmpProfile, "Retrieving scheduler profile resulted in null");
     System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
-    tmpProfile = svc.getSchedulerProfile(rFilesSvcTestUser3, p0.getName());
+    tmpProfile = svcSchedProfile.getSchedulerProfile(rFilesSvcTestUser3, p0.getName());
     Assert.assertNotNull(tmpProfile, "Retrieving scheduler profile resulted in null");
     System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
   }
@@ -2248,10 +2251,10 @@ public class SystemsServiceTest
   public void testDeleteSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[2];
-    svc.createSchedulerProfile(rTestUser2, p0);
+    svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
-    svc.deleteSchedulerProfile(rTestUser2, p0.getName());
-    Assert.assertFalse(svc.checkForSchedulerProfile(rTestUser2, p0.getName()),
+    svcSchedProfile.deleteSchedulerProfile(rTestUser2, p0.getName());
+    Assert.assertFalse(svcSchedProfile.checkForSchedulerProfile(rTestUser2, p0.getName()),
                        "Scheduler Profile not deleted. Profile name: " + p0.getName());
     System.out.println("Scheduler Profile deleted: " + p0.getName());
   }
@@ -2259,13 +2262,13 @@ public class SystemsServiceTest
   @Test
   public void testGetSchedulerProfiles() throws Exception {
     SchedulerProfile p0 = schedulerProfiles[3];
-    svc.createSchedulerProfile(rTestUser2, p0);
+    svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
     p0 = schedulerProfiles[4];
-    svc.createSchedulerProfile(rTestUser2, p0);
+    svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
-    List<SchedulerProfile> profiles = svc.getSchedulerProfiles(rTestUser2);
+    List<SchedulerProfile> profiles = svcSchedProfile.getSchedulerProfiles(rTestUser2);
     Assert.assertNotNull(profiles, "getSchedulerProfiles returned null");
     Assert.assertFalse(profiles.isEmpty(), "getSchedulerProfiles returned empty list");
     var profileNamesFound = new HashSet<String>();
@@ -2288,12 +2291,12 @@ public class SystemsServiceTest
   {
     SchedulerProfile p0 = schedulerProfiles[5];
     SchedulerProfile p1 = schedulerProfiles[6];
-    svc.createSchedulerProfile(rTestUser2, p0);
+    svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
     // CREATE - Deny user not owner/admin, deny service
     boolean pass = false;
-    try { svc.createSchedulerProfile(rTestUser1, p1); }
+    try { svcSchedProfile.createSchedulerProfile(rTestUser1, p1); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
@@ -2301,7 +2304,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.createSchedulerProfile(rFilesSvcOwner1, p1); }
+    try { svcSchedProfile.createSchedulerProfile(rFilesSvcOwner1, p1); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
@@ -2311,7 +2314,7 @@ public class SystemsServiceTest
 
     // DELETE - deny user not owner/admin, deny service
     pass = false;
-    try { svc.deleteSchedulerProfile(rTestUser1, p0.getName()); }
+    try { svcSchedProfile.deleteSchedulerProfile(rTestUser1, p0.getName()); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
@@ -2319,7 +2322,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.deleteSchedulerProfile(rFilesSvcOwner1, p0.getName()); }
+    try { svcSchedProfile.deleteSchedulerProfile(rFilesSvcOwner1, p0.getName()); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
