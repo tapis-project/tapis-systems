@@ -21,6 +21,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.SecurityContext;
+
 import org.apache.commons.io.IOUtils;
 import org.glassfish.grizzly.http.server.Request;
 import org.slf4j.Logger;
@@ -48,8 +49,7 @@ import edu.utexas.tacc.tapis.systems.api.responses.RespSchedulerProfile;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
-import edu.utexas.tacc.tapis.systems.service.SystemsService;
+import edu.utexas.tacc.tapis.systems.service.SchedulerProfileServiceImpl;
 
 /*
  * JAX-RS REST resource for a SchedulerProfile
@@ -80,8 +80,6 @@ public class SchedulerProfileResource
   private static final String JSON_VALIDATION_ERR = "TAPIS_JSON_VALIDATION_ERROR";
   private static final String CREATE_ERR = "SYSAPI_PRF_CREATE_ERROR";
   private static final String LIST_ERR = "SYSAPI_PRF_LIST_ERROR";
-  private static final String LIB_UNAUTH = "SYSLIB_PRF_UNAUTH";
-  private static final String API_UNAUTH = "SYSAPI_PRF_UNAUTH";
   private static final String TAPIS_FOUND = "TAPIS_FOUND";
   private static final String NOT_FOUND = "SYSAPI_PRF_NOT_FOUND";
 
@@ -91,9 +89,6 @@ public class SchedulerProfileResource
   // Always return a nicely formatted response
   private static final boolean PRETTY = true;
 
-  // Default values
-  public static final String DEFAULT_OWNER = TSystem.APIUSERID_VAR;
-
   // ************************************************************************
   // *********************** Fields *****************************************
   // ************************************************************************
@@ -102,7 +97,7 @@ public class SchedulerProfileResource
 
   // **************** Inject Services using HK2 ****************
   @Inject
-  private SystemsService systemsService;
+  private SchedulerProfileServiceImpl svc;
 
   private final String className = getClass().getSimpleName();
 
@@ -187,7 +182,7 @@ public class SchedulerProfileResource
     String profileName = schedProfile.getName();
     try
     {
-      systemsService.createSchedulerProfile(rUser, schedProfile);
+      svc.createSchedulerProfile(rUser, schedProfile);
     }
     catch (IllegalStateException e)
     {
@@ -258,7 +253,7 @@ public class SchedulerProfileResource
     SchedulerProfile schedulerProfile;
     try
     {
-      schedulerProfile = systemsService.getSchedulerProfile(rUser, name);
+      schedulerProfile = svc.getSchedulerProfile(rUser, name);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
@@ -308,7 +303,7 @@ public class SchedulerProfileResource
     RespSchedulerProfiles successResponse;
     try
     {
-      var schedulerProfiles = systemsService.getSchedulerProfiles(rUser);
+      var schedulerProfiles = svc.getSchedulerProfiles(rUser);
       String itemCountStr = String.format(PRF_CNT_STR, schedulerProfiles.size());
 
       successResponse = new RespSchedulerProfiles(schedulerProfiles);
@@ -359,7 +354,7 @@ public class SchedulerProfileResource
     String msg;
     try
     {
-      changeCount = systemsService.deleteSchedulerProfile(rUser, name);
+      changeCount = svc.deleteSchedulerProfile(rUser, name);
     }
     catch (IllegalArgumentException e)
     {
