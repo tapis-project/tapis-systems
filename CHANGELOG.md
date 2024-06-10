@@ -11,14 +11,15 @@ https://tapis-project.github.io/live-docs
 
 ## 1.6.3 - 2024-??-??
 
+Incremental improvements. Improved error handling. Refactoring of service implementation.
 ???Incremental improvements and new features.
 
 ### New features:
-- ???
+- None
 - ???
 
 ### Bug fixes:
-- ???
+- None
 
 ---------------------------------------------------------------------------
 ## 1.6.2 - 2024-04-24

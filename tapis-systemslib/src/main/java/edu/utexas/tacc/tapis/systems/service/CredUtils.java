@@ -15,12 +15,14 @@ import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
 import edu.utexas.tacc.tapis.shared.utils.PathUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
+import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemShare;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -644,6 +646,26 @@ public class CredUtils
       credential = null;
     }
     return credential;
+  }
+
+  // Build a TapisSystem client credential based on the TSystem model credential
+  static edu.utexas.tacc.tapis.systems.client.gen.model.Credential buildAuthnCred(Credential cred, AuthnMethod authnMethod)
+  {
+    if (cred == null) return null;
+    var c = new edu.utexas.tacc.tapis.systems.client.gen.model.Credential();
+    // Convert the service enum to the client enum.
+    var am = EnumUtils.getEnum(AuthnEnum.class, authnMethod.name());
+    c.setAuthnMethod(am);
+    c.setAccessKey(cred.getAccessKey());
+    c.setAccessSecret(cred.getAccessSecret());
+    c.setPassword(cred.getPassword());
+    c.setPublicKey(cred.getPublicKey());
+    c.setPrivateKey(cred.getPrivateKey());
+    c.setAccessToken(cred.getAccessToken());
+    c.setRefreshToken(cred.getRefreshToken());
+    c.setCertificate(cred.getCertificate());
+    c.setLoginUser(cred.getLoginUser());
+    return c;
   }
 
   /* **************************************************************************** */
