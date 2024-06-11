@@ -9,16 +9,15 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
-## 1.6.3 - 2024-??-??
+## 1.6.3 - 2024-06-11
 
-???Incremental improvements and new features.
+Incremental improvements. Improved error handling. Refactoring of service implementation.
 
 ### New features:
-- ???
-- ???
+- None
 
 ### Bug fixes:
-- ???
+- None
 
 ---------------------------------------------------------------------------
 ## 1.6.2 - 2024-04-24

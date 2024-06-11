@@ -11,7 +11,6 @@ import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 
-import edu.utexas.tacc.tapis.shared.ssh.apache.system.TapisRunCommand;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -29,6 +28,7 @@ import edu.utexas.tacc.tapis.search.parser.ASTParser;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
+import edu.utexas.tacc.tapis.shared.ssh.apache.system.TapisRunCommand;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.shared.utils.PathUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
@@ -2326,7 +2326,7 @@ public class SystemsServiceImpl implements SystemsService
     tapisSystem.setHost(s.getHost());
     tapisSystem.setEnabled(s.isEnabled());
     tapisSystem.setEffectiveUserId(s.getEffectiveUserId());
-    tapisSystem.setAuthnCredential(buildAuthnCred(cred, s.getDefaultAuthnMethod()));
+    tapisSystem.setAuthnCredential(CredUtils.buildAuthnCred(cred, s.getDefaultAuthnMethod()));
     tapisSystem.setDefaultAuthnMethod(EnumUtils.getEnum(AuthnEnum.class, s.getDefaultAuthnMethod().name()));
     tapisSystem.setBucketName(s.getBucketName());
     tapisSystem.setRootDir(s.getRootDir());
@@ -2357,27 +2357,6 @@ public class SystemsServiceImpl implements SystemsService
     tapisSystem.setUuid(s.getUuid());
     tapisSystem.setDeleted(s.isDeleted());
     return tapisSystem;
-  }
-
-  // Build a TapisSystem client credential based on the TSystem model credential
-  private static edu.utexas.tacc.tapis.systems.client.gen.model.Credential buildAuthnCred(Credential cred,
-                                                                                          AuthnMethod authnMethod)
-  {
-    if (cred == null) return null;
-    var c = new edu.utexas.tacc.tapis.systems.client.gen.model.Credential();
-    // Convert the service enum to the client enum.
-    var am = EnumUtils.getEnum(AuthnEnum.class, authnMethod.name());
-    c.setAuthnMethod(am);
-    c.setAccessKey(cred.getAccessKey());
-    c.setAccessSecret(cred.getAccessSecret());
-    c.setPassword(cred.getPassword());
-    c.setPublicKey(cred.getPublicKey());
-    c.setPrivateKey(cred.getPrivateKey());
-    c.setAccessToken(cred.getAccessToken());
-    c.setRefreshToken(cred.getRefreshToken());
-    c.setCertificate(cred.getCertificate());
-    c.setLoginUser(cred.getLoginUser());
-    return c;
   }
 
   /**
