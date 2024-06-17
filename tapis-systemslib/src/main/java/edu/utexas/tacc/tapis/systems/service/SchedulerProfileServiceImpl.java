@@ -196,20 +196,9 @@ public class SchedulerProfileServiceImpl
     if (!errMessages.isEmpty())
     {
       // Construct message reporting all errors
-      String allErrors = getListOfErrors(rUser, profile1.getName(), errMessages);
+      String allErrors = SysUtils.getListOfErrors(rUser, profile1.getName(), errMessages);
       log.error(allErrors);
       throw new IllegalStateException(allErrors);
     }
-  }
-
-  /**
-   * Construct message containing list of errors
-   */
-  private static String getListOfErrors(ResourceRequestUser rUser, String systemId, List<String> msgList) {
-    var sb = new StringBuilder(LibUtils.getMsgAuth("SYSLIB_CREATE_INVALID_ERRORLIST", rUser, systemId));
-    sb.append(System.lineSeparator());
-    if (msgList == null || msgList.isEmpty()) return sb.toString();
-    for (String msg : msgList) { sb.append("  ").append(msg).append(System.lineSeparator()); }
-    return sb.toString();
   }
 }

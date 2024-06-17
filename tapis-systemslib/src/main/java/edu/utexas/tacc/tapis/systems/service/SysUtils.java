@@ -15,6 +15,9 @@ import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+
+import java.util.List;
+
 import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.*;
 
@@ -148,6 +151,18 @@ public class SysUtils
     skClient.setReadTimeout(SK_READ_TIMEOUT_MS);
     skClient.setConnectTimeout(SK_CONN_TIMEOUT_MS);
     return skClient;
+  }
+
+  /**
+   * Construct message containing list of errors
+   */
+  static String getListOfErrors(ResourceRequestUser rUser, String systemId, List<String> msgList)
+  {
+    var sb = new StringBuilder(LibUtils.getMsgAuth("SYSLIB_CREATE_INVALID_ERRORLIST", rUser, systemId));
+    sb.append(System.lineSeparator());
+    if (msgList == null || msgList.isEmpty()) return sb.toString();
+    for (String msg : msgList) { sb.append("  ").append(msg).append(System.lineSeparator()); }
+    return sb.toString();
   }
 
   /* **************************************************************************** */

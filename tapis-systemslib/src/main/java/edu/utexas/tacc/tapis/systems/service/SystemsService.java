@@ -8,8 +8,6 @@ import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
-import edu.utexas.tacc.tapis.systems.model.Credential;
-import edu.utexas.tacc.tapis.systems.model.GlobusAuthInfo;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.SystemShare;
@@ -106,27 +104,6 @@ public interface SystemsService
           throws TapisException, TapisClientException;
 
   Set<Permission> getUserPermissions(ResourceRequestUser rUser, String systemId, String targetUser)
-          throws TapisException, TapisClientException;
-
-  // ---------------------------- Credentials ------------------------------
-  // -----------------------------------------------------------------------
-  Credential createUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, Credential credential,
-                            boolean skipCredCheck, String rawData)
-          throws TapisException, TapisClientException, IllegalStateException;
-
-  int deleteUserCredential(ResourceRequestUser rUser, String systemId, String targetUser)
-          throws TapisException, TapisClientException, IllegalStateException;
-
-  Credential checkUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
-          throws TapisException, TapisClientException, IllegalStateException;
-
-  Credential getUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
-          throws TapisException, TapisClientException;
-
-  GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser, String systemId) throws TapisException, TapisClientException;
-
-  void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName, String authCode,
-                                   String sessionId)
           throws TapisException, TapisClientException;
 
   //------------------- Sharing ---------------------------------

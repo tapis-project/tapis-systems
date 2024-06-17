@@ -19,9 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
-import edu.utexas.tacc.tapis.globusproxy.client.GlobusProxyClient;
-import edu.utexas.tacc.tapis.globusproxy.client.gen.model.AuthTokens;
-import edu.utexas.tacc.tapis.globusproxy.client.gen.model.ResultGlobusAuthInfo;
 import edu.utexas.tacc.tapis.search.SearchUtils;
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
 import edu.utexas.tacc.tapis.search.parser.ASTParser;
@@ -36,13 +33,12 @@ import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
 import edu.utexas.tacc.tapis.systems.client.gen.model.TapisSystem;
 import edu.utexas.tacc.tapis.systems.client.gen.model.SystemTypeEnum;
-import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+import edu.utexas.tacc.tapis.systems.model.*;
 import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
 import static edu.utexas.tacc.tapis.systems.service.AuthUtils.*;
-import edu.utexas.tacc.tapis.systems.model.*;
 
 /*
  * Service level methods for Systems.
@@ -950,30 +946,6 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Hard delete all systems in the "test" tenant.
-   * Also remove artifacts from the Security Kernel.
-   * NOTE: This is package-private. Only test code should ever use it.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @return Number of items deleted
-   * @throws TapisException - for Tapis related exceptions
-   */
-  int hardDeleteAllTestTenantResources(ResourceRequestUser rUser)
-          throws TapisException, TapisClientException
-  {
-    // For safety hard code the tenant name
-    String oboTenant = "test";
-    // Fetch all resource Ids including deleted items
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    var systemIdSet = dao.getSystemIDs(oboTenant, true);
-    for (String id : systemIdSet)
-    {
-      hardDeleteSystem(rUser, oboTenant, id);
-    }
-    return systemIdSet.size();
-  }
-
-  /**
    * checkForSystem
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - Name of the system
@@ -1502,6 +1474,31 @@ public class SystemsServiceImpl implements SystemsService
     return dao.getSystemOwner(rUser.getOboTenantId(), systemId);
   }
 
+  /*
+   * Given a child system id get the parent system id
+   */
+  @Override
+  public String getParentId(ResourceRequestUser rUser, String systemId) throws TapisException, TapisClientException
+  {
+    SystemOperation op = SystemOperation.read;
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId)) {
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+    }
+
+    String oboTenant = rUser.getOboTenantId();
+
+    // Resource must exist and not be deleted
+    if (!dao.checkForSystem(oboTenant, systemId, false)) {
+      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    }
+
+    // ------------------------- Check authorization -------------------------
+    authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
+
+    return dao.getParent(oboTenant, systemId);
+  }
+
   // -----------------------------------------------------------------------
   // --------------------------- Permissions -------------------------------
   // -----------------------------------------------------------------------
@@ -1633,315 +1630,9 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   // -----------------------------------------------------------------------
-  // ---------------------------- Credentials ------------------------------
+  // ---------------------------- Sharing ------------------------------
   // -----------------------------------------------------------------------
 
-  /**
-   * Store or update credential for given system and target user.
-   * <p>
-   * NOTE that credential returned even if invalid. Caller must check Credential.getValidationResult()
-   * <p>
-   * Required: rUser, systemId, targetUser, credential.
-   * <p>
-   * Secret path depends on whether effUser type is dynamic or static
-   * <p>
-   * If the *effectiveUserId* for the system is dynamic (i.e. equal to *${apiUserId}*) then *targetUser* is interpreted
-   * as a Tapis user and the Credential may contain the optional attribute *loginUser* which will be used to map the
-   * Tapis user to a username to be used when accessing the system. If the login user is not provided then there is
-   * no mapping and the Tapis user is always used when accessing the system.
-   * <p>
-   * If the *effectiveUserId* for the system is static (i.e. not *${apiUserId}*) then *targetUser* is interpreted
-   * as the login user to be used when accessing the host.
-   * <p>
-   * For a dynamic TSystem (effUsr=$apiUsr) if targetUser is not the same as the Tapis user and a loginUser has been
-   * provided then a loginUser mapping is created.
-   * <p>
-   * System must exist and not be deleted.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param systemId - name of system
-   * @param targetUser - Target user for operation
-   * @param cred - Credentials to be stored
-   * @param skipCredCheck - Indicates if cred check should happen (for LINUX, S3)
-   * @param rawData - Client provided text used to create the credential - secrets should be scrubbed. Saved in update record.
-   * @return null if skipping credCheck, else checked credential with validation result set
-   * @throws TapisException - for Tapis related exceptions
-   */
-  @Override
-  public Credential createUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, Credential cred,
-                                         boolean skipCredCheck, String rawData)
-          throws TapisException, TapisClientException, IllegalStateException
-  {
-    SystemOperation op = SystemOperation.setCred;
-
-    // Check inputs. If anything null or empty throw an exception
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser) || cred == null)
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
-
-    // We will need some info from the system, so fetch it now.
-    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
-    // If system does not exist or has been deleted then throw an exception
-    if (system == null)
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
-
-    // ------------------------- Check authorization -------------------------
-    authUtils.checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
-
-    // Use utility method to do most of the work
-    return credUtils.createCredentialForUser(rUser, system, targetUser, cred,  skipCredCheck, rawData);
-  }
-
-  /**
-   * Delete credential for given system and user
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param systemId - name of system
-   * @param targetUser - Target user for operation
-   * @throws TapisException - for Tapis related exceptions
-   */
-  @Override
-  public int deleteUserCredential(ResourceRequestUser rUser, String systemId, String targetUser)
-          throws TapisException, TapisClientException
-  {
-    SystemOperation op = SystemOperation.removeCred;
-    // Check inputs. If anything null or empty throw an exception
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
-
-    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
-    // If system does not exist or has been deleted then return 0 changes
-    if (system == null) return 0;
-
-    // ------------------------- Check authorization -------------------------
-    authUtils.checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
-
-    // Use utility method to do most of the work
-    return credUtils.deleteCredentialForUser(rUser, system, targetUser, op);
-  }
-
-  /**
-   * Check user credential using given authnMethod or system default authnMethod.
-   * Required: rUser, systemId, targetUser
-   * <p>
-   * Secret path depends on whether effUser type is dynamic or static
-   * <p>
-   * If the *effectiveUserId* for the system is dynamic (i.e. equal to *${apiUserId}*) then *targetUser* is interpreted
-   * as a Tapis user.
-   * If the *effectiveUserId* for the system is static (i.e. not *${apiUserId}*) then *targetUser* is interpreted
-   * as the login user to be used when accessing the host.
-   * <p>
-   * System must exist and not be deleted.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param systemId - name of system
-   * @param targetUser - Target user for operation
-   * @param authnMethod - (optional) check credentials for specified authn method instead of default authn method
-   * @return Checked credential with validation result set
-   * @throws TapisException - for Tapis related exceptions
-   */
-  @Override
-  public Credential checkUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
-          throws TapisException, TapisClientException, IllegalStateException
-  {
-    SystemOperation op = SystemOperation.checkCred;
-    // Check inputs. If anything null or empty throw an exception
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
-
-    // We will need some info from the system, so fetch it now.
-    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
-    // If system does not exist or has been deleted then throw an exception
-    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
-
-    // ------------------------- Check authorization -------------------------
-    authUtils.checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
-
-    // Use utility method to do most of the work
-    return credUtils.checkCredentialForUser(rUser, system, targetUser, authnMethod, op);
-  }
-
-  /**
-   * Get credential for given system, target user and authn method
-   * Only certain services are authorized.
-   * <p>
-   * If the *effectiveUserId* for the system is dynamic (i.e. equal to *${apiUserId}*) then *targetUser* is
-   * interpreted as a Tapis user. Note that their may me a mapping of the Tapis user to a host *loginUser*.
-   * <p>
-   * If the *effectiveUserId* for the system is static (i.e. not *${apiUserId}*) then *targetUser* is interpreted
-   * as the host *loginUser* that is used when accessing the host.
-   * <p>
-   * Another way to view static vs dynamic secrets in SK:
-   *   If effUsr is static, then secrets stored using the "static" path in SK and static string used to build the path.
-   *   If effUsr is dynamic, then secrets stored using the "dynamic" path in SK and a Tapis user
-   *      (oboUser or impersonationId) used to build the path.
-   * <p>
-   * Desired authentication method may be specified using query parameter authnMethod=<method>. If desired
-   * authentication method not specified then credentials for the system's default authentication method are returned.
-   * <p>
-   * The result includes the attribute *authnMethod* indicating the authentication method associated with
-   * the returned credentials.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param systemId - name of system
-   * @param targetUser - Target user for operation. May be Tapis user or host user
-   * @param authnMethod - (optional) return credentials for specified authn method instead of default authn method
-   * @return populated instance or null if not found.
-   * @throws TapisException - for Tapis related exceptions
-   */
-  @Override
-  public Credential getUserCredential(ResourceRequestUser rUser, String systemId, String targetUser,
-                                      AuthnMethod authnMethod)
-          throws TapisException, TapisClientException
-  {
-    SystemOperation op = SystemOperation.getCred;
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
-         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
-
-    // We will need some info from the system, so fetch it.
-    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
-    // If system does not exist or has been deleted then return null
-    if (system == null) return null;
-
-    // ------------------------- Check authorization -------------------------
-    authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
-
-    // Use utility method to do most of the work
-    return credUtils.getCredentialForUser(rUser, system, targetUser, authnMethod);
-  }
-
-  /**
-   * Obtain a URL+SessionId that can be used to obtain a Globus Native App Authorization Code associated
-   * with given system.
-   * The clientId must be configured as a runtime setting.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param systemId System - GlobusProxy requires endpoint/collection ID - stored as host in system definition
-   * @return URL to be used for obtaining a Globus Native App Authorization Code
-   * @throws TapisException - for Tapis related exceptions
-   */
-  @Override
-  public GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser, String systemId)
-          throws NotFoundException, TapisException, TapisClientException
-  {
-    SystemOperation op = SystemOperation.getGlobusAuthInfo;
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId))
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_SYS", rUser, systemId));
-
-    // Get clientId configured for Tapis. If none throw an exception
-    String clientId = RuntimeParameters.getInstance().getGlobusClientId();
-    if (StringUtils.isBlank(clientId))
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
-
-    // We will need info from system, so fetch it now
-    // If system does not exist or has been deleted then throw an exception
-    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, false);
-    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
-
-    // Call Tapis GlobusProxy service and create a GlobusAuthInfo from the client response;
-    ResultGlobusAuthInfo r = sysUtils.getGlobusProxyClient(rUser).getAuthInfo(clientId, system.getHost());
-
-    // Check that we got something reasonable.
-    if (r == null) throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL", rUser, op.name()));
-    if (StringUtils.isBlank(r.getUrl()) || StringUtils.isBlank(r.getSessionId()))
-    {
-      String url = StringUtils.isBlank(r.getUrl()) ? "<empty>" : r.getUrl();
-      String sessId = StringUtils.isBlank(r.getSessionId()) ? "<empty>" : r.getSessionId();
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NO_URL", rUser, url, sessId));
-    }
-    return new GlobusAuthInfo(r.getUrl(), r.getSessionId(), systemId);
-  }
-
-  /**
-   * Given a Tapis system, user and Globus auth code generate a pair of access
-   * and refresh tokens. Then save them to SK for the given user and system.
-   *
-   * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param systemId - Id of system
-   * @param userName - Target user for operation
-   * @param authCode - Globus Native App Authorization Code
-   * @param sessionId - Id tracking the oauth2 flow started with the call to getGlobusAuthInfo
-   * @throws TapisException - for Tapis related exceptions
-   */
-  @Override
-  public void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName,
-                                          String authCode, String sessionId)
-          throws NotFoundException, TapisException, TapisClientException
-  {
-    SystemOperation op = SystemOperation.setAccessRefreshTokens;
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId))
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_SYS", rUser, systemId));
-
-    if (StringUtils.isBlank(userName) || StringUtils.isBlank(authCode) || StringUtils.isBlank(sessionId))
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_TOKENS", rUser,
-                                                             userName, authCode, sessionId));
-
-    // Get clientId configured for Tapis. If none throw an exception
-    String clientId = RuntimeParameters.getInstance().getGlobusClientId();
-    if (StringUtils.isBlank(clientId))
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
-
-    // We will need info from system, so fetch it now
-    // If system does not exist or has been deleted then throw an exception
-    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, false);
-    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
-
-    // ------------------------- Check service level authorization -------------------------
-    authUtils.checkAuth(rUser, op, systemId, system.getOwner(), userName, null);
-
-    // Call Tapis GlobuxProxy service to get tokens
-    GlobusProxyClient globusClient = sysUtils.getGlobusProxyClient(rUser);
-    AuthTokens authTokens = globusClient.getTokens(clientId, sessionId, authCode);
-    // Check that we got something reasonable.
-    if (authTokens == null) throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL", rUser, op.name()));
-    String accessToken = authTokens.getAccessToken();
-    String refreshToken = authTokens.getRefreshToken();
-
-    // Determine the effectiveUser type, either static or dynamic
-    // Secrets get stored on different paths based on this
-    boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
-
-    // Create credential and save to SK
-    Credential credential = new Credential(null, null, null, null, null, null, null, accessToken, refreshToken, null);
-    try
-    {
-      credUtils.createCredential(rUser, credential, systemId, userName, isStaticEffectiveUser);
-    }
-    // If tapis client exception then log error and convert to TapisException
-    catch (TapisClientException tce)
-    {
-      log.error(tce.toString());
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
-    }
-
-    // Construct Json string representing the update, with actual secrets masked out
-    Credential maskedCredential = Credential.createMaskedCredential(credential);
-    String updateJsonStr = TapisGsonUtils.getGson().toJson(maskedCredential);
-
-    // Create a record of the update
-    String updateText = null;
-    dao.addUpdateRecord(rUser, systemId, op, updateJsonStr, updateText);
-  }
-
-  /**
-   * Get System history records for the System ID specified
-   */
-  @Override
-  public List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
-          throws TapisException, TapisClientException
-  {
-    SystemOperation op = SystemOperation.read;
-    // ------------------------- Check authorization -------------------------
-    authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
-    // ----------------- Retrieve system updates information (system history) --------------------
-    List<SystemHistoryItem> systemHistory = dao.getSystemHistory(rUser.getOboTenantId(), systemId);
-    return systemHistory;
-  }
-  
   /**
    * Get System share user IDs for the System ID specified
    */
@@ -2031,28 +1722,51 @@ public class SystemsServiceImpl implements SystemsService
     authUtils.updateUserShares(rUser, OP_UNSHARE, systemId, nullSystemShare, true);
   }
 
-  /*
-   * Given a child system id get the parent system id
+  // -----------------------------------------------------------------------
+  // ------------------------- Misc -------------------------------------
+  // -----------------------------------------------------------------------
+
+  /**
+   * Get System history records for the System ID specified
    */
-  public String getParentId(ResourceRequestUser rUser, String systemId) throws TapisException, TapisClientException
+  @Override
+  public List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
+          throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId)) {
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
-    }
-
-    String oboTenant = rUser.getOboTenantId();
-
-    // Resource must exist and not be deleted
-    if (!dao.checkForSystem(oboTenant, systemId, false)) {
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
-    }
-
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
+    // ----------------- Retrieve system updates information (system history) --------------------
+    List<SystemHistoryItem> systemHistory = dao.getSystemHistory(rUser.getOboTenantId(), systemId);
+    return systemHistory;
+  }
 
-    return dao.getParent(oboTenant, systemId);
+  // ************************************************************************
+  // **************************  Package-Private Methods  *******************
+  // ************************************************************************
+
+  /**
+   * Hard delete all systems in the "test" tenant.
+   * Also remove artifacts from the Security Kernel.
+   * NOTE: This is package-private. Only test code should ever use it.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @return Number of items deleted
+   * @throws TapisException - for Tapis related exceptions
+   */
+  int hardDeleteAllTestTenantResources(ResourceRequestUser rUser)
+          throws TapisException, TapisClientException
+  {
+    // For safety hard code the tenant name
+    String oboTenant = "test";
+    // Fetch all resource Ids including deleted items
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    var systemIdSet = dao.getSystemIDs(oboTenant, true);
+    for (String id : systemIdSet)
+    {
+      hardDeleteSystem(rUser, oboTenant, id);
+    }
+    return systemIdSet.size();
   }
 
   // ************************************************************************
@@ -2207,7 +1921,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!errMessages.isEmpty())
     {
       // Construct message reporting all errors
-      String allErrors = getListOfErrors(rUser, tSystem1.getId(), errMessages);
+      String allErrors = SysUtils.getListOfErrors(rUser, tSystem1.getId(), errMessages);
       log.error(allErrors);
       throw new IllegalStateException(allErrors);
     }
@@ -2357,17 +2071,6 @@ public class SystemsServiceImpl implements SystemsService
     tapisSystem.setUuid(s.getUuid());
     tapisSystem.setDeleted(s.isDeleted());
     return tapisSystem;
-  }
-
-  /**
-   * Construct message containing list of errors
-   */
-  private static String getListOfErrors(ResourceRequestUser rUser, String systemId, List<String> msgList) {
-    var sb = new StringBuilder(LibUtils.getMsgAuth("SYSLIB_CREATE_INVALID_ERRORLIST", rUser, systemId));
-    sb.append(System.lineSeparator());
-    if (msgList == null || msgList.isEmpty()) return sb.toString();
-    for (String msg : msgList) { sb.append("  ").append(msg).append(System.lineSeparator()); }
-    return sb.toString();
   }
 
   /**
