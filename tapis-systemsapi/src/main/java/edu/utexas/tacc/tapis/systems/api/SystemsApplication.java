@@ -122,6 +122,7 @@ public class SystemsApplication extends ResourceConfig
           bind(SystemsServiceImpl.class).to(SystemsServiceImpl.class); // Used in GeneralResource for checkDB
           bind(SystemsDaoImpl.class).to(SystemsDao.class); // Used in service impl
           bind(SchedulerProfileServiceImpl.class).to(SchedulerProfileServiceImpl.class);
+          bind(CredentialsServiceImpl.class).to(CredentialsServiceImpl.class);
           bind(SysUtils.class).to(SysUtils.class);
           bind(AuthUtils.class).to(AuthUtils.class);
           bind(CredUtils.class).to(CredUtils.class);

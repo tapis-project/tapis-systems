@@ -1,5 +1,6 @@
 package edu.utexas.tacc.tapis.systems.api.resources;
 
+import edu.utexas.tacc.tapis.systems.service.CredentialsServiceImpl;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.http.server.Request;
@@ -107,7 +108,9 @@ public class CredentialResource
 
   // **************** Inject Services using HK2 ****************
   @Inject
-  private SystemsService service;
+  private CredentialsServiceImpl service;
+  @Inject
+  private SystemsService sysService;
 
   private final String className = getClass().getSimpleName();
 
@@ -159,7 +162,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, opName);
+    resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, PRETTY, opName);
     if (resp != null) return resp;
 
     // ------------------------- Extract and validate payload -------------------------
@@ -310,7 +313,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, "checkUserCredential");
+    resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, PRETTY, "checkUserCredential");
     if (resp != null) return resp;
 
 
@@ -386,7 +389,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, opName);
+    resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, PRETTY, opName);
     if (resp != null) return resp;
 
     // Check that authnMethodStr is valid if it is passed in
@@ -457,7 +460,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, opName);
+    resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, PRETTY, opName);
     if (resp != null) return resp;
 
     // ------------------------- Perform the operation -------------------------
@@ -581,7 +584,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, opName);
+    resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, PRETTY, opName);
     if (resp != null) return resp;
 
     // ------------------------- Perform the operation -------------------------
