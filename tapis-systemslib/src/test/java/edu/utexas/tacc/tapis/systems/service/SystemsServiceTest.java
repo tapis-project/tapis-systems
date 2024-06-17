@@ -66,6 +66,8 @@ public class SystemsServiceTest
 {
   private SystemsService svc;
   private SystemsServiceImpl svcImpl;
+  private SchedulerProfileServiceImpl svcSchedProfile;
+  private CredentialsServiceImpl svcCred;
   private ResourceRequestUser rOwner1, rOwner3, rOwner4, rOwner5, rOwner6,
           rTestUser0, rTestUser1, rTestUser2, rTestUser3, rTestUser4, rTestUser5,
           rParentChild1, rParentChild2, rParentChild3,
@@ -98,8 +100,13 @@ public class SystemsServiceTest
       @Override
       protected void configure() {
         bind(SystemsServiceImpl.class).to(SystemsService.class);
+        bind(CredentialsServiceImpl.class).to(CredentialsServiceImpl.class);
+        bind(SchedulerProfileServiceImpl.class).to(SchedulerProfileServiceImpl.class);
         bind(SystemsServiceImpl.class).to(SystemsServiceImpl.class);
         bind(SystemsDaoImpl.class).to(SystemsDao.class);
+        bind(SysUtils.class).to(SysUtils.class);
+        bind(AuthUtils.class).to(AuthUtils.class);
+        bind(CredUtils.class).to(CredUtils.class);
         bindFactory(ServiceContextFactory.class).to(ServiceContext.class);
         bindFactory(ServiceClientsFactory.class).to(ServiceClients.class);
       }
@@ -113,6 +120,8 @@ public class SystemsServiceTest
     // Initialize services
     svc = locator.getService(SystemsService.class);
     svcImpl = locator.getService(SystemsServiceImpl.class);
+    svcSchedProfile = locator.getService(SchedulerProfileServiceImpl.class);
+    svcCred = locator.getService(CredentialsServiceImpl.class);
     svcImpl.initService(siteId, adminTenantName, RuntimeParameters.getInstance().getServicePassword());
 
     // Initialize users and service
@@ -178,11 +187,11 @@ public class SystemsServiceTest
     List<ModuleLoadSpec> moduleLoads = List.of(new ModuleLoadSpec(moduleLoadCmd, modulesToLoad));
     SchedulerProfile sp = new SchedulerProfile(tenantName, batchSchedulerProfile1, "test profile1",  owner1,
                                                moduleLoads, hiddenOptions, null, null, null);
-    svc.createSchedulerProfile(rOwner1, sp);
+    svcSchedProfile.createSchedulerProfile(rOwner1, sp);
     System.out.println("Creating scheduler profile with name: " + batchSchedulerProfile2);
     sp = new SchedulerProfile(tenantName, batchSchedulerProfile2, "test profile2",  owner1, moduleLoads, hiddenOptions,
                               null, null, null);
-    svc.createSchedulerProfile(rOwner1, sp);
+    svcSchedProfile.createSchedulerProfile(rOwner1, sp);
   }
 
   @AfterSuite
@@ -242,14 +251,14 @@ public class SystemsServiceTest
 
     for (int i = 0; i < numSchedulerProfiles; i++)
     {
-      svc.deleteSchedulerProfile(rTestUser2, schedulerProfiles[i].getName());
+      svcSchedProfile.deleteSchedulerProfile(rTestUser2, schedulerProfiles[i].getName());
     }
-    svc.deleteSchedulerProfile(rOwner1, batchSchedulerProfile1);
-    svc.deleteSchedulerProfile(rOwner1, batchSchedulerProfile2);
+    svcSchedProfile.deleteSchedulerProfile(rOwner1, batchSchedulerProfile1);
+    svcSchedProfile.deleteSchedulerProfile(rOwner1, batchSchedulerProfile2);
 
     Assert.assertFalse(svc.checkForSystem(rAdminUser, systems[0].getId()),
             "System not deleted. System name: " + systems[0].getId());
-    Assert.assertFalse(svc.checkForSchedulerProfile(rAdminUser, schedulerProfiles[0].getName()),
+    Assert.assertFalse(svcSchedProfile.checkForSchedulerProfile(rAdminUser, schedulerProfiles[0].getName()),
             "SchedulerProfile not deleted. Profile name: " + schedulerProfiles[0].getName());
   }
 
@@ -298,10 +307,10 @@ public class SystemsServiceTest
     Credential credFake = new Credential(AuthnMethod.PASSWORD, loginUser, "fakePassword", null, null, null, null, null, null, null);
 
     // Cleanup any previous credentials
-    svc.deleteUserCredential(rOwner1, sys0.getId(), targetUser);
+    svcCred.deleteUserCredential(rOwner1, sys0.getId(), targetUser);
 
     // Test create with invalid credentials
-    Credential checkedCred = svc.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, skipCredCheckFalse, rawDataEmptyJson);
+    Credential checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
 
     // Using valid credentials should succeed.
@@ -309,11 +318,11 @@ public class SystemsServiceTest
     sys0.setAuthnCredential(credGood);
 
     // Test create and check with valid credentials
-    checkedCred = svc.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, skipCredCheckFalse, rawDataEmptyJson);
+    checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
-    checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
+    checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
-    checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PASSWORD);
+    checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PASSWORD);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
 
     // Negative tests
@@ -321,7 +330,7 @@ public class SystemsServiceTest
     boolean pass = false;
     try
     {
-      checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PKI_KEYS);
+      checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PKI_KEYS);
       Assert.fail("System checkUserCredential call should have thrown an exception when credentials do not exist");
     }
     catch (Exception e)
@@ -336,7 +345,7 @@ public class SystemsServiceTest
     pass = false;
     try
     {
-      checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), "testuser_99999999_no_such_user", null);
+      checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), "testuser_99999999_no_such_user", null);
       Assert.fail("System checkUserCredential call should have thrown an exception when user and credentials do not exist");
     }
     catch (Exception e)
@@ -373,10 +382,10 @@ public class SystemsServiceTest
     Credential credFake = new Credential(AuthnMethod.ACCESS_KEY, loginUser, null, null, null, "fakeAccessKey", "fakeAccessSecret", null, null, null);
 
     // Cleanup any previous credentials
-    svc.deleteUserCredential(rOwner1, sys0.getId(), targetUser);
+    svcCred.deleteUserCredential(rOwner1, sys0.getId(), targetUser);
 
     // Test create with invalid credentials
-    Credential checkedCred = svc.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, skipCredCheckFalse, rawDataEmptyJson);
+    Credential checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
 
     // Using valid credentials should succeed.
@@ -384,17 +393,17 @@ public class SystemsServiceTest
     sys0.setAuthnCredential(credGood);
 
     // Test create and check with valid credentials
-    checkedCred = svc.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, skipCredCheckFalse, rawDataEmptyJson);
+    checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
-    checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
+    checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
-    checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.ACCESS_KEY);
+    checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.ACCESS_KEY);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
 
     // Check with different authnMethod. Should throw NotAuthorized
     try
     {
-      checkedCred = svc.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PASSWORD);
+      checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PASSWORD);
       Assert.fail("System checkUserCredential call should have thrown an exception when credentials do not exist");
     }
     catch (Exception e)
@@ -1034,7 +1043,7 @@ public class SystemsServiceTest
     // Test credential update with invalid private key
     try
     {
-      svc.createUserCredential(rOwner1, sys0.getId(), sys0.getOwner(), credInvalidPrivateSshKey, skipCredCheckTrue, rawDataEmptyJson);
+      svcCred.createUserCredential(rOwner1, sys0.getId(), sys0.getOwner(), credInvalidPrivateSshKey, skipCredCheckTrue, rawDataEmptyJson);
       Assert.fail("Credential update call should have thrown an exception when private ssh key is invalid");
     }
     catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2")); }
@@ -1488,9 +1497,9 @@ public class SystemsServiceTest
     // Make the separate calls required to store credentials for each user.
     // In this case for owner1, testUser3, testUser5
     // These should all go under the dynamic secret path in SK
-    svc.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
-    svc.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
-    svc.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
 
     // ------------------------
     // Test 1 - basic cred retrieve/delete for owner1, testuser3
@@ -1506,49 +1515,49 @@ public class SystemsServiceTest
 
     // Get credentials for testUser3 and validate
     // Use files service AuthenticatedUser since only certain services can retrieve the cred.
-    Credential cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PASSWORD);
+    Credential cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PASSWORD);
     // Verify credentials
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser3);
     Assert.assertEquals(cred0.getPassword(), cred3NoLoginUser.getPassword());
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PKI_KEYS);
+    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PKI_KEYS);
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser3);
     Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PKI_KEYS);
     Assert.assertEquals(cred0.getPublicKey(), cred3NoLoginUser.getPublicKey());
     Assert.assertEquals(cred0.getPrivateKey(), cred3NoLoginUser.getPrivateKey());
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.ACCESS_KEY);
+    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.ACCESS_KEY);
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser3);
     Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.ACCESS_KEY);
     Assert.assertEquals(cred0.getAccessKey(), cred3NoLoginUser.getAccessKey());
     Assert.assertEquals(cred0.getAccessSecret(), cred3NoLoginUser.getAccessSecret());
 
     // Delete credentials and verify they were destroyed
-    int changeCount = svc.deleteUserCredential(rOwner1, sysId, owner1);
+    int changeCount = svcCred.deleteUserCredential(rOwner1, sysId, owner1);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when removing credential for user: " + owner1);
-    changeCount = svc.deleteUserCredential(rOwner1, sysId, testUser3);
+    changeCount = svcCred.deleteUserCredential(rOwner1, sysId, testUser3);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when removing credential for user: " + testUser3);
 
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, owner1, AuthnMethod.PASSWORD);
+    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, owner1, AuthnMethod.PASSWORD);
     Assert.assertNull(cred0, "Credential not deleted. System name: " + sysId + " User name: " + owner1);
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PASSWORD);
+    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PASSWORD);
     Assert.assertNull(cred0, "Credential not deleted. System name: " + sysId + " User name: " + testUser3);
 
     // Attempt to delete again, should return 0 for change count
-    changeCount = svc.deleteUserCredential(rOwner1, sysId, testUser3);
+    changeCount = svcCred.deleteUserCredential(rOwner1, sysId, testUser3);
     Assert.assertEquals(changeCount, 0, "Change count incorrect when removing a credential already removed.");
 
     // Update cred to set just ACCESS_KEY and test
     // This should go under the dynamic secret path in SK
-    svc.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUserAccessAuthn, skipCredCheckTrue, rawDataEmptyJson);
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.ACCESS_KEY);
+    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUserAccessAuthn, skipCredCheckTrue, rawDataEmptyJson);
+    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.ACCESS_KEY);
     Assert.assertEquals(cred0.getAccessKey(), cred3NoLoginUserAccessAuthn.getAccessKey());
     Assert.assertEquals(cred0.getAccessSecret(), cred3NoLoginUserAccessAuthn.getAccessSecret());
     // Attempt to retrieve secret that has not been set
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PKI_KEYS);
+    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PKI_KEYS);
     Assert.assertNull(cred0, "Credential was non-null for missing secret. System name: " + sysId + " User name: " + testUser3);
     // Delete credentials and verify they were destroyed
-    changeCount = svc.deleteUserCredential(rOwner1, sysId, testUser3);
+    changeCount = svcCred.deleteUserCredential(rOwner1, sysId, testUser3);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when removing a credential.");
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.ACCESS_KEY);
+    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.ACCESS_KEY);
     Assert.assertNull(cred0, "Credential not deleted. System name: " + sysId + " User name: " + testUser3);
 
     // ============================================
@@ -1560,7 +1569,7 @@ public class SystemsServiceTest
     // Create a credential for Tapis user testUser4 with a loginUser so that a mapping should be created.
     // owner should be permitted to update their own credential
     // This should go under the dynamic secret path in SK
-    svc.createUserCredential(rOwner1, sysId, testUser4, cred4LoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser4, cred4LoginUser, skipCredCheckTrue, rawDataEmptyJson);
     // Give testUser4 READ access to the system. Normally this would be done through sharing and call would
     // be made with impersonationId set to the system owner but here we are testing loginUser mapping, not impersonation.
     svc.grantUserPermissions(rOwner1, sysId, testUser4, testPermsREAD, rawDataEmptyJson);
@@ -1597,14 +1606,14 @@ public class SystemsServiceTest
     // Create "static" cred for testuser5LinuxUser and testuser5
     // These should go under the static secret path in SK
     // Note that we create a static cred for testuser5 to make sure it does not get mixed up with the dynamic cred for same user name
-    svc.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5NoLoginLinuxUser, skipCredCheckTrue, rawDataEmptyJson);
-    svc.createUserCredential(rOwner1, sysId, testUser5, cred5NoLoginStatic, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5NoLoginLinuxUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5NoLoginStatic, skipCredCheckTrue, rawDataEmptyJson);
     // Get cred and verify for testUser5LinuxUser
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser5LinuxUser, AuthnMethod.PASSWORD);
+    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser5LinuxUser, AuthnMethod.PASSWORD);
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser5LinuxUser);
     Assert.assertEquals(cred0.getPassword(), cred5NoLoginLinuxUser.getPassword());
     // Get cred and verify for testUser5
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sysId, testUser5, AuthnMethod.PASSWORD);
+    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser5, AuthnMethod.PASSWORD);
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser5);
     Assert.assertEquals(cred0.getPassword(), cred5NoLoginStatic.getPassword());
 
@@ -1628,11 +1637,11 @@ public class SystemsServiceTest
     tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     Assert.assertEquals(tmpSys.getEffectiveUserId(), owner1);
     // Re-create creds for owner1, testuser3. Recall we deleted them above as part of the test
-    svc.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
-    svc.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
     // Create "dynamic" cred for testuser5
     // This should go under the dynamic secret path in SK
-    svc.createUserCredential(rOwner1, sysId, testUser5, cred5B_LoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5B_LoginUser, skipCredCheckTrue, rawDataEmptyJson);
 
     // Get system as owner and check cred, should be same as before for "dynamic" use case.
     tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
@@ -1671,7 +1680,7 @@ public class SystemsServiceTest
     Assert.assertEquals(cred0.getLoginUser(), effectiveUserId1, "Incorrect loginUser. Should be static effUser");
 
     // Fetch credentials directly using targetUser=<static effUser>
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), effectiveUserId1, AuthnMethod.PASSWORD);
+    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sys0.getId(), effectiveUserId1, AuthnMethod.PASSWORD);
     Assert.assertNotNull(cred0, "AuthnCredential should not be null");
     Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
     Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null");
@@ -1679,7 +1688,7 @@ public class SystemsServiceTest
     Assert.assertEquals(cred0.getLoginUser(), effectiveUserId1, "Incorrect loginUser. Should be static effUser");
 
     // Owner should have no credentials
-    cred0 = svc.getUserCredential(rFilesSvcOwner1, sys0.getId(), owner1, AuthnMethod.PASSWORD);
+    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sys0.getId(), owner1, AuthnMethod.PASSWORD);
     Assert.assertNull(cred0, "AuthnCredential should be null for owner");
 
     // When impersonating should still get back same cred and loginUser
@@ -1712,7 +1721,7 @@ public class SystemsServiceTest
 
     Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
                                       "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1", "fakeCert1");
-    svc.createUserCredential(rOwner1, sysId, owner1, cred1, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1, skipCredCheckTrue, rawDataEmptyJson);
 
     String rawDataShare = "{\"users\": [\"" + testUser5 + "\"]}";
     SystemShare systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
@@ -1733,7 +1742,7 @@ public class SystemsServiceTest
 
     // Initially user testUser5 should not be able to set a cred.
     boolean pass = false;
-    try { svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson); }
+    try { svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1741,7 +1750,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.deleteUserCredential(rTestUser5, sysId, testUser5); }
+    try { svcCred.deleteUserCredential(rTestUser5, sysId, testUser5); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1751,31 +1760,31 @@ public class SystemsServiceTest
 
     // Grant READ perm, now user should be able to set cred
     svc.grantUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREAD, rawDataEmptyJson);
-    svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
-    svc.deleteUserCredential(rTestUser5, sysId, testUser5);
+    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
 
     // Revoke READ perm and grant MODIFY perm. User should be able to set cred.
     svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREAD, rawDataEmptyJson);
     svc.grantUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsMODIFY, rawDataEmptyJson);
-    svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
-    svc.deleteUserCredential(rTestUser5, sysId, testUser5);
+    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
 
     // Revoke MODIFY perm and share system. User should be able to set cred.
     svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsMODIFY, rawDataEmptyJson);
     svc.shareSystem(rOwner1, sysId, systemShare);
-    svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
-    svc.deleteUserCredential(rTestUser5, sysId, testUser5);
+    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
 
     // Unshare and then share publicly. User should be able to set cred
     svc.unshareSystem(rOwner1, sysId, systemShare);
     svc.shareSystemPublicly(rOwner1, sysId);
-    svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
-    svc.deleteUserCredential(rTestUser5, sysId, testUser5);
+    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
 
     // Unshare public and now testUser5 should again be denied
     svc.unshareSystemPublicly(rOwner1, sysId);
     pass = false;
-    try { svc.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson); }
+    try { svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1783,7 +1792,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.deleteUserCredential(rTestUser5, sysId, testUser5); }
+    try { svcCred.deleteUserCredential(rTestUser5, sysId, testUser5); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1861,13 +1870,13 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
 
     //Get credential with no system should return null
-    Credential cred = svc.getUserCredential(rOwner1, fakeSystemName, fakeUserName, AuthnMethod.PKI_KEYS);
+    Credential cred = svcCred.getUserCredential(rOwner1, fakeSystemName, fakeUserName, AuthnMethod.PKI_KEYS);
     Assert.assertNull(cred, "Credential was not null for non-existent system");
 
     // Create credential with no system should throw an exception
     pass = false;
     cred = new Credential(null, null, null, null, null, "fakeAccessKey2", "fakeAccessSecret2", null, null, null);
-    try { svc.createUserCredential(rOwner1, fakeSystemName, fakeUserName, cred, skipCredCheckTrue, rawDataEmptyJson); }
+    try { svcCred.createUserCredential(rOwner1, fakeSystemName, fakeUserName, cred, skipCredCheckTrue, rawDataEmptyJson); }
     catch (NotFoundException nfe)
     {
       pass = true;
@@ -1875,7 +1884,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
 
     // Delete credential with no system should 0 changes
-    changeCount = svc.deleteUserCredential(rOwner1, fakeSystemName, fakeUserName);
+    changeCount = svcCred.deleteUserCredential(rOwner1, fakeSystemName, fakeUserName);
     Assert.assertEquals(changeCount, 0, "Change count incorrect when deleting a user credential for non-existent system.");
   }
 
@@ -2014,7 +2023,7 @@ public class SystemsServiceTest
 
     // SET_CRED - deny user not owner/admin and not target user
     pass = false;
-    try { svc.createUserCredential(rTestUser3, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmptyJson); }
+    try { svcCred.createUserCredential(rTestUser3, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmptyJson); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -2024,7 +2033,7 @@ public class SystemsServiceTest
 
     // Services now allowed to modify, etc obo a user
 //    pass = false;
-//    try { svc.createUserCredential(rFilesSvcOwner1, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmtpyJson); }
+//    try { svcCred.createUserCredential(rFilesSvcOwner1, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmtpyJson); }
 //    catch (ForbiddenException e)
 //    {
 //      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -2034,7 +2043,7 @@ public class SystemsServiceTest
 
     // REMOVE_CRED - deny user not owner/admin and not target user
     pass = false;
-    try { svc.deleteUserCredential(rTestUser3, systemId, owner1); }
+    try { svcCred.deleteUserCredential(rTestUser3, systemId, owner1); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -2042,7 +2051,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
 //    pass = false;
-//    try { svc.deleteUserCredential(rFilesSvcOwner1, systemId, owner1); }
+//    try { svcCred.deleteUserCredential(rFilesSvcOwner1, systemId, owner1); }
 //    catch (ForbiddenException e)
 //    {
 //      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -2052,7 +2061,7 @@ public class SystemsServiceTest
 
     // GET_CRED - deny user not owner/admin, deny owner - with special message
     pass = false;
-    try { svc.getUserCredential(rTestUser3, systemId, owner1, null); }
+    try { svcCred.getUserCredential(rTestUser3, systemId, owner1, null); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_GETCRED"));
@@ -2060,7 +2069,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.getUserCredential(rOwner1, systemId, owner1, null); }
+    try { svcCred.getUserCredential(rOwner1, systemId, owner1, null); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_GETCRED"));
@@ -2185,7 +2194,7 @@ public class SystemsServiceTest
   public void testCreateSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[0];
-    svc.createSchedulerProfile(rTestUser2, p0);
+    svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
   }
 
@@ -2193,10 +2202,10 @@ public class SystemsServiceTest
   public void testGetSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[1];
-    svc.createSchedulerProfile(rTestUser2, p0);
+    svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
-    SchedulerProfile tmpProfile = svc.getSchedulerProfile(rTestUser2, p0.getName());
+    SchedulerProfile tmpProfile = svcSchedProfile.getSchedulerProfile(rTestUser2, p0.getName());
     Assert.assertNotNull(tmpProfile, "Retrieving scheduler profile resulted in null");
     System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
     Assert.assertEquals(tmpProfile.getTenant(), p0.getTenant());
@@ -2224,19 +2233,19 @@ public class SystemsServiceTest
     Assert.assertFalse(StringUtils.isBlank(tmpProfile.getUpdated().toString()));
 
     // Anyone should be able to get
-    tmpProfile = svc.getSchedulerProfile(rTestUser1, p0.getName());
+    tmpProfile = svcSchedProfile.getSchedulerProfile(rTestUser1, p0.getName());
     Assert.assertNotNull(tmpProfile, "Retrieving scheduler profile resulted in null");
     System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
-    tmpProfile = svc.getSchedulerProfile(rTestUser2, p0.getName());
+    tmpProfile = svcSchedProfile.getSchedulerProfile(rTestUser2, p0.getName());
     Assert.assertNotNull(tmpProfile, "Retrieving scheduler profile resulted in null");
     System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
-    tmpProfile = svc.getSchedulerProfile(rAdminUser, p0.getName());
+    tmpProfile = svcSchedProfile.getSchedulerProfile(rAdminUser, p0.getName());
     Assert.assertNotNull(tmpProfile, "Retrieving scheduler profile resulted in null");
     System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
-    tmpProfile = svc.getSchedulerProfile(rFilesSvcOwner1, p0.getName());
+    tmpProfile = svcSchedProfile.getSchedulerProfile(rFilesSvcOwner1, p0.getName());
     Assert.assertNotNull(tmpProfile, "Retrieving scheduler profile resulted in null");
     System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
-    tmpProfile = svc.getSchedulerProfile(rFilesSvcTestUser3, p0.getName());
+    tmpProfile = svcSchedProfile.getSchedulerProfile(rFilesSvcTestUser3, p0.getName());
     Assert.assertNotNull(tmpProfile, "Retrieving scheduler profile resulted in null");
     System.out.println("Scheduler Profile retrieved: " + tmpProfile.getName());
   }
@@ -2245,10 +2254,10 @@ public class SystemsServiceTest
   public void testDeleteSchedulerProfile() throws Exception
   {
     SchedulerProfile p0 = schedulerProfiles[2];
-    svc.createSchedulerProfile(rTestUser2, p0);
+    svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
-    svc.deleteSchedulerProfile(rTestUser2, p0.getName());
-    Assert.assertFalse(svc.checkForSchedulerProfile(rTestUser2, p0.getName()),
+    svcSchedProfile.deleteSchedulerProfile(rTestUser2, p0.getName());
+    Assert.assertFalse(svcSchedProfile.checkForSchedulerProfile(rTestUser2, p0.getName()),
                        "Scheduler Profile not deleted. Profile name: " + p0.getName());
     System.out.println("Scheduler Profile deleted: " + p0.getName());
   }
@@ -2256,13 +2265,13 @@ public class SystemsServiceTest
   @Test
   public void testGetSchedulerProfiles() throws Exception {
     SchedulerProfile p0 = schedulerProfiles[3];
-    svc.createSchedulerProfile(rTestUser2, p0);
+    svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
     p0 = schedulerProfiles[4];
-    svc.createSchedulerProfile(rTestUser2, p0);
+    svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
-    List<SchedulerProfile> profiles = svc.getSchedulerProfiles(rTestUser2);
+    List<SchedulerProfile> profiles = svcSchedProfile.getSchedulerProfiles(rTestUser2);
     Assert.assertNotNull(profiles, "getSchedulerProfiles returned null");
     Assert.assertFalse(profiles.isEmpty(), "getSchedulerProfiles returned empty list");
     var profileNamesFound = new HashSet<String>();
@@ -2285,12 +2294,12 @@ public class SystemsServiceTest
   {
     SchedulerProfile p0 = schedulerProfiles[5];
     SchedulerProfile p1 = schedulerProfiles[6];
-    svc.createSchedulerProfile(rTestUser2, p0);
+    svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
 
     // CREATE - Deny user not owner/admin, deny service
     boolean pass = false;
-    try { svc.createSchedulerProfile(rTestUser1, p1); }
+    try { svcSchedProfile.createSchedulerProfile(rTestUser1, p1); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
@@ -2298,7 +2307,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.createSchedulerProfile(rFilesSvcOwner1, p1); }
+    try { svcSchedProfile.createSchedulerProfile(rFilesSvcOwner1, p1); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
@@ -2308,7 +2317,7 @@ public class SystemsServiceTest
 
     // DELETE - deny user not owner/admin, deny service
     pass = false;
-    try { svc.deleteSchedulerProfile(rTestUser1, p0.getName()); }
+    try { svcSchedProfile.deleteSchedulerProfile(rTestUser1, p0.getName()); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));
@@ -2316,7 +2325,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
     pass = false;
-    try { svc.deleteSchedulerProfile(rFilesSvcOwner1, p0.getName()); }
+    try { svcSchedProfile.deleteSchedulerProfile(rFilesSvcOwner1, p0.getName()); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_PRF_UNAUTH"));

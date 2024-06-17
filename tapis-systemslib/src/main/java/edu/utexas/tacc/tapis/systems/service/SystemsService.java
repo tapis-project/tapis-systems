@@ -8,10 +8,7 @@ import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
-import edu.utexas.tacc.tapis.systems.model.Credential;
-import edu.utexas.tacc.tapis.systems.model.GlobusAuthInfo;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
-import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.SystemShare;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
@@ -109,51 +106,11 @@ public interface SystemsService
   Set<Permission> getUserPermissions(ResourceRequestUser rUser, String systemId, String targetUser)
           throws TapisException, TapisClientException;
 
-  // ---------------------------- Credentials ------------------------------
+  //------------------- Sharing ---------------------------------
   // -----------------------------------------------------------------------
-  Credential createUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, Credential credential,
-                            boolean skipCredCheck, String rawData)
-          throws TapisException, TapisClientException, IllegalStateException;
-
-  int deleteUserCredential(ResourceRequestUser rUser, String systemId, String targetUser)
-          throws TapisException, TapisClientException, IllegalStateException;
-
-  Credential checkUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
-          throws TapisException, TapisClientException, IllegalStateException;
-
-  Credential getUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, AuthnMethod authnMethod)
-          throws TapisException, TapisClientException;
-
-  GlobusAuthInfo getGlobusAuthInfo(ResourceRequestUser rUser, String systemId) throws TapisException, TapisClientException;
-
-  void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName, String authCode,
-                                   String sessionId)
-          throws TapisException, TapisClientException;
-
-  // ------------------- Scheduler Profiles---------------------------------
-  // -----------------------------------------------------------------------
-  void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile schedulerProfile)
-          throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException;
-
-  SchedulerProfile getSchedulerProfile(ResourceRequestUser rUser, String name)
-          throws TapisException;
-
-  List<SchedulerProfile> getSchedulerProfiles(ResourceRequestUser rUser) throws TapisException;
-
-  int deleteSchedulerProfile(ResourceRequestUser rUser, String name)
-          throws TapisException, TapisClientException, IllegalArgumentException;
-
-  boolean checkForSchedulerProfile(ResourceRequestUser rUser, String name)
-          throws TapisException, TapisClientException;
-
-  List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
-          throws TapisException, TapisClientException, IllegalStateException;
-  
   SystemShare getSystemShare(ResourceRequestUser rUser, String systemId)
-      throws TapisException, TapisClientException, IllegalStateException;
-  
-  //------------------- Share ---------------------------------
-  // -----------------------------------------------------------------------
+          throws TapisException, TapisClientException, IllegalStateException;
+
   void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare postShare)
       throws TapisException, TapisClientException, IllegalStateException;
   
@@ -165,4 +122,9 @@ public interface SystemsService
   
   void unshareSystemPublicly(ResourceRequestUser rUser, String systemId) 
       throws TapisException, TapisClientException, IllegalStateException;
+
+  //------------------- History ---------------------------------
+  // -----------------------------------------------------------------------
+  List<SystemHistoryItem> getSystemHistory(ResourceRequestUser rUser, String systemId)
+          throws TapisException, TapisClientException, IllegalStateException;
 }

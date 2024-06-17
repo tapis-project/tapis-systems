@@ -1,5 +1,6 @@
 package edu.utexas.tacc.tapis.systems.api.resources;
 
+import edu.utexas.tacc.tapis.systems.service.CredentialsServiceImpl;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.http.server.Request;
@@ -34,7 +35,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
-import edu.utexas.tacc.tapis.shared.exceptions.TapisJSONException;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidator;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidatorSpec;
 import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
@@ -108,7 +108,9 @@ public class CredentialResource
 
   // **************** Inject Services using HK2 ****************
   @Inject
-  private SystemsService service;
+  private CredentialsServiceImpl service;
+  @Inject
+  private SystemsService sysService;
 
   private final String className = getClass().getSimpleName();
 
@@ -160,7 +162,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, opName);
+    resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, PRETTY, opName);
     if (resp != null) return resp;
 
     // ------------------------- Extract and validate payload -------------------------
@@ -259,6 +261,7 @@ public class CredentialResource
     // NOTE: Much of the validation logic in this method should probably be moved to the service layer.
     if (checkedCred != null && checkedCred.getValidationResult() != null)
     {
+      // Check validation result. Return UNAUTHORIZED (401) if not valid.
       resp = ApiUtils.checkCredValidationResult(rUser, systemId, userName, checkedCred, null, skipCredCheck);
       if (resp != null) return resp;
     }
@@ -310,7 +313,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, "checkUserCredential");
+    resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, PRETTY, "checkUserCredential");
     if (resp != null) return resp;
 
 
@@ -342,6 +345,7 @@ public class CredentialResource
       return Response.status(Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
     }
 
+    // Check validation result. Return UNAUTHORIZED (401) if not valid.
     resp = ApiUtils.checkCredValidationResult(rUser, systemId, userName, checkedCred, authnMethod, false);
     if (resp != null) return resp;
 
@@ -385,7 +389,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, opName);
+    resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, PRETTY, opName);
     if (resp != null) return resp;
 
     // Check that authnMethodStr is valid if it is passed in
@@ -456,7 +460,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, opName);
+    resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, PRETTY, opName);
     if (resp != null) return resp;
 
     // ------------------------- Perform the operation -------------------------
@@ -580,7 +584,7 @@ public class CredentialResource
 
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
-    resp = ApiUtils.checkSystemExists(service, rUser, systemId, PRETTY, opName);
+    resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, PRETTY, opName);
     if (resp != null) return resp;
 
     // ------------------------- Perform the operation -------------------------
