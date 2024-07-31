@@ -185,7 +185,9 @@ public class SystemsServiceImpl implements SystemsService
     // Check if system already exists
     if (dao.checkForSystem(tenant, systemId, true))
     {
-      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, systemId));
+      String msg = LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, systemId);
+      log.warn(msg);
+      throw new IllegalStateException(msg);
     }
 
     // ==========================================================================================================
@@ -233,6 +235,7 @@ public class SystemsServiceImpl implements SystemsService
       if (isStaticEffectiveUser && !StringUtils.isBlank(cred.getLoginUser()))
       {
         String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, systemId);
+        log.warn(msg);
         throw new IllegalArgumentException(msg);
       }
 
@@ -360,7 +363,9 @@ public class SystemsServiceImpl implements SystemsService
 
     if (!parentSystem.isAllowChildren())
     {
-      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CHILD_NOT_PERMITTED", rUser, parentId));
+      String msg = LibUtils.getMsgAuth("SYSLIB_CHILD_NOT_PERMITTED", rUser, parentId);
+      log.warn(msg);
+      throw new IllegalStateException(msg);
     }
 
     if(StringUtils.isBlank(childId)) {
@@ -370,7 +375,9 @@ public class SystemsServiceImpl implements SystemsService
     // Check if system already exists
     if (dao.checkForSystem(parentSystem.getTenant(), childId, true))
     {
-      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, childId));
+      String msg = LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, childId);
+      log.warn(msg);
+      throw new IllegalStateException(msg);
     }
 
     if (StringUtils.isBlank(childOwner)) { childOwner = rUser.getOboUserId(); }
@@ -661,6 +668,7 @@ public class SystemsServiceImpl implements SystemsService
     // cant delete a system if it has children
     if(dao.hasChildren(rUser.getOboTenantId(), systemId)) {
       String msg = LibUtils.getMsg("SYSLIB_CHILD_HAS_CHILD_ERROR", rUser, systemId);
+      log.warn(msg);
       throw new IllegalStateException(msg);
     }
     // ------------------------- Check authorization -------------------------
@@ -715,6 +723,7 @@ public class SystemsServiceImpl implements SystemsService
 
       if(!okToUndeleteChild) {
         String msg = LibUtils.getMsgAuth("SYSLIB_CHILD_ALLOW_CONFLICT_ERROR", rUser, op.name(), systemId);
+        log.warn(msg);
         throw new IllegalStateException(msg);
       }
     }
@@ -1851,6 +1860,7 @@ public class SystemsServiceImpl implements SystemsService
     if (TSystem.RESERVED_ID_SET.contains(id.toUpperCase()))
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CREATE_RESERVED", rUser, id);
+      log.warn(msg);
       throw new IllegalStateException(msg);
     }
   }
@@ -1964,6 +1974,7 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(hostEvalParm))
     {
       msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_NO_ENV_VAR", rUser,rootDir);
+      log.warn(msg);
       throw new IllegalArgumentException(msg);
     }
 
@@ -1977,6 +1988,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!m.matches())
     {
       msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_INVALID_ENV_VAR", rUser, systemId, rootDir, hostEvalParm);
+      log.warn(msg);
       throw new IllegalArgumentException(msg);
     }
 
@@ -2007,6 +2019,7 @@ public class SystemsServiceImpl implements SystemsService
       else
       {
         msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_RESOLVE_EMPTY", rUser, systemId, rootDir, varName);
+        log.warn(msg);
         throw new TapisException(msg);
       }
     }
