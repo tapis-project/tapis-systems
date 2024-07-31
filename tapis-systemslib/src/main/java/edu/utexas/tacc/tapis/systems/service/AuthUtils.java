@@ -224,8 +224,10 @@ public class AuthUtils
       log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_SVC_IMPERSONATE", rUser, systemId, op.name(), impersonationId, resourceTenant));
       return;
     }
-    // Deny authorization
-    throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_IMPERSONATE", rUser, systemId, op.name(), impersonationId, resourceTenant));
+    // Log warning and deny authorization
+    String msg = LibUtils.getMsgAuth("SYSLIB_UNAUTH_IMPERSONATE", rUser, systemId, op.name(), impersonationId, resourceTenant);
+    log.warn(msg);
+    throw new ForbiddenException(msg);
   }
 
   /**
@@ -247,8 +249,10 @@ public class AuthUtils
       log.trace(LibUtils.getMsgAuth("SYSLIB_AUTH_RESOURCETENANT", rUser, systemId, op.name(), resourceTenant));
       return;
     }
-    // Deny authorization
-    throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_RESOURCETENANT", rUser, systemId, op.name(), resourceTenant));
+    // Log warning and deny authorization
+    String msg = LibUtils.getMsgAuth("SYSLIB_UNAUTH_RESOURCETENANT", rUser, systemId, op.name(), resourceTenant);
+    log.warn(msg);
+    throw new ForbiddenException(msg);
   }
 
   /**
@@ -270,7 +274,10 @@ public class AuthUtils
       log.trace(LibUtils.getMsgAuth("SYSLIB_AUTH_SHAREDAPPCTX", rUser, systemId, op.name()));
       return;
     }
-    throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_SHAREDAPPCTX", rUser, systemId, op.name()));
+    // Log warning and deny authorization
+    String msg = LibUtils.getMsgAuth("SYSLIB_UNAUTH_SHAREDAPPCTX", rUser, systemId, op.name());
+    log.warn(msg);
+    throw new ForbiddenException(msg);
   }
 
   /**
@@ -314,7 +321,9 @@ public class AuthUtils
         break;
     }
     // Not authorized, throw an exception
-    throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_PRF_UNAUTH", rUser, name, op.name()));
+    String msg = LibUtils.getMsgAuth("SYSLIB_PRF_UNAUTH", rUser, name, op.name());
+    log.warn(msg);
+    throw new ForbiddenException(msg);
   }
 
   /**
@@ -465,7 +474,12 @@ public class AuthUtils
     // We will need info from system, so fetch it now
     TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
     // We need owner to check auth and if system not there cannot find owner.
-    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    if (system == null)
+    {
+      String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+      log.warn(msg);
+      throw new NotFoundException(msg);
+    }
 
     checkAuth(rUser, op, systemId, system.getOwner(), nullTargetUser, nullPermSet, nullImpersonationId, nullSharedAppCtx);
 
@@ -666,7 +680,11 @@ public class AuthUtils
   {
     // If ever called and not a svc request then fall back to denied
     if (!rUser.isServiceRequest())
-      throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()));
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name());
+      log.warn(msg);
+      throw new ForbiddenException(msg);
+    }
 
     // This is a service request. The username will be the service name. E.g. files, jobs, streams, etc
     String svcName = rUser.getJwtUserId();
@@ -678,7 +696,9 @@ public class AuthUtils
     {
       if (SVCLIST_GETCRED.contains(svcName)) return;
       // Not authorized, throw an exception
-      throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_GETCRED", rUser, systemId, op.name()));
+      String msg = LibUtils.getMsgAuth("SYSLIB_UNAUTH_GETCRED", rUser, systemId, op.name());
+      log.warn(msg);
+      throw new ForbiddenException(msg);
     }
 
     // Always allow read, execute, getPerms for a service calling as itself.
@@ -731,7 +751,9 @@ public class AuthUtils
         break;
       case getCred:
         // Only some services allowed to get credentials. Never a user.
-        throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH_GETCRED", rUser, systemId, op.name()));
+        String msg = LibUtils.getMsgAuth("SYSLIB_UNAUTH_GETCRED", rUser, systemId, op.name());
+        log.warn(msg);
+        throw new ForbiddenException(msg);
     }
 
     // Remaining checks require owner. If no owner specified and owner cannot be determined then log an error and deny.
@@ -783,7 +805,9 @@ public class AuthUtils
         break;
     }
     // Not authorized, throw an exception
-    throw new ForbiddenException(LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name()));
+    String msg = LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name());
+    log.warn(msg);
+    throw new ForbiddenException(msg);
   }
 
   /*
