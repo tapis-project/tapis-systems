@@ -32,7 +32,6 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import javax.inject.Inject;
-import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.core.Response;
@@ -198,6 +197,7 @@ public class CredUtils
     if (!StringUtils.isBlank(cred.getPrivateKey()) && !cred.isValidPrivateSshKey())
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2", rUser, systemId, targetUser);
+      log.warn(msg);
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
 
@@ -291,6 +291,7 @@ public class CredUtils
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op, systemId, system.getSystemType(),
               targetUser, authnMethod.name());
+      log.warn(msg);
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
     // ---------------- Verify credentials using defaultAuthnMethod --------------------

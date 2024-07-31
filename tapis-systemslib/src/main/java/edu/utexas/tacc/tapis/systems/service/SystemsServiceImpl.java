@@ -1095,6 +1095,7 @@ public class SystemsServiceImpl implements SystemsService
     if (requireExecPerm && !system.getCanExec())
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_NOTEXEC", rUser, systemId, op.name());
+      log.warn(msg);
       throw new ForbiddenException(msg);
     }
 
