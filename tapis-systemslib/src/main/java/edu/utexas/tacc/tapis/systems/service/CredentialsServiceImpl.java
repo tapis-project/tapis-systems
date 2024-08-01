@@ -108,7 +108,11 @@ public class CredentialsServiceImpl
     TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
     // If system does not exist or has been deleted then throw an exception
     if (system == null)
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    {
+      String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+      log.debug(msg);
+      throw new NotFoundException(msg);
+    }
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
@@ -176,7 +180,12 @@ public class CredentialsServiceImpl
     // We will need some info from the system, so fetch it now.
     TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
     // If system does not exist or has been deleted then throw an exception
-    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    if (system == null)
+    {
+      String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+      log.debug(msg);
+      throw new NotFoundException(msg);
+    }
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
@@ -260,7 +269,12 @@ public class CredentialsServiceImpl
     // We will need info from system, so fetch it now
     // If system does not exist or has been deleted then throw an exception
     TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, false);
-    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    if (system == null)
+    {
+      String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+      log.debug(msg);
+      throw new NotFoundException(msg);
+    }
 
     // Call Tapis GlobusProxy service and create a GlobusAuthInfo from the client response;
     ResultGlobusAuthInfo r = sysUtils.getGlobusProxyClient(rUser).getAuthInfo(clientId, system.getHost());
@@ -308,7 +322,12 @@ public class CredentialsServiceImpl
     // We will need info from system, so fetch it now
     // If system does not exist or has been deleted then throw an exception
     TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, false);
-    if (system == null) throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    if (system == null)
+    {
+      String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+      log.debug(msg);
+      throw new NotFoundException(msg);
+    }
 
     // ------------------------- Check service level authorization -------------------------
     authUtils.checkAuth(rUser, op, systemId, system.getOwner(), userName, null);

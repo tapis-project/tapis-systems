@@ -358,7 +358,9 @@ public class SystemsServiceImpl implements SystemsService
                                nullSharedAppCtx, nullResourceTenant, false);
     if (parentSystem == null)
     {
-      throw new NotFoundException(LibUtils.getMsgAuth("SYSLIB_CHILD_PARENT_NOT_FOUND", rUser, opName, parentId, childId));
+      String msg = LibUtils.getMsgAuth("SYSLIB_CHILD_PARENT_NOT_FOUND", rUser, opName, parentId, childId);
+      log.debug(msg);
+      throw new NotFoundException(msg);
     }
 
     if (!parentSystem.isAllowChildren())
@@ -420,8 +422,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // System must already exist and not be deleted
-    if (!dao.checkForSystem(oboTenant, systemId, false))
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    checkForSysWithThrow(rUser, oboTenant, systemId, false);
 
     // if the patch system contains a request to set allowChildren to false, only allow
     // the change if there are no children.
@@ -511,8 +512,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // System must already exist and not be deleted
-    if (!dao.checkForSystem(oboTenant, systemId, false))
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    checkForSysWithThrow(rUser, oboTenant, systemId, false);
 
     // Fill in defaults
     putSystem.setDefaults();
@@ -661,12 +661,13 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
     // System must exist
+    checkForSysWithThrow(rUser, rUser.getOboTenantId(), systemId, true);
     TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, true);
-    if (system == null)
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    // We just checked for system, so it should never be null. But just in case.
+    if (system == null) return 0;
 
     // cant delete a system if it has children
-    if(dao.hasChildren(rUser.getOboTenantId(), systemId)) {
+    if (dao.hasChildren(rUser.getOboTenantId(), systemId)) {
       String msg = LibUtils.getMsg("SYSLIB_CHILD_HAS_CHILD_ERROR", rUser, systemId);
       log.warn(msg);
       throw new IllegalStateException(msg);
@@ -705,14 +706,14 @@ public class SystemsServiceImpl implements SystemsService
     String oboTenant = rUser.getOboTenantId();
 
     // System must exist
+    checkForSysWithThrow(rUser, oboTenant, systemId, true);
     TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, true);
-    if (system == null) {
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
-    }
+    // We just checked for system, so it should never be null. But just in case.
+    if (system == null) return 0;
 
     // if this is a child system, make sure that the parent hasn't been deleted, and that
     // the parent still allows children
-    if(isChildSystem(system)) {
+    if (isChildSystem(system)) {
       boolean okToUndeleteChild = false;
       TSystem parentSystem = dao.getSystem(rUser.getOboTenantId(), system.getParentId(), false);
       if (parentSystem != null) {
@@ -721,7 +722,7 @@ public class SystemsServiceImpl implements SystemsService
         }
       }
 
-      if(!okToUndeleteChild) {
+      if (!okToUndeleteChild) {
         String msg = LibUtils.getMsgAuth("SYSLIB_CHILD_ALLOW_CONFLICT_ERROR", rUser, op.name(), systemId);
         log.warn(msg);
         throw new IllegalStateException(msg);
@@ -772,8 +773,7 @@ public class SystemsServiceImpl implements SystemsService
     String oboTenant = rUser.getOboTenantId();
 
     // System must already exist and not be deleted
-    if (!dao.checkForSystem(oboTenant, systemId, false))
-         throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    checkForSysWithThrow(rUser, oboTenant, systemId, false);
 
     // Retrieve old owner
     String oldOwnerName = dao.getSystemOwner(oboTenant, systemId);
@@ -839,10 +839,10 @@ public class SystemsServiceImpl implements SystemsService
     String oboTenant = rUser.getOboTenantId();
 
     // System must already exist and not be deleted
+    checkForSysWithThrow(rUser, oboTenant, childSystemId, false);
     TSystem childSystem = dao.getSystem(oboTenant, childSystemId, false);
-    if (childSystem == null) {
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, childSystemId));
-    }
+    // We just checked for system, so it should never be null. But just in case.
+    if (childSystem == null) return 0;
 
     // Get parent's Id
     String parentSystemId = childSystem.getParentId();
@@ -876,12 +876,15 @@ public class SystemsServiceImpl implements SystemsService
 
     // System must already exist and not be deleted
     for(String childSystemId : childIdsToUnlink) {
+      checkForSysWithThrow(rUser, oboTenant, childSystemId, false);
       TSystem childSystem = dao.getSystem(oboTenant, childSystemId, false);
-      if (childSystem == null) {
-        throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, childSystemId));
-      }
-      if(!parentId.equals(childSystem.getParentId())) {
-        throw new NotFoundException(LibUtils.getMsgAuth("SYSLIB_CHILD_CHILD_NOT_FOUND", rUser, parentId, childSystemId));
+      // We just checked for system, so it should never be null. But just in case.
+      if (childSystem == null) return 0;
+      if(!parentId.equals(childSystem.getParentId()))
+      {
+        String msg = LibUtils.getMsgAuth("SYSLIB_CHILD_CHILD_NOT_FOUND", rUser, parentId, childSystemId);
+        log.debug(msg);
+        throw new NotFoundException(msg);
       }
     }
 
@@ -908,10 +911,10 @@ public class SystemsServiceImpl implements SystemsService
     String oboTenant = rUser.getOboTenantId();
 
     // System must already exist and not be deleted
+    checkForSysWithThrow(rUser, oboTenant, parentId, false);
     TSystem parentSystem = dao.getSystem(oboTenant, parentId, false);
-    if (parentSystem == null) {
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, parentSystem));
-    }
+    // We just checked for system, so it should never be null. But just in case.
+    if (parentSystem == null) return 0;
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerKnown(rUser, op, parentId, parentSystem.getOwner());
@@ -1012,8 +1015,7 @@ public class SystemsServiceImpl implements SystemsService
     String oboTenant = rUser.getOboTenantId();
 
     // Resource must exist and not be deleted
-    if (!dao.checkForSystem(oboTenant, systemId, false))
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    checkForSysWithThrow(rUser, oboTenant, systemId, false);
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
@@ -1499,9 +1501,7 @@ public class SystemsServiceImpl implements SystemsService
     String oboTenant = rUser.getOboTenantId();
 
     // Resource must exist and not be deleted
-    if (!dao.checkForSystem(oboTenant, systemId, false)) {
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
-    }
+    checkForSysWithThrow(rUser, oboTenant, systemId, false);
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
@@ -1535,8 +1535,7 @@ public class SystemsServiceImpl implements SystemsService
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     // If system does not exist or has been deleted then throw an exception
-    if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false))
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    checkForSysWithThrow(rUser, rUser.getOboTenantId(), systemId, false);
 
     // NOTE: Previously we did a check here to see if owner is trying to update permissions for themselves.
     // If so we threw an exception because this would be confusing since owner always has full permissions.
@@ -1629,8 +1628,7 @@ public class SystemsServiceImpl implements SystemsService
          throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     // If system does not exist or has been deleted then throw an exception
-    if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false))
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    checkForSysWithThrow(rUser, rUser.getOboTenantId(), systemId, false);
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
@@ -1756,6 +1754,25 @@ public class SystemsServiceImpl implements SystemsService
   // ************************************************************************
 
   /**
+   * Use dao to see if system exists. If not throw NOT_FOUND exception.
+   * @param rUser - user making the request
+   * @param resourceTenantId - tenant
+   * @param sysId - system id
+   * @param includeDeleted - indicates if deleted records should be included
+   */
+  private void checkForSysWithThrow(ResourceRequestUser rUser, String resourceTenantId, String sysId,
+                                    boolean includeDeleted)
+          throws TapisException
+  {
+    if (!dao.checkForSystem(resourceTenantId, sysId, includeDeleted))
+    {
+      String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, sysId);
+      log.debug(msg);
+      throw new NotFoundException(msg);
+    }
+  }
+
+  /**
    * Hard delete all systems in the "test" tenant.
    * Also remove artifacts from the Security Kernel.
    * NOTE: This is package-private. Only test code should ever use it.
@@ -1812,8 +1829,7 @@ public class SystemsServiceImpl implements SystemsService
     String oboTenant = rUser.getOboTenantId();
 
     // resource must already exist and not be deleted
-    if (!dao.checkForSystem(oboTenant, systemId, false))
-      throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+    checkForSysWithThrow(rUser, oboTenant, systemId, false);
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerUnkown(rUser, sysOp, systemId);
