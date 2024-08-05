@@ -359,7 +359,7 @@ public class SystemsServiceImpl implements SystemsService
     if (parentSystem == null)
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CHILD_PARENT_NOT_FOUND", rUser, opName, parentId, childId);
-      log.debug(msg);
+      log.info(msg);
       throw new NotFoundException(msg);
     }
 
@@ -883,7 +883,7 @@ public class SystemsServiceImpl implements SystemsService
       if(!parentId.equals(childSystem.getParentId()))
       {
         String msg = LibUtils.getMsgAuth("SYSLIB_CHILD_CHILD_NOT_FOUND", rUser, parentId, childSystemId);
-        log.debug(msg);
+        log.info(msg);
         throw new NotFoundException(msg);
       }
     }
@@ -1352,7 +1352,7 @@ public class SystemsServiceImpl implements SystemsService
     // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
     // If no listType provided use the default
     if (StringUtils.isBlank(listType)) listType = DEFAULT_LIST_TYPE.name();
-    // Validate the listType enum (case insensitive).
+    // Validate the listType enum (case-insensitive).
     listType = listType.toUpperCase();
     if (!EnumUtils.isValidEnum(AuthListType.class, listType))
     {
@@ -1767,7 +1767,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!dao.checkForSystem(resourceTenantId, sysId, includeDeleted))
     {
       String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, sysId);
-      log.debug(msg);
+      log.info(msg);
       throw new NotFoundException(msg);
     }
   }
