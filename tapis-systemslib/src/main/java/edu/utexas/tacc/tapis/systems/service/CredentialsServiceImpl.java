@@ -110,7 +110,7 @@ public class CredentialsServiceImpl
     if (system == null)
     {
       String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
-      log.debug(msg);
+      log.info(msg);
       throw new NotFoundException(msg);
     }
 
@@ -183,7 +183,7 @@ public class CredentialsServiceImpl
     if (system == null)
     {
       String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
-      log.debug(msg);
+      log.info(msg);
       throw new NotFoundException(msg);
     }
 
@@ -272,7 +272,7 @@ public class CredentialsServiceImpl
     if (system == null)
     {
       String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
-      log.debug(msg);
+      log.info(msg);
       throw new NotFoundException(msg);
     }
 
@@ -325,7 +325,7 @@ public class CredentialsServiceImpl
     if (system == null)
     {
       String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
-      log.debug(msg);
+      log.info(msg);
       throw new NotFoundException(msg);
     }
 
