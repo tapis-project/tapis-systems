@@ -246,7 +246,7 @@ public class AuthUtils
     // If a service request and service is in the allowed list then log message and allow.
     if (rUser.isServiceRequest() && SVCLIST_RESOURCETENANT.contains(svcName))
     {
-      log.trace(LibUtils.getMsgAuth("SYSLIB_AUTH_RESOURCETENANT", rUser, systemId, op.name(), resourceTenant));
+      log.info(LibUtils.getMsgAuth("SYSLIB_AUTH_RESOURCETENANT", rUser, systemId, op.name(), resourceTenant));
       return;
     }
     // Log warning and deny authorization
@@ -682,7 +682,8 @@ public class AuthUtils
     if (!rUser.isServiceRequest())
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name());
-      log.info(msg);
+      // This is unexpected, so log as warning instead of info
+      log.warn(msg);
       throw new ForbiddenException(msg);
     }
 
@@ -697,7 +698,8 @@ public class AuthUtils
       if (SVCLIST_GETCRED.contains(svcName)) return;
       // Not authorized, throw an exception
       String msg = LibUtils.getMsgAuth("SYSLIB_UNAUTH_GETCRED", rUser, systemId, op.name());
-      log.info(msg);
+      // No user or unauthorized service should be doing this, so log as warn instead of info
+      log.warn(msg);
       throw new ForbiddenException(msg);
     }
 
@@ -752,7 +754,8 @@ public class AuthUtils
       case getCred:
         // Only some services allowed to get credentials. Never a user.
         String msg = LibUtils.getMsgAuth("SYSLIB_UNAUTH_GETCRED", rUser, systemId, op.name());
-        log.info(msg);
+        // No user should be doing this, so log as warn instead of info
+        log.warn(msg);
         throw new ForbiddenException(msg);
     }
 
