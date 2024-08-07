@@ -2095,7 +2095,6 @@ public class SystemsServiceImpl implements SystemsService
 //    tapisSystem.setJobCapabilities(s.getJobCapabilities());
 //    tapisSystem.setTags(s.getTags());
     tapisSystem.setNotes(s.getNotes());
-    tapisSystem.setImportRefId(s.getImportRefId());
 //    tapisSystem.setCreated(s.getCreated());
 //    tapisSystem.setUpdated(s.getUpdated());
     tapisSystem.setUuid(s.getUuid());
