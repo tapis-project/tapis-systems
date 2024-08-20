@@ -2,14 +2,10 @@ package edu.utexas.tacc.tapis.systems.service;
 
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.security.client.SKClient;
-import edu.utexas.tacc.tapis.security.client.gen.model.ReqShareResource;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
-import edu.utexas.tacc.tapis.security.client.gen.model.SkShare;
 import edu.utexas.tacc.tapis.security.client.model.*;
-import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisSSHAuthException;
-import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.s3.S3Connection;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
@@ -18,7 +14,6 @@ import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.Credential;
-import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemShare;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
@@ -144,7 +139,12 @@ public class CredUtils
     if (authnMethod == null)
     {
       AuthnMethod defaultAuthnMethod= dao.getSystemDefaultAuthnMethod(rUser.getOboTenantId(), systemId);
-      if (defaultAuthnMethod == null)  throw new NotFoundException(LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId));
+      if (defaultAuthnMethod == null)
+      {
+        String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+        log.info(msg);
+        throw new NotFoundException(msg);
+      }
       authnMethod = defaultAuthnMethod;
     }
 
@@ -291,7 +291,7 @@ public class CredUtils
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op, systemId, system.getSystemType(),
               targetUser, authnMethod.name());
-      log.warn(msg);
+      log.info(msg);
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
     // ---------------- Verify credentials using defaultAuthnMethod --------------------
@@ -389,6 +389,7 @@ public class CredUtils
     {
       // Not supported. Return now.
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_SUPPORTED", rUser, systemId, systemType, effectiveUser, authnMethod);
+      log.info(msg);
       return new Credential(AuthnMethod.PKI_KEYS, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
               cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
               cred.getAccessToken(), cred.getRefreshToken(), cred.getCertificate(), Boolean.FALSE, msg);
@@ -680,8 +681,8 @@ public class CredUtils
   private Credential verifyConnection(ResourceRequestUser rUser, String op, TSystem tSystem1, AuthnMethod authnMethod,
                                       Credential cred, String effectiveUser)
   {
-    log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-            effectiveUser, authnMethod));
+    log.info(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), tSystem1.getSystemType(),
+             effectiveUser, authnMethod));
     Credential retCred;
     String systemId = tSystem1.getId();
     String host = tSystem1.getHost();
@@ -693,7 +694,8 @@ public class CredUtils
     boolean doingPki = AuthnMethod.PKI_KEYS.equals(authnMethod);
     boolean doingPassword = AuthnMethod.PASSWORD.equals(authnMethod);
     boolean doingAccessKey = AuthnMethod.ACCESS_KEY.equals(authnMethod);
-    String msg;
+    String msg = "No Errors";
+    String validationResult;
     if ((doingLinux && !SystemType.LINUX.equals(systemType)) || (doingAccessKey && !SystemType.S3.equals(systemType)))
     {
       // System is not LINUX. Not supported.
@@ -701,6 +703,7 @@ public class CredUtils
       retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
               cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(),
               cred.getRefreshToken(), cred.getCertificate(), Boolean.FALSE, msg);
+      validationResult = "FAILED";
     }
     else if ((doingPki && (StringUtils.isBlank(cred.getPublicKey()) || StringUtils.isBlank(cred.getPrivateKey()))) ||
             (doingPassword && StringUtils.isBlank(cred.getPassword())) ||
@@ -711,13 +714,14 @@ public class CredUtils
       retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
               cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(),
               cred.getRefreshToken(), cred.getCertificate(), Boolean.FALSE, msg);
+      validationResult = "FAILED";
     }
     else
     {
       // Make the connection attempt
       // Try to handle as many exceptions as we can. For this reason, in each case there is a final catch of Exception
       //   which is re-thrown as a TapisException.
-      log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_CONN", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
+      log.info(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_CONN", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
               effectiveUser, port, authnMethod));
       TapisException te = null;
       switch(authnMethod)
@@ -756,6 +760,7 @@ public class CredUtils
         default:
           // We should never get here, but just in case fail the verification
           msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_SUPPORTED", rUser, systemId, systemType, effectiveUser, authnMethod);
+          log.error(msg);
           return new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
                   cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(),
                   cred.getRefreshToken(), cred.getCertificate(), Boolean.FALSE, msg);
@@ -764,6 +769,7 @@ public class CredUtils
       // We have made the connection attempt. Check the result.
       if (te == null)
       {
+        validationResult = "SUCCESS";
         // No problem with connection. Set result to TRUE
         retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
                 cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(),
@@ -774,6 +780,7 @@ public class CredUtils
         //
         // There was a problem. Try to figure out why. Set result to FALSE
         //
+        validationResult = "FAILED";
         Throwable cause = te.getCause();
         String eMsg = te.getMessage();
         if (te instanceof TapisSSHAuthException && cause != null && cause.getMessage().contains(NO_MORE_AUTH_METHODS))
@@ -800,8 +807,8 @@ public class CredUtils
                 cred.getRefreshToken(), cred.getCertificate(), Boolean.FALSE, msg);
       }
     }
-    log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
-            effectiveUser, authnMethod));
+    log.info(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
+            effectiveUser, authnMethod, validationResult, msg));
     return retCred;
   }
 
