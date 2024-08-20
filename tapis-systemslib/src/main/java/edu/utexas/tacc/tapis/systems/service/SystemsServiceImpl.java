@@ -127,6 +127,10 @@ public class SystemsServiceImpl implements SystemsService
     serviceContext.initServiceJWT(siteId, SYSTEMS_SERVICE, svcPassword);
     // Make sure DB is present and updated to latest version using flyway
     dao.migrateDB();
+    // TODO Check the systems_cred_info table and synchronize with SK as needed.
+    //      Record previous IN_PROGRESS records as failures and update status to PENDING
+    //      For all PENDING records read info from SK and update the cred info table.
+//TODO    synchCredInfo();
   }
 
   /**

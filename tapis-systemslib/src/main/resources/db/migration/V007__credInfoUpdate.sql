@@ -23,7 +23,7 @@
 --   has_cert - indicates if credentials for CERT have been registered.
 --   sync_status - indicates current status of synchronization between SK and Systems service.
 --      PENDING - Record requires synchronization
---      IN_PROGRESS - We are in the process of synchronizing record
+--      IN_PROGRESS - Systems service is in the process of synchronizing the record
 --      FAILED - Synchronization failed.
 --      COMPLETE - Synchronization completed successfully.
 --   sync_fail_message - Message indicating why last synch attempt failed
