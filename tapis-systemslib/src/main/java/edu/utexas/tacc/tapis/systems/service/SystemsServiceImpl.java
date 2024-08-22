@@ -486,7 +486,7 @@ public class SystemsServiceImpl implements SystemsService
    * Incoming TSystem must contain the tenantId and systemId.
    * Secrets in the text should be masked.
    * Attributes that cannot be updated and so will be looked up and filled in:
-   *   tenant, id, systemType, owner, enabled, bucketName, rootDir, canExec
+   *   tenant, id, systemType, owner, enabled, bucketName, rootDir, canExec, effectiveUserId
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param putSystem - Pre-populated TSystem object (including tenantId and systemId)
    * @param skipCredCheck - Indicates if cred check should happen (for LINUX, S3)
@@ -506,8 +506,6 @@ public class SystemsServiceImpl implements SystemsService
     // Extract some attributes for convenience and clarity
     String oboTenant = rUser.getOboTenantId();
     String systemId = putSystem.getId();
-    SystemType systemType = putSystem.getSystemType();
-    String effectiveUserId = putSystem.getEffectiveUserId();
 
     // ---------------------------- Check inputs ------------------------------------
     if (StringUtils.isBlank(oboTenant) || StringUtils.isBlank(systemId) || StringUtils.isBlank(rawData))
@@ -521,16 +519,15 @@ public class SystemsServiceImpl implements SystemsService
     // Fill in defaults
     putSystem.setDefaults();
 
-    // Set flag indicating if effectiveUserId is static
-    boolean isStaticEffectiveUser = !effectiveUserId.equals(APIUSERID_VAR);
-
-    // Set flag indicating if we will deal with credentials.
-    // We only do that when credentials provided and effectiveUser is static
-    Credential cred = putSystem.getAuthnCredential();
-    boolean manageCredentials = (cred != null && isStaticEffectiveUser);
-
     // Retrieve the system being updated and create fully populated TSystem with updated attributes
     TSystem origTSystem = dao.getSystem(oboTenant, systemId);
+
+    // Set flag indicating if effectiveUserId is static
+    String effectiveUserId = origTSystem.getEffectiveUserId();
+    boolean isStaticEffectiveUser = !effectiveUserId.equals(APIUSERID_VAR);
+
+    // Note that effectiveUserId and authnCredential are ignored for PUT, so we do not need to
+    // deal with updating credentials.
 
     // Error if the system we are replacing had a parentId (i.e. - PUT not allowed for a child system) or if
     // the incoming request has a parentId set (i.e. trying to change the system to a child system)
@@ -540,49 +537,12 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     TSystem updatedTSystem = createUpdatedTSystem(origTSystem, putSystem);
-    updatedTSystem.setAuthnCredential(cred);
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerKnown(rUser, op, systemId, origTSystem.getOwner());
 
     // ---------------- Check constraints on TSystem attributes ------------------------
     validateTSystem(rUser, updatedTSystem, false);
-
-    // If credentials provided validate constraints and verify credentials
-    if (cred != null)
-    {
-      // Skip check if not LINUX or S3
-      if (!SystemType.LINUX.equals(systemType) && !SystemType.S3.equals(systemType)) skipCredCheck = true;
-
-      // static effectiveUser case. Credential must not contain loginUser
-      // NOTE: If effectiveUserId is dynamic then request has already been rejected above during
-      //       call to validateTSystem(). See method TSystem.checkAttrMisc().
-      //       But we include isStaticEffectiveUser here anyway in case that ever changes.
-      if (isStaticEffectiveUser && !StringUtils.isBlank(cred.getLoginUser()))
-      {
-        String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, systemId);
-        throw new IllegalArgumentException(msg);
-      }
-
-      // ---------------- Verify credentials if not skipped
-      if (!skipCredCheck && manageCredentials)
-      {
-        Credential c = credUtils.verifyCredentials(rUser, updatedTSystem, cred, cred.getLoginUser(), updatedTSystem.getDefaultAuthnMethod());
-        updatedTSystem.setAuthnCredential(c);
-        // If credential validation failed we do not create the system. Return now.
-        if (Boolean.FALSE.equals(c.getValidationResult())) return updatedTSystem;
-      }
-    }
-
-    // ------------------- Store credentials -----------------------------------
-    // Store credentials in Security Kernel if cred provided and effectiveUser is static
-    if (manageCredentials)
-    {
-      // Use private internal method instead of public API to skip auth and other checks not needed here.
-      // Create credential
-      // Note that we only manageCredentials for the static case and for the static case targetUser=effectiveUserId
-      credUtils.createCredential(rUser, cred, systemId, effectiveUserId, isStaticEffectiveUser);
-    }
 
     // This is a WIP and, in fact, probably not even a good idea to attempt.
     // We should instead generate the change history on demand from the raw data.
@@ -2173,7 +2133,7 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Create an updated TSystem based on the system created from a PUT request.
    * Attributes that cannot be updated and must be filled in from the original system:
-   *   tenant, id, systemType, owner, enabled, bucketName, rootDir, canExec
+   *   tenant, id, systemType, owner, enabled, bucketName, rootDir, canExec, effectiveUserId
    */
   private static TSystem createUpdatedTSystem(TSystem origSys, TSystem putSys)
   {
@@ -2184,6 +2144,7 @@ public class SystemsServiceImpl implements SystemsService
     updatedSys.setEnabled(origSys.isEnabled());
     updatedSys.setBucketName(origSys.getBucketName());
     updatedSys.setRootDir(origSys.getRootDir());
+    updatedSys.setEffectiveUserId(origSys.getEffectiveUserId());
     return updatedSys;
   }
 
