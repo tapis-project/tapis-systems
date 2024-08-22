@@ -453,7 +453,7 @@ public final class IntegrationUtils
   public static TSystem makePutSystemFull(String key, TSystem system)
   {
     TSystem putSys = new TSystem(system.getSeqId(), tenantName, system.getId(), description2, system.getSystemType(),
-                       system.getOwner(), hostname2, system.isEnabled(), effectiveUserId2,
+                       system.getOwner(), hostname2, system.isEnabled(), system.getEffectiveUserId(),
                        prot2.getAuthnMethod(), system.getBucketName(), system.getRootDir(), prot2.getPort(),
                        prot2.isUseProxy(), prot2.getProxyHost(), prot2.getProxyPort(),
                        dtnSystemIdNull,

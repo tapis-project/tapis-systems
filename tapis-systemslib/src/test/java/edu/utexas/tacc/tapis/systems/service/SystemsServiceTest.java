@@ -500,7 +500,6 @@ public class SystemsServiceTest
     // Update original definition with modified values, so we can use the checkCommon method.
     sys0.setDescription(description2);
     sys0.setHost(hostname2);
-    sys0.setEffectiveUserId(effectiveUserId2);
     sys0.setDefaultAuthnMethod(prot2.getAuthnMethod());
     sys0.setPort(prot2.getPort());
     sys0.setUseProxy(prot2.isUseProxy());
