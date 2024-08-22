@@ -1444,9 +1444,10 @@ public class SystemResource {
     boolean enabledTrue = true;
     String bucketNameNull = null;
     String rootDirNull = null;
+    String effectiveUserIdNull = null;
     boolean canExecTrue = true;
     var tSystem = new TSystem(-1, tenantId, systemId, req.description, systemTypeNull, ownerNull, req.host,
-            enabledTrue, req.effectiveUserId, req.defaultAuthnMethod, bucketNameNull, rootDirNull,
+            enabledTrue, effectiveUserIdNull, req.defaultAuthnMethod, bucketNameNull, rootDirNull,
             req.port, req.useProxy, req.proxyHost, req.proxyPort,
             req.dtnSystemId,
             canExecTrue, req.jobRuntimes, req.jobWorkingDir, req.jobEnvVariables, req.jobMaxJobs, req.jobMaxJobsPerUser,
