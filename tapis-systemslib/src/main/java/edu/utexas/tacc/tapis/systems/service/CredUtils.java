@@ -392,7 +392,8 @@ public class CredUtils
       log.info(msg);
       return new Credential(AuthnMethod.PKI_KEYS, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
               cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
-              cred.getAccessToken(), cred.getRefreshToken(), cred.getCertificate(), Boolean.FALSE, msg);
+              cred.getAccessToken(), cred.getRefreshToken(),
+              cred.getCertificate(), cred.getTmsRecord(), Boolean.FALSE, msg); // TODO/TBD TMS
     }
     return verifyConnection(rUser, op, tSystem1, authnMethod, cred, effectiveUser);
   }
@@ -607,7 +608,7 @@ public class CredUtils
       // Retrieve the secrets
       SkSecret skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
       if (skSecret == null) return null;
-      var dataMap = skSecret.getSecretMap();
+      Map<String, String> dataMap = skSecret.getSecretMap();
       if (dataMap == null) return null;
 
       // Determine the loginUser associated with the credential.
@@ -650,7 +651,14 @@ public class CredUtils
     return credential;
   }
 
-  // Build a TapisSystem client credential based on the TSystem model credential
+  /**
+   * Build a TapisSystem client credential based on the TSystem model credential
+   * Needed for shared code that expects to use the java wrapper client generated credential model.
+   *
+   * @param cred Credential from Systems service model object
+   * @param authnMethod Authentication method
+   * @return TapisSystem Java wrapper client credential
+   */
   static edu.utexas.tacc.tapis.systems.client.gen.model.Credential buildAuthnCred(Credential cred, AuthnMethod authnMethod)
   {
     if (cred == null) return null;

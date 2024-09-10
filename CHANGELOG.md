@@ -12,10 +12,10 @@ https://tapis-project.github.io/live-docs
 ---------------------------------------------------------------------------
 ## 1.7.1 - 2024-??-??
 
-TBD
+Support for Trust Manager System (TMS) Minimal Viable Product (MVP)
 
 ### New features:
-- None
+- Initial support for Trust Manager System (TMS). New credential type and related functionality.
 
 ### Bug fixes:
 - None
