@@ -9,7 +9,30 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
-## 1.6.5 - 2024-08-22
+---------------------------------------------------------------------------
+## 1.7.1 - 2024-??-??
+
+TBD
+
+### New features:
+- None
+
+### Bug fixes:
+- None
+
+---------------------------------------------------------------------------
+## 1.7.0 - 2024-09-09
+
+New release
+
+### New features:
+- None
+
+### Bug fixes:
+- None
+
+---------------------------------------------------------------------------
+## 1.6.5 - 2024-09-04
 
 Incremental improvements.
 Update service code to match latest System client model.
