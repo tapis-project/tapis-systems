@@ -89,6 +89,14 @@ public interface SystemsDao
   void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String id, String tapisUser) throws TapisException;
 
   /* ********************************************************************** */
+  /*                        CredentialInfo Table                            */
+  /* ********************************************************************** */
+
+  void credInfoMarkInProgressAsFailed() throws TapisException;
+
+  void credInfoMarkFailedAsPending() throws TapisException;
+
+  /* ********************************************************************** */
   /*                             Scheduler Profiles                         */
   /* ********************************************************************** */
 

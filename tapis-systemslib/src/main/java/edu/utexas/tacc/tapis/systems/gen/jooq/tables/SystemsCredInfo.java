@@ -118,14 +118,14 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
     public final TableField<SystemsCredInfoRecord, Boolean> HAS_TOKEN = createField(DSL.name("has_token"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "");
 
     /**
-     * The column <code>tapis_sys.systems_cred_info.has_cert</code>.
-     */
-    public final TableField<SystemsCredInfoRecord, Boolean> HAS_CERT = createField(DSL.name("has_cert"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "");
-
-    /**
      * The column <code>tapis_sys.systems_cred_info.sync_status</code>.
      */
     public final TableField<SystemsCredInfoRecord, String> SYNC_STATUS = createField(DSL.name("sync_status"), SQLDataType.CLOB.nullable(false).defaultValue(DSL.field("'PENDING'::text", SQLDataType.CLOB)), this, "");
+
+    /**
+     * The column <code>tapis_sys.systems_cred_info.sync_failed</code>.
+     */
+    public final TableField<SystemsCredInfoRecord, LocalDateTime> SYNC_FAILED = createField(DSL.name("sync_failed"), SQLDataType.LOCALDATETIME(6), this, "");
 
     /**
      * The column <code>tapis_sys.systems_cred_info.sync_fail_count</code>.
@@ -243,14 +243,14 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
     // -------------------------------------------------------------------------
 
     @Override
-    public Row17<Integer, String, String, String, String, LocalDateTime, LocalDateTime, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, String, Integer, String> fieldsRow() {
+    public Row17<Integer, String, String, String, String, LocalDateTime, LocalDateTime, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, String, LocalDateTime, Integer, String> fieldsRow() {
         return (Row17) super.fieldsRow();
     }
 
     /**
      * Convenience mapping calling {@link SelectField#convertFrom(Function)}.
      */
-    public <U> SelectField<U> mapping(Function17<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super String, ? super Integer, ? super String, ? extends U> from) {
+    public <U> SelectField<U> mapping(Function17<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super String, ? super LocalDateTime, ? super Integer, ? super String, ? extends U> from) {
         return convertFrom(Records.mapping(from));
     }
 
@@ -258,7 +258,7 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
      * Convenience mapping calling {@link SelectField#convertFrom(Class,
      * Function)}.
      */
-    public <U> SelectField<U> mapping(Class<U> toType, Function17<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super String, ? super Integer, ? super String, ? extends U> from) {
+    public <U> SelectField<U> mapping(Class<U> toType, Function17<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super String, ? super LocalDateTime, ? super Integer, ? super String, ? extends U> from) {
         return convertFrom(toType, Records.mapping(from));
     }
 }

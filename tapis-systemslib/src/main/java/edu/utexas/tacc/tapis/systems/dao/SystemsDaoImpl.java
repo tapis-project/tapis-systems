@@ -3,6 +3,7 @@ package edu.utexas.tacc.tapis.systems.dao;
 import java.sql.Connection;
 import java.sql.Types;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,6 +17,7 @@ import javax.sql.DataSource;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import edu.utexas.tacc.tapis.systems.model.*;
 import org.flywaydb.core.Flyway;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -49,16 +51,9 @@ import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedulerProfilesRe
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedProfileModLoadRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemUpdatesRecord;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsRecord;
-import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
-import edu.utexas.tacc.tapis.systems.model.ModuleLoadSpec;
-import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
-import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
-import edu.utexas.tacc.tapis.systems.model.Capability;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
-import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
-import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.AuthListType;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
@@ -1869,6 +1864,83 @@ public class SystemsDaoImpl implements SystemsDao
       LibUtils.finalCloseDB(conn);
     }
   }
+
+  /* ********************************************************************** */
+  /*                        CredentialInfo Table                            */
+  /* ********************************************************************** */
+
+  /**
+   * Update all IN_PROGRESS cred info records to FAILED state
+   * @throws TapisException on error
+   */
+  @Override
+  public void credInfoMarkInProgressAsFailed() throws TapisException
+  {
+    // Values to use for update: timestamp, fail message
+    LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
+    String failMsg = LibUtils.getMsg("SYSLIB_???????");
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      db.update(SYSTEMS_CRED_INFO)
+              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.FAILED.name())
+              .set(SYSTEMS_CRED_INFO.UPDATED, utcNow)
+              .set(SYSTEMS_CRED_INFO.SYNC_FAILED, utcNow)
+              .set(SYSTEMS_CRED_INFO.SYNC_FAIL_MESSAGE, failMsg)
+              .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT.plus(1))
+              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.IN_PROGRESS.name()))
+              .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * Mark all FAILED records as PENDING
+   * @throws TapisException on error
+   */
+  @Override
+  public void credInfoMarkFailedAsPending() throws TapisException
+  {
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      db.update(SYSTEMS_CRED_INFO)
+              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.PENDING.name())
+              .set(SYSTEMS_CRED_INFO.UPDATED, TapisUtils.getUTCTimeNow())
+              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.FAILED.name()))
+              .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
 
   /* ********************************************************************** */
   /*                         Scheduler Profile Methods                      */

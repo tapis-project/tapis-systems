@@ -11,6 +11,8 @@ import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 
+import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
+import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -127,10 +129,8 @@ public class SystemsServiceImpl implements SystemsService
     serviceContext.initServiceJWT(siteId, SYSTEMS_SERVICE, svcPassword);
     // Make sure DB is present and updated to latest version using flyway
     dao.migrateDB();
-    // TODO Check the systems_cred_info table and synchronize with SK as needed.
-    //      Record previous IN_PROGRESS records as failures and update status to PENDING
-    //      For all PENDING records read info from SK and update the cred info table.
-    synchCredInfo();
+    // Check the systems_cred_info table and synchronize with SK as needed.
+    syncCredInfo();
   }
 
   /**
@@ -1764,26 +1764,76 @@ public class SystemsServiceImpl implements SystemsService
   // **************************  Private Methods  ***************************
   // ************************************************************************
 
-  // TODO Check the systems_cred_info table and synchronize with SK as needed.
-  //      Record previous IN_PROGRESS records as failures and update status to PENDING
-  //      For all PENDING records read info from SK and update the cred info table.
-
-  private void synchCredInfo()
+  /**
+   * Check the systems_cred_info table and synchronize with SK as needed.
+   *  - Mark all IN_PROGRESS records as FAILED
+   *  - For each PENDING record read info from SK and update the cred info table.
+   *  - Mark all FAILED records as PENDING
+   *  - For each PENDING record read info from SK and update the cred info table.
+   */
+  private void syncCredInfo() throws TapisException
   {
-    // Find all IN_PROGRESS records
-    // Mark in-progress records as failed and update status to PENDING
-    // For each PENDING record read info from SK and update the cred info table.
-
-
+    // Mark all IN_PROGRESS records as FAILED
+    dao.credInfoMarkInProgressAsFailed();
+    // TODO For each PENDING record read info from SK and update the cred info table.
+    syncCredInfoPendingRecords();
+    // Mark all FAILED records as PENDING
+    dao.credInfoMarkFailedAsPending();
+    // TODO For each PENDING record read info from SK and update the cred info table.
+    syncCredInfoPendingRecords();
   }
 
-  // TODO For a given record in the SYSTEMS_CRED_INFO table read from SK and update the record.
-  private void synchCredInfoWithSK()
+  /**
+   * Sync all CredInfo PENDING records with SK
+   */
+  private void syncCredInfoPendingRecords()
   {
-    // Find all IN_PROGRESS records
-    // Mark in-progress records as failed and update status to PENDING
+    // TODO Find all PENDING records
+    List<CredentialInfo> pendingRecords = dao.credInfoGetPendingRecords();
+    // For each record sync it with SK
+    for (CredentialInfo item: pendingRecords)
+    {
+      syncCredInfoWithSK(item);
+    }
+  }
+
+  /**
+   * For a given record in the SYSTEMS_CRED_INFO table read from SK and update the record.
+   */
+  private void syncCredInfoWithSK(CredentialInfo credentialInfo)
+  {
+    // TODO Mark record as IN_PROGRESS
+    dao.credInfoMarkAsInProgress(credentialInfo);
+    // TODO Call SK to get credential info
+    CredentialInfo syncedCredInfo = skGetCredInfo(credentialInfo);
 
 
+    // TODO Sync successful. Update CredInfo table record - clear failure info, set status to COMPLETE
+    dao.credInfoMarkRecordAsComplete(syncedCredInfo);
+  }
+
+  /**
+   * For a given CredentialInfo record call SK got get current data.
+   */
+  private CredentialInfo skGetCredInfo(ResourceRequestUser rUser, CredentialInfo credentialInfo)
+  {
+    CredentialInfo syncedCredInfo;
+    ResourceRequestUser rUser1 = rUser;
+    // TODO Call SK to get credential info
+    // TODO =================
+    // TODO Create service rUser at service startup since it will not change
+    // TODO/TBD: If rUser is null then create an rUser representing the Systems service itself?
+    //           rUser not available during initial service startup. There is no requesting Tapis user.
+    if (rUser1 == null)
+    {
+      String svcName = getServiceUserId();
+      String svcTenant = getServiceTenantId();
+      var authUser = new AuthenticatedUser(svcName, svcTenant, TapisThreadContext.AccountType.service.name(), null,
+                                           svcName, svcTenant, null, siteId, null);
+      rUser1 = new ResourceRequestUser(authUser);
+    }
+    syncedCredInfo = sysUtils.getSKClient(rUser1).getCredInfo(???);
+    return syncedCredInfo;
   }
 
   /*
