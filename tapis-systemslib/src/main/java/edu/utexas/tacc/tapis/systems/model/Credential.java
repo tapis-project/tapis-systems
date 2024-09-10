@@ -3,7 +3,8 @@ package edu.utexas.tacc.tapis.systems.model;
 import org.apache.commons.lang3.StringUtils;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 /*
- * Credential class representing an authn credential stored in the Security Kernel.
+ * Class representing credentials stored in the Security Kernel.
+ * Credentials are tied to a specific system and user.
  * Also includes login user associated with the credential.
  *
  * Secrets are not persisted by the Systems Service. Actual secrets are managed by the Security Kernel.
@@ -45,7 +46,7 @@ public final class Credential
   /* ********************************************************************** */
 
   private final AuthnMethod authnMethod; // Authentication method associated with a retrieved credential
-  private final String loginUser;
+  private final String loginUser; // For a system with a dynamic effectiveUserId, this is the host login user.
   private final String password; // Password for when authnMethod is PASSWORD
   private final String privateKey; // Private key for when authnMethod is PKI_KEYS or CERT
   private final String publicKey; // Public key for when authnMethod is PKI_KEYS or CERT

@@ -1,4 +1,4 @@
----- Mapping of tapis users to login users
+---- Original table for mapping of tapis users to login users
 --CREATE TABLE systems_login_user
 --(
 --    system_seq_id INTEGER REFERENCES systems(seq_id) ON DELETE CASCADE,
@@ -20,21 +20,22 @@
 --   has_pki_keys - indicates if credentials for PKI_KEYS have been registered.
 --   has_access_key - indicates if credentials for ACCESS_KEY have been registered.
 --   has_token - indicates if credentials for TOKEN have been registered.
---   has_cert - indicates if credentials for CERT have been registered.
 --   sync_status - indicates current status of synchronization between SK and Systems service.
 --      PENDING - Record requires synchronization
 --      IN_PROGRESS - Systems service is in the process of synchronizing the record
 --      FAILED - Synchronization failed.
 --      COMPLETE - Synchronization completed successfully.
---   sync_fail_message - Message indicating why last synch attempt failed
+--   sync_failed - Timestamp for last synch attempt failure. Null if no failures.
 --   sync_fail_count - Number of sync attempts that have failed
+--   sync_fail_message - Message indicating why last synch attempt failed
+--
 -- Default for is_dynamic is true since if there is an existing record then it is for a login user mapping and that
 --    is only used for dynamic.
 -- Remove the NOT NULL constraint on the login_user column since now we will have records even if there
 --    is no mapping.
 -- Change primary key from (tenant, system_id, tapis_user) to (tenant, system_id, tapis_user, is_dynamic)
+--    since that is what makes a record unique
 --
-
 ALTER TABLE IF EXISTS systems_login_user RENAME TO systems_cred_info;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_credentials BOOLEAN;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS is_dynamic BOOLEAN NOT NULL DEFAULT true;
@@ -42,8 +43,8 @@ ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_password BOOLEAN NOT 
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_pki_keys BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_access_key BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_token BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_cert BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_status TEXT NOT NULL DEFAULT 'PENDING';
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_failed TIMESTAMP WITHOUT TIME ZONE;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_fail_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_fail_message TEXT;
 

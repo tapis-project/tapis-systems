@@ -130,7 +130,7 @@ public class SystemsServiceImpl implements SystemsService
     // TODO Check the systems_cred_info table and synchronize with SK as needed.
     //      Record previous IN_PROGRESS records as failures and update status to PENDING
     //      For all PENDING records read info from SK and update the cred info table.
-//TODO    synchCredInfo();
+    synchCredInfo();
   }
 
   /**
@@ -1767,10 +1767,22 @@ public class SystemsServiceImpl implements SystemsService
   // TODO Check the systems_cred_info table and synchronize with SK as needed.
   //      Record previous IN_PROGRESS records as failures and update status to PENDING
   //      For all PENDING records read info from SK and update the cred info table.
-//TODO    synchCredInfo();
 
-  private void syncCredInfo()
+  private void synchCredInfo()
   {
+    // Find all IN_PROGRESS records
+    // Mark in-progress records as failed and update status to PENDING
+    // For each PENDING record read info from SK and update the cred info table.
+
+
+  }
+
+  // TODO For a given record in the SYSTEMS_CRED_INFO table read from SK and update the record.
+  private void synchCredInfoWithSK()
+  {
+    // Find all IN_PROGRESS records
+    // Mark in-progress records as failed and update status to PENDING
+
 
   }
 
