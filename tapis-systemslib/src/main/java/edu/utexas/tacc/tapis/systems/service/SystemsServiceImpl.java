@@ -108,6 +108,7 @@ public class SystemsServiceImpl implements SystemsService
   // These are initialized in method initService()
   private static String siteId;
   private static String siteAdminTenantId;
+  private static ResourceRequestUser rUserSvc;
   public static String getSiteId() {return siteId;}
   public static String getServiceTenantId() {return siteAdminTenantId;}
   public static String getServiceUserId() {return SERVICE_NAME;}
@@ -129,6 +130,14 @@ public class SystemsServiceImpl implements SystemsService
     serviceContext.initServiceJWT(siteId, SYSTEMS_SERVICE, svcPassword);
     // Make sure DB is present and updated to latest version using flyway
     dao.migrateDB();
+
+    // Create a ResourceRequest user representing the service. Used by some methods for logging.
+    String svcName = getServiceUserId();
+    String svcTenant = getServiceTenantId();
+    var authUser = new AuthenticatedUser(svcName, svcTenant, TapisThreadContext.AccountType.service.name(), null,
+                                         svcName, svcTenant, null, siteId, null);
+    rUserSvc = new ResourceRequestUser(authUser);
+
     // Check the systems_cred_info table and synchronize with SK as needed.
     syncCredInfo();
   }
@@ -1775,65 +1784,40 @@ public class SystemsServiceImpl implements SystemsService
   {
     // Mark all IN_PROGRESS records as FAILED
     dao.credInfoMarkInProgressAsFailed();
-    // TODO For each PENDING record read info from SK and update the cred info table.
+    // For each PENDING record read info from SK and update the cred info table.
     syncCredInfoPendingRecords();
     // Mark all FAILED records as PENDING
     dao.credInfoMarkFailedAsPending();
-    // TODO For each PENDING record read info from SK and update the cred info table.
+    // For each PENDING record read info from SK and update the cred info table.
     syncCredInfoPendingRecords();
   }
 
   /**
    * Sync all CredInfo PENDING records with SK
    */
-  private void syncCredInfoPendingRecords()
+  private void syncCredInfoPendingRecords() throws TapisException
   {
-    // TODO Find all PENDING records
+    // Find all PENDING records
     List<CredentialInfo> pendingRecords = dao.credInfoGetPendingRecords();
     // For each record sync it with SK
-    for (CredentialInfo item: pendingRecords)
+    for (CredentialInfo credInfo: pendingRecords)
     {
-      syncCredInfoWithSK(item);
+      syncCredInfoWithSK(credInfo);
     }
   }
 
   /**
    * For a given record in the SYSTEMS_CRED_INFO table read from SK and update the record.
    */
-  private void syncCredInfoWithSK(CredentialInfo credentialInfo)
+  private void syncCredInfoWithSK(CredentialInfo credInfo) throws TapisException
   {
-    // TODO Mark record as IN_PROGRESS
-    dao.credInfoMarkAsInProgress(credentialInfo);
+    // Mark record as IN_PROGRESS
+    dao.credInfoMarkAsInProgress(credInfo);
     // TODO Call SK to get credential info
-    CredentialInfo syncedCredInfo = skGetCredInfo(credentialInfo);
-
-
-    // TODO Sync successful. Update CredInfo table record - clear failure info, set status to COMPLETE
-    dao.credInfoMarkRecordAsComplete(syncedCredInfo);
-  }
-
-  /**
-   * For a given CredentialInfo record call SK got get current data.
-   */
-  private CredentialInfo skGetCredInfo(ResourceRequestUser rUser, CredentialInfo credentialInfo)
-  {
-    CredentialInfo syncedCredInfo;
-    ResourceRequestUser rUser1 = rUser;
-    // TODO Call SK to get credential info
-    // TODO =================
-    // TODO Create service rUser at service startup since it will not change
-    // TODO/TBD: If rUser is null then create an rUser representing the Systems service itself?
-    //           rUser not available during initial service startup. There is no requesting Tapis user.
-    if (rUser1 == null)
-    {
-      String svcName = getServiceUserId();
-      String svcTenant = getServiceTenantId();
-      var authUser = new AuthenticatedUser(svcName, svcTenant, TapisThreadContext.AccountType.service.name(), null,
-                                           svcName, svcTenant, null, siteId, null);
-      rUser1 = new ResourceRequestUser(authUser);
-    }
-    syncedCredInfo = sysUtils.getSKClient(rUser1).getCredInfo(???);
-    return syncedCredInfo;
+    CredentialInfo skCredInfo = credUtils.getSkCredInfo(rUserSvc, credInfo);
+    // TODO how to handle errors?
+    // Update CredInfo table record - clear failure info, set status to COMPLETE
+    dao.credInfoSyncRecordAsComplete(skCredInfo);
   }
 
   /*

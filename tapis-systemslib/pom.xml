@@ -279,6 +279,12 @@
                     <includeExpression>systems\.system_type</includeExpression>
                     <includeTypes>.*</includeTypes>
                   </forcedType>
+                  <forcedType>
+                    <userType>edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus</userType>
+                    <enumConverter>true</enumConverter>
+                    <includeExpression>systems_cred_info\.sync_status</includeExpression>
+                    <includeTypes>.*</includeTypes>
+                  </forcedType>
 <!--                  <forcedType>-->
 <!--                    <userType>edu.utexas.tacc.tapis.systems.model.JobRuntime.RuntimeType</userType>-->
 <!--                    <enumConverter>true</enumConverter>-->

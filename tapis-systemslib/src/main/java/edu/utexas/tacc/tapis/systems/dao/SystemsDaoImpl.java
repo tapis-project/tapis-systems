@@ -17,6 +17,8 @@ import javax.sql.DataSource;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsCredInfo;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.*;
 import edu.utexas.tacc.tapis.systems.model.*;
 import org.flywaydb.core.Flyway;
 import org.jooq.Condition;
@@ -47,10 +49,6 @@ import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisDBConnectionExce
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.shareddb.datasource.TapisDataSource;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedulerProfilesRecord;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedProfileModLoadRecord;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemUpdatesRecord;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsRecord;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
@@ -1870,7 +1868,7 @@ public class SystemsDaoImpl implements SystemsDao
   /* ********************************************************************** */
 
   /**
-   * Update all IN_PROGRESS cred info records to FAILED state
+   * In SYSTEMS_CRED_INFO table, Update all IN_PROGRESS cred info records to FAILED state
    * @throws TapisException on error
    */
   @Override
@@ -1886,12 +1884,12 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
       db.update(SYSTEMS_CRED_INFO)
-              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.FAILED.name())
+              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.FAILED)
               .set(SYSTEMS_CRED_INFO.UPDATED, utcNow)
               .set(SYSTEMS_CRED_INFO.SYNC_FAILED, utcNow)
               .set(SYSTEMS_CRED_INFO.SYNC_FAIL_MESSAGE, failMsg)
               .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT.plus(1))
-              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.IN_PROGRESS.name()))
+              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.IN_PROGRESS))
               .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -1909,7 +1907,7 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   /**
-   * Mark all FAILED records as PENDING
+   * In SYSTEMS_CRED_INFO table, Mark all FAILED records as PENDING
    * @throws TapisException on error
    */
   @Override
@@ -1922,9 +1920,9 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
       db.update(SYSTEMS_CRED_INFO)
-              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.PENDING.name())
+              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.PENDING)
               .set(SYSTEMS_CRED_INFO.UPDATED, TapisUtils.getUTCTimeNow())
-              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.FAILED.name()))
+              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.FAILED))
               .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -1939,6 +1937,118 @@ public class SystemsDaoImpl implements SystemsDao
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
     }
+  }
+
+  /**
+   * In SYSTEMS_CRED_INFO table, Mark a record as IN_PROGRESS
+   * @throws TapisException on error
+   */
+  @Override
+  public void credInfoMarkAsInProgress(CredentialInfo credInfo) throws TapisException
+  {
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      // NOTE: Primary key is (tenant, systemId, tapisUser, isDynamic)
+      db.update(SYSTEMS_CRED_INFO)
+              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.IN_PROGRESS)
+              .set(SYSTEMS_CRED_INFO.UPDATED, TapisUtils.getUTCTimeNow())
+              .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
+                      SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
+                      SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
+                      SYSTEMS_CRED_INFO.IS_DYNAMIC.eq(credInfo.isDynamic()))
+              .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * In SYSTEMS_CRED_INFO table, update record and mark as COMPLETE
+   * @throws TapisException on error
+   */
+  @Override
+  public void credInfoSyncRecordAsComplete(CredentialInfo credInfo) throws TapisException
+  {
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      // NOTE: Primary key is (tenant, systemId, tapisUser, isDynamic)
+      db.update(SYSTEMS_CRED_INFO)
+            .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.COMPLETE)
+            .set(SYSTEMS_CRED_INFO.UPDATED, TapisUtils.getUTCTimeNow())
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
+                    SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
+                    SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
+                    SYSTEMS_CRED_INFO.IS_DYNAMIC.eq(credInfo.isDynamic()))
+            .execute();
+
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * In SYSTEMS_CRED_INFO table, fetch all PENDING records
+   * @throws TapisException on error
+   */
+  @Override
+  public List<CredentialInfo> credInfoGetPendingRecords() throws TapisException
+  {
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    List<CredentialInfo> retList = new ArrayList<>();
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      var records = db.selectFrom(SYSTEMS_CRED_INFO)
+              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.PENDING)).fetch();
+      if (records == null || records.isEmpty()) return retList;
+
+      for (SystemsCredInfoRecord r : records) { retList.add(getCredentialInfoFromRecord(r)); }
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_QUERY_ERROR", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return retList;
   }
 
 
@@ -3006,8 +3116,20 @@ public class SystemsDaoImpl implements SystemsDao
   private SystemHistoryItem getSystemHistoryFromRecord(Record r)
   {
 	return new SystemHistoryItem(r.get(SYSTEM_UPDATES.JWT_TENANT), r.get(SYSTEM_UPDATES.JWT_USER),
-                                 r.get(SYSTEM_UPDATES.OBO_TENANT), r.get(SYSTEM_UPDATES.OBO_USER), r.get(SYSTEM_UPDATES.OPERATION),
-	                             r.get(SYSTEM_UPDATES.DESCRIPTION), r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
+            r.get(SYSTEM_UPDATES.OBO_TENANT), r.get(SYSTEM_UPDATES.OBO_USER), r.get(SYSTEM_UPDATES.OPERATION),
+            r.get(SYSTEM_UPDATES.DESCRIPTION), r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
+  }
+
+  /*
+   * Given a record from a select, create a CredentialInfo object
+   */
+  private CredentialInfo getCredentialInfoFromRecord(SystemsCredInfoRecord r)
+  {
+    return new CredentialInfo(r.getTenant(), r.getSystemId(), r.getTapisUser(), r.getLoginUser(),
+            r.getIsDynamic(), r.getHasCredentials(), r.getHasPassword(), r.getHasPkiKeys(),
+            r.getHasAccessKey(), r.getHasToken(), r.getSyncStatus(), r.getSyncFailCount(),
+            r.getSyncFailMessage(), r.getSyncFailed().toInstant(ZoneOffset.UTC),
+            r.getCreated().toInstant(ZoneOffset.UTC), r.getUpdated().toInstant(ZoneOffset.UTC));
   }
 
   /*

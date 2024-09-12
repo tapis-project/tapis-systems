@@ -7,6 +7,7 @@ import edu.utexas.tacc.tapis.search.parser.ASTNode;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
@@ -95,6 +96,12 @@ public interface SystemsDao
   void credInfoMarkInProgressAsFailed() throws TapisException;
 
   void credInfoMarkFailedAsPending() throws TapisException;
+
+  void credInfoMarkAsInProgress(CredentialInfo credInfo) throws TapisException;
+
+  void credInfoSyncRecordAsComplete(CredentialInfo credInfo) throws TapisException;
+
+  List<CredentialInfo> credInfoGetPendingRecords() throws TapisException;
 
   /* ********************************************************************** */
   /*                             Scheduler Profiles                         */

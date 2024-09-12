@@ -7,6 +7,7 @@ package edu.utexas.tacc.tapis.systems.gen.jooq.tables;
 import edu.utexas.tacc.tapis.systems.gen.jooq.Keys;
 import edu.utexas.tacc.tapis.systems.gen.jooq.TapisSys;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsCredInfoRecord;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -27,6 +28,7 @@ import org.jooq.TableField;
 import org.jooq.TableOptions;
 import org.jooq.UniqueKey;
 import org.jooq.impl.DSL;
+import org.jooq.impl.EnumConverter;
 import org.jooq.impl.SQLDataType;
 import org.jooq.impl.TableImpl;
 
@@ -120,7 +122,7 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
     /**
      * The column <code>tapis_sys.systems_cred_info.sync_status</code>.
      */
-    public final TableField<SystemsCredInfoRecord, String> SYNC_STATUS = createField(DSL.name("sync_status"), SQLDataType.CLOB.nullable(false).defaultValue(DSL.field("'PENDING'::text", SQLDataType.CLOB)), this, "");
+    public final TableField<SystemsCredInfoRecord, SyncStatus> SYNC_STATUS = createField(DSL.name("sync_status"), SQLDataType.CLOB.nullable(false).defaultValue(DSL.field("'PENDING'::text", SQLDataType.CLOB)), this, "", new EnumConverter<String, SyncStatus>(String.class, SyncStatus.class));
 
     /**
      * The column <code>tapis_sys.systems_cred_info.sync_failed</code>.
@@ -243,14 +245,14 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
     // -------------------------------------------------------------------------
 
     @Override
-    public Row17<Integer, String, String, String, String, LocalDateTime, LocalDateTime, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, String, LocalDateTime, Integer, String> fieldsRow() {
+    public Row17<Integer, String, String, String, String, LocalDateTime, LocalDateTime, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, SyncStatus, LocalDateTime, Integer, String> fieldsRow() {
         return (Row17) super.fieldsRow();
     }
 
     /**
      * Convenience mapping calling {@link SelectField#convertFrom(Function)}.
      */
-    public <U> SelectField<U> mapping(Function17<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super String, ? super LocalDateTime, ? super Integer, ? super String, ? extends U> from) {
+    public <U> SelectField<U> mapping(Function17<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super SyncStatus, ? super LocalDateTime, ? super Integer, ? super String, ? extends U> from) {
         return convertFrom(Records.mapping(from));
     }
 
@@ -258,7 +260,7 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
      * Convenience mapping calling {@link SelectField#convertFrom(Class,
      * Function)}.
      */
-    public <U> SelectField<U> mapping(Class<U> toType, Function17<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super String, ? super LocalDateTime, ? super Integer, ? super String, ? extends U> from) {
+    public <U> SelectField<U> mapping(Class<U> toType, Function17<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super SyncStatus, ? super LocalDateTime, ? super Integer, ? super String, ? extends U> from) {
         return convertFrom(toType, Records.mapping(from));
     }
 }
