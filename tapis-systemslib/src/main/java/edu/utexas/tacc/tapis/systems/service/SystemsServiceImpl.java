@@ -13,6 +13,7 @@ import javax.ws.rs.NotFoundException;
 
 import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
+import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -62,9 +63,16 @@ public class SystemsServiceImpl implements SystemsService
   public static final String APPS_SERVICE = TapisConstants.SERVICE_NAME_APPS;
   public static final String JOBS_SERVICE = TapisConstants.SERVICE_NAME_JOBS;
 
+  // Default interval in minutes for running the maintenance background task
+  public static final int DEFAULT_SVC_MAINT_INTERVAL = 10;
+
+  // Allow interrupt when shutting down executor services.
+  private static final boolean mayInterruptIfRunning = true;
+
   // Message keys
   static final String NOT_FOUND = "SYSLIB_NOT_FOUND";
   static final String ERROR_ROLLBACK = "SYSLIB_ERROR_ROLLBACK";
+
 
   // SFTP client throws IOException containing this string if a path does not exist.
   private static final String NO_SUCH_FILE = "no such file";
@@ -122,13 +130,15 @@ public class SystemsServiceImpl implements SystemsService
    *   init service context
    *   migrate DB
    */
-  public void initService(String siteId1, String siteAdminTenantId1, String svcPassword) throws TapisException, TapisClientException
+  public void initService(String siteId1, String siteAdminTenantId1, RuntimeParameters runParms)
+          throws TapisException, TapisClientException
   {
     // Initialize service context and site info
+    String svcPassword = runParms.getServicePassword();
     siteId = siteId1;
     siteAdminTenantId = siteAdminTenantId1;
     serviceContext.initServiceJWT(siteId, SYSTEMS_SERVICE, svcPassword);
-    // Make sure DB is present and updated to latest version using flyway
+  // Make sure DB is present and updated to latest version using flyway
     dao.migrateDB();
 
     // Create a ResourceRequest user representing the service. Used by some methods for logging.
@@ -139,8 +149,18 @@ public class SystemsServiceImpl implements SystemsService
     rUserSvc = new ResourceRequestUser(authUser);
 
     // Check the systems_cred_info table and synchronize with SK as needed.
-    syncCredInfo();
+    credUtils.credInfoInit(rUserSvc);
   }
+
+  /*
+   * Stop the subscription reaper thread
+   */
+  public void stopMaintenanceTask()
+  {
+    log.info(LibUtils.getMsg("SYSLIB_MAINTENANCE_STOP"));
+    if (maintenanceTaskFuture != null) maintenanceTaskFuture.cancel(mayInterruptIfRunning);
+  }
+
 
   /**
    * Check that we can connect with DB and that the main table of the service exists.
@@ -1772,53 +1792,6 @@ public class SystemsServiceImpl implements SystemsService
   // ************************************************************************
   // **************************  Private Methods  ***************************
   // ************************************************************************
-
-  /**
-   * Check the systems_cred_info table and synchronize with SK as needed.
-   *  - Mark all IN_PROGRESS records as FAILED
-   *  - For each PENDING record read info from SK and update the cred info table.
-   *  - Mark all FAILED records as PENDING
-   *  - For each PENDING record read info from SK and update the cred info table.
-   */
-  private void syncCredInfo() throws TapisException
-  {
-    // Mark all IN_PROGRESS records as FAILED
-    dao.credInfoMarkInProgressAsFailed();
-    // For each PENDING record read info from SK and update the cred info table.
-    syncCredInfoPendingRecords();
-    // Mark all FAILED records as PENDING
-    dao.credInfoMarkFailedAsPending();
-    // For each PENDING record read info from SK and update the cred info table.
-    syncCredInfoPendingRecords();
-  }
-
-  /**
-   * Sync all CredInfo PENDING records with SK
-   */
-  private void syncCredInfoPendingRecords() throws TapisException
-  {
-    // Find all PENDING records
-    List<CredentialInfo> pendingRecords = dao.credInfoGetPendingRecords();
-    // For each record sync it with SK
-    for (CredentialInfo credInfo: pendingRecords)
-    {
-      syncCredInfoWithSK(credInfo);
-    }
-  }
-
-  /**
-   * For a given record in the SYSTEMS_CRED_INFO table read from SK and update the record.
-   */
-  private void syncCredInfoWithSK(CredentialInfo credInfo) throws TapisException
-  {
-    // Mark record as IN_PROGRESS
-    dao.credInfoMarkAsInProgress(credInfo);
-    // TODO Call SK to get credential info
-    CredentialInfo skCredInfo = credUtils.getSkCredInfo(rUserSvc, credInfo);
-    // TODO how to handle errors?
-    // Update CredInfo table record - clear failure info, set status to COMPLETE
-    dao.credInfoSyncRecordAsComplete(skCredInfo);
-  }
 
   /*
    * Determine if a system is a child system

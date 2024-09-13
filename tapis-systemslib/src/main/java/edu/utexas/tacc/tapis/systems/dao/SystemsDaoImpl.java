@@ -1874,9 +1874,10 @@ public class SystemsDaoImpl implements SystemsDao
   @Override
   public void credInfoMarkInProgressAsFailed() throws TapisException
   {
+    // TODO message
+    String failMsg = LibUtils.getMsg("SYSLIB_???????");
     // Values to use for update: timestamp, fail message
     LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
-    String failMsg = LibUtils.getMsg("SYSLIB_???????");
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
     try
@@ -2051,6 +2052,65 @@ public class SystemsDaoImpl implements SystemsDao
     return retList;
   }
 
+  /**
+   * In SYSTEMS_CRED_INFO table, create records as needed for undeleted systems that have a static effectiveUserId
+   * Do it all in a single DAO call so it is in one transaction
+   * @throws TapisException on error
+   */
+  @Override
+  public void credInfoInitStaticSystems() throws TapisException
+  {
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+
+      // Get all undeleted systems with static effectiveUserId that do not already have an entry in the credInfo table
+      // Use jOOQ support for antiJoin
+      Result<SystemsRecord> results =
+              db.selectFrom(SYSTEMS.leftAntiJoin(SYSTEMS_CRED_INFO)
+                              .on(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID.eq(SYSTEMS.SEQ_ID)))
+                      .where(SYSTEMS.DELETED.eq(false))
+                      .andNot(SYSTEMS.EFFECTIVE_USER_ID.eq(TSystem.APIUSERID_VAR))
+                      .fetch();
+
+      // For each system found, insert a record in the credInfo table
+      // TODO/TBD: For static users, tapis_user can be system owner. What about for dynamic users? still system owner?
+      //           BUT tapis_user is part of the primary key, so for dynamic users it doesn't make sense ?!?!?!?
+      //           Use null? NO, do not create them in this method
+      // Values to use for created, updated: timestamp
+      LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
+      for (SystemsRecord r : results)
+      {
+        boolean isDynamic = TSystem.APIUSERID_VAR.equals(r.getEffectiveUserId());
+        db.insertInto(SYSTEMS_CRED_INFO)
+                .set(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID, r.getSeqId())
+                .set(SYSTEMS_CRED_INFO.TENANT, r.getTenant())
+                .set(SYSTEMS_CRED_INFO.SYSTEM_ID, r.getId())
+                .set(SYSTEMS_CRED_INFO.TAPIS_USER, r.getOwner())
+                .set(SYSTEMS_CRED_INFO.IS_DYNAMIC, isDynamic)
+                .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.PENDING)
+                .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, 0)
+                .set(SYSTEMS_CRED_INFO.CREATED, utcNow)
+                .set(SYSTEMS_CRED_INFO.UPDATED, utcNow)
+                .execute();
+      }
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
 
   /* ********************************************************************** */
   /*                         Scheduler Profile Methods                      */

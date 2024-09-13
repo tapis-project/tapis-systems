@@ -122,7 +122,7 @@ public class SystemsServiceTest
     svcImpl = locator.getService(SystemsServiceImpl.class);
     svcSchedProfile = locator.getService(SchedulerProfileServiceImpl.class);
     svcCred = locator.getService(CredentialsServiceImpl.class);
-    svcImpl.initService(siteId, adminTenantName, RuntimeParameters.getInstance().getServicePassword());
+    svcImpl.initService(siteId, adminTenantName, RuntimeParameters.getInstance());
 
     // Initialize users and service
     rAdminUser = new ResourceRequestUser(new AuthenticatedUser(adminUser, tenantName, TapisThreadContext.AccountType.user.name(),

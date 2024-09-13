@@ -103,6 +103,8 @@ public interface SystemsDao
 
   List<CredentialInfo> credInfoGetPendingRecords() throws TapisException;
 
+  void credInfoInitStaticSystems() throws TapisException;
+
   /* ********************************************************************** */
   /*                             Scheduler Profiles                         */
   /* ********************************************************************** */

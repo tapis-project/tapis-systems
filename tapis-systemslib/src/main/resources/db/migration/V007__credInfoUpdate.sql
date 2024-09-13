@@ -25,9 +25,9 @@
 --      IN_PROGRESS - Systems service is in the process of synchronizing the record
 --      FAILED - Synchronization failed.
 --      COMPLETE - Synchronization completed successfully.
---   sync_failed - Timestamp for last synch attempt failure. Null if no failures.
+--   sync_failed - Timestamp for last sync attempt failure. Null if no failures.
 --   sync_fail_count - Number of sync attempts that have failed
---   sync_fail_message - Message indicating why last synch attempt failed
+--   sync_fail_message - Message indicating why last sync attempt failed
 --
 -- Default for is_dynamic is true since if there is an existing record then it is for a login user mapping and that
 --    is only used for dynamic.
@@ -37,7 +37,8 @@
 --    since that is what makes a record unique
 --
 ALTER TABLE IF EXISTS systems_login_user RENAME TO systems_cred_info;
-ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_credentials BOOLEAN;
+ALTER TABLE systems_cred_info ALTER login_user DROP NOT NULL;
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_credentials BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS is_dynamic BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_password BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_pki_keys BOOLEAN NOT NULL DEFAULT false;

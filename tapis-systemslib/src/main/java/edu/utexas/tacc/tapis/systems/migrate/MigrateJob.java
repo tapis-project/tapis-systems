@@ -461,7 +461,7 @@ public class MigrateJob
     siteAdminTenantId = TenantManager.getInstance(url).getSiteAdminTenantId(siteId);
     // Initialize services
     SystemsServiceImpl svcImpl = locator.getService(SystemsServiceImpl.class);
-    svcImpl.initService(siteId, siteAdminTenantId, RuntimeParameters.getInstance().getServicePassword());
+    svcImpl.initService(siteId, siteAdminTenantId, RuntimeParameters.getInstance());
     dao = new SystemsDaoImpl();
     serviceClients = ServiceClients.getInstance();
     envApply = runParms.isMigrateJobApply();

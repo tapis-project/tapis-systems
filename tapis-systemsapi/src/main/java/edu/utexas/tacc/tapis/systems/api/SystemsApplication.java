@@ -167,12 +167,19 @@ public class SystemsApplication extends ResourceConfig
 
     // Call the main service init method
     System.out.println("Initializing service");
-    svcImpl.initService(siteId, siteAdminTenantId, RuntimeParameters.getInstance().getServicePassword());
+    svcImpl.initService(siteId, siteAdminTenantId, RuntimeParameters.getInstance());
 
     // Add a shutdown hook so we can gracefully stop
     System.out.println("Registering shutdownHook");
     Thread shudownHook = new SystemsApplication.ServiceShutdown(svcImpl);
     Runtime.getRuntime().addShutdownHook(shudownHook);
+
+    // TODO schedule maintenance thread for updating FAILED and PENDING credInfo records
+    // TODO NOTE: start maintenance thread after initial sync so initial sync is single-threaded.
+    // TODO Will probably do this in the Application after initService is called. See DispatchApplication in tapis-notifications
+    // Start background process to clean up expired subscriptions.
+    System.out.println("Starting maintenance background task");
+    svcImpl.startMaintenanceTask(RuntimeParameters.getInstance().getSvcMaintenanceInterval());
 
     // Create and start the server
     System.out.println("Starting http server");
@@ -197,6 +204,8 @@ public class SystemsApplication extends ResourceConfig
     public void run()
     {
       System.out.printf("**** Stopping Systems Service. Version: %s ****%n", TapisUtils.getTapisFullVersion());
+      // We are shutting down, stop the maintenance task
+      svc.stopMaintenanceTask();
       // Perform any remaining shutdown steps
 //      svc.shutDown();
     }

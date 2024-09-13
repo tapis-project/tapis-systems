@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 
+import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
+import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -120,6 +122,9 @@ public final class RuntimeParameters implements EmailClientParameters
 
   // Tapis Globus client id
   private String globusClientId;
+
+  // TAPIS_SVC_MAINTENANCE_INTERVAL (in minutes)
+  private int svcMaintenanceInterval = SystemsServiceImpl.DEFAULT_SVC_MAINT_INTERVAL;
 
   /* ********************************************************************** */
   /*                              Constructors                              */
@@ -417,7 +422,26 @@ public final class RuntimeParameters implements EmailClientParameters
     // Empty support email means no support emails will be sent.
     parm = inputProperties.getProperty(EnvVar.TAPIS_SUPPORT_EMAIL.getEnvName());
     if (!StringUtils.isBlank(parm)) setSupportEmail(parm);
+
+    // --------------------- Background maintenance task thread -----------------------
+    //  svcMaintenanceInterval
+    parm = inputProperties.getProperty(EnvVar2.TAPIS_SVC_MAINTENANCE_INTERVAL.name());
+    int parmInt = SystemsServiceImpl.DEFAULT_SVC_MAINT_INTERVAL;
+    // If parameter is set attempt to parse it as an integer
+    if (!StringUtils.isBlank(parm))
+    {
+      try { parmInt = Integer.parseInt(parm); }
+      catch (NumberFormatException e)
+      {
+        // Log error and stop
+        String msg = LibUtils.getMsg("SYSLIB_RUNTIME_NUM_PARSE_FAIL", EnvVar2.TAPIS_SVC_MAINTENANCE_INTERVAL, parm);
+        _log.error(msg, e);
+        throw new TapisRuntimeException(msg, e);
+      }
+    }
+    setSvcMaintenanceInterval(parmInt);
   }
+
 
   /**
    * Return listing of runtime settings as well as some OS and JVM information.
@@ -429,6 +453,7 @@ public final class RuntimeParameters implements EmailClientParameters
     buf.append("\nRuntime Parameters");
     buf.append("\n======================");
     buf.append("\n------- Service Specific -------------------------------");
+    buf.append("\ntapis.svc.maintenance.interval: ").append(getSvcMaintenanceInterval());
     buf.append("\n------- Migrate Job Configuration ---------------------");
     buf.append("\ntapis.migrate.job.apply: ");
     buf.append(this.migrateJobApply);
@@ -579,50 +604,22 @@ public final class RuntimeParameters implements EmailClientParameters
   /* ********************************************************************** */
   /*                               Accessors                                */
   /* ********************************************************************** */
-  public static RuntimeParameters getInstance() {
-    return _instance;
-  }
+  public static RuntimeParameters getInstance() { return _instance; }
 
+  public String getDbConnectionPoolName() { return dbConnectionPoolName; }
+  private void setDbConnectionPoolName(String dbConnectionPoolName) { this.dbConnectionPoolName = dbConnectionPoolName; }
 
-  public String getDbConnectionPoolName() {
-    return dbConnectionPoolName;
-  }
+  public int getDbConnectionPoolSize() { return dbConnectionPoolSize; }
+  private void setDbConnectionPoolSize(int dbConnectionPoolSize) { this.dbConnectionPoolSize = dbConnectionPoolSize; }
 
-  private void setDbConnectionPoolName(String dbConnectionPoolName) {
-    this.dbConnectionPoolName = dbConnectionPoolName;
-  }
+  public String getDbUser() { return dbUser; }
+  private void setDbUser(String dbUser) { this.dbUser = dbUser; }
 
-  public int getDbConnectionPoolSize() {
-    return dbConnectionPoolSize;
-  }
+  public String getDbPassword() { return dbPassword; }
+  private void setDbPassword(String dbPassword) { this.dbPassword = dbPassword; }
 
-  private void setDbConnectionPoolSize(int dbConnectionPoolSize) {
-    this.dbConnectionPoolSize = dbConnectionPoolSize;
-  }
-
-  public String getDbUser() {
-    return dbUser;
-  }
-
-  private void setDbUser(String dbUser) {
-    this.dbUser = dbUser;
-  }
-
-  public String getDbPassword() {
-    return dbPassword;
-  }
-
-  private void setDbPassword(String dbPassword) {
-    this.dbPassword = dbPassword;
-  }
-
-  public String getJdbcURL() {
-    return jdbcURL;
-  }
-
-  private void setJdbcURL(String jdbcURL) {
-    this.jdbcURL = jdbcURL;
-  }
+  public String getJdbcURL() { return jdbcURL; }
+  private void setJdbcURL(String jdbcURL) { this.jdbcURL = jdbcURL; }
 
   public String getServiceAdminTenant() { return serviceAdminTenant; }
   private void setServiceAdminTenant(String t) { serviceAdminTenant = t; }
@@ -639,132 +636,60 @@ public final class RuntimeParameters implements EmailClientParameters
   public String getSkSvcURL() { return skSvcURL; }
   private void setSkSvcURL(String url) {skSvcURL = url; }
 
-  public String getInstanceName() {
-    return instanceName;
-  }
+  public String getInstanceName() { return instanceName; }
+  private void setInstanceName(String name) { this.instanceName = name; }
 
-  private void setInstanceName(String name) {
-    this.instanceName = name;
-  }
-
-  public boolean isAllowTestHeaderParms() {
-    return allowTestHeaderParms;
-  }
-
-  private void setAllowTestHeaderParms(boolean allowTestHeaderParms) {
-    this.allowTestHeaderParms = allowTestHeaderParms;
-  }
+  public boolean isAllowTestHeaderParms() { return allowTestHeaderParms; }
+  private void setAllowTestHeaderParms(boolean allowTestHeaderParms) { this.allowTestHeaderParms = allowTestHeaderParms; }
 
   public boolean isMigrateJobApply() { return migrateJobApply; }
-
   private void setMigrateJobApply(boolean b) { migrateJobApply = b; }
 
-  public int getDbMeterMinutes() {
-    return dbMeterMinutes;
-  }
+  public int getDbMeterMinutes() { return dbMeterMinutes; }
 
-  private void setDbMeterMinutes(int dbMeterMinutes) {
-    this.dbMeterMinutes = dbMeterMinutes;
-  }
+  private void setDbMeterMinutes(int dbMeterMinutes) { this.dbMeterMinutes = dbMeterMinutes; }
 
-  public EmailProviderType getEmailProviderType() {
-    return emailProviderType;
-  }
+  public EmailProviderType getEmailProviderType() { return emailProviderType; }
+  public void setEmailProviderType(EmailProviderType emailProviderType) { this.emailProviderType = emailProviderType; }
 
-  public void setEmailProviderType(EmailProviderType emailProviderType) {
-    this.emailProviderType = emailProviderType;
-  }
+  public boolean isEmailAuth() { return emailAuth; }
+  public void setEmailAuth(boolean emailAuth) { this.emailAuth = emailAuth; }
 
-  public boolean isEmailAuth() {
-    return emailAuth;
-  }
+  public String getEmailHost() { return emailHost; }
+  public void setEmailHost(String emailHost) { this.emailHost = emailHost; }
 
-  public void setEmailAuth(boolean emailAuth) {
-    this.emailAuth = emailAuth;
-  }
+  public int getEmailPort() { return emailPort; }
+  public void setEmailPort(int emailPort) { this.emailPort = emailPort; }
 
-  public String getEmailHost() {
-    return emailHost;
-  }
+  public String getEmailUser() { return emailUser; }
+  public void setEmailUser(String emailUser) { this.emailUser = emailUser; }
 
-  public void setEmailHost(String emailHost) {
-    this.emailHost = emailHost;
-  }
+  public String getEmailPassword() { return emailPassword; }
+  public void setEmailPassword(String emailPassword) { this.emailPassword = emailPassword; }
 
-  public int getEmailPort() {
-    return emailPort;
-  }
+  public String getEmailFromName() { return emailFromName; }
+  public void setEmailFromName(String emailFromName) { this.emailFromName = emailFromName; }
 
-  public void setEmailPort(int emailPort) {
-    this.emailPort = emailPort;
-  }
+  public String getEmailFromAddress() { return emailFromAddress; }
+  public void setEmailFromAddress(String emailFromAddress) { this.emailFromAddress = emailFromAddress; }
 
-  public String getEmailUser() {
-    return emailUser;
-  }
+  public String getSupportName() { return supportName; }
+  public void setSupportName(String supportName) { this.supportName = supportName; }
 
-  public void setEmailUser(String emailUser) {
-    this.emailUser = emailUser;
-  }
+  public String getSupportEmail() { return supportEmail; }
+  public void setSupportEmail(String supportEmail) { this.supportEmail = supportEmail; }
 
-  public String getEmailPassword() {
-    return emailPassword;
-  }
+  public String getLogDirectory() { return logDirectory; }
+  public void setLogDirectory(String logDirectory) { this.logDirectory = logDirectory; }
 
-  public void setEmailPassword(String emailPassword) {
-    this.emailPassword = emailPassword;
-  }
-
-  public String getEmailFromName() {
-    return emailFromName;
-  }
-
-  public void setEmailFromName(String emailFromName) {
-    this.emailFromName = emailFromName;
-  }
-
-  public String getEmailFromAddress() {
-    return emailFromAddress;
-  }
-
-  public void setEmailFromAddress(String emailFromAddress) {
-    this.emailFromAddress = emailFromAddress;
-  }
-
-  public String getSupportName() {
-    return supportName;
-  }
-
-  public void setSupportName(String supportName) {
-    this.supportName = supportName;
-  }
-
-  public String getSupportEmail() {
-    return supportEmail;
-  }
-
-  public void setSupportEmail(String supportEmail) {
-    this.supportEmail = supportEmail;
-  }
-
-  public String getLogDirectory() {
-    return logDirectory;
-  }
-
-  public void setLogDirectory(String logDirectory) {
-    this.logDirectory = logDirectory;
-  }
-
-  public String getLogFile() {
-    return logFile;
-  }
-
-  public void setLogFile(String logFile) {
-    this.logFile = logFile;
-  }
+  public String getLogFile() { return logFile; }
+  public void setLogFile(String logFile) { this.logFile = logFile; }
 
   public String getGlobusClientId() { return globusClientId; }
   private void setGlobusClientId(String s) {globusClientId = s; }
+
+  public int getSvcMaintenanceInterval() { return svcMaintenanceInterval; }
+  private void setSvcMaintenanceInterval(int i) { svcMaintenanceInterval = i; }
 
   /* ********************************************************************** */
   /*                            Private Methods                             */
@@ -844,7 +769,8 @@ public final class RuntimeParameters implements EmailClientParameters
   {
     TAPIS_SVC_ADMIN_TENANT("tapis.svc.admin.tenant"),
     TAPIS_MIGRATE_JOB_APPLY("tapis.migrate.job.apply"),
-    TAPIS_GLOBUS_CLIENT_ID("tapis.globus.client.id");
+    TAPIS_GLOBUS_CLIENT_ID("tapis.globus.client.id"),
+    TAPIS_SVC_MAINTENANCE_INTERVAL("tapis.svc.maintenance.interval");
     private final String _envName;
     EnvVar2(String envName) {
       _envName = envName;
