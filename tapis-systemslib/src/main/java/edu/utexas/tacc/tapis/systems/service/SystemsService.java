@@ -8,6 +8,7 @@ import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
+import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.model.PatchSystem;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.SystemShare;
@@ -22,6 +23,15 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 @Contract
 public interface SystemsService
 {
+
+  // ------------------------- Service -------------------------------------
+  // -----------------------------------------------------------------------
+  void initService(String siteId1, String siteAdminTenantId1, RuntimeParameters runParms)
+          throws TapisException, TapisClientException;
+  Exception checkDB();
+  void startMaintenanceTask(long intervalMinutes);
+  void stopMaintenanceTask();
+
   // ------------------------- Systems -------------------------------------
   // -----------------------------------------------------------------------
   TSystem createSystem(ResourceRequestUser rUser, TSystem system, boolean skipCredCheck, String rawData)

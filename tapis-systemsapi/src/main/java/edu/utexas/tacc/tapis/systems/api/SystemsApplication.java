@@ -3,7 +3,6 @@ package edu.utexas.tacc.tapis.systems.api;
 import java.net.URI;
 import javax.ws.rs.ApplicationPath;
 
-import edu.utexas.tacc.tapis.systems.service.*;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
@@ -19,6 +18,7 @@ import edu.utexas.tacc.tapis.systems.api.resources.PermsResource;
 import edu.utexas.tacc.tapis.systems.api.resources.SchedulerProfileResource;
 import edu.utexas.tacc.tapis.systems.api.resources.ShareResource;
 import edu.utexas.tacc.tapis.systems.api.resources.SystemResource;
+import edu.utexas.tacc.tapis.systems.service.*;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
 import edu.utexas.tacc.tapis.shared.security.TenantManager;
@@ -119,7 +119,6 @@ public class SystemsApplication extends ResourceConfig
         @Override
         protected void configure() {
           bind(SystemsServiceImpl.class).to(SystemsService.class); // Used in Resource classes for most service calls
-          bind(SystemsServiceImpl.class).to(SystemsServiceImpl.class); // Used in GeneralResource for checkDB
           bind(SystemsDaoImpl.class).to(SystemsDao.class); // Used in service impl
           bind(SchedulerProfileServiceImpl.class).to(SchedulerProfileServiceImpl.class);
           bind(CredentialsServiceImpl.class).to(CredentialsServiceImpl.class);
@@ -163,23 +162,22 @@ public class SystemsApplication extends ResourceConfig
     ApplicationHandler handler = new ApplicationHandler(config);
     InjectionManager im = handler.getInjectionManager();
     ServiceLocator locator = im.getInstance(ServiceLocator.class);
-    SystemsServiceImpl svcImpl = locator.getService(SystemsServiceImpl.class);
+    SystemsService svc = locator.getService(SystemsService.class);
 
     // Call the main service init method
     System.out.println("Initializing service");
-    svcImpl.initService(siteId, siteAdminTenantId, RuntimeParameters.getInstance());
+    svc.initService(siteId, siteAdminTenantId, RuntimeParameters.getInstance());
 
     // Add a shutdown hook so we can gracefully stop
     System.out.println("Registering shutdownHook");
-    Thread shudownHook = new SystemsApplication.ServiceShutdown(svcImpl);
+    Thread shudownHook = new SystemsApplication.ServiceShutdown(svc);
     Runtime.getRuntime().addShutdownHook(shudownHook);
 
-    // TODO schedule maintenance thread for updating FAILED and PENDING credInfo records
-    // TODO NOTE: start maintenance thread after initial sync so initial sync is single-threaded.
-    // TODO Will probably do this in the Application after initService is called. See DispatchApplication in tapis-notifications
-    // Start background process to clean up expired subscriptions.
+    // Schedule maintenance task thread. This task:
+    //  - updates FAILED and PENDING credInfo records
+    // NOTE: Starting this after initial sync in initService so initial sync is single-threaded.
     System.out.println("Starting maintenance background task");
-    svcImpl.startMaintenanceTask(RuntimeParameters.getInstance().getSvcMaintenanceInterval());
+    svc.startMaintenanceTask(RuntimeParameters.getInstance().getSvcMaintenanceInterval());
 
     // Create and start the server
     System.out.println("Starting http server");

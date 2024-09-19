@@ -7,21 +7,18 @@ import edu.utexas.tacc.tapis.security.client.model.*;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisSSHAuthException;
 import edu.utexas.tacc.tapis.shared.s3.S3Connection;
-import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
 import edu.utexas.tacc.tapis.shared.utils.PathUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
-import edu.utexas.tacc.tapis.systems.model.Credential;
-import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
-import edu.utexas.tacc.tapis.systems.model.SystemShare;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
+import edu.utexas.tacc.tapis.systems.model.*;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.statefulj.fsm.FSM;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -35,11 +32,11 @@ import java.util.*;
 
 import static edu.utexas.tacc.tapis.systems.model.Credential.*;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
-import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.*;
+import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.NOT_FOUND;
 
 /*
    Utility class containing Tapis credential related methods needed by the
-   service implementation.
+   service implementation and maintenance task.
  */
 public class CredUtils
 {
@@ -89,8 +86,6 @@ public class CredUtils
   // Use HK2 to inject singletons
   @Inject
   private SystemsDao dao;
-  @Inject
-  private ServiceClients serviceClients;
   @Inject
   private SysUtils sysUtils;
 
@@ -682,163 +677,35 @@ public class CredUtils
   /**
    * Check the systems_cred_info table and update as needed
    *  - Mark all IN_PROGRESS records as FAILED
-   *  - Create records as needed for systems with static effectiveUserId
-   * TODO/TBD: NO, DO THIS IN MAINTENANCE THREAD  - For each PENDING record read info from SK and update the cred info table.
-   * TODO/TBD: NO, DO THIS IN MAINTENANCE THREAD - Mark all FAILED records as PENDING
-   * TODO/TBD: NO, DO THIS IN MAINTENANCE THREAD - For each PENDING record read info from SK and update the cred info table.
+   *  - Create records as needed for undeleted systems that have a static effectiveUserId
    */
-  void credInfoInit(ResourceRequestUser rUser) throws TapisException
+  void credInfoInit(FSM<CredInfoSyncState> credInfoFSM) throws TapisException
   {
+    // TODO: Any use of CredInfoFSM here? Maybe? check for allowed transition IN_PROGRESS to FAILED Do we really even need an FSM for that?
     // Mark all IN_PROGRESS records as FAILED
-    dao.credInfoMarkInProgressAsFailed();
+    // TODO: First check that transition is valid. If not valid then abort startup by throwing an exception.
+    String transition = CredInfoFSM.InProgressToFailed;
+    transition = "NoSuchTransition";
+    if (!CredInfoFSM.allowedEvents.contains(transition))
+    {
+      String msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FSM_INVALID_TRANSITION", transition);
+      log.error(msg);
+      throw new TapisException(msg);
+    }
+    String failMsg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED");
+    dao.credInfoMarkInProgressAsFailed(failMsg);
 
-    // Create records in credInfo table as needed for undeleted systems with a static effectiveUserId
-    // TODO/TBD: NO, DO THIS IN MAINTENANCE THREAD???
-//    dao.credInfoInitStaticSystems();
-
-    // For each PENDING record read info from SK and update the cred info table.
-   // TODO/TBD: NO, DO THIS IN MAINTENANCE THREAD???
-//    credInfoSyncPendingRecords(rUser);
-
-    // TODO remove in favor of scheduled maintenance thread
-    //      note: will now need to consider both FAILED and PENDING when filtering
-//    // Mark all FAILED records as PENDING
-//    dao.credInfoMarkFailedAsPending();
-//
-//    // For each PENDING record read info from SK and update the cred info table.
-//    credInfoSyncPendingRecords();
+    // Create records as needed for undeleted systems that have a static effectiveUserId
+    dao.credInfoInitStaticSystems();
   }
 
-  /**
-   * Sync all CredInfo PENDING records with SK
+  /*
+   * Return segment of secret path for target user, including static or dynamic scope
+   * Note that SK uses + rather than / to create sub-folders.
    */
-  // TODO/TBD keep as private and move down into private section?
-  private void credInfoSyncPendingRecords(ResourceRequestUser rUser) throws TapisException
+  static String getTargetUserSecretPath(String targetUser, boolean isStatic)
   {
-    // Find all PENDING records
-    List<CredentialInfo> pendingRecords = dao.credInfoGetPendingRecords();
-    // For each record sync it with SK
-    for (CredentialInfo credInfo: pendingRecords)
-    {
-      credInfoSyncWithSK(rUser,credInfo);
-    }
-  }
-
-  /**
-   * For a given record in the SYSTEMS_CRED_INFO table read from SK and update the record.
-   */
-  // TODO/TBD keep as private and move down into private section?
-  private void credInfoSyncWithSK(ResourceRequestUser rUser, CredentialInfo credInfo) throws TapisException
-  {
-    // Mark record as IN_PROGRESS
-    dao.credInfoMarkAsInProgress(credInfo);
-    //TODO Call SK to get credential info.
-    // On any error mark as failed and return
-    CredentialInfo skCredInfo;
-    try
-    {
-      skCredInfo = getSkCredInfo(rUser, credInfo);
-    }
-    catch (Exception e)
-    {
-      // Mark record as failed
-      // TODO message
-      String failMsg = LibUtils.getMsg("SYSLIB_???????");
-      dao.credInfoMarkAsFailed(failMsg);
-      return;
-    }
-
-    // Update CredInfo table record - clear failure info, set status to COMPLETE
-    dao.credInfoSyncRecordAsComplete(skCredInfo);
-  }
-
-  /**
-   * For syncing data.
-   * Given CredentialInfo record call SK to get latest data.
-   * No exceptions are caught.
-   *
-   * @param rUser ResourceRequest user, for logging purposes
-   * @param credInfo CredentialInfo object with current data from Systems server datastore
-   * @throws TapisException - on DAO error
-   * @throws TapisClientException - on SK error
-   * @return CredentialInfo object with latest data from Security Kernel (SK)
-   */
-  CredentialInfo getSkCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
-          throws TapisException, TapisClientException
-  {
-    CredentialInfo skCredInfo;
-    boolean hasCredentials, hasPassword, hasPkiKeys, hasAccessKey, hasToken;
-    String tenant = credInfo.getTenant();
-    String targetUser = credInfo.getTapisUser();
-    String systemId = credInfo.getSystemId();
-    boolean isStaticEffectiveUser = !credInfo.isDynamic();
-    AuthnMethod defaultAuthnMethod= dao.getSystemDefaultAuthnMethod(tenant, systemId);
-    // Construct basic SK secret parameters
-    // Establish secret type ("system") and secret name ("S1")
-    var sParms = new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
-
-    // Fill in systemId and targetUserPath for the path to the secret.
-    String targetUserPath = getTargetUserSecretPath(targetUser, isStaticEffectiveUser);
-
-    // Set tenant, system and user associated with the secret.
-    // These values are used to build the vault path to the secret.
-    sParms.setTenant(tenant).setSysId(systemId).setSysUser(targetUserPath);
-
-    // NOTE: For secrets of type "system" setUser value not used in the path, but SK requires that it be set.
-    sParms.setUser(targetUser);
-
-    // PASSWORD
-    sParms.setKeyType(KeyType.password);
-    SkSecret skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-    if (skSecret == null) hasPassword = false;
-    else
-    {
-      var dataMap = skSecret.getSecretMap();
-      if (dataMap == null) hasPassword = false;
-      else hasPassword = !StringUtils.isBlank(dataMap.get(SK_KEY_PASSWORD));
-    }
-    // PKI_KEYS
-    sParms.setKeyType(KeyType.sshkey);
-    skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-    if (skSecret == null) hasPkiKeys = false;
-    else
-    {
-      var dataMap = skSecret.getSecretMap();
-      if (dataMap == null) hasPkiKeys = false;
-      else hasPkiKeys = !StringUtils.isBlank(dataMap.get(SK_KEY_PRIVATE_KEY));
-    }
-    // ACCESS_KEY
-    sParms.setKeyType(KeyType.accesskey);
-    skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-    if (skSecret == null) hasAccessKey = false;
-    else
-    {
-      var dataMap = skSecret.getSecretMap();
-      if (dataMap == null) hasAccessKey = false;
-      else hasAccessKey = !StringUtils.isBlank(dataMap.get(SK_KEY_ACCESS_KEY));
-    }
-    // TOKEN
-    sParms.setKeyType(KeyType.token);
-    skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-    if (skSecret == null) hasToken = false;
-    else
-    {
-      var dataMap = skSecret.getSecretMap();
-      if (dataMap == null) hasToken = false;
-      else hasToken = !StringUtils.isBlank(dataMap.get(SK_KEY_ACCESS_TOKEN));
-    }
-
-    // Determine if credentials are registered for defaultAuthnMethod of the system
-    hasCredentials = (AuthnMethod.PASSWORD.equals(defaultAuthnMethod) && hasPassword) ||
-                     (AuthnMethod.PKI_KEYS.equals(defaultAuthnMethod) && hasPkiKeys) ||
-                     (AuthnMethod.ACCESS_KEY.equals(defaultAuthnMethod) && hasAccessKey) ||
-                     (AuthnMethod.TOKEN.equals(defaultAuthnMethod) && hasToken);
-    // Create credentialInfo
-    skCredInfo = new CredentialInfo(tenant, systemId, targetUser, credInfo.getLoginUser(), credInfo.isDynamic(),
-                        hasCredentials, hasPassword, hasPkiKeys, hasAccessKey, hasToken,
-                        credInfo.getSyncStatus(), credInfo.getSyncFailCount(), credInfo.getSyncFailMessage(),
-                        credInfo.getSyncFailed(), credInfo.getCreated(), credInfo.getUpdated());
-    return skCredInfo;
+    return String.format("%s+%s", isStatic ? "static" : "dynamic", targetUser);
   }
 
   /* **************************************************************************** */
@@ -981,14 +848,5 @@ public class CredUtils
     log.info(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
             effectiveUser, authnMethod, validationResult, msg));
     return retCred;
-  }
-
-  /*
-   * Return segment of secret path for target user, including static or dynamic scope
-   * Note that SK uses + rather than / to create sub-folders.
-   */
-  static private String getTargetUserSecretPath(String targetUser, boolean isStatic)
-  {
-    return String.format("%s+%s", isStatic ? "static" : "dynamic", targetUser);
   }
 }

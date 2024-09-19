@@ -27,7 +27,7 @@ public final class CredentialInfo
   /* ********************************************************************** */
   /*                               Enums                                    */
   /* ********************************************************************** */
-  public enum SyncStatus {PENDING, IN_PROGRESS, FAILED, COMPLETE}
+  public enum SyncStatus {PENDING, IN_PROGRESS, FAILED, COMPLETED}
 
   /* ********************************************************************** */
   /*                                 Fields                                 */
@@ -44,12 +44,13 @@ public final class CredentialInfo
 --      PENDING - Record requires synchronization
 --      IN_PROGRESS - Systems service is in the process of synchronizing the record
 --      FAILED - Synchronization failed.
---      COMPLETE - Synchronization completed successfully.
+--      COMPLETED - Synchronization completed successfully.
 --   sync_failed - Timestamp for last sync attempt failure. Null if no failures.
 --   sync_fail_count - Number of sync attempts that have failed
 --   sync_fail_message - Message indicating why last sync attempt failed
 
  */
+
   private final String tenant; // Name of tenant associated with the credential
   private final String systemId; // Name of the system associated with the credential
   private final String tapisUser; // Tapis user associated with the credential
@@ -94,67 +95,10 @@ public final class CredentialInfo
     created = created1;
     updated = updated1;
   }
-//  // Simple constructor to populate all attributes except validation result and message.
-//  // Validation result defaults to FALSE and validation message set to a default value.
-//  public CredentialInfo(AuthnMethod authnMethod1, String loginUser1, String password1, String privateKey1,
-//                        String publicKey1, String accessKey1, String accessSecret1,
-//                        String accessToken1, String refreshToken1, String cert1)
-//  {
-//    authnMethod = authnMethod1;
-//    loginUser = loginUser1;
-//    password = password1;
-//    privateKey = privateKey1;
-//    publicKey = publicKey1;
-//    accessKey = accessKey1;
-//    accessSecret = accessSecret1;
-//    accessToken = accessToken1;
-//    refreshToken = refreshToken1;
-//    certificate = cert1;
-//    validationResult = Boolean.FALSE;
-//    validationMsg = VALIDATION_MSG_DEFAULT;
-//  }
-//
   /* ********************************************************************** */
   /*                        Public methods                                  */
   /* ********************************************************************** */
-//  /**
-//   * Create a credential with secrets masked out
-//   */
-//  public static CredentialInfo createMaskedCredential(CredentialInfo cred)
-//  {
-//    if (cred == null) return null;
-//    String accessToken, refreshToken, accessKey, accessSecret, password, privateKey, publicKey, cert;
-//    accessToken = (!StringUtils.isBlank(cred.getAccessToken())) ? SECRETS_MASK : cred.getAccessToken();
-//    refreshToken = (!StringUtils.isBlank(cred.getRefreshToken())) ? SECRETS_MASK : cred.getRefreshToken();
-//    accessKey = (!StringUtils.isBlank(cred.getAccessKey())) ? SECRETS_MASK : cred.getAccessKey();
-//    accessSecret = (!StringUtils.isBlank(cred.getAccessSecret())) ? SECRETS_MASK : cred.getAccessSecret();
-//    password = (!StringUtils.isBlank(cred.getPassword())) ? SECRETS_MASK : cred.getPassword();
-//    privateKey = (!StringUtils.isBlank(cred.getPrivateKey())) ? SECRETS_MASK : cred.getPrivateKey();
-//    publicKey = (!StringUtils.isBlank(cred.getPublicKey())) ? SECRETS_MASK : cred.getPublicKey();
-//    cert = (!StringUtils.isBlank(cred.getCertificate())) ? SECRETS_MASK : cred.getCertificate();
-//    return new CredentialInfo(cred.getAuthnMethod(), cred.getLoginUser(), password, privateKey, publicKey,
-//                          accessKey, accessSecret, accessToken, refreshToken, cert, cred.getValidationResult(),
-//                          cred.getValidationMsg());
-//  }
-//
-//  /**
-//   * Check if private key is compatible with Tapis.
-//   * SSH key-pairs that have a private key starting with: --- BEGIN OPENSSH PRIVATE KEY ---
-//   * cannot be used in TapisV3. the Jsch library does not yet support them.
-//   * Instead, a private key starting with:{{ — BEGIN RSA PRIVATE KEY ---}}
-//   * should be used. Recent openssh versions generate OPENSSH type keys.
-//   * To generate compatible keys one should use the option -m PEM with ssh-keygen, e.g.
-//   * ssh-keygen -t rsa -b 4096 -m PEM
-//   *
-//   * @return  true if private key is compatible
-//   */
-//  public boolean isValidPrivateSshKey()
-//  {
-//    if (StringUtils.isBlank(privateKey)) return false;
-//    if (privateKey.contains("BEGIN OPENSSH PRIVATE KEY")) return false;
-//    return true;
-//  }
-//
+
   /* ********************************************************************** */
   /*                               Accessors                                */
   /* ********************************************************************** */
@@ -177,19 +121,4 @@ public final class CredentialInfo
   public Instant getCreated() { return created; }
   @Schema(type = "string")
   public Instant getUpdated() { return updated; }
-
-//  @Override
-//  public String toString()
-//  {
-//    String l = StringUtils.isBlank(loginUser) ? "<empty>" : loginUser;
-//    String p = StringUtils.isBlank(password) ? "<empty>" : "*********";
-//    String privKey = StringUtils.isBlank(privateKey) ? "<empty>" : "*********";
-//    String pubKey = StringUtils.isBlank(publicKey) ? "<empty>" : "*********";
-//    String aKey = StringUtils.isBlank(accessKey) ? "<empty>" : "*********";
-//    String aSecret = StringUtils.isBlank(accessSecret) ? "<empty>" : "*********";
-//    String aTok = StringUtils.isBlank(accessToken) ? "<empty>" : "*********";
-//    String aRefresh = StringUtils.isBlank(refreshToken) ? "<empty>" : "*********";
-//    return String.format("Credential:%n  AuthnMethod: %s%n  loginUser: %s%n  password: %s%n  privateKey: %s%n  publicKey: %s%n  accessKey: %s%n  accessSecret: %s%n accessToken: %s%n refreshToken: %s%n  validationResult: %B%n  validationMsg: %s%n",
-//                          authnMethod, l, p, privKey, pubKey, aKey, aSecret, aTok, aRefresh, validationResult, validationMsg);
-//  }
 }

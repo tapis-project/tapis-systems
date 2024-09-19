@@ -17,9 +17,6 @@ import javax.sql.DataSource;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsCredInfo;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.*;
-import edu.utexas.tacc.tapis.systems.model.*;
 import org.flywaydb.core.Flyway;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
@@ -32,6 +29,9 @@ import org.jooq.impl.DSL;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.*;
+import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.*;
 
 import edu.utexas.tacc.tapis.search.parser.ASTBinaryExpression;
 import edu.utexas.tacc.tapis.search.parser.ASTLeaf;
@@ -49,7 +49,16 @@ import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisDBConnectionExce
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.shareddb.datasource.TapisDataSource;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
+import edu.utexas.tacc.tapis.systems.model.Capability;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
+import edu.utexas.tacc.tapis.systems.model.JobRuntime;
+import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
+import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
+import edu.utexas.tacc.tapis.systems.model.ModuleLoadSpec;
+import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
+import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
+import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.AuthListType;
@@ -57,8 +66,6 @@ import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
 import static edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator.CONTAINS;
 import static edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator.NCONTAINS;
-import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.*;
-import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.SYSTEMS;
 import static edu.utexas.tacc.tapis.shared.threadlocal.OrderBy.DEFAULT_ORDERBY_DIRECTION;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.DEFAULT_LIST_TYPE;
 
@@ -1872,10 +1879,8 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException on error
    */
   @Override
-  public void credInfoMarkInProgressAsFailed() throws TapisException
+  public void credInfoMarkInProgressAsFailed(String failMsg) throws TapisException
   {
-    // TODO message
-    String failMsg = LibUtils.getMsg("SYSLIB_???????");
     // Values to use for update: timestamp, fail message
     LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
     // ------------------------- Call SQL ----------------------------
@@ -1942,6 +1947,7 @@ public class SystemsDaoImpl implements SystemsDao
 
   /**
    * In SYSTEMS_CRED_INFO table, Mark a record as IN_PROGRESS
+   * TODO Check other methods that might also be trying to move record to IN_PROGRESS
    * @throws TapisException on error
    */
   @Override
@@ -1992,7 +1998,7 @@ public class SystemsDaoImpl implements SystemsDao
       DSLContext db = DSL.using(conn);
       // NOTE: Primary key is (tenant, systemId, tapisUser, isDynamic)
       db.update(SYSTEMS_CRED_INFO)
-            .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.COMPLETE)
+            .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.COMPLETED)
             .set(SYSTEMS_CRED_INFO.UPDATED, TapisUtils.getUTCTimeNow())
             .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                     SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
@@ -2054,7 +2060,9 @@ public class SystemsDaoImpl implements SystemsDao
 
   /**
    * In SYSTEMS_CRED_INFO table, create records as needed for undeleted systems that have a static effectiveUserId
-   * Do it all in a single DAO call so it is in one transaction
+   * Do it all in a single DAO forUpdate call so it is in one transaction
+   * TODO/TBD: is use of forUpdate correct? Since we are only inserting records into credInfo table that did not
+   *           yet exist the forUpdate is not needed?
    * @throws TapisException on error
    */
   @Override
@@ -2074,23 +2082,23 @@ public class SystemsDaoImpl implements SystemsDao
                               .on(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID.eq(SYSTEMS.SEQ_ID)))
                       .where(SYSTEMS.DELETED.eq(false))
                       .andNot(SYSTEMS.EFFECTIVE_USER_ID.eq(TSystem.APIUSERID_VAR))
+                      .forUpdate()
                       .fetch();
 
       // For each system found, insert a record in the credInfo table
-      // TODO/TBD: For static users, tapis_user can be system owner. What about for dynamic users? still system owner?
-      //           BUT tapis_user is part of the primary key, so for dynamic users it doesn't make sense ?!?!?!?
-      //           Use null? NO, do not create them in this method
+      // NOTE: For static users, tapis_user can be system owner. What about for dynamic users?
+      //       Use null? No, because tapis_user is part of the primary key, so for dynamic effectiveUserId
+      //       we cannot create CredInfo records as part of the maintenance task.
       // Values to use for created, updated: timestamp
       LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
       for (SystemsRecord r : results)
       {
-        boolean isDynamic = TSystem.APIUSERID_VAR.equals(r.getEffectiveUserId());
         db.insertInto(SYSTEMS_CRED_INFO)
                 .set(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID, r.getSeqId())
                 .set(SYSTEMS_CRED_INFO.TENANT, r.getTenant())
                 .set(SYSTEMS_CRED_INFO.SYSTEM_ID, r.getId())
                 .set(SYSTEMS_CRED_INFO.TAPIS_USER, r.getOwner())
-                .set(SYSTEMS_CRED_INFO.IS_DYNAMIC, isDynamic)
+                .set(SYSTEMS_CRED_INFO.IS_DYNAMIC, false)
                 .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.PENDING)
                 .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, 0)
                 .set(SYSTEMS_CRED_INFO.CREATED, utcNow)

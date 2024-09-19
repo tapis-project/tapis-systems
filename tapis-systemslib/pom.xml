@@ -83,6 +83,11 @@
       <artifactId>threetenbp</artifactId>
       <version>${threetenbp.version}</version>
     </dependency>
+    <!-- StatefulJ -->
+    <dependency>
+      <groupId>org.statefulj</groupId>
+      <artifactId>statefulj-fsm</artifactId>
+    </dependency>
     <!-- Gson -->
     <dependency>
       <groupId>io.gsonfire</groupId>

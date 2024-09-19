@@ -26,8 +26,8 @@ import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils.RESPONSE_STATUS;
 import edu.utexas.tacc.tapis.systems.api.SystemsApplication;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
-import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+import edu.utexas.tacc.tapis.systems.service.SystemsService;
 
 
 /*
@@ -65,7 +65,7 @@ public class GeneralResource
 
   // **************** Inject Services using HK2 ****************
   @Inject
-  private SystemsServiceImpl svcImpl;
+  private SystemsService svc;
   @Inject
   private ServiceContext serviceContext;
 
@@ -290,7 +290,7 @@ public class GeneralResource
   private Exception checkDB()
   {
     Exception result;
-    try { result = svcImpl.checkDB(); }
+    try { result = svc.checkDB(); }
     catch (Exception e) { result = e; }
     return result;
   }

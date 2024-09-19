@@ -93,7 +93,7 @@ public interface SystemsDao
   /*                        CredentialInfo Table                            */
   /* ********************************************************************** */
 
-  void credInfoMarkInProgressAsFailed() throws TapisException;
+  void credInfoMarkInProgressAsFailed(String failMsg) throws TapisException;
 
   void credInfoMarkFailedAsPending() throws TapisException;
 

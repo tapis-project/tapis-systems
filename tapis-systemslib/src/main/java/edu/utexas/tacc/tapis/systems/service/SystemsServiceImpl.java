@@ -4,6 +4,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
@@ -11,15 +15,14 @@ import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 
-import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
-import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
-import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.statefulj.fsm.FSM;
+import org.statefulj.persistence.memory.MemoryPersisterImpl;
 
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.search.SearchUtils;
@@ -28,17 +31,21 @@ import edu.utexas.tacc.tapis.search.parser.ASTParser;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
+import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.shared.ssh.apache.system.TapisRunCommand;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
+import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
 import edu.utexas.tacc.tapis.shared.utils.PathUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
 import edu.utexas.tacc.tapis.systems.client.gen.model.TapisSystem;
 import edu.utexas.tacc.tapis.systems.client.gen.model.SystemTypeEnum;
+import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import edu.utexas.tacc.tapis.systems.model.*;
+
 import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
 import static edu.utexas.tacc.tapis.systems.service.AuthUtils.*;
@@ -64,7 +71,7 @@ public class SystemsServiceImpl implements SystemsService
   public static final String JOBS_SERVICE = TapisConstants.SERVICE_NAME_JOBS;
 
   // Default interval in minutes for running the maintenance background task
-  public static final int DEFAULT_SVC_MAINT_INTERVAL = 10;
+  public static final int DEFAULT_SVC_MAINT_INTERVAL = 60;
 
   // Allow interrupt when shutting down executor services.
   private static final boolean mayInterruptIfRunning = true;
@@ -72,7 +79,6 @@ public class SystemsServiceImpl implements SystemsService
   // Message keys
   static final String NOT_FOUND = "SYSLIB_NOT_FOUND";
   static final String ERROR_ROLLBACK = "SYSLIB_ERROR_ROLLBACK";
-
 
   // SFTP client throws IOException containing this string if a path does not exist.
   private static final String NO_SUCH_FILE = "no such file";
@@ -112,6 +118,12 @@ public class SystemsServiceImpl implements SystemsService
   @Inject
   private ServiceContext serviceContext;
 
+//  private MaintenanceTask maintenanceTask; // Runnable maintenance task run via executor
+
+  // ExecutorService and future for maintenance task
+//  private final ScheduledExecutorService maintenanceExecService = Executors.newSingleThreadScheduledExecutor();
+//  private Future<?> maintenanceTaskFuture;
+
   // We must be running on a specific site and this will never change
   // These are initialized in method initService()
   private static String siteId;
@@ -120,6 +132,10 @@ public class SystemsServiceImpl implements SystemsService
   public static String getSiteId() {return siteId;}
   public static String getServiceTenantId() {return siteAdminTenantId;}
   public static String getServiceUserId() {return SERVICE_NAME;}
+
+  // TODO/TBD CredentialInfo Finite State Machine (FSM)
+  private MemoryPersisterImpl<CredInfoSyncState> credInfoPersister;
+  private FSM<CredInfoSyncState> credInfoFSM;
 
   // ************************************************************************
   // *********************** Public Methods *********************************
@@ -130,6 +146,7 @@ public class SystemsServiceImpl implements SystemsService
    *   init service context
    *   migrate DB
    */
+  @Override
   public void initService(String siteId1, String siteAdminTenantId1, RuntimeParameters runParms)
           throws TapisException, TapisClientException
   {
@@ -148,24 +165,55 @@ public class SystemsServiceImpl implements SystemsService
                                          svcName, svcTenant, null, siteId, null);
     rUserSvc = new ResourceRequestUser(authUser);
 
-    // Check the systems_cred_info table and synchronize with SK as needed.
-    credUtils.credInfoInit(rUserSvc);
+    // Create the maintenanceTask runnable
+//    maintenanceTask = new MaintenanceTask(rUserSvc);
+
+    // Initialize the Finite State Machine that tracks CredentialInfo SyncState
+    // FSM Used for validating state transitions.
+    // Main usefulness is in catching difficult to find bugs introduced by future code changes.
+    // TODO/TBD Do we really need this if all we are checking is that a transition is allowed?
+    //          Could we just have a Set of allowed transitions (i.e. the events defined as Strings in CredInfoFSM)
+    //          and check that proposed transition against that set? Do we really need an FSM?
+    credInfoPersister =
+            new MemoryPersisterImpl<>(CredInfoFSM.getStates(), CredInfoFSM.PendingState, CredInfoSyncState.STATE_FIELD_NAME);
+    credInfoFSM = new FSM<>(CredInfoFSM.FSM_NAME, credInfoPersister);
+
+    // Check the systems_cred_info table and perform initial synchronization steps.
+    // IN_PROGRESS records moved to FAILED
+    credUtils.credInfoInit(credInfoFSM);
+  }
+
+  /**
+   * Start the maintenance task thread
+   * The maintenanceTask is a ScheduledExecutorService that runs periodically using the value passed
+   * in as the period in minutes.
+   *
+   * @param intervalMinutes execution period in minutes
+   */
+  @Override
+  public void startMaintenanceTask(long intervalMinutes)
+  {
+    log.info(LibUtils.getMsg("SYSLIB_MAINT_TASK_START"));
+//    maintenanceTaskFuture =
+//            maintenanceExecService.scheduleAtFixedRate(maintenanceTask,intervalMinutes,
+//                                                 intervalMinutes, TimeUnit.MINUTES);
   }
 
   /*
-   * Stop the subscription reaper thread
+   * Stop the maintenance task thread
    */
+  @Override
   public void stopMaintenanceTask()
   {
-    log.info(LibUtils.getMsg("SYSLIB_MAINTENANCE_STOP"));
-    if (maintenanceTaskFuture != null) maintenanceTaskFuture.cancel(mayInterruptIfRunning);
+    log.info(LibUtils.getMsg("SYSLIB_MAINT_TASK_STOP"));
+//    if (maintenanceTaskFuture != null) maintenanceTaskFuture.cancel(mayInterruptIfRunning);
   }
-
 
   /**
    * Check that we can connect with DB and that the main table of the service exists.
    * @return null if all OK else return an Exception
    */
+  @Override
   public Exception checkDB()
   {
     return dao.checkDB();
