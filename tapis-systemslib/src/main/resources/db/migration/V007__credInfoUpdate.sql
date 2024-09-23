@@ -14,7 +14,7 @@
 -- Re-purpose systems_login_user table for recording information on credential registrations for systems.
 -- Rename table from systems_login_user to systems_cred_info
 -- Add new columns:
---   is_dynamic - indicates if record is for the static or dynamic effectiveUserId case
+--   is_static - indicates if record is for the static or dynamic effectiveUserId case
 --   has_credentials - indicates if system has credentials registered for the current defaultAuthnMethod
 --   has_password - indicates if credentials for PASSWORD have been registered.
 --   has_pki_keys - indicates if credentials for PKI_KEYS have been registered.
@@ -29,17 +29,17 @@
 --   sync_fail_count - Number of sync attempts that have failed
 --   sync_fail_message - Message indicating why last sync attempt failed
 --
--- Default for is_dynamic is true since if there is an existing record then it is for a login user mapping and that
+-- Default for is_static is false since if there is an existing record then it is for a login user mapping and that
 --    is only used for dynamic.
 -- Remove the NOT NULL constraint on the login_user column since now we will have records even if there
 --    is no mapping.
--- Change primary key from (tenant, system_id, tapis_user) to (tenant, system_id, tapis_user, is_dynamic)
+-- Change primary key from (tenant, system_id, tapis_user) to (tenant, system_id, tapis_user, is_static)
 --    since that is what makes a record unique
 --
 ALTER TABLE IF EXISTS systems_login_user RENAME TO systems_cred_info;
 ALTER TABLE systems_cred_info ALTER login_user DROP NOT NULL;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_credentials BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS is_dynamic BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS is_static BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_password BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_pki_keys BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_access_key BOOLEAN NOT NULL DEFAULT false;
@@ -49,12 +49,12 @@ ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_failed TIMESTAMP WIT
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_fail_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_fail_message TEXT;
 
--- We need to add is_dynamic to the primary key because static and dynamic users are independent even if
+-- We need to add is_static to the primary key because static and dynamic users are independent even if
 --   the username is identical. Credentials are registered and stored in SK separately.
 -- Drop existing primary key
 ALTER TABLE systems_cred_info DROP CONSTRAINT systems_login_user_pkey;
 -- Create new primary key
-ALTER TABLE systems_cred_info ADD primary key (tenant, system_id, tapis_user, is_dynamic);
+ALTER TABLE systems_cred_info ADD primary key (tenant, system_id, tapis_user, is_static);
 
 --
 -- TODO  - NOTES

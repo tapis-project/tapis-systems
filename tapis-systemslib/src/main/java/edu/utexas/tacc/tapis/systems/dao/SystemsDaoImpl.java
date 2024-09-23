@@ -1841,10 +1841,11 @@ public class SystemsDaoImpl implements SystemsDao
   public void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser)
           throws TapisException
   {
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     // If anything missing throw an exception. These values make up the primary key
     if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
     {
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_DB_DEL_LOGINMAP_ERR", rUser, tenantId, sysId, tapisUser));
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NULL_PK", rUser, tenantId, sysId, tapisUser));
     }
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1873,6 +1874,76 @@ public class SystemsDaoImpl implements SystemsDao
   /* ********************************************************************** */
   /*                        CredentialInfo Table                            */
   /* ********************************************************************** */
+
+  /**
+   * Delete CredInfo record
+   */
+  @Override
+  public void deleteCredInfo(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser, boolean isStatic)
+          throws TapisException
+  {
+    // If anything missing throw an exception. These values make up the primary key
+    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
+    {
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NULL_PK", rUser, tenantId, sysId, tapisUser));
+    }
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      db.deleteFrom(SYSTEMS_CRED_INFO)
+              .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
+                     SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
+              .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_DELETE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * Create CredInfo record
+   */
+  @Override
+  public void createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
+          throws TapisException
+  {
+    // If anything missing throw an exception.
+    if (credInfo == null) throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NULL", rUser));
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+
+      // TODO
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
 
   /**
    * In SYSTEMS_CRED_INFO table, Update all IN_PROGRESS cred info records to FAILED state
@@ -1959,14 +2030,14 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      // NOTE: Primary key is (tenant, systemId, tapisUser, isDynamic)
+      // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
       db.update(SYSTEMS_CRED_INFO)
               .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.IN_PROGRESS)
               .set(SYSTEMS_CRED_INFO.UPDATED, TapisUtils.getUTCTimeNow())
               .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                       SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
                       SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
-                      SYSTEMS_CRED_INFO.IS_DYNAMIC.eq(credInfo.isDynamic()))
+                      SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
               .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -1996,14 +2067,14 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      // NOTE: Primary key is (tenant, systemId, tapisUser, isDynamic)
+      // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
       db.update(SYSTEMS_CRED_INFO)
             .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.COMPLETED)
             .set(SYSTEMS_CRED_INFO.UPDATED, TapisUtils.getUTCTimeNow())
             .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                     SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
                     SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
-                    SYSTEMS_CRED_INFO.IS_DYNAMIC.eq(credInfo.isDynamic()))
+                    SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
             .execute();
 
 
@@ -2098,7 +2169,7 @@ public class SystemsDaoImpl implements SystemsDao
                 .set(SYSTEMS_CRED_INFO.TENANT, r.getTenant())
                 .set(SYSTEMS_CRED_INFO.SYSTEM_ID, r.getId())
                 .set(SYSTEMS_CRED_INFO.TAPIS_USER, r.getOwner())
-                .set(SYSTEMS_CRED_INFO.IS_DYNAMIC, false)
+                .set(SYSTEMS_CRED_INFO.IS_STATIC, true)
                 .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.PENDING)
                 .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, 0)
                 .set(SYSTEMS_CRED_INFO.CREATED, utcNow)
@@ -3194,7 +3265,7 @@ public class SystemsDaoImpl implements SystemsDao
   private CredentialInfo getCredentialInfoFromRecord(SystemsCredInfoRecord r)
   {
     return new CredentialInfo(r.getTenant(), r.getSystemId(), r.getTapisUser(), r.getLoginUser(),
-            r.getIsDynamic(), r.getHasCredentials(), r.getHasPassword(), r.getHasPkiKeys(),
+            r.getIsStatic(), r.getHasCredentials(), r.getHasPassword(), r.getHasPkiKeys(),
             r.getHasAccessKey(), r.getHasToken(), r.getSyncStatus(), r.getSyncFailCount(),
             r.getSyncFailMessage(), r.getSyncFailed().toInstant(ZoneOffset.UTC),
             r.getCreated().toInstant(ZoneOffset.UTC), r.getUpdated().toInstant(ZoneOffset.UTC));

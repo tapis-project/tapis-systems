@@ -202,13 +202,14 @@ public class CredentialResource
       throw new WebApplicationException(msg);
     }
 
-    // If no loginUser provided default to userName
-    String loginUser = (StringUtils.isBlank(req.loginUser)) ? userName : req.loginUser;
     // If loginUser provided then trace it.
     if (_log.isTraceEnabled() && !StringUtils.isBlank(req.loginUser))
     {
-      _log.trace(ApiUtils.getMsgAuth("SYSAPI_CRED_LOGINUSER", rUser, systemId, userName, loginUser));
+      _log.trace(ApiUtils.getMsgAuth("SYSAPI_CRED_LOGINUSER", rUser, systemId, userName, req.loginUser));
     }
+
+    // If no loginUser provided default to userName
+    String loginUser = (StringUtils.isBlank(req.loginUser)) ? userName : req.loginUser;
 
     // Build the credential
     AuthnMethod nullAuthnMethod = null;

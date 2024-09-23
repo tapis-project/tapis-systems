@@ -2,6 +2,7 @@ package edu.utexas.tacc.tapis.systems.model;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
+import java.util.concurrent.locks.ReentrantLock;
 
 /*
  * Class representing metadata for credentials stored in the Security Kernel.
@@ -27,35 +28,28 @@ public final class CredentialInfo
   /* ********************************************************************** */
   /*                               Enums                                    */
   /* ********************************************************************** */
-  public enum SyncStatus {PENDING, IN_PROGRESS, FAILED, COMPLETED}
+  // States:
+  //   --   sync_status - indicates current status of synchronization between SK and Systems service.
+  //--      PENDING - Record requires synchronization (Initial state)
+  //--      IN_PROGRESS - Systems service is in the process of synchronizing the record
+  //--      FAILED - Synchronization failed.
+  //--      DELETED - Record marked as deleted, but not yet removed from DB. Could potentially get re-created.
+  //--      COMPLETED - Synchronization completed successfully.
+  public enum SyncStatus {PENDING, IN_PROGRESS, FAILED, DELETED, COMPLETED}
 
   /* ********************************************************************** */
   /*                                 Fields                                 */
   /* ********************************************************************** */
-/*
--- Add new columns:
---   is_dynamic - indicates if record is for the static or dynamic effectiveUserId case
---   has_credentials - indicates if system has credentials registered for the current defaultAuthnMethod
---   has_password - indicates if credentials for PASSWORD have been registered.
---   has_pki_keys - indicates if credentials for PKI_KEYS have been registered.
---   has_access_key - indicates if credentials for ACCESS_KEY have been registered.
---   has_token - indicates if credentials for TOKEN have been registered.
---   sync_status - indicates current status of synchronization between SK and Systems service.
---      PENDING - Record requires synchronization
---      IN_PROGRESS - Systems service is in the process of synchronizing the record
---      FAILED - Synchronization failed.
---      COMPLETED - Synchronization completed successfully.
---   sync_failed - Timestamp for last sync attempt failure. Null if no failures.
---   sync_fail_count - Number of sync attempts that have failed
---   sync_fail_message - Message indicating why last sync attempt failed
 
- */
+  // Mutex for locking record during an update
+  // set fairness to true, meaning under contention, locks favor granting access to the longest-waiting thread.
+  public final ReentrantLock mutex = new ReentrantLock(true);
 
   private final String tenant; // Name of tenant associated with the credential
   private final String systemId; // Name of the system associated with the credential
   private final String tapisUser; // Tapis user associated with the credential
   private final String loginUser; // For a system with a dynamic effectiveUserId, this is the host login user.
-  private final boolean isDynamic; // Indicates if record is for the static or dynamic effectiveUserId case.
+  private final boolean isStatic; // Indicates if record is for the static or dynamic effectiveUserId case.
   private final boolean hasCredentials; // Indicates if system has credentials registered for the current defaultAuthnMethod
   private final boolean hasPassword; // Indicates if credentials for PASSWORD have been registered.
   private final boolean hasPkiKeys; // Indicates if credentials for PKI_KEYS have been registered.
@@ -64,7 +58,7 @@ public final class CredentialInfo
   private final SyncStatus syncStatus; // Indicates current status of synchronization between SK and Systems service.
   private final long syncFailCount; // Number of sync attempts that have failed
   private final String syncFailMessage; // Message indicating why last sync attempt failed
-  private final Instant syncFailed; // UTC time for time of last sync failure.
+  private final Instant syncFailed; // UTC time for time of last sync failure. Null if no failures.
   private final Instant created; // UTC time for when record was created
   private final Instant updated; // UTC time for when record was last updated
 
@@ -74,7 +68,7 @@ public final class CredentialInfo
 
   // Simple constructor to populate all attributes
   public CredentialInfo(String tenant1, String systemId1, String tapisUser1, String loginUser1,
-                        boolean isDynamic1, boolean hasCredentials1, boolean hasPassword1, boolean hasPkiKeys1,
+                        boolean isStatic1, boolean hasCredentials1, boolean hasPassword1, boolean hasPkiKeys1,
                         boolean hasAccessKey1, boolean hasToken1, SyncStatus syncStatus1, long syncFailCount1,
                         String syncFailMessage1, Instant syncFailed1,  Instant created1, Instant updated1)
   {
@@ -82,7 +76,7 @@ public final class CredentialInfo
     systemId = systemId1;
     tapisUser = tapisUser1;
     loginUser = loginUser1;
-    isDynamic = isDynamic1;
+    isStatic = isStatic1;
     hasCredentials = hasCredentials1;
     hasPassword = hasPassword1;
     hasPkiKeys = hasPkiKeys1;
@@ -106,7 +100,7 @@ public final class CredentialInfo
   public String getSystemId() { return systemId; }
   public String getTapisUser() { return tapisUser; }
   public String getLoginUser() { return loginUser; }
-  public boolean isDynamic() { return isDynamic; }
+  public boolean isStatic() { return isStatic; }
   public boolean hasCredentials() { return hasCredentials; }
   public boolean hasPassword() { return hasPassword; }
   public boolean hasPkiKeys() { return hasPkiKeys; }

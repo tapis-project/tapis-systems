@@ -26,6 +26,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
  * Service level methods for System credentials.
  *   Uses Dao layer and other service library classes to perform all top level service operations.
  * Annotate as an hk2 Service so that default scope for Dependency Injection is singleton
+ * TODO manage CredInfo records
  */
 @Service
 public class CredentialsServiceImpl
@@ -144,7 +145,7 @@ public class CredentialsServiceImpl
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
 
-    // Use utility method to do most of the work
+    // Use utility method to remove SK records and CredInfo record
     return credUtils.deleteCredentialForUser(rUser, system, targetUser, op);
   }
 
@@ -160,6 +161,7 @@ public class CredentialsServiceImpl
    * as the login user to be used when accessing the host.
    * <p>
    * System must exist and not be deleted.
+   *  TODO/TBD - sync CredInfo record
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
@@ -214,6 +216,7 @@ public class CredentialsServiceImpl
    * <p>
    * The result includes the attribute *authnMethod* indicating the authentication method associated with
    * the returned credentials.
+   *  TODO/TBD - sync CredInfo record
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
@@ -243,6 +246,9 @@ public class CredentialsServiceImpl
     return credUtils.getCredentialForUser(rUser, system, targetUser, authnMethod);
   }
 
+  // ------------------------------------------------------------------------
+  //                         Globus
+  // ------------------------------------------------------------------------
   /**
    * Obtain a URL+SessionId that can be used to obtain a Globus Native App Authorization Code associated
    * with given system.

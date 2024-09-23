@@ -77,7 +77,7 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
     /**
      * The column <code>tapis_sys.systems_cred_info.login_user</code>.
      */
-    public final TableField<SystemsCredInfoRecord, String> LOGIN_USER = createField(DSL.name("login_user"), SQLDataType.CLOB.nullable(false), this, "");
+    public final TableField<SystemsCredInfoRecord, String> LOGIN_USER = createField(DSL.name("login_user"), SQLDataType.CLOB, this, "");
 
     /**
      * The column <code>tapis_sys.systems_cred_info.created</code>.
@@ -92,12 +92,12 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
     /**
      * The column <code>tapis_sys.systems_cred_info.has_credentials</code>.
      */
-    public final TableField<SystemsCredInfoRecord, Boolean> HAS_CREDENTIALS = createField(DSL.name("has_credentials"), SQLDataType.BOOLEAN, this, "");
+    public final TableField<SystemsCredInfoRecord, Boolean> HAS_CREDENTIALS = createField(DSL.name("has_credentials"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "");
 
     /**
-     * The column <code>tapis_sys.systems_cred_info.is_dynamic</code>.
+     * The column <code>tapis_sys.systems_cred_info.is_static</code>.
      */
-    public final TableField<SystemsCredInfoRecord, Boolean> IS_DYNAMIC = createField(DSL.name("is_dynamic"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("true", SQLDataType.BOOLEAN)), this, "");
+    public final TableField<SystemsCredInfoRecord, Boolean> IS_STATIC = createField(DSL.name("is_static"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "");
 
     /**
      * The column <code>tapis_sys.systems_cred_info.has_password</code>.

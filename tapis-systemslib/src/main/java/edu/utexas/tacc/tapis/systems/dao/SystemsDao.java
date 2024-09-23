@@ -83,15 +83,24 @@ public interface SystemsDao
 
   AuthnMethod getSystemDefaultAuthnMethod(String tenantId, String id) throws TapisException;
 
+  /* ********************************************************************** */
+  /*                        CredentialInfo Table                            */
+  /* ********************************************************************** */
+
+  CredentialInfo getCredInfo(ResourceRequestUser rUser, String tenantId, String systemId, String tapisUser, boolean isStatic)
+          throws TapisException;
+
+  void deleteCredInfo(ResourceRequestUser rUser, String tenantId, String systemId, String tapisUser, boolean isStatic)
+          throws TapisException;
+
+  void createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
+          throws TapisException;
+
   String getLoginUser(String tenantId, String id, String tapisUser) throws TapisException;
 
   void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser) throws TapisException;
 
   void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String id, String tapisUser) throws TapisException;
-
-  /* ********************************************************************** */
-  /*                        CredentialInfo Table                            */
-  /* ********************************************************************** */
 
   void credInfoMarkInProgressAsFailed(String failMsg) throws TapisException;
 

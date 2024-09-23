@@ -173,7 +173,7 @@ public final class MaintenanceTask implements Runnable
     String tenant = credInfo.getTenant();
     String targetUser = credInfo.getTapisUser();
     String systemId = credInfo.getSystemId();
-    boolean isStaticEffectiveUser = !credInfo.isDynamic();
+    boolean isStaticEffectiveUser = !credInfo.isStatic();
     TSystem.AuthnMethod defaultAuthnMethod= dao.getSystemDefaultAuthnMethod(tenant, systemId);
     // Construct basic SK secret parameters
     // Establish secret type ("system") and secret name ("S1")
@@ -236,7 +236,7 @@ public final class MaintenanceTask implements Runnable
             (TSystem.AuthnMethod.ACCESS_KEY.equals(defaultAuthnMethod) && hasAccessKey) ||
             (TSystem.AuthnMethod.TOKEN.equals(defaultAuthnMethod) && hasToken);
     // Create credentialInfo
-    skCredInfo = new CredentialInfo(tenant, systemId, targetUser, credInfo.getLoginUser(), credInfo.isDynamic(),
+    skCredInfo = new CredentialInfo(tenant, systemId, targetUser, credInfo.getLoginUser(), credInfo.isStatic(),
             hasCredentials, hasPassword, hasPkiKeys, hasAccessKey, hasToken,
             credInfo.getSyncStatus(), credInfo.getSyncFailCount(), credInfo.getSyncFailMessage(),
             credInfo.getSyncFailed(), credInfo.getCreated(), credInfo.getUpdated());

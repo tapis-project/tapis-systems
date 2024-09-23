@@ -29,6 +29,7 @@ import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.core.Response;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static edu.utexas.tacc.tapis.systems.model.Credential.*;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
@@ -88,6 +89,9 @@ public class CredUtils
   private SystemsDao dao;
   @Inject
   private SysUtils sysUtils;
+
+  // Use a global ConcurrentHashMap.newKeySet() as an in-memory mutex for records
+  Map<String,CredentialInfo> credInfoConcurrentMap = new ConcurrentHashMap<>();
 
   /* **************************************************************************** */
   /*                                Public Methods                                */
@@ -216,7 +220,7 @@ public class CredUtils
       if (Boolean.FALSE.equals(retCred.getValidationResult())) return retCred;
     }
 
-    // Create credential
+    // Create credential. Creates SK records and a CredInfo record
     // If this throws an exception we do not try to rollback. Attempting to track which secrets
     //   have been changed and reverting seems fraught with peril and not a good ROI.
     try
@@ -230,12 +234,13 @@ public class CredUtils
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
     }
 
-    // If dynamic and an alternate loginUser has been provided that is not the same as the Tapis user
+    // TODO REMOVE because CredInfo (previously login user mapping table) is always created.
+    //  If dynamic and an alternate loginUser has been provided that is not the same as the Tapis user
     //   then record the mapping
-    if (!isStaticEffectiveUser && !StringUtils.isBlank(loginUser) && !targetUser.equals(loginUser))
-    {
-      dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, loginUser);
-    }
+//    if (!isStaticEffectiveUser && !StringUtils.isBlank(loginUser) && !targetUser.equals(loginUser))
+//    {
+//      dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, loginUser);
+//    }
 
     // Construct Json string representing the update, with actual secrets masked out
     Credential maskedCredential = Credential.createMaskedCredential(cred);
@@ -300,6 +305,7 @@ public class CredUtils
 
   /**
    * Delete credential for given system and user
+   * Remove SK records and CredInfo record
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system Tapis system
    * @param targetUser - Target user for operation
@@ -317,6 +323,7 @@ public class CredUtils
     int changeCount;
     try
     {
+      // Remove SK records and CredInfo record
       changeCount = deleteCredential(rUser, systemId, targetUser, isStaticEffectiveUser);
     }
     // If tapis client exception then log error and convert to TapisException
@@ -324,12 +331,6 @@ public class CredUtils
     {
       log.error(tce.toString());
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
-    }
-
-    // If dynamic then remove any mapping from loginUser to tapisUser
-    if (!isStaticEffectiveUser)
-    {
-      dao.deleteLoginUserMapping(rUser, rUser.getOboTenantId(), systemId, targetUser);
     }
 
     // Get a complete and succinct description of the update.
@@ -399,6 +400,7 @@ public class CredUtils
 
   /*
    * Create or update a credential using SKClient.
+   * TODO Create or update the CredInfo record
    * No checks are done for incoming arguments and the system must exist
    *
    * When the Systems service calls SK to create secrets it calls with a JWT as itself,
@@ -433,73 +435,93 @@ public class CredUtils
   {
     String oboTenant = rUser.getOboTenantId();
     String oboUser = rUser.getOboUserId();
-    // Construct basic SK secret parameters including tenant, system and Tapis user for credential
-    // Establish secret type ("system") and secret name ("S1")
-    var sParms = new SKSecretWriteParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
-    // Fill in systemId and targetUserPath for the path to the secret.
-    String targetUserPath = getTargetUserSecretPath(targetUser, isStatic);
+    // Use a synchronized method to make sure we have a DB record and in-memory object
+    CredentialInfo credInfo = addCredInfoRecord(rUser, oboTenant, systemId, oboUser, isStatic);
 
-    sParms.setSysId(systemId).setSysUser(targetUserPath);
-    Map<String, String> dataMap;
-    // Check for each secret type and write values if they are present
-    // Note that multiple secrets may be present.
-    // NOTE: For secrets of type "system" the oboUser in the writeSecret() calls is not used in the path,
-    //       but SK requires that it be set. The oboTenant is used in the path for the secret.
+    // Now get the lock for the record so no other threads will attempt an update during this update
+    // This is basically the equivalent of a selectForUpdate DB type operation
+    // Note that this also synchronizes writes to SK, which is good. Before this, multiple concurrent writes to SK
+    // were possible.
+    credInfo.mutex.lock();
+    try
+    {
+      writeCredentialToSK(rUser, credential, systemId, targetUser, isStatic);
 
-    // Store password if present
-    if (!StringUtils.isBlank(credential.getPassword()))
-    {
-      dataMap = new HashMap<>();
-      sParms.setKeyType(KeyType.password);
-      dataMap.put(SK_KEY_PASSWORD, credential.getPassword());
-      sParms.setData(dataMap);
-      // First 2 parameters correspond to tenant and user from request payload
-      // Tenant is used in constructing full path for secret, user is not used.
-      sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
+      // TODO Refactor most credInfo related stuff into a method
+      //       make checkTransition method part of the refactored method?
+
+      // TODO Transition the record to PENDING
+
+      // TODO/TBD: First check that transition is valid. If not valid then log error and throw exception
+      credInfoCheckTransition(credInfo, CredentialInfo.SyncStatus.IN_PROGRESS);
+      // TODO Now move to IN_PROGRESS
+      // TODO/TBD: First check that transition is valid. If not valid then log error and throw exception
+// ????
+      String transition = CredInfoFSM.InProgressToFailed;
+      transition = "NoSuchTransition"; // tODO temp, for testing
+      if (!CredInfoFSM.allowedEvents.contains(transition))
+      {
+        String msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FSM_INVALID_TRANSITION", transition);
+        log.error(msg);
+        throw new TapisException(msg);
+      }
+      String failMsg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED");
+      dao.credInfoMarkInProgressAsFailed(failMsg);
+// ????
+
+      // TODO Get latest CredInfo data from SK
+
+      // TODO Update CredInfo in DB and in-memory
+
+      // TODO Now move to COMPLETED
+      // TODO/TBD: First check that transition is valid. If not valid then log error and throw exception
     }
-    // Store PKI keys if both present
-    if (!StringUtils.isBlank(credential.getPublicKey()) && !StringUtils.isBlank(credential.getPublicKey()))
+    catch (Exception e)
     {
-      dataMap = new HashMap<>();
-      sParms.setKeyType(KeyType.sshkey);
-      dataMap.put(SK_KEY_PUBLIC_KEY, credential.getPublicKey());
-      dataMap.put(SK_KEY_PRIVATE_KEY, credential.getPrivateKey());
-      sParms.setData(dataMap);
-      sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
+      // TODO something went wrong. Move to FAILED
     }
-    // Store Access key and secret if both present
-    if (!StringUtils.isBlank(credential.getAccessKey()) && !StringUtils.isBlank(credential.getAccessSecret()))
+    finally
     {
-      dataMap = new HashMap<>();
-      sParms.setKeyType(KeyType.accesskey);
-      dataMap.put(SK_KEY_ACCESS_KEY, credential.getAccessKey());
-      dataMap.put(SK_KEY_ACCESS_SECRET, credential.getAccessSecret());
-      sParms.setData(dataMap);
-      sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
+      credInfo.mutex.unlock();
     }
-    // Store Access token and Refresh token if both present
-    if (!StringUtils.isBlank(credential.getAccessToken()) && !StringUtils.isBlank(credential.getRefreshToken()))
-    {
-      dataMap = new HashMap<>();
-      sParms.setKeyType(KeyType.token);
-      dataMap.put(SK_KEY_ACCESS_TOKEN, credential.getAccessToken());
-      dataMap.put(SK_KEY_REFRESH_TOKEN, credential.getRefreshToken());
-      sParms.setData(dataMap);
-      sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
-    }
-    // NOTE if necessary handle ssh certificate when supported
+
+
+
+    // TODO/TBD:
+    //   1. Start the DB transaction to use for modifying the CredInfo table
+    //   2. insertOrUpdate the record
+    //   3. selectForUpdate to lock the row
+    //   4. Make SK calls to store credentials and determine which credentials have been set.
+    //   5. Update the CredInfo record
+    //   6. End the DB transaction
+
+
+    // TODO At this point all the SK records have been created and we have everything we need to
+    //      create a CredInfo record.
+    // NOTE: We do not worry about creating CredInfo record and SK records in a single transaction because
+    //       we already have to handle the case of missing CredInfo records. Records will eventually sync up.
+//    dao.createCredInfo(rUser, oboTenant, systemId, targetUser, isStatic);
   }
 
   /**
-   * Delete a credential
+   * Delete a credential.
+   * Remove CredInfo record and SK records.
    * No checks are done for incoming arguments and the system must exist
    */
   int deleteCredential(ResourceRequestUser rUser, String systemId, String targetUser, boolean isStatic)
-          throws TapisClientException
+          throws TapisClientException, TapisException
   {
     String oboTenant = rUser.getOboTenantId();
     String oboUser = rUser.getOboUserId();
 
+    // Remove CredInfo record
+    // NOTE: We do not worry about deleting CredInfo record and SK records in a single transaction because
+    //       we already have to handle the case of missing CredInfo records. Records will eventually sync up.
+    // TODO/TBD need to lock the record by marking it as IN_PROGRESS?
+    //          what if someone simultaneously calls createCred?
+    dao.deleteCredInfo(rUser,oboTenant, systemId, oboUser, isStatic);
+
+    // Remove SK records
     // Determine targetUserPath for the path to the secret.
     String targetUserPath = getTargetUserSecretPath(targetUser, isStatic);
 
@@ -685,7 +707,7 @@ public class CredUtils
     // Mark all IN_PROGRESS records as FAILED
     // TODO: First check that transition is valid. If not valid then abort startup by throwing an exception.
     String transition = CredInfoFSM.InProgressToFailed;
-    transition = "NoSuchTransition";
+    transition = "NoSuchTransition"; // tODO temp, for testing
     if (!CredInfoFSM.allowedEvents.contains(transition))
     {
       String msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FSM_INVALID_TRANSITION", transition);
@@ -694,6 +716,11 @@ public class CredUtils
     }
     String failMsg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED");
     dao.credInfoMarkInProgressAsFailed(failMsg);
+
+    // TODO Remove any deleted records
+    //    Any deleted records can be removed at start-up. No other threads might be in the process
+    //    of transitioning the state from DELETED to PENDING
+    dao.credInfoRemoveDeletedRecords();
 
     // Create records as needed for undeleted systems that have a static effectiveUserId
     dao.credInfoInitStaticSystems();
@@ -848,5 +875,106 @@ public class CredUtils
     log.info(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
             effectiveUser, authnMethod, validationResult, msg));
     return retCred;
+  }
+
+  /**
+   * Synchronized method to ensure a CredentialInfo record is present in the DB and in-memory
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - Tapis system
+   * @param credential - the Credential
+   * @param targetUser - User associated with the credential
+   * @param isStatic - indicates if effectiveUserId is static or dynamic
+   * @return the CredentialInfo record
+   */
+  private void writeCredentialToSK(ResourceRequestUser rUser, Credential credential, String systemId, String targetUser, boolean isStatic)
+          throws TapisClientException, TapisException
+  {
+    String oboTenant = rUser.getOboTenantId();
+    String oboUser = rUser.getOboUserId();
+    // Persist the credential data to SK
+    // Construct basic SK secret parameters including tenant, system and Tapis user for credential
+    // Establish secret type ("system") and secret name ("S1")
+    var sParms = new SKSecretWriteParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
+    // Fill in systemId and targetUserPath for the path to the secret.
+    String targetUserPath = getTargetUserSecretPath(targetUser, isStatic);
+
+    sParms.setSysId(systemId).setSysUser(targetUserPath);
+    Map<String, String> dataMap;
+    // Check for each secret type and write values if they are present
+    // Note that multiple secrets may be present.
+    // NOTE: For secrets of type "system" the oboUser in the writeSecret() calls is not used in the path,
+    //       but SK requires that it be set. The oboTenant is used in the path for the secret.
+
+    // Store password if present
+    if (!StringUtils.isBlank(credential.getPassword()))
+    {
+      dataMap = new HashMap<>();
+      sParms.setKeyType(KeyType.password);
+      dataMap.put(SK_KEY_PASSWORD, credential.getPassword());
+      sParms.setData(dataMap);
+      // First 2 parameters correspond to tenant and user from request payload
+      // Tenant is used in constructing full path for secret, user is not used.
+      sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
+    }
+    // Store PKI keys if both present
+    if (!StringUtils.isBlank(credential.getPublicKey()) && !StringUtils.isBlank(credential.getPublicKey()))
+    {
+      dataMap = new HashMap<>();
+      sParms.setKeyType(KeyType.sshkey);
+      dataMap.put(SK_KEY_PUBLIC_KEY, credential.getPublicKey());
+      dataMap.put(SK_KEY_PRIVATE_KEY, credential.getPrivateKey());
+      sParms.setData(dataMap);
+      sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
+    }
+    // Store Access key and secret if both present
+    if (!StringUtils.isBlank(credential.getAccessKey()) && !StringUtils.isBlank(credential.getAccessSecret()))
+    {
+      dataMap = new HashMap<>();
+      sParms.setKeyType(KeyType.accesskey);
+      dataMap.put(SK_KEY_ACCESS_KEY, credential.getAccessKey());
+      dataMap.put(SK_KEY_ACCESS_SECRET, credential.getAccessSecret());
+      sParms.setData(dataMap);
+      sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
+    }
+    // Store Access token and Refresh token if both present
+    if (!StringUtils.isBlank(credential.getAccessToken()) && !StringUtils.isBlank(credential.getRefreshToken()))
+    {
+      dataMap = new HashMap<>();
+      sParms.setKeyType(KeyType.token);
+      dataMap.put(SK_KEY_ACCESS_TOKEN, credential.getAccessToken());
+      dataMap.put(SK_KEY_REFRESH_TOKEN, credential.getRefreshToken());
+      sParms.setData(dataMap);
+      sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
+    }
+    // NOTE if necessary handle ssh certificate when supported
+  }
+
+  /**
+   * Synchronized method to ensure a CredentialInfo record is present in the DB and in-memory
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param tenant - Tapis tenant
+   * @param systemId - Tapis system
+   * @param tapisUser - Tapis user
+   * @param isStatic - indicates if effectiveUserId is static or dynamic
+   * @return the CredentialInfo record
+   */
+  private synchronized CredentialInfo addCredInfoRecord(ResourceRequestUser rUser, String tenant, String systemId,
+                                                        String tapisUser, boolean isStatic) throws TapisException
+  {
+    String key = String.format("%s:%s:%s:%s", tenant, systemId, tapisUser, isStatic);
+    // This is a potential bottleneck, but we do not expect that much activity around updating credentials.
+    // Determine as fast as possible if we already have a record.
+    if (credInfoConcurrentMap.containsKey(key)) return credInfoConcurrentMap.get(key);
+    // TODO We do not already have an in-memory record.
+    //  Look for record in DB.
+    CredentialInfo c = dao.getCredInfo(rUser, tenant, systemId, tapisUser, isStatic);
+    // TODO If no record in DB then create record in DB and create in-memory record
+    if (c == null)
+    {
+
+    }
+    // Add record to the in-memory map and return
+    credInfoConcurrentMap.put(key, c);
+    return c;
   }
 }

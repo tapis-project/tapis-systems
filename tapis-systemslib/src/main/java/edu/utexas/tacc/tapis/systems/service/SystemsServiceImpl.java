@@ -118,11 +118,11 @@ public class SystemsServiceImpl implements SystemsService
   @Inject
   private ServiceContext serviceContext;
 
-//  private MaintenanceTask maintenanceTask; // Runnable maintenance task run via executor
+  private MaintenanceTask maintenanceTask; // Runnable maintenance task run via executor
 
   // ExecutorService and future for maintenance task
-//  private final ScheduledExecutorService maintenanceExecService = Executors.newSingleThreadScheduledExecutor();
-//  private Future<?> maintenanceTaskFuture;
+  private final ScheduledExecutorService maintenanceExecService = Executors.newSingleThreadScheduledExecutor();
+  private Future<?> maintenanceTaskFuture;
 
   // We must be running on a specific site and this will never change
   // These are initialized in method initService()
@@ -136,6 +136,11 @@ public class SystemsServiceImpl implements SystemsService
   // TODO/TBD CredentialInfo Finite State Machine (FSM)
   private MemoryPersisterImpl<CredInfoSyncState> credInfoPersister;
   private FSM<CredInfoSyncState> credInfoFSM;
+
+  // TODO/TBD Use a global ConcurrentHashMap.newKeySet() as an in-memory mutex for records
+  //          do we also need a global mutex to lock the full set so we can basically do a selectFoUpdate
+
+
 
   // ************************************************************************
   // *********************** Public Methods *********************************
@@ -166,7 +171,7 @@ public class SystemsServiceImpl implements SystemsService
     rUserSvc = new ResourceRequestUser(authUser);
 
     // Create the maintenanceTask runnable
-//    maintenanceTask = new MaintenanceTask(rUserSvc);
+    maintenanceTask = new MaintenanceTask(rUserSvc);
 
     // Initialize the Finite State Machine that tracks CredentialInfo SyncState
     // FSM Used for validating state transitions.
@@ -194,9 +199,9 @@ public class SystemsServiceImpl implements SystemsService
   public void startMaintenanceTask(long intervalMinutes)
   {
     log.info(LibUtils.getMsg("SYSLIB_MAINT_TASK_START"));
-//    maintenanceTaskFuture =
-//            maintenanceExecService.scheduleAtFixedRate(maintenanceTask,intervalMinutes,
-//                                                 intervalMinutes, TimeUnit.MINUTES);
+    maintenanceTaskFuture =
+            maintenanceExecService.scheduleAtFixedRate(maintenanceTask,intervalMinutes,
+                                                 intervalMinutes, TimeUnit.MINUTES);
   }
 
   /*
@@ -206,7 +211,7 @@ public class SystemsServiceImpl implements SystemsService
   public void stopMaintenanceTask()
   {
     log.info(LibUtils.getMsg("SYSLIB_MAINT_TASK_STOP"));
-//    if (maintenanceTaskFuture != null) maintenanceTaskFuture.cancel(mayInterruptIfRunning);
+    if (maintenanceTaskFuture != null) maintenanceTaskFuture.cancel(mayInterruptIfRunning);
   }
 
   /**
@@ -376,6 +381,7 @@ public class SystemsServiceImpl implements SystemsService
       if (manageCredentials)
       {
         // Use internal method instead of public API to skip auth and other checks not needed here.
+        // TODO make sure we are synching the CredInfo table record
         credUtils.createCredential(rUser, cred, systemId, system.getEffectiveUserId(), isStaticEffectiveUser);
       }
     }
@@ -401,6 +407,7 @@ public class SystemsServiceImpl implements SystemsService
         // Note that we only manageCredentials for the static case and for the static case targetUser=effectiveUserId
         try
         {
+          // Remove SK records and CredInfo record
           credUtils.deleteCredential(rUser, systemId, system.getEffectiveUserId(), isStaticEffectiveUser);
         }
         catch (Exception e)
@@ -684,6 +691,7 @@ public class SystemsServiceImpl implements SystemsService
    *   - Remove effectiveUser credentials associated with the system.
    *   - Remove permissions associated with the system.
    *   - Update deleted to true for a system
+   *  TODO/TBD - delete CredInfo record if system has static effectiveUserId?
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @return Number of items updated
@@ -728,6 +736,7 @@ public class SystemsServiceImpl implements SystemsService
    * Undelete a system
    *  - Add permissions for owner
    *  - Update deleted to false for a system
+   *  TODO/TBD - re-create CredInfo record if system has static effectiveUserId? mark as PENDING? probably
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @return Number of items updated
@@ -967,6 +976,7 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Hard delete a system record given the system name.
    * Also remove artifacts from the Security Kernel
+   *  TODO - Delete all CredInfo records
    * NOTE: This is package-private. Only test code should ever use it.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
@@ -2203,6 +2213,7 @@ public class SystemsServiceImpl implements SystemsService
     // Remove credentials associated with the system if system has a static effectiveUserId
     if (!effectiveUserId.equals(APIUSERID_VAR)) {
       // Use private internal method instead of public API to skip auth and other checks not needed here.
+      // Remove SK records and CredInfo record
       credUtils.deleteCredential(rUser, system.getId(), resolvedEffectiveUserId, true);
     }
   }

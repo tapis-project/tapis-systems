@@ -137,16 +137,16 @@ public class SystemsCredInfoRecord extends UpdatableRecordImpl<SystemsCredInfoRe
     }
 
     /**
-     * Setter for <code>tapis_sys.systems_cred_info.is_dynamic</code>.
+     * Setter for <code>tapis_sys.systems_cred_info.is_static</code>.
      */
-    public void setIsDynamic(Boolean value) {
+    public void setIsStatic(Boolean value) {
         set(8, value);
     }
 
     /**
-     * Getter for <code>tapis_sys.systems_cred_info.is_dynamic</code>.
+     * Getter for <code>tapis_sys.systems_cred_info.is_static</code>.
      */
-    public Boolean getIsDynamic() {
+    public Boolean getIsStatic() {
         return (Boolean) get(8);
     }
 
@@ -327,7 +327,7 @@ public class SystemsCredInfoRecord extends UpdatableRecordImpl<SystemsCredInfoRe
 
     @Override
     public Field<Boolean> field9() {
-        return SystemsCredInfo.SYSTEMS_CRED_INFO.IS_DYNAMIC;
+        return SystemsCredInfo.SYSTEMS_CRED_INFO.IS_STATIC;
     }
 
     @Override
@@ -412,7 +412,7 @@ public class SystemsCredInfoRecord extends UpdatableRecordImpl<SystemsCredInfoRe
 
     @Override
     public Boolean component9() {
-        return getIsDynamic();
+        return getIsStatic();
     }
 
     @Override
@@ -497,7 +497,7 @@ public class SystemsCredInfoRecord extends UpdatableRecordImpl<SystemsCredInfoRe
 
     @Override
     public Boolean value9() {
-        return getIsDynamic();
+        return getIsStatic();
     }
 
     @Override
@@ -590,7 +590,7 @@ public class SystemsCredInfoRecord extends UpdatableRecordImpl<SystemsCredInfoRe
 
     @Override
     public SystemsCredInfoRecord value9(Boolean value) {
-        setIsDynamic(value);
+        setIsStatic(value);
         return this;
     }
 
@@ -678,7 +678,7 @@ public class SystemsCredInfoRecord extends UpdatableRecordImpl<SystemsCredInfoRe
     /**
      * Create a detached, initialised SystemsCredInfoRecord
      */
-    public SystemsCredInfoRecord(Integer systemSeqId, String tenant, String systemId, String tapisUser, String loginUser, LocalDateTime created, LocalDateTime updated, Boolean hasCredentials, Boolean isDynamic, Boolean hasPassword, Boolean hasPkiKeys, Boolean hasAccessKey, Boolean hasToken, SyncStatus syncStatus, LocalDateTime syncFailed, Integer syncFailCount, String syncFailMessage) {
+    public SystemsCredInfoRecord(Integer systemSeqId, String tenant, String systemId, String tapisUser, String loginUser, LocalDateTime created, LocalDateTime updated, Boolean hasCredentials, Boolean isStatic, Boolean hasPassword, Boolean hasPkiKeys, Boolean hasAccessKey, Boolean hasToken, SyncStatus syncStatus, LocalDateTime syncFailed, Integer syncFailCount, String syncFailMessage) {
         super(SystemsCredInfo.SYSTEMS_CRED_INFO);
 
         setSystemSeqId(systemSeqId);
@@ -689,7 +689,7 @@ public class SystemsCredInfoRecord extends UpdatableRecordImpl<SystemsCredInfoRe
         setCreated(created);
         setUpdated(updated);
         setHasCredentials(hasCredentials);
-        setIsDynamic(isDynamic);
+        setIsStatic(isStatic);
         setHasPassword(hasPassword);
         setHasPkiKeys(hasPkiKeys);
         setHasAccessKey(hasAccessKey);

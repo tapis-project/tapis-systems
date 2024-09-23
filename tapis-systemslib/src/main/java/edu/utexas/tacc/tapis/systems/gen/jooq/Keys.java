@@ -42,7 +42,7 @@ public class Keys {
     public static final UniqueKey<SystemUpdatesRecord> SYSTEM_UPDATES_PKEY = Internal.createUniqueKey(SystemUpdates.SYSTEM_UPDATES, DSL.name("system_updates_pkey"), new TableField[] { SystemUpdates.SYSTEM_UPDATES.SEQ_ID }, true);
     public static final UniqueKey<SystemsRecord> SYSTEMS_PKEY = Internal.createUniqueKey(Systems.SYSTEMS, DSL.name("systems_pkey"), new TableField[] { Systems.SYSTEMS.SEQ_ID }, true);
     public static final UniqueKey<SystemsRecord> SYSTEMS_TENANT_ID_KEY = Internal.createUniqueKey(Systems.SYSTEMS, DSL.name("systems_tenant_id_key"), new TableField[] { Systems.SYSTEMS.TENANT, Systems.SYSTEMS.ID }, true);
-    public static final UniqueKey<SystemsCredInfoRecord> SYSTEMS_CRED_INFO_PKEY = Internal.createUniqueKey(SystemsCredInfo.SYSTEMS_CRED_INFO, DSL.name("systems_cred_info_pkey"), new TableField[] { SystemsCredInfo.SYSTEMS_CRED_INFO.TENANT, SystemsCredInfo.SYSTEMS_CRED_INFO.SYSTEM_ID, SystemsCredInfo.SYSTEMS_CRED_INFO.TAPIS_USER, SystemsCredInfo.SYSTEMS_CRED_INFO.IS_DYNAMIC }, true);
+    public static final UniqueKey<SystemsCredInfoRecord> SYSTEMS_CRED_INFO_PKEY = Internal.createUniqueKey(SystemsCredInfo.SYSTEMS_CRED_INFO, DSL.name("systems_cred_info_pkey"), new TableField[] { SystemsCredInfo.SYSTEMS_CRED_INFO.TENANT, SystemsCredInfo.SYSTEMS_CRED_INFO.SYSTEM_ID, SystemsCredInfo.SYSTEMS_CRED_INFO.TAPIS_USER, SystemsCredInfo.SYSTEMS_CRED_INFO.IS_STATIC }, true);
 
     // -------------------------------------------------------------------------
     // FOREIGN KEY definitions

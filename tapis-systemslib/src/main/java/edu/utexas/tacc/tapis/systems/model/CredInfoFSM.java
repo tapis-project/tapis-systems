@@ -1,7 +1,9 @@
 package edu.utexas.tacc.tapis.systems.model;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.statefulj.fsm.model.Action;
 import org.statefulj.fsm.model.State;
@@ -26,9 +28,11 @@ public final class CredInfoFSM
   /*                               Constants                                */
   /* ********************************************************************** */
   public static final String FSM_NAME = CredInfoFSM.class.getSimpleName();
+
   public static final State<CredInfoSyncState> PendingState = new StateImpl<>(SyncStatus.PENDING.name());
   public static final State<CredInfoSyncState> InProgressState = new StateImpl<>(SyncStatus.IN_PROGRESS.name());
   public static final State<CredInfoSyncState> FailedState = new StateImpl<>(SyncStatus.FAILED.name());
+  public static final State<CredInfoSyncState> DeletedState = new StateImpl<>(SyncStatus.DELETED.name());
   public static final State<CredInfoSyncState> CompletedState = new StateImpl<>(SyncStatus.COMPLETED.name());
 
   // Static initializer for transitions
@@ -39,18 +43,23 @@ public final class CredInfoFSM
   public static final String InProgressToCompleted = "InProgressToCompleted";
   public static final String InProgressToFailed = "InProgressToFailed";
   public static final String CompletedToPending = "CompletedToPending";
+  public static final String CompletedToDeleted = "CompletedToDeleted";
   public static final String FailedToPending = "FailedToPending";
+  public static final String FailedToDeleted = "FailedToDeleted";
+  public static final String DeletedToPending = "DeletedToPending";
   // TODO/TBD Do we really need a full FSM?
   //  If all we are checking is that a transition is allowed could we just have a Set of allowed transitions
   //          and check that proposed transition against that set? Do we really need an FSM?
   public static final Set<String> allowedEvents
-          = Set.of(PendingToInProgress, InProgressToCompleted, InProgressToFailed, CompletedToPending, FailedToPending);
+          = Set.of(PendingToInProgress, InProgressToCompleted, InProgressToFailed,
+                   CompletedToPending, FailedToPending, DeletedToPending);
 
   // Actions
-  public static final Action<CredInfoSyncState> pendingToInProgressAction = new CredInfoSyncAction<>("IN_PROGRESS");
-  public static final Action<CredInfoSyncState> inProgressToCompletedAction = new CredInfoSyncAction<>("COMPLETED");
-  public static final Action<CredInfoSyncState> inProgressToFailedAction = new CredInfoSyncAction<>("FAILED");
-  public static final Action<CredInfoSyncState> completedToPendingAction = new CredInfoSyncAction<>("PENDING");
+  public static final Action<CredInfoSyncState> pendingToInProgressAction = new CredInfoSyncAction<>(SyncStatus.IN_PROGRESS.name());
+  public static final Action<CredInfoSyncState> inProgressToCompletedAction = new CredInfoSyncAction<>(SyncStatus.COMPLETED.name());
+  public static final Action<CredInfoSyncState> inProgressToFailedAction = new CredInfoSyncAction<>(SyncStatus.FAILED.name());
+  public static final Action<CredInfoSyncState> deletedToPendingAction = new CredInfoSyncAction<>(SyncStatus.PENDING.name());
+  public static final Action<CredInfoSyncState> completedToPendingAction = new CredInfoSyncAction<>(SyncStatus.PENDING.name());
 
   /* ********************************************************************** */
   /*                                 Fields                                 */
@@ -91,26 +100,37 @@ public final class CredInfoFSM
    */
   private static List<State<CredInfoSyncState>> createStateList()
   {
-    return List.of(PendingState, InProgressState, FailedState, CompletedState);
+    return List.of(PendingState, InProgressState, FailedState, DeletedState, CompletedState);
   }
 
   private static void initializeTransitions()
   {
-    // Deterministic transitions
-    //    Pending->InProgress
-    //    Failed->Pending
+    // Transitions
+    // When records are first created they start off in the PENDING state
+    // Normal flow until deleted
+    //    Pending->InProgress    - start of an update attempt
+    //    InProgress->Completed  - successful update
+    //    Completed->Pending     - ready for an update attempt
     PendingState.addTransition(PendingToInProgress, InProgressState);
-    FailedState.addTransition(FailedToPending, PendingState);
-
-    // Non-deterministic transitions
-    //    Completed->Pending
-    //    Completed->InProgress
-    //    InProgress->Failed
-    //    InProgress-Completed
-    CompletedState.addTransition(CompletedToPending, PendingState);
-    CompletedState.addTransition(CompletedToPending, InProgressState);
     InProgressState.addTransition(InProgressToCompleted, CompletedState);
+    CompletedState.addTransition(CompletedToPending, PendingState);
+
+    // Normal flow when deleted
+    CompletedState.addTransition(CompletedToDeleted, DeletedState);
+
+    // Abnormal flows
+    //    InProgress->Failed - Error during update
+    //    Pending->Deleted   - deleted before update started
+    //    Pending->Failed    - error during move from Pending to InProgress or Deleted. Possible? // TODO/TBD
+    //    Failed->Pending    - ready for an update attempt
+    //    Failed->Deleted    - deleted before becoming ready for an update attempt
+    //    Deleted->Pending   - ready for an update attempt prior to clean up of deleted records
     InProgressState.addTransition(InProgressToFailed, FailedState);
+    PendingState.addTransition(PendingToInProgress, DeletedState);
+    PendingState.addTransition(PendingToInProgress, FailedState); // TODO/TBD
+    FailedState.addTransition(FailedToPending, PendingState);
+    FailedState.addTransition(FailedToDeleted, DeletedState);
+    DeletedState.addTransition(DeletedToPending, PendingState);
   }
 
   /* ********************************************************************** */
