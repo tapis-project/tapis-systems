@@ -354,7 +354,7 @@ public class CredentialsServiceImpl
     Credential credential = new Credential(null, null, null, null, null, null, null, accessToken, refreshToken, null);
     try
     {
-      credUtils.createCredential(rUser, credential, systemId, userName, isStaticEffectiveUser);
+      credUtils.createCredential(rUser, credential, system, userName, isStaticEffectiveUser);
     }
     // If tapis client exception then log error and convert to TapisException
     catch (TapisClientException tce)

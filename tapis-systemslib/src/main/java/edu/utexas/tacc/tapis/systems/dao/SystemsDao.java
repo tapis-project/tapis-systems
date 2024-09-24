@@ -108,7 +108,7 @@ public interface SystemsDao
 
   void credInfoMarkAsInProgress(CredentialInfo credInfo) throws TapisException;
 
-  void credInfoSyncRecordAsComplete(CredentialInfo credInfo) throws TapisException;
+  void credInfoMarkAsComplete(CredentialInfo credInfo) throws TapisException;
 
   List<CredentialInfo> credInfoGetPendingRecords() throws TapisException;
 

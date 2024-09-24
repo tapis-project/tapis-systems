@@ -151,7 +151,7 @@ public final class MaintenanceTask implements Runnable
     }
 
     // Update CredInfo table record - clear failure info, set status to COMPLETE
-    dao.credInfoSyncRecordAsComplete(skCredInfo);
+    dao.credInfoMarkAsComplete(skCredInfo);
   }
 
   /**

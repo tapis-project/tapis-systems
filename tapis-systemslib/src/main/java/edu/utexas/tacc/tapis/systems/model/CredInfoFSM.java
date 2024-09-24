@@ -1,9 +1,7 @@
 package edu.utexas.tacc.tapis.systems.model;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.statefulj.fsm.model.Action;
 import org.statefulj.fsm.model.State;

@@ -382,7 +382,7 @@ public class SystemsServiceImpl implements SystemsService
       {
         // Use internal method instead of public API to skip auth and other checks not needed here.
         // TODO make sure we are synching the CredInfo table record
-        credUtils.createCredential(rUser, cred, systemId, system.getEffectiveUserId(), isStaticEffectiveUser);
+        credUtils.createCredential(rUser, cred, system, system.getEffectiveUserId(), isStaticEffectiveUser);
       }
     }
     catch (Exception e0)
