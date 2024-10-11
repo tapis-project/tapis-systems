@@ -36,8 +36,11 @@
 -- Change primary key from (tenant, system_id, tapis_user) to (tenant, system_id, tapis_user, is_static)
 --    since that is what makes a record unique
 --
+-- Rename table
 ALTER TABLE IF EXISTS systems_login_user RENAME TO systems_cred_info;
+-- Allow login_user to be NULL
 ALTER TABLE systems_cred_info ALTER login_user DROP NOT NULL;
+-- Add columns
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_credentials BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS is_static BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_password BOOLEAN NOT NULL DEFAULT false;
@@ -57,16 +60,17 @@ ALTER TABLE systems_cred_info DROP CONSTRAINT systems_login_user_pkey;
 ALTER TABLE systems_cred_info ADD primary key (tenant, system_id, tapis_user, is_static);
 
 --
--- TODO  - NOTES
--- TODO - check code to make sure entries in the login_user table are deleted when a system is deleted
--- TODO - or a credential is deleted.
--- TODO     No, not deleted when system is deleted. But that is probably okay.
--- TODO     Credentials only deleted for static user case, currently login_user table only for dynamic use case,
--- TODO     so thinking was probably that okay to leave credentials around for dynamic user case.
--- TODO     Not okay for static user case because it is a more dangerous service account.
--- TODO     Since dynamic user credentials left in place it makes sense to leave login_user entries in place.
--- TODO BUT what about when cred itself is deleted? Yes, login mapping is removed in this case
--- TODO         (only for dynamic user, since should only be a mapping for dynamic users.)
--- TODO   NOTE: on delete cascade does not help because systems can only be soft deleted by users.
--- TODO         on delete cascade will only apply if we ever support a hard delete or a db admin is
--- TODO         manually cleaning up system records
+-- NOTES
+--  - Are entries in the login_user table are deleted when a system is deleted or a credential is deleted?
+--  - When system is deleted:
+--    - Not deleted when system is deleted. But that is probably okay.
+--      Credentials only deleted for static user case, currently login_user table only for dynamic use case,
+--      so thinking was probably that okay to leave credentials around for dynamic user case.
+--      Not okay for static user case because it is a more dangerous service account.
+--      Since dynamic user credentials left in place it makes sense to leave login_user entries in place.
+--  - When credential deleted?
+--    - Yes, login mapping is removed in this case
+--      (only for dynamic user, since should only be a mapping for dynamic users.)
+--      NOTE: On delete cascade does not help because systems can only be soft deleted by users.
+--            On delete cascade will only apply if we ever support a hard delete or a db admin is
+--            manually cleaning up system records

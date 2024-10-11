@@ -160,7 +160,7 @@ public class SystemsServiceImpl implements SystemsService
     siteId = siteId1;
     siteAdminTenantId = siteAdminTenantId1;
     serviceContext.initServiceJWT(siteId, SYSTEMS_SERVICE, svcPassword);
-  // Make sure DB is present and updated to latest version using flyway
+    // Make sure DB is present and updated to latest version using flyway
     dao.migrateDB();
 
     // Create a ResourceRequest user representing the service. Used by some methods for logging.
@@ -381,7 +381,6 @@ public class SystemsServiceImpl implements SystemsService
       if (manageCredentials)
       {
         // Use internal method instead of public API to skip auth and other checks not needed here.
-        // TODO make sure we are synching the CredInfo table record
         credUtils.createCredential(rUser, cred, system, system.getEffectiveUserId(), isStaticEffectiveUser);
       }
     }
@@ -408,7 +407,7 @@ public class SystemsServiceImpl implements SystemsService
         try
         {
           // Remove SK records and CredInfo record
-          credUtils.deleteCredential(rUser, systemId, system.getEffectiveUserId(), isStaticEffectiveUser);
+          credUtils.deleteCredential(rUser, system, system.getEffectiveUserId(), isStaticEffectiveUser);
         }
         catch (Exception e)
         {
@@ -2214,7 +2213,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!effectiveUserId.equals(APIUSERID_VAR)) {
       // Use private internal method instead of public API to skip auth and other checks not needed here.
       // Remove SK records and CredInfo record
-      credUtils.deleteCredential(rUser, system.getId(), resolvedEffectiveUserId, true);
+      credUtils.deleteCredential(rUser, system, resolvedEffectiveUserId, true);
     }
   }
 

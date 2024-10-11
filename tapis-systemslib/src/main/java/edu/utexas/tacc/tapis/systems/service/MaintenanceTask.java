@@ -6,9 +6,11 @@ import edu.utexas.tacc.tapis.security.client.model.KeyType;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretReadParms;
 import edu.utexas.tacc.tapis.security.client.model.SecretType;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
+import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -16,6 +18,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import static edu.utexas.tacc.tapis.systems.model.Credential.*;
 
@@ -133,7 +137,8 @@ public final class MaintenanceTask implements Runnable
     // TODO/TBD start a db connection and use selectForUpdate to synchronize on the record?
     //          do that here or in calling method and pass in db connection instead of dao?
     // Mark record as IN_PROGRESS
-    dao.credInfoMarkAsInProgress(credInfo);
+    LocalDateTime updated = TapisUtils.getUTCTimeNow();
+    dao.credInfoUpdateStatus(credInfo, SyncStatus.IN_PROGRESS, updated);
     //TODO Call SK to get credential info.
     // On any error mark as failed and return
     CredentialInfo skCredInfo;
@@ -235,11 +240,12 @@ public final class MaintenanceTask implements Runnable
             (TSystem.AuthnMethod.PKI_KEYS.equals(defaultAuthnMethod) && hasPkiKeys) ||
             (TSystem.AuthnMethod.ACCESS_KEY.equals(defaultAuthnMethod) && hasAccessKey) ||
             (TSystem.AuthnMethod.TOKEN.equals(defaultAuthnMethod) && hasToken);
-    // Create credentialInfo
-    skCredInfo = new CredentialInfo(tenant, systemId, targetUser, credInfo.getLoginUser(), credInfo.isStatic(),
-            hasCredentials, hasPassword, hasPkiKeys, hasAccessKey, hasToken,
-            credInfo.getSyncStatus(), credInfo.getSyncFailCount(), credInfo.getSyncFailMessage(),
-            credInfo.getSyncFailed(), credInfo.getCreated(), credInfo.getUpdated());
-    return skCredInfo;
+    // TODO? Create credentialInfo
+//  public CredentialInfo(int systemSeqId1, String tenant1, String systemId1, String tapisUser1, String loginUser1,
+//    boolean isStatic1, boolean hasCredentials1, boolean hasPassword1, boolean hasPkiKeys1,
+//    boolean hasAccessKey1, boolean hasToken1, SyncStatus syncStatus1, int syncFailCount1,
+//    String syncFailMessage1, Instant syncFailed1, java.time.Instant created1, java.time.Instant updated1)
+//    return skCredInfo;
+    return null; // TODO
   }
 }

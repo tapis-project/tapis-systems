@@ -5,9 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
-
-import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
-import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +19,8 @@ import edu.utexas.tacc.tapis.shared.parameters.TapisInput;
 import edu.utexas.tacc.tapis.shared.providers.email.EmailClientParameters;
 import edu.utexas.tacc.tapis.shared.providers.email.enumeration.EmailProviderType;
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
+import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
+import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
 /* This class contains the complete and effective set of runtime parameters
  * for this service.  Each service has it own version of this file that
@@ -441,7 +440,6 @@ public final class RuntimeParameters implements EmailClientParameters
     }
     setSvcMaintenanceInterval(parmInt);
   }
-
 
   /**
    * Return listing of runtime settings as well as some OS and JVM information.

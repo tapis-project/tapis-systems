@@ -1741,24 +1741,24 @@ public class SystemsDaoImpl implements SystemsDao
    * Create CredInfo record
    */
   @Override
-  public void createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
+  public CredentialInfo createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
           throws TapisException
   {
     String opName = "createCredInfo";
     // If anything missing throw an exception.
     if (credInfo == null) throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NULL", rUser));
+    CredentialInfo retCredInfo = null;
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
     try
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-
       // Values to use for created, updated: timestamp
       LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
-
-      // TODO Create the record in the main table.
-      var record = db.insertInto(SYSTEMS_CRED_INFO)
+      // Create the record in the main table.
+      SystemsCredInfoRecord record = db.insertInto(SYSTEMS_CRED_INFO)
+              .set(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID, credInfo.getSystemSeqId())
               .set(SYSTEMS_CRED_INFO.TENANT, credInfo.getTenant())
               .set(SYSTEMS_CRED_INFO.SYSTEM_ID, credInfo.getSystemId())
               .set(SYSTEMS_CRED_INFO.TAPIS_USER, credInfo.getTapisUser())
@@ -1775,15 +1775,14 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS_CRED_INFO.SYNC_FAILED, (LocalDateTime) null)
               .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, credInfo.getSyncFailCount())
               .set(SYSTEMS_CRED_INFO.SYNC_FAIL_MESSAGE, credInfo.getSyncFailMessage())
-              .returningResult(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID).fetchOne();
+              .returning().fetchOne();
       // If record is null it is an error
       if (record == null)
       {
         throw new TapisException(LibUtils.getMsgAuth("SYSLIB_DB_NULL_RESULT", rUser, credInfo.getSystemId(), opName));
       }
-      // Generated sequence id
-//TODO      int sysSeqId = record.getValue(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID);
-
+      // Convert record to CredentialInfo object
+      retCredInfo = getCredentialInfoFromRecord(record);
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -1797,6 +1796,8 @@ public class SystemsDaoImpl implements SystemsDao
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
     }
+    // Return the CredentialInfo object
+    return retCredInfo;
   }
 
   /**
@@ -1953,7 +1954,8 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException on error
    */
   @Override
-  public void credInfoMarkAsInProgress(CredentialInfo credInfo) throws TapisException
+  public void credInfoUpdateStatus(CredentialInfo credInfo, SyncStatus syncStatus, LocalDateTime updated)
+          throws TapisException
   {
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1963,8 +1965,8 @@ public class SystemsDaoImpl implements SystemsDao
       DSLContext db = DSL.using(conn);
       // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
       db.update(SYSTEMS_CRED_INFO)
-              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.IN_PROGRESS)
-              .set(SYSTEMS_CRED_INFO.UPDATED, TapisUtils.getUTCTimeNow())
+              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, syncStatus)
+              .set(SYSTEMS_CRED_INFO.UPDATED, updated)
               .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                       SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
                       SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
@@ -2168,7 +2170,9 @@ public class SystemsDaoImpl implements SystemsDao
    * Create a new mapping for tapisUser to loginUser
    */
   @Override
-  public void createOrUpdateLoginUserMapping(String tenantId, String systemId, String tapisUser, String loginUser) throws TapisException
+  public void createOrUpdateLoginUserMapping(String tenantId, String systemId, String tapisUser, String loginUser,
+                                             boolean isStatic)
+          throws TapisException
   {
 
     if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(systemId) || StringUtils.isBlank(tapisUser) ||
@@ -2190,7 +2194,8 @@ public class SystemsDaoImpl implements SystemsDao
       if (!recordExists)
       {
         log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_INSERT_LOGINMAP", tenantId, systemId, tapisUser, loginUser));
-        int sysSeqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId)).fetchOne(SYSTEMS.SEQ_ID);
+        int sysSeqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId))
+                .fetchOne(SYSTEMS.SEQ_ID);
         db.insertInto(SYSTEMS_CRED_INFO)
                 .set(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID, sysSeqId)
                 .set(SYSTEMS_CRED_INFO.TENANT, tenantId)
@@ -3333,7 +3338,7 @@ public class SystemsDaoImpl implements SystemsDao
    */
   private CredentialInfo getCredentialInfoFromRecord(SystemsCredInfoRecord r)
   {
-    return new CredentialInfo(r.getTenant(), r.getSystemId(), r.getTapisUser(), r.getLoginUser(),
+    return new CredentialInfo(r.getSystemSeqId(), r.getTenant(), r.getSystemId(), r.getTapisUser(), r.getLoginUser(),
             r.getIsStatic(), r.getHasCredentials(), r.getHasPassword(), r.getHasPkiKeys(),
             r.getHasAccessKey(), r.getHasToken(), r.getSyncStatus(), r.getSyncFailCount(),
             r.getSyncFailMessage(), r.getSyncFailed().toInstant(ZoneOffset.UTC),

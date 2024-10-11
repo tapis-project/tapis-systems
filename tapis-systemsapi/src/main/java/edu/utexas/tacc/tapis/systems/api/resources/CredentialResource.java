@@ -187,7 +187,7 @@ public class CredentialResource
     }
 
     // Populate credential from payload
-    // Even when the above json validator succeeds the next call may still throw
+    // Note that even when the above json validator succeeds the next call may still throw
     //   a com.google.gson.stream.MalformedJsonException runtime exception
     //   or a com.google.gson.JsonSyntaxException checked exception
     ReqPostCredential req;
@@ -248,6 +248,7 @@ public class CredentialResource
       checkedCred = service.createUserCredential(rUser, systemId, userName, credential, skipCredCheck, scrubbedJson);
     }
     // Pass through not found or not auth to let exception mapper handle it.
+    // Class edu.utexas.tacc.tapis.sharedapi.providers.ApiExceptionMapper
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)

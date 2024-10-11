@@ -1,5 +1,6 @@
 package edu.utexas.tacc.tapis.systems.dao;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -93,12 +94,12 @@ public interface SystemsDao
   void deleteCredInfo(ResourceRequestUser rUser, String tenantId, String systemId, String tapisUser, boolean isStatic)
           throws TapisException;
 
-  void createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
+  CredentialInfo createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
           throws TapisException;
 
   String getLoginUser(String tenantId, String id, String tapisUser) throws TapisException;
 
-  void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser) throws TapisException;
+  void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser, boolean isStatic) throws TapisException;
 
   void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String id, String tapisUser) throws TapisException;
 
@@ -106,7 +107,7 @@ public interface SystemsDao
 
   void credInfoMarkFailedAsPending() throws TapisException;
 
-  void credInfoMarkAsInProgress(CredentialInfo credInfo) throws TapisException;
+  void credInfoUpdateStatus(CredentialInfo credInfo, CredentialInfo.SyncStatus syncStatus, LocalDateTime updated) throws TapisException;
 
   void credInfoMarkAsComplete(CredentialInfo credInfo) throws TapisException;
 
