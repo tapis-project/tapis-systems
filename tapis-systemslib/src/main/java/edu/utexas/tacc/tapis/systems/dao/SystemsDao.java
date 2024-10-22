@@ -103,7 +103,7 @@ public interface SystemsDao
 
   void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String id, String tapisUser) throws TapisException;
 
-  void credInfoMarkInProgressAsFailed(String failMsg) throws TapisException;
+  int credInfoMarkInProgressAsFailed(String failMsg) throws TapisException;
 
   void credInfoMarkFailedAsPending() throws TapisException;
 
@@ -113,7 +113,9 @@ public interface SystemsDao
 
   List<CredentialInfo> credInfoGetPendingRecords() throws TapisException;
 
-  void credInfoInitStaticSystems() throws TapisException;
+  int credInfoInitStaticSystems() throws TapisException;
+
+  int credInfoRemoveDeletedRecords() throws TapisException;
 
   /* ********************************************************************** */
   /*                             Scheduler Profiles                         */

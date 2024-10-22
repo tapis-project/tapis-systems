@@ -88,16 +88,15 @@ public final class MaintenanceTask implements Runnable
 
   /*
    * Check the systems_cred_info table and update as needed
-   *  - Create records as needed for undeleted systems that have a static effectiveUserId
    *  - For each PENDING record read info from SK and update the cred info table.
-   *  - Mark all FAILED records as PENDING
+   *  TODO/TBD only do this at startup? - Mark all FAILED records as PENDING
    *  - For each PENDING record read info from SK and update the cred info table.
    */
-  private void credInfoRunMaintenance()
-          throws TapisException
+  private void credInfoRunMaintenance() throws TapisException
   {
-    // Create records in credInfo table as needed for undeleted systems that have a static effectiveUserId
-    dao.credInfoInitStaticSystems();
+    // TODO Remove Create records in credInfo table as needed for undeleted systems that have a static effectiveUserId
+    // TODO Remove NO, this should only be done at startup when process is single threaded.
+    // TODO Remove dao.credInfoInitStaticSystems();
 
     // For each PENDING record read info from SK and update the cred info table.
 // TODO    credInfoSyncPendingRecords();

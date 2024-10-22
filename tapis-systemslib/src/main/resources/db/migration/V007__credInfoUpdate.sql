@@ -36,6 +36,29 @@
 -- Change primary key from (tenant, system_id, tapis_user) to (tenant, system_id, tapis_user, is_static)
 --    since that is what makes a record unique
 --
+-- New table
+--CREATE TABLE systems_cred_info
+--(
+--    system_seq_id INTEGER REFERENCES systems(seq_id) ON DELETE CASCADE,
+--    tenant TEXT NOT NULL,
+--    system_id TEXT NOT NULL,
+--    tapis_user TEXT NOT NULL,
+--    login_user TEXT,
+--    has_credentials BOOLEAN NOT NULL DEFAULT false,
+--    is_static BOOLEAN NOT NULL DEFAULT false,
+--    has_password BOOLEAN NOT NULL DEFAULT false,
+--    has_pki_keys BOOLEAN NOT NULL DEFAULT false,
+--    has_access_key BOOLEAN NOT NULL DEFAULT false,
+--    has_token BOOLEAN NOT NULL DEFAULT false,
+--    sync_status TEXT NOT NULL DEFAULT 'PENDING',
+--    sync_failed TIMESTAMP WITHOUT TIME ZONE,
+--    sync_fail_count INTEGER NOT NULL DEFAULT 0,
+--    sync_fail_message TEXT,
+--    created    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+--    updated    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+--    PRIMARY KEY (tenant, system_id, tapis_user, is_static)
+--);
+--
 -- Rename table
 ALTER TABLE IF EXISTS systems_login_user RENAME TO systems_cred_info;
 -- Allow login_user to be NULL

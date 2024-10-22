@@ -658,6 +658,7 @@ public class CredUtils
 
   /**
    * Check the systems_cred_info table and update as needed
+   * NOTE: This method should only be called at startup when there is only a single thread running.
    *  - Mark all IN_PROGRESS records as FAILED
    *  - Create records as needed for undeleted systems that have a static effectiveUserId
    */
@@ -666,24 +667,35 @@ public class CredUtils
     // TODO: Any use of CredInfoFSM here? Maybe? check for allowed transition IN_PROGRESS to FAILED Do we really even need an FSM for that?
     // Mark all IN_PROGRESS records as FAILED
     // TODO: First check that transition is valid. If not valid then abort startup by throwing an exception.
-    String transition = CredInfoFSM.InProgressToFailed;
-    transition = "NoSuchTransition"; // tODO temp, for testing
-    if (!CredInfoFSM.allowedEvents.contains(transition))
-    {
-      String msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FSM_INVALID_TRANSITION", transition);
-      log.error(msg);
-      throw new TapisException(msg);
-    }
-    String failMsg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED");
-    dao.credInfoMarkInProgressAsFailed(failMsg);
+//TODO    String transition = CredInfoFSM.InProgressToFailed;
+//    transition = "NoSuchTransition"; // TODO temp, for testing
+//    if (!CredInfoFSM.allowedEvents.contains(transition))
+//    {
+//      String msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FSM_INVALID_TRANSITION", transition);
+//      log.error(msg);
+//      throw new TapisException(msg);
+//    }
 
-    // TODO Remove any deleted records
-    //    Any deleted records can be removed at start-up. No other threads might be in the process
-    //    of transitioning the state from DELETED to PENDING
-//    dao.credInfoRemoveDeletedRecords();
+    String failMsg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED_BEGIN");
+    log.info(failMsg);
+    int numRecords = dao.credInfoMarkInProgressAsFailed(failMsg);
+    String msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED_END", numRecords);
+    log.info(msg);
+
+    // Remove any deleted records
+    // Any deleted records can be removed at start-up. No other threads might be in the process of changing the state.
+    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_REMOVE_DELETED_BEGIN");
+    log.info(msg);
+    numRecords = dao.credInfoRemoveDeletedRecords();
+    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_REMOVE_DELETED_END", numRecords);
+    log.info(msg);
 
     // Create records as needed for undeleted systems that have a static effectiveUserId
-    dao.credInfoInitStaticSystems();
+    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_STATIC_BEGIN");
+    log.info(msg);
+    numRecords = dao.credInfoInitStaticSystems();
+    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_STATIC_END", numRecords);
+    log.info(msg);
   }
 
   /*

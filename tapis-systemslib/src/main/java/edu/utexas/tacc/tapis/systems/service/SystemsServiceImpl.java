@@ -183,7 +183,7 @@ public class SystemsServiceImpl implements SystemsService
             new MemoryPersisterImpl<>(CredInfoFSM.getStates(), CredInfoFSM.PendingState, CredInfoSyncState.STATE_FIELD_NAME);
     credInfoFSM = new FSM<>(CredInfoFSM.FSM_NAME, credInfoPersister);
 
-    // Check the systems_cred_info table and perform initial synchronization steps.
+    // Check the systems_cred_info table and perform initial single-threaded synchronization steps.
     // IN_PROGRESS records moved to FAILED
     credUtils.credInfoInit(credInfoFSM);
   }

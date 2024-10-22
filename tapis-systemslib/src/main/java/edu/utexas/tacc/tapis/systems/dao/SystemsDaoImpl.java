@@ -1882,8 +1882,9 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException on error
    */
   @Override
-  public void credInfoMarkInProgressAsFailed(String failMsg) throws TapisException
+  public int credInfoMarkInProgressAsFailed(String failMsg) throws TapisException
   {
+    int numRecords = 0;
     // Values to use for update: timestamp, fail message
     LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
     // ------------------------- Call SQL ----------------------------
@@ -1892,7 +1893,7 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      db.update(SYSTEMS_CRED_INFO)
+      numRecords = db.update(SYSTEMS_CRED_INFO)
               .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.FAILED)
               .set(SYSTEMS_CRED_INFO.UPDATED, utcNow)
               .set(SYSTEMS_CRED_INFO.SYNC_FAILED, utcNow)
@@ -1913,6 +1914,7 @@ public class SystemsDaoImpl implements SystemsDao
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
     }
+    return numRecords;
   }
 
   /**
@@ -2064,14 +2066,12 @@ public class SystemsDaoImpl implements SystemsDao
 
   /**
    * In SYSTEMS_CRED_INFO table, create records as needed for undeleted systems that have a static effectiveUserId
-   * Do it all in a single DAO forUpdate call so it is in one transaction
-   * TODO/TBD: is use of forUpdate correct? Since we are only inserting records into credInfo table that did not
-   *           yet exist the forUpdate is not needed?
    * @throws TapisException on error
    */
   @Override
-  public void credInfoInitStaticSystems() throws TapisException
+  public int credInfoInitStaticSystems() throws TapisException
   {
+    int numRecords = 0;
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
     try
@@ -2097,7 +2097,7 @@ public class SystemsDaoImpl implements SystemsDao
       LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
       for (SystemsRecord r : results)
       {
-        db.insertInto(SYSTEMS_CRED_INFO)
+        int count = db.insertInto(SYSTEMS_CRED_INFO)
                 .set(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID, r.getSeqId())
                 .set(SYSTEMS_CRED_INFO.TENANT, r.getTenant())
                 .set(SYSTEMS_CRED_INFO.SYSTEM_ID, r.getId())
@@ -2108,6 +2108,7 @@ public class SystemsDaoImpl implements SystemsDao
                 .set(SYSTEMS_CRED_INFO.CREATED, utcNow)
                 .set(SYSTEMS_CRED_INFO.UPDATED, utcNow)
                 .execute();
+        numRecords = numRecords + count;
       }
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -2122,6 +2123,39 @@ public class SystemsDaoImpl implements SystemsDao
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
     }
+    return numRecords;
+  }
+
+  /**
+   * In SYSTEMS_CRED_INFO table, remove all records marked as DELETED
+   * @throws TapisException on error
+   */
+  @Override
+  public int credInfoRemoveDeletedRecords() throws TapisException
+  {
+    int numRecords = 0;
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      numRecords = db.deleteFrom(SYSTEMS_CRED_INFO)
+              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.DELETED)).execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_DELETE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return numRecords;
   }
 
   /**
