@@ -199,7 +199,7 @@ public final class TSystem
                                getPerms, grantPerms, revokePerms, setCred, removeCred, getCred, checkCred,
                                getGlobusAuthInfo, setAccessRefreshTokens}
   public enum Permission {READ, MODIFY, EXECUTE}
-  public enum AuthnMethod {PASSWORD, PKI_KEYS, ACCESS_KEY, TOKEN, CERT, TMS}
+  public enum AuthnMethod {PASSWORD, PKI_KEYS, ACCESS_KEY, TOKEN, TMS_KEYS, CERT}
   public enum SchedulerType {SLURM, CONDOR, PBS, SGE, UGE, TORQUE}
 
   // ************************************************************************

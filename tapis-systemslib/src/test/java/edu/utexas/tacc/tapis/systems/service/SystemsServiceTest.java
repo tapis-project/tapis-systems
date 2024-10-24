@@ -304,21 +304,21 @@ public class SystemsServiceTest
     {
       Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_PASSWORD_ENV_VAR);
     }
-    Credential credFake = new Credential(AuthnMethod.PASSWORD, loginUser, "fakePassword", null, null, null, null, null, null, null);
+    Credential credFake = new Credential(AuthnMethod.PASSWORD, loginUser, "fakePassword", null, null, null, null, null, null, null, null, null, null);
 
     // Cleanup any previous credentials
     svcCred.deleteUserCredential(rOwner1, sys0.getId(), targetUser);
 
     // Test create with invalid credentials
-    Credential checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, skipCredCheckFalse, rawDataEmptyJson);
+    Credential checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
 
     // Using valid credentials should succeed.
-    Credential credGood = new Credential(null, loginUser, testTapisUserP, null, null, null, null, null, null, null);
+    Credential credGood = new Credential(null, loginUser, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
     sys0.setAuthnCredential(credGood);
 
     // Test create and check with valid credentials
-    checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, skipCredCheckFalse, rawDataEmptyJson);
+    checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
     checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
@@ -379,21 +379,21 @@ public class SystemsServiceTest
     {
       Assert.fail("Missing cred environment variable. Please set env variables: " + TAPIS_TEST_S3_KEY_ENV_VAR + " and " + TAPIS_TEST_S3_SECRET_ENV_VAR);
     }
-    Credential credFake = new Credential(AuthnMethod.ACCESS_KEY, loginUser, null, null, null, "fakeAccessKey", "fakeAccessSecret", null, null, null);
+    Credential credFake = new Credential(AuthnMethod.ACCESS_KEY, loginUser, null, null, null, "fakeAccessKey", "fakeAccessSecret", null, null, null, null, null, null);
 
     // Cleanup any previous credentials
     svcCred.deleteUserCredential(rOwner1, sys0.getId(), targetUser);
 
     // Test create with invalid credentials
-    Credential checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, skipCredCheckFalse, rawDataEmptyJson);
+    Credential checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
 
     // Using valid credentials should succeed.
-    Credential credGood = new Credential(null, loginUser, null, null, null, testS3Key, testS3Secret, null, null, null);
+    Credential credGood = new Credential(null, loginUser, null, null, null, testS3Key, testS3Secret, null, null, null, null, null, null);
     sys0.setAuthnCredential(credGood);
 
     // Test create and check with valid credentials
-    checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, skipCredCheckFalse, rawDataEmptyJson);
+    checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
     checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
@@ -421,7 +421,8 @@ public class SystemsServiceTest
     TSystem sys0 = systems[1];
     sys0.setJobCapabilities(capList1);
     Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-            "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken", "fakeCert");
+            "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // Retrieve system as owner, without and with requireExecPerm
@@ -720,7 +721,7 @@ public class SystemsServiceTest
       Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_PASSWORD_ENV_VAR);
     }
     String systemOwner = owner1;
-    Credential cred0 = new Credential(null, null, testTapisUserP, null, null, null, null, null, null, null);
+    Credential cred0 = new Credential(null, null, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
 
     // Test case data
     // Positive cases
@@ -947,7 +948,7 @@ public class SystemsServiceTest
 
     // Create a system with credentials for owner and another user
     sys0 = systems[23];
-    Credential cred0 = new Credential(null, null, null, "fakePrivateKey", "fakePublicKey", null, null, null, null, null);
+    Credential cred0 = new Credential(null, null, null, "fakePrivateKey", "fakePublicKey", null, null, null, null, null, null, null, null);
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
 
@@ -1042,7 +1043,7 @@ public class SystemsServiceTest
     // Test credential update with invalid private key
     try
     {
-      svcCred.createUserCredential(rOwner1, sys0.getId(), sys0.getOwner(), credInvalidPrivateSshKey, skipCredCheckTrue, rawDataEmptyJson);
+      svcCred.createUserCredential(rOwner1, sys0.getId(), sys0.getOwner(), credInvalidPrivateSshKey, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
       Assert.fail("Credential update call should have thrown an exception when private ssh key is invalid");
     }
     catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2")); }
@@ -1210,7 +1211,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[24];
     // Set up the system definition such that it looks like it could have valid credentials.
     sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
-    Credential fakeCred = new Credential(AuthnMethod.PASSWORD, null, "fakePassword", null, null, null, null, null, null, null);
+    Credential fakeCred = new Credential(AuthnMethod.PASSWORD, null, "fakePassword", null, null, null, null, null, null, null, null, null, null);
     sys0.setAuthnCredential(fakeCred);
     // Save off the original rootDir, cred and effUser. Used to reset test conditions
     String origRootDir = sys0.getRootDir();
@@ -1479,15 +1480,17 @@ public class SystemsServiceTest
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // Create in-memory objects for all credentials we will use.
     Credential cred1NoLoginUser = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
-            "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1", "fakeCert1");
+            "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert1");
     Credential cred3NoLoginUser = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
-            "fakeAccessKey3", "fakeAccessSecret3", "fakeAccessToken3", "fakeRefreshToken3", "fakeCert3");
-    Credential cred3NoLoginUserAccessAuthn = new Credential(null, null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null, null, null);
-    Credential cred4LoginUser = new Credential(null, testUser4LinuxUser, "fakePassword4", null, null, null, null, null, null, null);
-    Credential cred5A_NoLoginUser = new Credential(null, null, "fakePassword5a", null, null, null, null, null, null, null);
-    Credential cred5NoLoginLinuxUser = new Credential(null, null, "fakePassword5LinuxUser", null, null, null, null, null, null, null);
-    Credential cred5NoLoginStatic = new Credential(null, null, "fakePassword5Static", null, null, null, null, null, null, null);
-    Credential cred5B_LoginUser = new Credential(null, testUser5LinuxUser, "fakePassword5b", null, null, null, null, null, null, null);
+            "fakeAccessKey3", "fakeAccessSecret3", "fakeAccessToken3", "fakeRefreshToken3",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert3");
+    Credential cred3NoLoginUserAccessAuthn = new Credential(null, null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null, null, null, null, null, null);
+    Credential cred4LoginUser = new Credential(null, testUser4LinuxUser, "fakePassword4", null, null, null, null, null, null, null, null, null, null);
+    Credential cred5A_NoLoginUser = new Credential(null, null, "fakePassword5a", null, null, null, null, null, null, null, null, null, null);
+    Credential cred5NoLoginLinuxUser = new Credential(null, null, "fakePassword5LinuxUser", null, null, null, null, null, null, null, null, null, null);
+    Credential cred5NoLoginStatic = new Credential(null, null, "fakePassword5Static", null, null, null, null, null, null, null, null, null, null);
+    Credential cred5B_LoginUser = new Credential(null, testUser5LinuxUser, "fakePassword5b", null, null, null, null, null, null, null, null, null, null);
 
     // We will be updating credentials for testUser3, 5 so allow them READ access to system.
     svc.grantUserPermissions(rOwner1, sysId, testUser3, testPermsREAD, rawDataEmptyJson);
@@ -1496,9 +1499,9 @@ public class SystemsServiceTest
     // Make the separate calls required to store credentials for each user.
     // In this case for owner1, testUser3, testUser5
     // These should all go under the dynamic secret path in SK
-    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
-    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
-    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
 
     // ------------------------
     // Test 1 - basic cred retrieve/delete for owner1, testuser3
@@ -1546,7 +1549,7 @@ public class SystemsServiceTest
 
     // Update cred to set just ACCESS_KEY and test
     // This should go under the dynamic secret path in SK
-    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUserAccessAuthn, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUserAccessAuthn, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.ACCESS_KEY);
     Assert.assertEquals(cred0.getAccessKey(), cred3NoLoginUserAccessAuthn.getAccessKey());
     Assert.assertEquals(cred0.getAccessSecret(), cred3NoLoginUserAccessAuthn.getAccessSecret());
@@ -1568,7 +1571,7 @@ public class SystemsServiceTest
     // Create a credential for Tapis user testUser4 with a loginUser so that a mapping should be created.
     // owner should be permitted to update their own credential
     // This should go under the dynamic secret path in SK
-    svcCred.createUserCredential(rOwner1, sysId, testUser4, cred4LoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser4, cred4LoginUser, skipCredCheckTrue, createTmsKeysFalse, rawDataEmptyJson);
     // Give testUser4 READ access to the system. Normally this would be done through sharing and call would
     // be made with impersonationId set to the system owner but here we are testing loginUser mapping, not impersonation.
     svc.grantUserPermissions(rOwner1, sysId, testUser4, testPermsREAD, rawDataEmptyJson);
@@ -1605,8 +1608,8 @@ public class SystemsServiceTest
     // Create "static" cred for testuser5LinuxUser and testuser5
     // These should go under the static secret path in SK
     // Note that we create a static cred for testuser5 to make sure it does not get mixed up with the dynamic cred for same user name
-    svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5NoLoginLinuxUser, skipCredCheckTrue, rawDataEmptyJson);
-    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5NoLoginStatic, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5NoLoginLinuxUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5NoLoginStatic, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     // Get cred and verify for testUser5LinuxUser
     cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser5LinuxUser, AuthnMethod.PASSWORD);
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser5LinuxUser);
@@ -1636,11 +1639,11 @@ public class SystemsServiceTest
     tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     Assert.assertEquals(tmpSys.getEffectiveUserId(), owner1);
     // Re-create creds for owner1, testuser3. Recall we deleted them above as part of the test
-    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
-    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     // Create "dynamic" cred for testuser5
     // This should go under the dynamic secret path in SK
-    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5B_LoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5B_LoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
 
     // Get system as owner and check cred, should be same as before for "dynamic" use case.
     tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
@@ -1662,7 +1665,8 @@ public class SystemsServiceTest
     // Create a system where effectiveUserId is static and credentials are provided with system definition.
     TSystem sys0 = systems[28];
     Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
-                                      "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1", "fakeCert1");
+                                      "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert1");
     sys0.setEffectiveUserId(effectiveUserId1);
     sys0.setAuthnCredential(cred1);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
@@ -1719,8 +1723,9 @@ public class SystemsServiceTest
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
 
     Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
-                                      "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1", "fakeCert1");
-    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1, skipCredCheckTrue, rawDataEmptyJson);
+                                      "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1",
+                                      "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert1");
+    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
 
     String rawDataShare = "{\"users\": [\"" + testUser5 + "\"]}";
     SystemShare systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
@@ -1741,7 +1746,7 @@ public class SystemsServiceTest
 
     // Initially user testUser5 should not be able to set a cred.
     boolean pass = false;
-    try { svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson); }
+    try { svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1759,31 +1764,31 @@ public class SystemsServiceTest
 
     // Grant READ perm, now user should be able to set cred
     svc.grantUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREAD, rawDataEmptyJson);
-    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
 
     // Revoke READ perm and grant MODIFY perm. User should be able to set cred.
     svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREAD, rawDataEmptyJson);
     svc.grantUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsMODIFY, rawDataEmptyJson);
-    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
 
     // Revoke MODIFY perm and share system. User should be able to set cred.
     svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsMODIFY, rawDataEmptyJson);
     svc.shareSystem(rOwner1, sysId, systemShare);
-    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
 
     // Unshare and then share publicly. User should be able to set cred
     svc.unshareSystem(rOwner1, sysId, systemShare);
     svc.shareSystemPublicly(rOwner1, sysId);
-    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
 
     // Unshare public and now testUser5 should again be denied
     svc.unshareSystemPublicly(rOwner1, sysId);
     pass = false;
-    try { svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson); }
+    try { svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1874,8 +1879,8 @@ public class SystemsServiceTest
 
     // Create credential with no system should throw an exception
     pass = false;
-    cred = new Credential(null, null, null, null, null, "fakeAccessKey2", "fakeAccessSecret2", null, null, null);
-    try { svcCred.createUserCredential(rOwner1, fakeSystemName, fakeUserName, cred, skipCredCheckTrue, rawDataEmptyJson); }
+    cred = new Credential(null, null, null, null, null, "fakeAccessKey2", "fakeAccessSecret2", null, null, null, null, null, null);
+    try { svcCred.createUserCredential(rOwner1, fakeSystemName, fakeUserName, cred, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson); }
     catch (NotFoundException nfe)
     {
       pass = true;
@@ -1924,7 +1929,8 @@ public class SystemsServiceTest
 
     // Create system for remaining auth access tests
     Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-                                      "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken", "fakeCert");
+                                      "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // Grant testUesr3 - READ
@@ -2022,7 +2028,7 @@ public class SystemsServiceTest
 
     // SET_CRED - deny user not owner/admin and not target user
     pass = false;
-    try { svcCred.createUserCredential(rTestUser3, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmptyJson); }
+    try { svcCred.createUserCredential(rTestUser3, systemId, owner1, cred0, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -2154,7 +2160,8 @@ public class SystemsServiceTest
     TSystem sys0 = systems[14];
     // Create system for remaining auth access tests
     Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-            "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken", "fakeCert");
+            "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // Grant User1 - READ and User2 - MODIFY
@@ -2463,7 +2470,8 @@ public class SystemsServiceTest
   {
     TSystem sys0 = systems[26];
     Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-                                      "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken", "fakeCert");
+                                      "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     
@@ -2493,7 +2501,8 @@ public class SystemsServiceTest
     String sysId = sys0.getId();
     ResourceRequestUser ownerUser = rTestUser2;
     Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey", "fakeAccessKey",
-                                      "fakeAccessSecret", "fakeAccessToken1", "fakeRefreshToken1", "fakeCert");
+                                      "fakeAccessSecret", "fakeAccessToken1", "fakeRefreshToken1",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
     sys0.setOwner(testUser2);
     sys0.setJobRuntimes(jobRuntimes1);

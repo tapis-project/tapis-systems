@@ -294,8 +294,10 @@ public class SystemsServiceImpl implements SystemsService
       // Store credentials in Security Kernel if cred provided and effectiveUser is static
       if (manageCredentials)
       {
+        // No TmsKeys, pass in null
+        CredUtils.TmsKeys tmsKeysNull = null;
         // Use internal method instead of public API to skip auth and other checks not needed here.
-        credUtils.createCredential(rUser, cred, systemId, system.getEffectiveUserId(), isStaticEffectiveUser);
+        credUtils.createCredential(rUser, cred, tmsKeysNull, systemId, system.getEffectiveUserId(), isStaticEffectiveUser);
       }
     }
     catch (Exception e0)
