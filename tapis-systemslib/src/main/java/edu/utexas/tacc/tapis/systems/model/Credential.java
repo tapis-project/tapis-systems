@@ -182,16 +182,17 @@ public final class Credential
   {
     String l = StringUtils.isBlank(loginUser) ? "<empty>" : loginUser;
     String p = StringUtils.isBlank(password) ? "<empty>" : "*********";
-    String privKey = StringUtils.isBlank(privateKey) ? "<empty>" : "*********";
-    String pubKey = StringUtils.isBlank(publicKey) ? "<empty>" : "*********";
+    String pPrivKey = StringUtils.isBlank(privateKey) ? "<empty>" : "*********";
+    String pPubKey = StringUtils.isBlank(publicKey) ? "<empty>" : "*********";
     String aKey = StringUtils.isBlank(accessKey) ? "<empty>" : "*********";
     String aSecret = StringUtils.isBlank(accessSecret) ? "<empty>" : "*********";
     String aTok = StringUtils.isBlank(accessToken) ? "<empty>" : "*********";
     String aRefresh = StringUtils.isBlank(refreshToken) ? "<empty>" : "*********";
-    String tprivKey = StringUtils.isBlank(tmsPrivateKey) ? "<empty>" : "*********";
-    String tpubKey = StringUtils.isBlank(tmsPublicKey) ? "<empty>" : "*********";
+    String tPrivKey = StringUtils.isBlank(tmsPrivateKey) ? "<empty>" : "*********";
+    String tPubKey = StringUtils.isBlank(tmsPublicKey) ? "<empty>" : "*********";
     String tfingerprint = StringUtils.isBlank(tmsFingerprint) ? "<empty>" : "*********";
     return String.format("Credential:%n  AuthnMethod: %s%n  loginUser: %s%n  password: %s%n  privateKey: %s%n  publicKey: %s%n  accessKey: %s%n  accessSecret: %s%n accessToken: %s%n refreshToken: %s%n  tmsPrivateKey: %s%n  tmsPublicKey: %s%n  tmsFingerPrint: %s%n  validationResult: %B%n  validationMsg: %s%n",
-                         authnMethod, l, p, privKey, pubKey, aKey, aSecret, aTok, aRefresh, tprivKey, tpubKey, tfingerprint, validationResult, validationMsg);
+                         authnMethod, l, p, pPrivKey, pPubKey, aKey, aSecret, aTok, aRefresh, tPrivKey, tPubKey, tfingerprint,
+                         validationResult, validationMsg);
   }
 }

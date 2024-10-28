@@ -227,6 +227,7 @@ public class CredUtils
         String msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_NOT_ALLOWED", rUser, systemId, loginUser, isStaticEffectiveUser);
         throw new BadRequestException(msg);
       }
+      // TODO *************************
       tmsKeys = createTmsKeys(rUser, system); // TODO
     }
 
@@ -736,7 +737,8 @@ public class CredUtils
   private TmsKeys createTmsKeys(ResourceRequestUser rUser, TSystem system)
   {
     // TODO
-    return null;
+    throw new UnsupportedOperationException("TMS: Work in progress");
+//    return null;
   }
 
   /*
@@ -759,7 +761,7 @@ public class CredUtils
     boolean doingPki = AuthnMethod.PKI_KEYS.equals(authnMethod);
     boolean doingPassword = AuthnMethod.PASSWORD.equals(authnMethod);
     boolean doingAccessKey = AuthnMethod.ACCESS_KEY.equals(authnMethod);
-    // TODO/TBD: Add support for TMS_KEYS?
+    boolean doingTms = AuthnMethod.TMS_KEYS.equals(authnMethod);
     String msg = "No Errors";
     String validationResult;
     if ((doingLinux && !SystemType.LINUX.equals(systemType)) || (doingAccessKey && !SystemType.S3.equals(systemType)))
@@ -774,7 +776,8 @@ public class CredUtils
     }
     else if ((doingPki && (StringUtils.isBlank(cred.getPublicKey()) || StringUtils.isBlank(cred.getPrivateKey()))) ||
             (doingPassword && StringUtils.isBlank(cred.getPassword())) ||
-            (doingAccessKey && (StringUtils.isBlank(cred.getAccessKey()) || StringUtils.isBlank(cred.getAccessSecret()))))
+            (doingAccessKey && (StringUtils.isBlank(cred.getAccessKey()) || StringUtils.isBlank(cred.getAccessSecret()))) ||
+            (doingTms && (StringUtils.isBlank(cred.getTmsPrivateKey()) || StringUtils.isBlank(cred.getTmsPublicKey()))))
     {
       // We do not have the credentials we need
       msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op, systemId, systemType, effectiveUser, authnMethod);
@@ -824,6 +827,11 @@ public class CredUtils
           {
             te = e;
           }
+          break;
+        case TMS_KEYS:
+          try (SSHConnection c = new SSHConnection(host, port, effectiveUser, cred.getTmsPublicKey(), cred.getTmsPrivateKey())) { te = null; }
+          catch (TapisException e) { te = e; }
+          catch (Exception e) { te = new TapisException(e.getMessage(), e); }
           break;
         default:
           // We should never get here, but just in case fail the verification

@@ -89,6 +89,8 @@ public class CredentialResource
   public static final String ACCESS_TOKEN_FIELD = "accessToken";
   public static final String REFRESH_TOKEN_FIELD = "refreshToken";
   public static final String CERTIFICATE_FIELD = "certificate";
+  public static final String TMS_PRIVATE_KEY_FIELD = "tmsPrivateKey";
+  public static final String TMS_PUBLIC_KEY_FIELD = "tmsPublicKey";
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -218,7 +220,6 @@ public class CredentialResource
     Credential credential = new Credential(nullAuthnMethod, loginUser, req.password, req.privateKey, req.publicKey,
                                            req.accessKey, req.accessSecret, req.accessToken, req.refreshToken,
                                            null, null, null, req.certificate);
-    // TODO refactor validation code into service method.
     // If one of PKI keys is missing then reject
     resp = ApiUtils.checkSecrets(rUser, systemId, userName, PRETTY, AuthnMethod.PKI_KEYS.name(), PRIVATE_KEY_FIELD, PUBLIC_KEY_FIELD,
                                  credential.getPrivateKey(), credential.getPublicKey());
@@ -230,6 +231,10 @@ public class CredentialResource
     // If one of Access token or Refresh token is missing then reject
     resp = ApiUtils.checkSecrets(rUser, systemId, userName, PRETTY, AuthnMethod.TOKEN.name(), ACCESS_TOKEN_FIELD, REFRESH_TOKEN_FIELD,
             credential.getAccessToken(), credential.getRefreshToken());
+    if (resp != null) return resp;
+    // If one of TMS keys is missing then reject
+    resp = ApiUtils.checkSecrets(rUser, systemId, userName, PRETTY, AuthnMethod.TMS_KEYS.name(), TMS_PRIVATE_KEY_FIELD, TMS_PUBLIC_KEY_FIELD,
+            credential.getPrivateKey(), credential.getPublicKey());
     if (resp != null) return resp;
 
     // If PKI private key is not compatible with Tapis then reject
