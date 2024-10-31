@@ -1459,8 +1459,9 @@ public class SystemsServiceTest
 
   // Test creating, reading and deleting user credentials for a system
   // Initial system is dynamic, effectiveUserId = ${apiUserId}
-  //   - Test 1 - create and get cred as owner1, testuser3
-  //            - create and get should always use Tapis user (owner1, testuser3) in method arguments
+  //   - Test 1a - create and get cred as owner1, testuser3
+  //             - create and get should always use Tapis user (owner1, testuser3) in method arguments
+  //   - Test 1b - Create and fetch credentials using AuthnMethod=TMS_KEYS, testuser3 TODO/TBD: Requires TMS server
   // Also test loginUser mapping functionality.
   //   - Test 2 - basic loginUser mapping with dynamic TSystem. Create and get cred as owner1, testuser3, testuser4
   // Test switching system from dynamic to static
@@ -1504,8 +1505,8 @@ public class SystemsServiceTest
     svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
 
     // ------------------------
-    // Test 1 - basic cred retrieve/delete for owner1, testuser3
-    //        - fetch creds for specific authnMethod
+    // Test 1a - basic cred retrieve/delete for owner1, testuser3
+    //         - fetch creds for specific authnMethod=PASSWORD
     // -------------------------
     // Get system as owner using files service, should get cred for owner
     TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
@@ -1561,6 +1562,16 @@ public class SystemsServiceTest
     Assert.assertEquals(changeCount, 1, "Change count incorrect when removing a credential.");
     cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.ACCESS_KEY);
     Assert.assertNull(cred0, "Credential not deleted. System name: " + sysId + " User name: " + testUser3);
+
+    // TODO/TBD test TMS_KEYS case? Requires live TMS server
+    // ------------------------
+    // Test 1b - Create and fetch credentials using AuthnMethod=TMS_KEYS
+    // -------------------------
+    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysTrue, skipCredCheckTrue, rawDataEmptyJson);
+    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.TMS_KEYS);
+    Assert.assertNotNull(cred0.getTmsPrivateKey());
+    Assert.assertNotNull(cred0.getTmsPublicKey());
+    Assert.assertNotNull(cred0.getTmsFingerprint());
 
     // ============================================
     // Tests for tapis user to loginUser mapping.

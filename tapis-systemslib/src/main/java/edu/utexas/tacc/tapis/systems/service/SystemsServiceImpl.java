@@ -242,7 +242,9 @@ public class SystemsServiceImpl implements SystemsService
       // ---------------- Verify credentials if not skipped
       if (!skipCredCheck && manageCredentials)
       {
-        Credential c = credUtils.verifyCredentials(rUser, system, cred, cred.getLoginUser(), system.getDefaultAuthnMethod());
+        // Pass in null for tmsKeys
+        Credential c = credUtils.verifyCredentials(rUser, system, cred, null,
+                                                   cred.getLoginUser(), system.getDefaultAuthnMethod());
         system.setAuthnCredential(c);
         // If credential validation failed we do not create the system. Return now.
         if (Boolean.FALSE.equals(c.getValidationResult())) return system;

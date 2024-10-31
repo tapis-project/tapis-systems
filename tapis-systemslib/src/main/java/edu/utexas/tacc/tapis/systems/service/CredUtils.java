@@ -5,8 +5,10 @@ import javax.ws.rs.BadRequestException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.core.Response;
+import java.io.IOException;
 import java.util.*;
-
+import com.google.gson.JsonObject;
+import okhttp3.*;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -25,6 +27,7 @@ import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisSSHAuthException
 import edu.utexas.tacc.tapis.shared.s3.S3Connection;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
+import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.shared.utils.PathUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
@@ -86,6 +89,9 @@ public class CredUtils
   // *********************** Fields *****************************************
   // ************************************************************************
 
+  // Http client used to call TMS server
+  private static final OkHttpClient httpClient = new OkHttpClient();
+
   // Use HK2 to inject singletons
   @Inject
   private SystemsDao dao;
@@ -96,6 +102,10 @@ public class CredUtils
 
   // Wrapper for TmsKeys info.
   public record TmsKeys(String privateKey, String publicKey, String fingerprint) {}
+
+  // Wrapper for TmsRequest info used when creating a key pair
+  public record TmsRequest(String tmsClientUser, String tmsHost, String tmsHostAccount,
+                           int numUses, int ttmMinutes, String keyType) {}
 
   /* **************************************************************************** */
   /*                                Public Methods                                */
@@ -227,8 +237,8 @@ public class CredUtils
         String msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_NOT_ALLOWED", rUser, systemId, loginUser, isStaticEffectiveUser);
         throw new BadRequestException(msg);
       }
-      // TODO *************************
-      tmsKeys = createTmsKeys(rUser, system); // TODO
+      // Call TMS to create the keypair and fingerprint
+      tmsKeys = createTmsKeys(rUser, system, targetUser);
     }
 
     // Skip check if not LINUX or S3
@@ -238,7 +248,8 @@ public class CredUtils
     // If not skipping credential validation then do it now
     if (!skipCheck)
     {
-      retCred = verifyCredentials(rUser, system, cred, loginUser, system.getDefaultAuthnMethod());
+      // TODO support TMS keys
+      retCred = verifyCredentials(rUser, system, cred, tmsKeys, loginUser, system.getDefaultAuthnMethod());
       // If call returns null credential or null validation result then something went wrong.
       if (retCred == null || retCred.getValidationResult() == null) return retCred;
       // Check result. If validation failed return now.
@@ -324,7 +335,8 @@ public class CredUtils
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
     // ---------------- Verify credentials using defaultAuthnMethod --------------------
-    return verifyCredentials(rUser, system, cred, cred.getLoginUser(), authnMethod);
+    // TODO support TMS. For now, pass in null for tmsKeys
+    return verifyCredentials(rUser, system, cred, null, cred.getLoginUser(), authnMethod);
   }
 
   /**
@@ -386,7 +398,7 @@ public class CredUtils
    * @param authnMethod - AuthnMethod to verify
    * @throws IllegalStateException - if credentials not verified
    */
-  Credential verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential cred,
+  Credential verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential cred, TmsKeys tmsKeys,
                                String loginUser, AuthnMethod authnMethod)
           throws TapisException
   {
@@ -420,7 +432,7 @@ public class CredUtils
               cred.getAccessToken(), cred.getRefreshToken(), cred.getTmsPrivateKey(), cred.getTmsPublicKey(),
               cred.getTmsFingerprint(), cred.getCertificate(), Boolean.FALSE, msg);
     }
-    return verifyConnection(rUser, op, tSystem1, authnMethod, cred, effectiveUser);
+    return verifyConnection(rUser, op, tSystem1, authnMethod, cred, tmsKeys, effectiveUser);
   }
 
   /*
@@ -514,7 +526,7 @@ public class CredUtils
       sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
     }
     // TODO Store TmsKeys if both public and private keys are present
-    if (!StringUtils.isBlank(tmsKeys.privateKey) && !StringUtils.isBlank(tmsKeys.publicKey))
+    if (tmsKeys != null && !StringUtils.isBlank(tmsKeys.privateKey) && !StringUtils.isBlank(tmsKeys.publicKey))
     {
       dataMap = new HashMap<>();
       sParms.setKeyType(KeyType.tmskey);
@@ -522,7 +534,11 @@ public class CredUtils
       dataMap.put(SK_KEY_TMS_PRIVATE_KEY, tmsKeys.privateKey);
       dataMap.put(SK_KEY_TMS_FINGERPRINT, tmsKeys.fingerprint);
       sParms.setData(dataMap);
-      sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
+      String privKey = StringUtils.isBlank(tmsKeys.privateKey) ? null : "*****";
+      // TODO remove log msg, store in SK
+      log.error("TODO support TMS keys. Storing tmsKeys: privKey: %s pubKey: %s fingerprint: %s", privKey,
+                tmsKeys.publicKey, tmsKeys.fingerprint);
+// TODO     sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
     }
     // NOTE if necessary handle ssh certificate when supported
   }
@@ -683,9 +699,9 @@ public class CredUtils
               dataMap.get(SK_KEY_ACCESS_SECRET),
               dataMap.get(SK_KEY_ACCESS_TOKEN),
               dataMap.get(SK_KEY_REFRESH_TOKEN),
-              dataMap.get(SK_KEY_TMS_PRIVATE_KEY), // TODO
-              dataMap.get(SK_KEY_TMS_PUBLIC_KEY), // TODO
-              dataMap.get(SK_KEY_TMS_FINGERPRINT), // TODO
+              dataMap.get(SK_KEY_TMS_PRIVATE_KEY),
+              dataMap.get(SK_KEY_TMS_PUBLIC_KEY),
+              dataMap.get(SK_KEY_TMS_FINGERPRINT),
               null); //dataMap.get(CERT) NOTE: get ssh certificate when supported
     }
     catch (TapisClientException tce)
@@ -732,13 +748,166 @@ public class CredUtils
   /* **************************************************************************** */
 
   /*
-   * Call the TMS server to generate a TMS keypair and fingerprint.
    */
-  private TmsKeys createTmsKeys(ResourceRequestUser rUser, TSystem system)
+
+  /**
+   * Call the TMS server to generate a TMS keypair and fingerprint.
+   *
+   * @param rUser ResourceRequest user
+   * @param system Tapis system
+   * @param targetUser Host account user
+   * @return tms key info
+   * @throws TapisException on error
+   */
+  private TmsKeys createTmsKeys(ResourceRequestUser rUser, TSystem system, String targetUser)
+          throws TapisException
   {
-    // TODO
-    throw new UnsupportedOperationException("TMS: Work in progress");
-//    return null;
+    // TODO Call TMS to generate the keypair and fingerprint
+    // TODO Replace hard-coded strings with parameters set in the environment, similar to Globus client id
+    String tmsServerUrl = "https://tms-server-prod.tacc.utexas.edu:3000/v1/tms/pubkeys/creds";
+    String tmsTenant = "test"; //"default";
+    String tmsClientId = "testclient1";//"tapis1";
+    String tmsClientSecret = "secret1";//"85f6d3f7cc3bb1065445b27b2324367e6e7bbe5e8231a116";
+    String tmsClientUser = rUser.getOboUserId();
+    String tmsHost = system.getHost();
+    String tmsHostAccount = targetUser;
+    int numUses = -1;
+    int ttlMinutes = -1;
+    String keyType = "";
+    /*
+     * TODO
+             curl -k -X POST -H "content-type: application/json" \
+       	         -H "X-TMS-TENANT: $TMS_TENANT" \
+                 -H "X-TMS-CLIENT-ID: $TMS_CLIENT_ID" \
+                 -H "X-TMS-CLIENT-SECRET: $TMS_CLIENT_KEY" \
+                         $TMS_URL/v1/tms/pubkeys/creds -d @$1
+     */
+    // Build the request
+    // TODO Body is TBD
+    /* TODO
+     *  { "client_user_id": "string",
+          "host": "string",
+          "host_account": "string",
+          "num_uses": 0,
+          "ttl_minutes": 0,
+          "key_type": "string"
+        }
+     */
+    var tmsRequest = new TmsRequest(tmsClientUser, tmsHost, tmsHostAccount, numUses, ttlMinutes, keyType);
+    String reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsRequest);
+    RequestBody body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
+    Request.Builder requestBuilder = new Request.Builder().url(tmsServerUrl).post(body);
+
+    // Add headers for tenant, client id and client secret
+    Request request = requestBuilder.addHeader("X-TMS-TENANT", tmsTenant)
+            .addHeader("X-TMS-CLIENT-ID", tmsClientId)
+            .addHeader("X-TMS-CLIENT-SECRET", tmsClientSecret)
+            .build();
+    Call call = httpClient.newCall(request);
+    String msg = null;
+    String respBodyStr = null;
+    int httpRespCode = -1;
+    try
+    {
+      // Send the request to the REST endpoint
+      // Use try-with-resources to auto-close the response.
+      msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_REQ", rUser, system.getId(), targetUser, tmsServerUrl);
+      log.debug(msg);
+      try (okhttp3.Response response = call.execute())
+      {
+        // Get the response body as a string
+        if (response.body() != null) respBodyStr = response.body().string();
+        // TODO ======================
+        // TODO remove this
+        //   Log the respBody for initial dev work
+        log.info("TMS server response: " + respBodyStr);
+        // TODO remove this
+        // TODO ======================
+
+        // If response status code is not in the 200s it is an error
+        httpRespCode = response.code();
+        if (httpRespCode < 200 || httpRespCode >= 300)
+        {
+          msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_HTTP_ERR", rUser, system.getId(), targetUser,
+                                    tmsServerUrl, httpRespCode, respBodyStr);
+          log.error(msg);
+        }
+      }
+    }
+    catch (IOException e)
+    {
+      msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_ERR", rUser, system.getId(), targetUser, tmsServerUrl, e.getMessage());
+      log.error(msg);
+    }
+
+    // On error throw TapisException
+    if (!StringUtils.isBlank(msg))
+    {
+      throw new TapisException(msg);
+    }
+
+    // If response body was empty or null it is an error
+    if (StringUtils.isBlank(respBodyStr))
+    {
+      msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_NO_BODY", rUser, system.getId(), targetUser, tmsServerUrl, httpRespCode);
+      log.error(msg);
+      throw new TapisException(msg);
+    }
+
+    // We should have a json response body with the keypair and fingerprint. Extract them.
+    JsonObject respBodyJson = TapisGsonUtils.getGson().fromJson(respBodyStr, JsonObject.class);
+    var privateKeyObj = respBodyJson.get("private_key");
+    var publicKeyObj = respBodyJson.get("public_key");
+    var publicKeyFingerprintObj = respBodyJson.get("public_key_fingerprint");
+    // If any are null it is an error
+    if (privateKeyObj == null || publicKeyObj == null || publicKeyFingerprintObj == null)
+    {
+      msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_NULL_FIELD", rUser, system.getId(), targetUser, tmsServerUrl, httpRespCode,
+                                 privateKeyObj == null ? "null" : "non-null",
+                                 publicKeyObj == null ? "null" : "non-null",
+                                 publicKeyFingerprintObj == null ? "null" : "non-null");
+      log.error(msg);
+      throw new TapisException(msg);
+    }
+    String tmsPrivateKey = privateKeyObj.getAsString();
+    String tmsPublicKey = publicKeyObj.getAsString();
+    String tmsPublicKeyFingerprint = publicKeyFingerprintObj.getAsString();
+    String privateKeyMasked = StringUtils.isBlank(tmsPrivateKey) ? null : SECRETS_MASK;
+    // If any are empty it is an error
+    if (StringUtils.isBlank(tmsPrivateKey) || StringUtils.isBlank(tmsPublicKey) || StringUtils.isBlank(tmsPublicKeyFingerprint))
+    {
+      msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_EMPTY_FIELD", rUser, system.getId(), targetUser, tmsServerUrl,
+                                httpRespCode, privateKeyMasked, tmsPublicKey, tmsPublicKeyFingerprint);
+      log.error(msg);
+      throw new TapisException(msg);
+    }
+
+    // Log extracted data
+    msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_DATA", rUser, system.getId(), targetUser, privateKeyMasked,
+                              tmsPublicKey, tmsPublicKeyFingerprint);
+    log.debug(msg);
+
+    /*
+ TODO from notifications
+    Call call = httpClient.newCall(request);
+    // Use try-with-resources to auto-close the response.
+    try (Response response = call.execute())
+    {
+      // If response status code is not in the 200s assume delivery failed.
+      int httpCode = response.code();
+      if (httpCode < 200 || httpCode >= 300)
+      {
+        log.error(LibUtils.getMsg("NTFLIB_DSP_DLVRY_WH_FAIL_ERR", bucketNum, ntf.getUuid(),
+                deliveryTarget.getDeliveryMethod(), deliveryTarget.getDeliveryAddress(), response.code()));
+        delivered = false;
+      }
+    }
+    return delivered;
+*/
+//    // TODO
+//    throw new UnsupportedOperationException("TMS: Work in progress");
+////    return null;
+    return new TmsKeys(tmsPrivateKey, tmsPublicKey, tmsPublicKeyFingerprint);
   }
 
   /*
@@ -746,8 +915,9 @@ public class CredUtils
    * NOTE that credential returned even if invalid. Caller must check Credential.getValidationResult()
    */
   private Credential verifyConnection(ResourceRequestUser rUser, String op, TSystem tSystem1, AuthnMethod authnMethod,
-                                      Credential cred, String effectiveUser)
+                                      Credential cred, TmsKeys tmsKeys, String effectiveUser)
   {
+    // TODO support TMS
     log.info(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), tSystem1.getSystemType(),
              effectiveUser, authnMethod));
     Credential retCred;
