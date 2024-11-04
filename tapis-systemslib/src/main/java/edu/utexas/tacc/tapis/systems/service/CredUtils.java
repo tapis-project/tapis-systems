@@ -112,8 +112,8 @@ public class CredUtils
   public record TmsKeys(String privateKey, String publicKey, String fingerprint) {}
 
   // Wrapper for TmsRequest info used when creating a key pair
-  public record TmsRequest(String tmsClientUser, String tmsHost, String tmsHostAccount,
-                           int numUses, int ttmMinutes, String keyType) {}
+  public record TmsRequest(String client_user_id, String host, String host_account,
+                           int num_uses, int ttl_minutes) {} //, String key_type) {}
 
   /* **************************************************************************** */
   /*                                Public Methods                                */
@@ -264,6 +264,8 @@ public class CredUtils
     if (!skipCheck)
     {
       // TODO support TMS
+      // TODO Previously loginUser was always set (filled in with targetUser if no mapping).
+      //      Now it may be null. Do we also need to pass in targetUser?
       retCred = verifyCredentials(rUser, system, cred, tmsKeys, loginUser, system.getDefaultAuthnMethod());
       // If call returns null credential or null validation result then something went wrong.
       if (retCred == null || retCred.getValidationResult() == null) return retCred;
@@ -287,7 +289,7 @@ public class CredUtils
 
     // If dynamic and an alternate loginUser has been provided that is not the same as the Tapis user
     //   then record the mapping
-    if (!isStaticEffectiveUser && !StringUtils.isBlank(loginUser) && !targetUser.equals(loginUser))
+    if (!isStaticEffectiveUser && !StringUtils.isBlank(loginUser))
     {
       dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, loginUser);
     }
@@ -780,14 +782,14 @@ public class CredUtils
     {
       if (StringUtils.startsWith("http", tmsServerUrl))
       {
-        log.warn(LibUtils.getMsg("SYSLIB_INIT_TMS_URL_ERR", tmsServerUrl));
+        System.out.println(LibUtils.getMsg("SYSLIB_INIT_TMS_URL_ERR", tmsServerUrl));
         isTmsConfigured = false;
       }
       else isTmsConfigured = true;
     }
     // Log final result
-    log.info(LibUtils.getMsg("SYSLIB_INIT_TMS_CFG", isTmsConfigured, tmsServerUrl, tmsTenant, tmsClientId,
-                              tmsClientSecretMasked));
+    System.out.println(LibUtils.getMsg("SYSLIB_INIT_TMS_CFG", isTmsConfigured, tmsServerUrl, tmsTenant, tmsClientId,
+                                       tmsClientSecretMasked));
   }
 
   /* **************************************************************************** */
@@ -813,7 +815,7 @@ public class CredUtils
 //    String tmsTenant = runtimeParms.getTmsTenant();
 //    String tmsClientId = runtimeParms.getTmsTenant();
 //    String tmsClientSecret = runtimeParms.getTmsSecret();
-    String tmsServerUrl = "https://tms-server-prod.tacc.utexas.edu:3000/v1/tms/pubkeys/creds";
+    String tmsServerUrl = "https://tms-server-stage.tacc.utexas.edu:3000/v1/tms/pubkeys/creds";
     String tmsTenant = "test"; //"default";
     String tmsClientId = "testclient1";//"tapis1";
     String tmsClientSecret = "secret1";//"85f6d3f7cc3bb1065445b27b2324367e6e7bbe5e8231a116";
@@ -842,7 +844,8 @@ public class CredUtils
           "key_type": "string"
         }
      */
-    var tmsRequest = new TmsRequest(tmsClientUser, tmsHost, tmsHostAccount, numUses, ttlMinutes, keyType);
+//    var tmsRequest = new TmsRequest(tmsClientUser, tmsHost, tmsHostAccount, numUses, ttlMinutes, keyType);
+    var tmsRequest = new TmsRequest(tmsClientUser, tmsHost, tmsHostAccount, numUses, ttlMinutes);
     String reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsRequest);
     RequestBody body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
     Request.Builder requestBuilder = new Request.Builder().url(tmsServerUrl).post(body);

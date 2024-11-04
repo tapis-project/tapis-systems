@@ -211,13 +211,13 @@ public class CredentialResource
       _log.trace(ApiUtils.getMsgAuth("SYSAPI_CRED_LOGINUSER", rUser, systemId, userName, req.loginUser));
     }
 
-    // If no loginUser provided default to userName
-    String loginUser = (StringUtils.isBlank(req.loginUser)) ? userName : req.loginUser;
+//TODO remove this? Interferes with TMS    // If no loginUser provided default to userName
+//    String loginUser = (StringUtils.isBlank(req.loginUser)) ? userName : req.loginUser;
 
     // Build the credential. Pass in null for authnMethod and all tms attributes
     // This makes a convenient wrapper for passing in request data to the service.
     AuthnMethod nullAuthnMethod = null;
-    Credential credential = new Credential(nullAuthnMethod, loginUser, req.password, req.privateKey, req.publicKey,
+    Credential credential = new Credential(nullAuthnMethod, req.loginUser, req.password, req.privateKey, req.publicKey,
                                            req.accessKey, req.accessSecret, req.accessToken, req.refreshToken,
                                            null, null, null, req.certificate);
     // If one of PKI keys is missing then reject
