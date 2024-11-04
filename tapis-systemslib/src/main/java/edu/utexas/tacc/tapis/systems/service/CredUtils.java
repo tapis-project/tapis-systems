@@ -31,6 +31,7 @@ import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.shared.utils.PathUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
+import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.SystemShare;
@@ -60,6 +61,13 @@ public class CredUtils
   private static final String NO_CHALLENGE = "NoChallenge";
   // String used to detect that credentials are the problem when creating an SSH connection
   private static final String NO_MORE_AUTH_METHODS = "No more authentication methods available";
+
+  // TMS server configuration
+  public static boolean isTmsConfigured;
+  private static String tmsServerUrl;
+  private static String tmsTenant;
+  private static String tmsClientId;
+  private static String tmsClientSecret;
 
   // Permission constants
   // Permspec format for systems is "system:<tenant>:<perm_list>:<system_id>"
@@ -204,6 +212,7 @@ public class CredUtils
   {
     SystemOperation op = SystemOperation.setCred;
     Credential retCred = null;
+    String msg;
     // Extract some attributes for convenience and clarity
     String oboTenant = rUser.getOboTenantId();
     String loginUser = cred.getLoginUser();
@@ -217,7 +226,7 @@ public class CredUtils
     // If private SSH key is set check that we have a compatible key.
     if (!StringUtils.isBlank(cred.getPrivateKey()) && !cred.isValidPrivateSshKey())
     {
-      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2", rUser, systemId, targetUser);
+      msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2", rUser, systemId, targetUser);
       log.warn(msg);
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
@@ -227,14 +236,20 @@ public class CredUtils
     TmsKeys tmsKeys = null;
     if (createTmsKeys)
     {
+      // Make sure we are configured for TMS support
+      if (!CredUtils.isTmsConfigured)
+      {
+        msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_NOT_CFG", rUser, systemId);
+        throw new BadRequestException(msg);
+      }
       if (!SystemType.LINUX.equals(systemType))
       {
-        String msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_INVALID_SYS_TYPE", rUser, systemId, systemType);
+        msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_INVALID_SYS_TYPE", rUser, systemId, systemType);
         throw new BadRequestException(msg);
       }
       if (!StringUtils.isBlank(loginUser) || isStaticEffectiveUser)
       {
-        String msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_NOT_ALLOWED", rUser, systemId, loginUser, isStaticEffectiveUser);
+        msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_NOT_ALLOWED", rUser, systemId, loginUser, isStaticEffectiveUser);
         throw new BadRequestException(msg);
       }
       // Call TMS to create the keypair and fingerprint
@@ -248,7 +263,7 @@ public class CredUtils
     // If not skipping credential validation then do it now
     if (!skipCheck)
     {
-      // TODO support TMS keys
+      // TODO support TMS
       retCred = verifyCredentials(rUser, system, cred, tmsKeys, loginUser, system.getDefaultAuthnMethod());
       // If call returns null credential or null validation result then something went wrong.
       if (retCred == null || retCred.getValidationResult() == null) return retCred;
@@ -327,6 +342,7 @@ public class CredUtils
     // ---------------- Fetch credentials ------------------------
     // Use private internal method instead of public API to skip auth and other checks not needed here.
     Credential cred = getCredential(rUser, system, targetUser, authnMethod, isStaticEffectiveUser, null);
+    // If no credentials then we cannot check, treat it as an error
     if (cred == null)
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op, systemId, system.getSystemType(),
@@ -394,6 +410,7 @@ public class CredUtils
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tSystem1 - the TSystem to check
    * @param cred - credentials to check
+   * @param tmsKeys - Keypair received from TMS server
    * @param loginUser - host login user from mapping
    * @param authnMethod - AuthnMethod to verify
    * @throws IllegalStateException - if credentials not verified
@@ -743,12 +760,39 @@ public class CredUtils
     return c;
   }
 
+  /*
+   * Check to see if TMS is configured. Set flag.
+   */
+  public static void intTmsConfiguration()
+  {
+    RuntimeParameters runtimeParms = RuntimeParameters.getInstance();
+    tmsServerUrl = runtimeParms.getTmsServerUrl();
+    tmsTenant = runtimeParms.getTmsTenant();
+    tmsClientId = runtimeParms.getTmsClientId();
+    tmsClientSecret = runtimeParms.getTmsClientSecret();
+    String tmsClientSecretMasked = StringUtils.isBlank(tmsClientSecret) ? tmsClientSecret : SECRETS_MASK;
+    if (StringUtils.isBlank(tmsServerUrl) || StringUtils.isBlank(tmsTenant) ||
+        StringUtils.isBlank(tmsClientId) || StringUtils.isBlank(tmsClientSecret))
+    {
+      isTmsConfigured = false;
+    }
+    else
+    {
+      if (StringUtils.startsWith("http", tmsServerUrl))
+      {
+        log.warn(LibUtils.getMsg("SYSLIB_INIT_TMS_URL_ERR", tmsServerUrl));
+        isTmsConfigured = false;
+      }
+      else isTmsConfigured = true;
+    }
+    // Log final result
+    log.info(LibUtils.getMsg("SYSLIB_INIT_TMS_CFG", isTmsConfigured, tmsServerUrl, tmsTenant, tmsClientId,
+                              tmsClientSecretMasked));
+  }
+
   /* **************************************************************************** */
   /*                                Private Methods                               */
   /* **************************************************************************** */
-
-  /*
-   */
 
   /**
    * Call the TMS server to generate a TMS keypair and fingerprint.
@@ -762,8 +806,13 @@ public class CredUtils
   private TmsKeys createTmsKeys(ResourceRequestUser rUser, TSystem system, String targetUser)
           throws TapisException
   {
+    RuntimeParameters runtimeParms = RuntimeParameters.getInstance();
     // TODO Call TMS to generate the keypair and fingerprint
     // TODO Replace hard-coded strings with parameters set in the environment, similar to Globus client id
+//    String tmsServerUrl = runtimeParms.getTmsServerUrl();
+//    String tmsTenant = runtimeParms.getTmsTenant();
+//    String tmsClientId = runtimeParms.getTmsTenant();
+//    String tmsClientSecret = runtimeParms.getTmsSecret();
     String tmsServerUrl = "https://tms-server-prod.tacc.utexas.edu:3000/v1/tms/pubkeys/creds";
     String tmsTenant = "test"; //"default";
     String tmsClientId = "testclient1";//"tapis1";
@@ -927,7 +976,9 @@ public class CredUtils
     SystemType systemType = tSystem1.getSystemType();
     String bucket = tSystem1.getBucketName();
     // For convenience and clarity, set a few booleans
-    boolean doingLinux = AuthnMethod.PKI_KEYS.equals(authnMethod) || AuthnMethod.PASSWORD.equals(authnMethod);
+    boolean doingLinux = AuthnMethod.PKI_KEYS.equals(authnMethod) ||
+                         AuthnMethod.PASSWORD.equals(authnMethod) ||
+                         AuthnMethod.TMS_KEYS.equals(authnMethod);
     boolean doingPki = AuthnMethod.PKI_KEYS.equals(authnMethod);
     boolean doingPassword = AuthnMethod.PASSWORD.equals(authnMethod);
     boolean doingAccessKey = AuthnMethod.ACCESS_KEY.equals(authnMethod);

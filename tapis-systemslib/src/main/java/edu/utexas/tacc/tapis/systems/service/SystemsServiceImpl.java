@@ -125,6 +125,7 @@ public class SystemsServiceImpl implements SystemsService
     siteId = siteId1;
     siteAdminTenantId = siteAdminTenantId1;
     serviceContext.initServiceJWT(siteId, SYSTEMS_SERVICE, svcPassword);
+    CredUtils.intTmsConfiguration();
     // Make sure DB is present and updated to latest version using flyway
     dao.migrateDB();
   }
