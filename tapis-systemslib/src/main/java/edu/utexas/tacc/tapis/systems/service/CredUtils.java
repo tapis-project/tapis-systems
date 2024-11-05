@@ -113,7 +113,7 @@ public class CredUtils
 
   // Wrapper for TmsRequest info used when creating a key pair
   public record TmsRequest(String client_user_id, String host, String host_account,
-                           int num_uses, int ttl_minutes) {} //, String key_type) {}
+                           int num_uses, int ttl_minutes) {}
 
   /* **************************************************************************** */
   /*                                Public Methods                                */
@@ -555,8 +555,8 @@ public class CredUtils
       sParms.setData(dataMap);
       String privKey = StringUtils.isBlank(tmsKeys.privateKey) ? null : "*****";
       // TODO remove log msg, store in SK
-      log.error("TODO support TMS keys. Storing tmsKeys: privKey: %s pubKey: %s fingerprint: %s", privKey,
-                tmsKeys.publicKey, tmsKeys.fingerprint);
+      log.error(String.format("TODO support TMS keys. Storing tmsKeys: privKey: %s pubKey: %s fingerprint: %s", privKey,
+                tmsKeys.publicKey, tmsKeys.fingerprint));
 // TODO     sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
     }
     // NOTE if necessary handle ssh certificate when supported
@@ -815,16 +815,18 @@ public class CredUtils
 //    String tmsTenant = runtimeParms.getTmsTenant();
 //    String tmsClientId = runtimeParms.getTmsTenant();
 //    String tmsClientSecret = runtimeParms.getTmsSecret();
+//    String tmsClientUser = rUser.getOboUserId();
+//    String tmsHost = system.getHost();
+//    String tmsHostAccount = targetUser;
     String tmsServerUrl = "https://tms-server-stage.tacc.utexas.edu:3000/v1/tms/pubkeys/creds";
     String tmsTenant = "test"; //"default";
     String tmsClientId = "testclient1";//"tapis1";
     String tmsClientSecret = "secret1";//"85f6d3f7cc3bb1065445b27b2324367e6e7bbe5e8231a116";
-    String tmsClientUser = rUser.getOboUserId();
-    String tmsHost = system.getHost();
-    String tmsHostAccount = targetUser;
+    String tmsClientUser = "testuser1";
+    String tmsHost = "testhost1";
+    String tmsHostAccount = "testhostaccount1";
     int numUses = -1;
     int ttlMinutes = -1;
-    String keyType = "";
     /*
      * TODO
              curl -k -X POST -H "content-type: application/json" \
@@ -863,8 +865,7 @@ public class CredUtils
     {
       // Send the request to the REST endpoint
       // Use try-with-resources to auto-close the response.
-      msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_REQ", rUser, system.getId(), targetUser, tmsServerUrl);
-      log.debug(msg);
+      log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_REQ", rUser, system.getId(), targetUser, tmsServerUrl));
       try (okhttp3.Response response = call.execute())
       {
         // Get the response body as a string
