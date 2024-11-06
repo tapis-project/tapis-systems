@@ -798,6 +798,14 @@ public class CredUtils
 
   /**
    * Call the TMS server to generate a TMS keypair and fingerprint.
+   * Example: curl -k -X POST -H "content-type: application/json" \
+   *           -H "X-TMS-TENANT: $TMS_TENANT"
+   *           -H "X-TMS-CLIENT-ID: $TMS_CLIENT_ID" \
+   *           -H "X-TMS-CLIENT-SECRET: $TMS_CLIENT_KEY" \
+   *           $TMS_URL/v1/tms/pubkeys/creds -d @$1
+   * Example req body
+   * { "client_user_id": "testuser1", "host": "testhost1", "host_account": "testhostaccount1",
+   *   "num_uses": -1, "ttl_minutes": -1}
    *
    * @param rUser ResourceRequest user
    * @param system Tapis system
@@ -809,44 +817,25 @@ public class CredUtils
           throws TapisException
   {
     RuntimeParameters runtimeParms = RuntimeParameters.getInstance();
-    // TODO Call TMS to generate the keypair and fingerprint
-    // TODO Replace hard-coded strings with parameters set in the environment, similar to Globus client id
-//    String tmsServerUrl = runtimeParms.getTmsServerUrl();
-//    String tmsTenant = runtimeParms.getTmsTenant();
-//    String tmsClientId = runtimeParms.getTmsTenant();
-//    String tmsClientSecret = runtimeParms.getTmsSecret();
-//    String tmsClientUser = rUser.getOboUserId();
-//    String tmsHost = system.getHost();
-//    String tmsHostAccount = targetUser;
-    String tmsServerUrl = "https://tms-server-stage.tacc.utexas.edu:3000/v1/tms/pubkeys/creds";
-    String tmsTenant = "test"; //"default";
-    String tmsClientId = "testclient1";//"tapis1";
-    String tmsClientSecret = "secret1";//"85f6d3f7cc3bb1065445b27b2324367e6e7bbe5e8231a116";
-    String tmsClientUser = "testuser1";
-    String tmsHost = "testhost1";
-    String tmsHostAccount = "testhostaccount1";
+    // Call TMS to generate the keypair and fingerprint
+    String tmsServerUrl = runtimeParms.getTmsServerUrl();
+    String tmsTenant = runtimeParms.getTmsTenant();
+    String tmsClientId = runtimeParms.getTmsTenant();
+    String tmsClientSecret = runtimeParms.getTmsClientSecret();
+    String tmsClientUser = rUser.getOboUserId();
+    String tmsHost = system.getHost();
+    String tmsHostAccount = targetUser;
+// TODO remove
+//    String tmsServerUrl = "http://localhost:3001/v1/tms/pubkeys/creds";//"https://tms-server-stage.tacc.utexas.edu:3000/v1/tms/pubkeys/creds";
+//    String tmsTenant = "default";//"test";
+//    String tmsClientId = "tapisclient";//"testclient1";//"tapis1";
+//    String tmsClientSecret = "6a65068b8a821fea84faf1b3521c2bc7d27a7b9f42677730";//"secret1";
+//    String tmsClientUser = "testuser1";
+//    String tmsHost = "testhost1";
+//    String tmsHostAccount = "testhostaccount1";
     int numUses = -1;
     int ttlMinutes = -1;
-    /*
-     * TODO
-             curl -k -X POST -H "content-type: application/json" \
-       	         -H "X-TMS-TENANT: $TMS_TENANT" \
-                 -H "X-TMS-CLIENT-ID: $TMS_CLIENT_ID" \
-                 -H "X-TMS-CLIENT-SECRET: $TMS_CLIENT_KEY" \
-                         $TMS_URL/v1/tms/pubkeys/creds -d @$1
-     */
     // Build the request
-    // TODO Body is TBD
-    /* TODO
-     *  { "client_user_id": "string",
-          "host": "string",
-          "host_account": "string",
-          "num_uses": 0,
-          "ttl_minutes": 0,
-          "key_type": "string"
-        }
-     */
-//    var tmsRequest = new TmsRequest(tmsClientUser, tmsHost, tmsHostAccount, numUses, ttlMinutes, keyType);
     var tmsRequest = new TmsRequest(tmsClientUser, tmsHost, tmsHostAccount, numUses, ttlMinutes);
     String reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsRequest);
     RequestBody body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
