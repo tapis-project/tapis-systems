@@ -89,6 +89,8 @@ public class CredentialResource
   public static final String ACCESS_TOKEN_FIELD = "accessToken";
   public static final String REFRESH_TOKEN_FIELD = "refreshToken";
   public static final String CERTIFICATE_FIELD = "certificate";
+  public static final String TMS_PRIVATE_KEY_FIELD = "tmsPrivateKey";
+  public static final String TMS_PUBLIC_KEY_FIELD = "tmsPublicKey";
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -138,6 +140,7 @@ public class CredentialResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response createUserCredential(@PathParam("systemId") String systemId,
                                        @PathParam("userName") String userName,
+                                       @QueryParam("createTmsKeys") @DefaultValue("false") boolean createTmsKeys,
                                        @QueryParam("skipCredentialCheck") @DefaultValue("false") boolean skipCredCheck,
                                        InputStream payloadStream,
                                        @Context SecurityContext securityContext) throws TapisClientException
@@ -156,7 +159,7 @@ public class CredentialResource
     // Trace this request.
     if (_log.isTraceEnabled())
       ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId=" + systemId,
-                          "userName=" + userName, "skipCredentialCheck=" + skipCredCheck);
+                          "userName=" + userName, "createTmsKeys=" + createTmsKeys, "skipCredentialCheck=" + skipCredCheck);
 
     // NOTE: Do not log any raw input data here since it may contain secrets.
 
@@ -202,19 +205,19 @@ public class CredentialResource
       throw new WebApplicationException(msg);
     }
 
-    // If no loginUser provided default to userName
-    String loginUser = (StringUtils.isBlank(req.loginUser)) ? userName : req.loginUser;
     // If loginUser provided then trace it.
     if (_log.isTraceEnabled() && !StringUtils.isBlank(req.loginUser))
     {
-      _log.trace(ApiUtils.getMsgAuth("SYSAPI_CRED_LOGINUSER", rUser, systemId, userName, loginUser));
+      _log.trace(ApiUtils.getMsgAuth("SYSAPI_CRED_LOGINUSER", rUser, systemId, userName, req.loginUser));
     }
 
-    // Build the credential
-    AuthnMethod nullAuthnMethod = null;
-    Credential credential = new Credential(nullAuthnMethod, loginUser, req.password, req.privateKey, req.publicKey,
-                                           req.accessKey, req.accessSecret, req.accessToken, req.refreshToken, req.certificate);
 
+    // Build the credential. Pass in null for authnMethod and all tms attributes
+    // This makes a convenient wrapper for passing in request data to the service.
+    AuthnMethod nullAuthnMethod = null;
+    Credential credential = new Credential(nullAuthnMethod, req.loginUser, req.password, req.privateKey, req.publicKey,
+                                           req.accessKey, req.accessSecret, req.accessToken, req.refreshToken,
+                                           null, null, null, req.certificate);
     // If one of PKI keys is missing then reject
     resp = ApiUtils.checkSecrets(rUser, systemId, userName, PRETTY, AuthnMethod.PKI_KEYS.name(), PRIVATE_KEY_FIELD, PUBLIC_KEY_FIELD,
                                  credential.getPrivateKey(), credential.getPublicKey());
@@ -244,7 +247,7 @@ public class CredentialResource
     Credential checkedCred;
     try
     {
-      checkedCred = service.createUserCredential(rUser, systemId, userName, credential, skipCredCheck, scrubbedJson);
+      checkedCred = service.createUserCredential(rUser, systemId, userName, credential, createTmsKeys, skipCredCheck, scrubbedJson);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }

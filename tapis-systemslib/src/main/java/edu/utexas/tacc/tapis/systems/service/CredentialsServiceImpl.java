@@ -88,13 +88,14 @@ public class CredentialsServiceImpl
    * @param systemId - name of system
    * @param targetUser - Target user for operation
    * @param cred - Credentials to be stored
+   * @param createTmsKeys - Indicates if TMS keys should be created and stored
    * @param skipCredCheck - Indicates if cred check should happen (for LINUX, S3)
    * @param rawData - Client provided text used to create the credential - secrets should be scrubbed. Saved in update record.
    * @return null if skipping credCheck, else checked credential with validation result set
    * @throws TapisException - for Tapis related exceptions
    */
   public Credential createUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, Credential cred,
-                                         boolean skipCredCheck, String rawData)
+                                         boolean createTmsKeys, boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, IllegalStateException
   {
     TSystem.SystemOperation op = TSystem.SystemOperation.setCred;
@@ -118,7 +119,7 @@ public class CredentialsServiceImpl
     authUtils.checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
 
     // Use utility method to do most of the work
-    return credUtils.createCredentialForUser(rUser, system, targetUser, cred,  skipCredCheck, rawData);
+    return credUtils.createCredentialForUser(rUser, system, targetUser, cred, createTmsKeys, skipCredCheck, rawData);
   }
 
   /**
@@ -345,10 +346,12 @@ public class CredentialsServiceImpl
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
     // Create credential and save to SK
-    Credential credential = new Credential(null, null, null, null, null, null, null, accessToken, refreshToken, null);
+    Credential credential = new Credential(null, null, null, null, null, null, null, accessToken, refreshToken, null, null, null, null);
     try
     {
-      credUtils.createCredential(rUser, credential, systemId, userName, isStaticEffectiveUser);
+      // No TmsKeys, pass in null
+      CredUtils.TmsKeys tmsKeysNull = null;
+      credUtils.createCredential(rUser, credential, tmsKeysNull, systemId, userName, isStaticEffectiveUser);
     }
     // If tapis client exception then log error and convert to TapisException
     catch (TapisClientException tce)

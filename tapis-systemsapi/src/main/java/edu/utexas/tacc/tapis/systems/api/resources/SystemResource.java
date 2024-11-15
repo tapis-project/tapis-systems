@@ -1496,6 +1496,8 @@ public class SystemResource {
     maskSecret(credObj, CredentialResource.ACCESS_SECRET_FIELD);
     maskSecret(credObj, CredentialResource.ACCESS_TOKEN_FIELD);
     maskSecret(credObj, CredentialResource.REFRESH_TOKEN_FIELD);
+    maskSecret(credObj, CredentialResource.TMS_PRIVATE_KEY_FIELD);
+    maskSecret(credObj, CredentialResource.TMS_PUBLIC_KEY_FIELD);
     maskSecret(credObj, CredentialResource.CERTIFICATE_FIELD);
     sysObj.remove(AUTHN_CREDENTIAL_FIELD);
     sysObj.add(AUTHN_CREDENTIAL_FIELD, credObj);

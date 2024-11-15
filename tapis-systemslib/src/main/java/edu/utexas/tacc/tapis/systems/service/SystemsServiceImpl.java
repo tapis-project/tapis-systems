@@ -125,6 +125,7 @@ public class SystemsServiceImpl implements SystemsService
     siteId = siteId1;
     siteAdminTenantId = siteAdminTenantId1;
     serviceContext.initServiceJWT(siteId, SYSTEMS_SERVICE, svcPassword);
+    CredUtils.intTmsConfiguration();
     // Make sure DB is present and updated to latest version using flyway
     dao.migrateDB();
   }
@@ -242,7 +243,9 @@ public class SystemsServiceImpl implements SystemsService
       // ---------------- Verify credentials if not skipped
       if (!skipCredCheck && manageCredentials)
       {
-        Credential c = credUtils.verifyCredentials(rUser, system, cred, cred.getLoginUser(), system.getDefaultAuthnMethod());
+        // Pass in null for tmsKeys
+        Credential c = credUtils.verifyCredentials(rUser, system, cred, null,
+                                                   cred.getLoginUser(), system.getDefaultAuthnMethod());
         system.setAuthnCredential(c);
         // If credential validation failed we do not create the system. Return now.
         if (Boolean.FALSE.equals(c.getValidationResult())) return system;
@@ -294,8 +297,10 @@ public class SystemsServiceImpl implements SystemsService
       // Store credentials in Security Kernel if cred provided and effectiveUser is static
       if (manageCredentials)
       {
+        // No TmsKeys, pass in null
+        CredUtils.TmsKeys tmsKeysNull = null;
         // Use internal method instead of public API to skip auth and other checks not needed here.
-        credUtils.createCredential(rUser, cred, systemId, system.getEffectiveUserId(), isStaticEffectiveUser);
+        credUtils.createCredential(rUser, cred, tmsKeysNull, systemId, system.getEffectiveUserId(), isStaticEffectiveUser);
       }
     }
     catch (Exception e0)

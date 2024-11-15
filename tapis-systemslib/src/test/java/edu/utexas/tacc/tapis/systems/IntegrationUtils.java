@@ -111,6 +111,8 @@ public final class IntegrationUtils
   public static final boolean canExecFalse = false;
   public static final boolean skipCredCheckTrue = true;
   public static final boolean skipCredCheckFalse = false;
+  public static final boolean createTmsKeysTrue = true;
+  public static final boolean createTmsKeysFalse = false;
   public static final boolean getCredsTrue = true;
   public static final boolean getCredsFalse = false;
   public static final boolean requireExecPermFalse = false;
@@ -294,9 +296,9 @@ public final class IntegrationUtils
   public static final String invalidPublicSshKey = "testPubSshKey";
 
   public static final Credential credInvalidPrivateSshKey =
-          new Credential(null, null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null, null, null);
+          new Credential(null, null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null, null, null, null, null, null);
   public static final Credential credNoLoginUser =
-          new Credential(null, null, "fakePassword", null, null, null, null, null, null, null);
+          new Credential(null, null, "fakePassword", null, null, null, null, null, null, null, null, null, null);
 
   // Permissions
   public static final Set<TSystem.Permission> testPermsREADMODIFY = new HashSet<>(Set.of(TSystem.Permission.READ, TSystem.Permission.MODIFY));

@@ -13,7 +13,7 @@
   "DirPathRootDir": { "type": ["string", "null"], "maxLength": 4096 },
   "DirPathNotNull": { "type": "string", "minLength": 1, "maxLength": 4096 },
   "SystemTypeEnum": { "type": "string", "enum": ["LINUX","S3","IRODS","GLOBUS"] },
-  "AuthnMethodEnum": { "type": "string", "enum": ["PASSWORD","PKI_KEYS","ACCESS_KEY","TOKEN","CERT"] },
+  "AuthnMethodEnum": { "type": "string", "enum": ["PASSWORD","PKI_KEYS","ACCESS_KEY","TOKEN", "TMS_KEYS","CERT"] },
   "SchedulerTypeEnum": { "type": ["string", "null"], "enum": ["SLURM","CONDOR","PBS","SGE","UGE","TORQUE", null] },
   "SchedulerTypeEnumNotNull": { "type": "string", "enum": ["SLURM","CONDOR","PBS","SGE","UGE","TORQUE"] },
   "SchedulerProfileName": { "type": ["string", "null"], "minLength": 1, "maxLength": 80 },
@@ -94,6 +94,9 @@
       "accessSecret": { "type":  "string" },
       "accessToken": { "type":  "string" },
       "refreshToken": { "type":  "string" },
+      "tmsPrivateKey": { "type":  "string" },
+      "tmsPublicKey": { "type":  "string" },
+      "tmsFingerprint": { "type":  "string" },
       "certificate": { "type":  "string" }
     }
   },

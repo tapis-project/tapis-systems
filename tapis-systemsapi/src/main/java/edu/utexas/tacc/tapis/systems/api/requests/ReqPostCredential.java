@@ -6,12 +6,12 @@ package edu.utexas.tacc.tapis.systems.api.requests;
 public final class ReqPostCredential
 {
   public String loginUser;
-  public String password; // Password for when authnMethod is PASSWORD
-  public String privateKey; // Private key for when authnMethod is PKI_KEYS or CERT
-  public String publicKey; // Public key for when authnMethod is PKI_KEYS or CERT
-  public String accessKey; // Access key for when authnMethod is ACCESS_KEY
-  public String accessSecret; // Access secret for when authnMethod is ACCESS_KEY
-  public String accessToken; // Access secret for when authnMethod is TOKEN
-  public String refreshToken; // Access secret for when authnMethod is TOKEN
-  public String certificate; // SSH certificate for authnMethod is CERT
+  public String password; // Password for authnMethod PASSWORD
+  public String privateKey; // Private key for authnMethod PKI_KEYS
+  public String publicKey; // Public key for authnMethod PKI_KEYS
+  public String accessKey; // Access key for authnMethod ACCESS_KEY
+  public String accessSecret; // Access secret for authnMethod ACCESS_KEY
+  public String accessToken; // Access secret for authnMethod TOKEN
+  public String refreshToken; // Access secret for authnMethod TOKEN
+  public String certificate; // SSH certificate for authnMethod CERT
 }
