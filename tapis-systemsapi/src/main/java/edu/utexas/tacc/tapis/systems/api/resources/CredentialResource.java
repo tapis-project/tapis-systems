@@ -211,8 +211,6 @@ public class CredentialResource
       _log.trace(ApiUtils.getMsgAuth("SYSAPI_CRED_LOGINUSER", rUser, systemId, userName, req.loginUser));
     }
 
-//TODO remove this? Interferes with TMS    // If no loginUser provided default to userName
-//    String loginUser = (StringUtils.isBlank(req.loginUser)) ? userName : req.loginUser;
 
     // Build the credential. Pass in null for authnMethod and all tms attributes
     // This makes a convenient wrapper for passing in request data to the service.
@@ -231,10 +229,6 @@ public class CredentialResource
     // If one of Access token or Refresh token is missing then reject
     resp = ApiUtils.checkSecrets(rUser, systemId, userName, PRETTY, AuthnMethod.TOKEN.name(), ACCESS_TOKEN_FIELD, REFRESH_TOKEN_FIELD,
             credential.getAccessToken(), credential.getRefreshToken());
-    if (resp != null) return resp;
-    // If one of TMS keys is missing then reject
-    resp = ApiUtils.checkSecrets(rUser, systemId, userName, PRETTY, AuthnMethod.TMS_KEYS.name(), TMS_PRIVATE_KEY_FIELD, TMS_PUBLIC_KEY_FIELD,
-            credential.getPrivateKey(), credential.getPublicKey());
     if (resp != null) return resp;
 
     // If PKI private key is not compatible with Tapis then reject
