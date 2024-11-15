@@ -1563,15 +1563,15 @@ public class SystemsServiceTest
     cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.ACCESS_KEY);
     Assert.assertNull(cred0, "Credential not deleted. System name: " + sysId + " User name: " + testUser3);
 
-    // TODO/TBD test TMS_KEYS case? Requires live TMS server
-    // ------------------------
-    // Test 1b - Create and fetch credentials using AuthnMethod=TMS_KEYS
-    // -------------------------
-    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysTrue, skipCredCheckTrue, rawDataEmptyJson);
-    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.TMS_KEYS);
-    Assert.assertNotNull(cred0.getTmsPrivateKey());
-    Assert.assertNotNull(cred0.getTmsPublicKey());
-    Assert.assertNotNull(cred0.getTmsFingerprint());
+//TODO    // TODO/TBD test TMS_KEYS case? Requires live TMS server
+//    // ------------------------
+//    // Test 1b - Create and fetch credentials using AuthnMethod=TMS_KEYS
+//    // -------------------------
+//    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysTrue, skipCredCheckTrue, rawDataEmptyJson);
+//    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.TMS_KEYS);
+//    Assert.assertNotNull(cred0.getTmsPrivateKey());
+//    Assert.assertNotNull(cred0.getTmsPublicKey());
+//    Assert.assertNotNull(cred0.getTmsFingerprint());
 
     // ============================================
     // Tests for tapis user to loginUser mapping.
@@ -1582,7 +1582,7 @@ public class SystemsServiceTest
     // Create a credential for Tapis user testUser4 with a loginUser so that a mapping should be created.
     // owner should be permitted to update their own credential
     // This should go under the dynamic secret path in SK
-    svcCred.createUserCredential(rOwner1, sysId, testUser4, cred4LoginUser, skipCredCheckTrue, createTmsKeysFalse, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser4, cred4LoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     // Give testUser4 READ access to the system. Normally this would be done through sharing and call would
     // be made with impersonationId set to the system owner but here we are testing loginUser mapping, not impersonation.
     svc.grantUserPermissions(rOwner1, sysId, testUser4, testPermsREAD, rawDataEmptyJson);
@@ -2049,7 +2049,7 @@ public class SystemsServiceTest
 
     // Services now allowed to modify, etc obo a user
 //    pass = false;
-//    try { svcCred.createUserCredential(rFilesSvcOwner1, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmtpyJson); }
+//    try { svcCred.createUserCredential(rFilesSvcOwner1, systemId, owner1, cred0, createTmsKeysFalse, skipCredCheckTrue, rawDataEmtpyJson); }
 //    catch (ForbiddenException e)
 //    {
 //      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
