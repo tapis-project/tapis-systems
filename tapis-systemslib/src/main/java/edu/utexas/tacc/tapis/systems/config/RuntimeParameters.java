@@ -124,6 +124,7 @@ public final class RuntimeParameters implements EmailClientParameters
   private String globusClientId;
 
   // TMS parameters
+  private boolean tmsEnabled = false;
   private String tmsServerUrl;
   private String tmsTenant;
   private String tmsClientId;
@@ -239,6 +240,19 @@ public final class RuntimeParameters implements EmailClientParameters
     if (!StringUtils.isBlank(parm)) setGlobusClientId(parm);
 
     // --------------------- TMS Configuration ----------------------------
+    // If TAPIS_TMS_ENABLED set, attempt to interpret it as a boolean. Fail on error
+    parm = inputProperties.getProperty(EnvVar2.TAPIS_TMS_ENABLED.getEnvName());
+    if (!StringUtils.isBlank(parm))
+    {
+      try {tmsEnabled = Boolean.parseBoolean(parm);}
+      catch (Exception e)
+      {
+        String msg = MsgUtils.getMsg("TAPIS_SERVICE_PARM_INITIALIZATION_FAILED",
+                                     TapisConstants.SERVICE_NAME_SYSTEMS, "TAPIS_TMS_ENALBED", e.getMessage());
+        _log.error(msg, e);
+        throw new TapisRuntimeException(msg, e);
+      }
+    }
     parm = inputProperties.getProperty(EnvVar2.TAPIS_TMS_SERVER_URL.getEnvName());
     if (!StringUtils.isBlank(parm)) setTmsServerUrl(parm);
     parm = inputProperties.getProperty(EnvVar2.TAPIS_TMS_TENANT.getEnvName());
@@ -485,6 +499,8 @@ public final class RuntimeParameters implements EmailClientParameters
     buf.append(globusClientId);
 
     buf.append("\n------- TMS Configuration ----------------------");
+    buf.append("\ntapis.tms.enabled: ");
+    buf.append(tmsEnabled);
     buf.append("\ntapis.tms.server.url: ");
     buf.append(tmsServerUrl);
     buf.append("\ntapis.tms.tenant: ");
@@ -795,6 +811,7 @@ public final class RuntimeParameters implements EmailClientParameters
   public String getGlobusClientId() { return globusClientId; }
   private void setGlobusClientId(String s) {globusClientId = s; }
 
+  public boolean getTmsEnalbed() { return tmsEnabled; }
   public String getTmsServerUrl() { return tmsServerUrl; }
   private void setTmsServerUrl(String s) {tmsServerUrl = s; }
   public String getTmsTenant() { return tmsTenant; }
@@ -883,6 +900,7 @@ public final class RuntimeParameters implements EmailClientParameters
     TAPIS_SVC_ADMIN_TENANT("tapis.svc.admin.tenant"),
     TAPIS_MIGRATE_JOB_APPLY("tapis.migrate.job.apply"),
     TAPIS_GLOBUS_CLIENT_ID("tapis.globus.client.id"),
+    TAPIS_TMS_ENABLED("tapis.tms.enabled"),
     TAPIS_TMS_SERVER_URL("tapis.tms.server.url"),
     TAPIS_TMS_TENANT("tapis.tms.tenant"),
     TAPIS_TMS_CLIENT_ID("tapis.tms.client.id"),
