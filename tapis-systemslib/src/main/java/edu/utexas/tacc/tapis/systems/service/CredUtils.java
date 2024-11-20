@@ -774,7 +774,7 @@ public class CredUtils
     tmsClientId = runtimeParms.getTmsClientId();
     tmsClientSecret = runtimeParms.getTmsClientSecret();
     String tmsClientSecretMasked = StringUtils.isBlank(tmsClientSecret) ? tmsClientSecret : SECRETS_MASK;
-    if (tmsEnabled && !StringUtils.startsWith("http", tmsServerUrl))
+    if (tmsEnabled && !StringUtils.startsWith(tmsServerUrl, "http"))
     {
       System.out.println(LibUtils.getMsg("SYSLIB_INIT_TMS_URL_ERR", tmsServerUrl));
       tmsEnabled = false;
