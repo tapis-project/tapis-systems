@@ -65,9 +65,11 @@ public class CredUtils
   // TMS server configuration
   public static boolean tmsEnabled = false;
   private static String tmsServerUrl;
+  private static String tmsServerReqUrl;
   private static String tmsTenant;
   private static String tmsClientId;
   private static String tmsClientSecret;
+  private static final String TMS_CREATEKEYS_ENDPOINT = "v1/tms/pubkeys/creds";
 
   // Permission constants
   // Permspec format for systems is "system:<tenant>:<perm_list>:<system_id>"
@@ -779,6 +781,7 @@ public class CredUtils
       System.out.println(LibUtils.getMsg("SYSLIB_INIT_TMS_URL_ERR", tmsServerUrl));
       tmsEnabled = false;
     }
+    tmsServerReqUrl = String.format("%s/%s", tmsServerUrl, TMS_CREATEKEYS_ENDPOINT);
     // Log final result
     System.out.println(LibUtils.getMsg("SYSLIB_INIT_TMS_CFG", tmsEnabled, tmsServerUrl, tmsTenant, tmsClientId,
                                        tmsClientSecretMasked));
@@ -810,28 +813,24 @@ public class CredUtils
   {
     RuntimeParameters runtimeParms = RuntimeParameters.getInstance();
     // Call TMS to generate the keypair and fingerprint
-    String tmsServerUrl = runtimeParms.getTmsServerUrl();
-    String tmsTenant = runtimeParms.getTmsTenant();
-    String tmsClientId = runtimeParms.getTmsTenant();
-    String tmsClientSecret = runtimeParms.getTmsClientSecret();
+    // Example:
+    //    tmsServerReqUrl = "https://tms-server-stage.tacc.utexas.edu:3000/v1/tms/pubkeys/creds";
+    //    tmsTenant = "test";
+    //    tmsClientId = "testclient1";
+    //    tmsClientSecret = "secret1";
+    //    String tmsClientUser = "testuser1";
+    //    String tmsHost = "testhost1";
+    //    String tmsHostAccount = "testhostaccount1";
     String tmsClientUser = rUser.getOboUserId();
     String tmsHost = system.getHost();
     String tmsHostAccount = targetUser;
-// TODO remove
-//    String tmsServerUrl = "http://localhost:3001/v1/tms/pubkeys/creds";//"https://tms-server-stage.tacc.utexas.edu:3000/v1/tms/pubkeys/creds";
-//    String tmsTenant = "default";//"test";
-//    String tmsClientId = "tapisclient";//"testclient1";//"tapis1";
-//    String tmsClientSecret = "6a65068b8a821fea84faf1b3521c2bc7d27a7b9f42677730";//"secret1";
-//    String tmsClientUser = "testuser1";
-//    String tmsHost = "testhost1";
-//    String tmsHostAccount = "testhostaccount1";
     int numUses = -1;
     int ttlMinutes = -1;
     // Build the request
     var tmsRequest = new TmsRequest(tmsClientUser, tmsHost, tmsHostAccount, numUses, ttlMinutes);
     String reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsRequest);
     RequestBody body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
-    Request.Builder requestBuilder = new Request.Builder().url(tmsServerUrl).post(body);
+    Request.Builder requestBuilder = new Request.Builder().url(tmsServerReqUrl).post(body);
 
     // Add headers for tenant, client id and client secret
     Request request = requestBuilder.addHeader("X-TMS-TENANT", tmsTenant)
@@ -851,13 +850,6 @@ public class CredUtils
       {
         // Get the response body as a string
         if (response.body() != null) respBodyStr = response.body().string();
-        // TODO ======================
-        // TODO remove this
-        //   Log the respBody for initial dev work
-        log.info("TMS server response: " + respBodyStr);
-        // TODO remove this
-        // TODO ======================
-
         // If response status code is not in the 200s it is an error
         httpRespCode = response.code();
         if (httpRespCode < 200 || httpRespCode >= 300)
