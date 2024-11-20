@@ -7,9 +7,7 @@ import edu.utexas.tacc.tapis.security.client.gen.model.SkShare;
 import edu.utexas.tacc.tapis.security.client.model.SKShareDeleteShareParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareGetSharesParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareHasPrivilegeParms;
-import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
-import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.security.ServiceClients;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
@@ -435,8 +433,7 @@ public class AuthUtils
         userSet.add(skShare.getGrantee());
       }
     }
-    var shareInfo = new SystemShare(isPublic, userSet);
-    return shareInfo;
+    return new SystemShare(isPublic, userSet);
   }
 
   /*
@@ -551,7 +548,7 @@ public class AuthUtils
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
     sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, system.getOwner(), filesPermSpec);
     if (!effectiveUserId.equals(APIUSERID_VAR))
-      sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, resolvedEffectiveUserId, filesPermSpec);;
+      sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, resolvedEffectiveUserId, filesPermSpec);
   }
 
   /**
