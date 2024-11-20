@@ -63,7 +63,7 @@ public class CredUtils
   private static final String NO_MORE_AUTH_METHODS = "No more authentication methods available";
 
   // TMS server configuration
-  public static boolean isTmsConfigured;
+  public static boolean tmsEnabled = false;
   private static String tmsServerUrl;
   private static String tmsTenant;
   private static String tmsClientId;
@@ -237,7 +237,7 @@ public class CredUtils
     if (createTmsKeys)
     {
       // Make sure we are configured for TMS support
-      if (!CredUtils.isTmsConfigured)
+      if (!CredUtils.tmsEnabled)
       {
         msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_NOT_CFG", rUser, systemId);
         throw new BadRequestException(msg);
@@ -765,30 +765,22 @@ public class CredUtils
   /*
    * Check to see if TMS is configured. Set flag.
    */
-  public static void intTmsConfiguration()
+  public static void initTmsConfiguration()
   {
     RuntimeParameters runtimeParms = RuntimeParameters.getInstance();
+    tmsEnabled = runtimeParms.getTmsEnalbed();
     tmsServerUrl = runtimeParms.getTmsServerUrl();
     tmsTenant = runtimeParms.getTmsTenant();
     tmsClientId = runtimeParms.getTmsClientId();
     tmsClientSecret = runtimeParms.getTmsClientSecret();
     String tmsClientSecretMasked = StringUtils.isBlank(tmsClientSecret) ? tmsClientSecret : SECRETS_MASK;
-    if (StringUtils.isBlank(tmsServerUrl) || StringUtils.isBlank(tmsTenant) ||
-        StringUtils.isBlank(tmsClientId) || StringUtils.isBlank(tmsClientSecret))
+    if (tmsEnabled && !StringUtils.startsWith("http", tmsServerUrl))
     {
-      isTmsConfigured = false;
-    }
-    else
-    {
-      if (StringUtils.startsWith("http", tmsServerUrl))
-      {
-        System.out.println(LibUtils.getMsg("SYSLIB_INIT_TMS_URL_ERR", tmsServerUrl));
-        isTmsConfigured = false;
-      }
-      else isTmsConfigured = true;
+      System.out.println(LibUtils.getMsg("SYSLIB_INIT_TMS_URL_ERR", tmsServerUrl));
+      tmsEnabled = false;
     }
     // Log final result
-    System.out.println(LibUtils.getMsg("SYSLIB_INIT_TMS_CFG", isTmsConfigured, tmsServerUrl, tmsTenant, tmsClientId,
+    System.out.println(LibUtils.getMsg("SYSLIB_INIT_TMS_CFG", tmsEnabled, tmsServerUrl, tmsTenant, tmsClientId,
                                        tmsClientSecretMasked));
   }
 
