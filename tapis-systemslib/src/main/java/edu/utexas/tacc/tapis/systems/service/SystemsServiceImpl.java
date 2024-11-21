@@ -243,9 +243,9 @@ public class SystemsServiceImpl implements SystemsService
       // ---------------- Verify credentials if not skipped
       if (!skipCredCheck && manageCredentials)
       {
-        // Pass in null for tmsKeys
-        Credential c = credUtils.verifyCredentials(rUser, system, cred, null,
-                                                   cred.getLoginUser(), system.getDefaultAuthnMethod());
+        // During create, we only verify for static effectiveUser and system default authnMethod, so we pass in the
+        //   effectiveUser from request as hostLoginUser and the authnMethod from the system.
+        Credential c = credUtils.verifyCredentials(rUser, system, cred, system.getEffectiveUserId(), system.getDefaultAuthnMethod());
         system.setAuthnCredential(c);
         // If credential validation failed we do not create the system. Return now.
         if (Boolean.FALSE.equals(c.getValidationResult())) return system;
@@ -297,10 +297,8 @@ public class SystemsServiceImpl implements SystemsService
       // Store credentials in Security Kernel if cred provided and effectiveUser is static
       if (manageCredentials)
       {
-        // No TmsKeys, pass in null
-        CredUtils.TmsKeys tmsKeysNull = null;
         // Use internal method instead of public API to skip auth and other checks not needed here.
-        credUtils.createCredential(rUser, cred, tmsKeysNull, systemId, system.getEffectiveUserId(), isStaticEffectiveUser);
+        credUtils.createCredential(rUser, cred, systemId, system.getEffectiveUserId(), isStaticEffectiveUser);
       }
     }
     catch (Exception e0)
