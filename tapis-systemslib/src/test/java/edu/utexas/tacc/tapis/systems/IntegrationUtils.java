@@ -79,17 +79,19 @@ public final class IntegrationUtils
 
   // Properties for one of the Tapis v3 test VMs
   public static final String TAPIS_TEST_HOST_LOGIN_USER = testUser3;
-  public static final String TAPIS_TEST_NAME_ENV_VAR = "TAPIS_VM_TESTUSER_NAME";
+  public static final String TAPIS_TEST_HOST_ENV_VAR = "TAPIS_VM_TEST_HOST";
+  public static final String TAPIS_TEST_HOST_IP = "129.114.35.53"; // tapisv3-vm1 // TODO replace this with env var TAPIS_VM_TEST_HOST
+  public static final String TAPIS_TEST_USERNAME_ENV_VAR = "TAPIS_VM_TESTUSER_NAME";
   public static final String TAPIS_TEST_PASSWORD_ENV_VAR = "TAPIS_VM_TESTUSER_PASSWORD";
-  public static final String TAPIS_TEST_HOST_IP = "129.114.35.53";
   public static final String TAPIS_TEST_S3_KEY_ENV_VAR = "TAPIS_S3_SCBLACK_KEY";
   public static final String TAPIS_TEST_S3_SECRET_ENV_VAR = "TAPIS_S3_SCBLACK_SECRET";
+  public static final String TAPIS_TEST_KEYS_DIR_ENV_VAR = "TAPIS_TEST_KEYS_LOCAL_DIR"; // Local dir containing test ssh key-pairs
   public static final String TAPIS_TEST_S3_ROOTDIR = "";
 //  public static final String TAPIS_TEST_S3_HOST = "tapisdemotest2.s3.amazonaws.com";
 //  public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "tapisdemo2";
 //  public static final String TAPIS_TEST_S3_BUCKET = "tapisdemotest2";
-  public static final String TAPIS_TEST_S3_HOST = "cics3.tacc.utexas.edu";
-  public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "scblack";
+  public static final String TAPIS_TEST_S3_HOST = "cics3.tacc.utexas.edu"; // TODO replace this with env var
+  public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "scblack"; // TODO replace this with env var
   public static final String TAPIS_TEST_S3_BUCKET = "smoketest";
 
   public static final String sysNamePrefix = "TestSys";

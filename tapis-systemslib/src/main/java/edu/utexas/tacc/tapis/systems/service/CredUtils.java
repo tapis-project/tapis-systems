@@ -70,6 +70,8 @@ public class CredUtils
   private static String tmsClientId;
   private static String tmsClientSecret;
   private static final String TMS_CREATEKEYS_ENDPOINT = "v1/tms/pubkeys/creds";
+  private static final String TMS_KEY_TYPE_RSA = "rsa";
+  private static final String TMS_KEY_TYPE_ED25519 = "ed25519";
 
   // Permission constants
   // Permspec format for systems is "system:<tenant>:<perm_list>:<system_id>"
@@ -115,7 +117,7 @@ public class CredUtils
 
   // Wrapper for TmsRequest info used when creating a key pair
   public record TmsRequest(String client_user_id, String host, String host_account,
-                           int num_uses, int ttl_minutes) {}
+                           String key_type, int num_uses, int ttl_minutes) {}
 
   /* **************************************************************************** */
   /*                                Public Methods                                */
@@ -837,7 +839,7 @@ public class CredUtils
     int numUses = -1;
     int ttlMinutes = -1;
     // Build the request
-    var tmsRequest = new TmsRequest(tmsClientUser, tmsHost, tmsHostAccount, numUses, ttlMinutes);
+    var tmsRequest = new TmsRequest(tmsClientUser, tmsHost, tmsHostAccount, TMS_KEY_TYPE_ED25519, numUses, ttlMinutes);
     String reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsRequest);
     RequestBody body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
     Request.Builder requestBuilder = new Request.Builder().url(tmsServerReqUrl).post(body);
