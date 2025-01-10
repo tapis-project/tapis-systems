@@ -10,7 +10,18 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.8.1 - 2024-01-09
+## 1.8.2 - 2025-??-??
+
+Finish up support for Trusted Management System (TMS).
+
+### New features:
+- Full support for Trusted Management System (TMS)
+
+### Bug fixes:
+- None
+
+---------------------------------------------------------------------------
+## 1.8.1 - 2025-01-09
 
 Update from Java jdk-17 to jdk-21. Exit on service JWT refresh error.
 
