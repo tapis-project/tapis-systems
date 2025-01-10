@@ -41,6 +41,7 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotFoundException;
+import java.io.*;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -51,6 +52,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.*;
+import static org.testng.Assert.assertNotNull;
 
 /**
  * Test the SystemsService implementation class against a DB running locally
@@ -66,6 +68,7 @@ public class SystemsServiceTest
 {
   private SystemsService svc;
   private SystemsServiceImpl svcImpl;
+  private CredUtils credUtils;
   private SchedulerProfileServiceImpl svcSchedProfile;
   private CredentialsServiceImpl svcCred;
   private ResourceRequestUser rOwner1, rOwner3, rOwner4, rOwner5, rOwner6,
@@ -77,7 +80,7 @@ public class SystemsServiceTest
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
-  int numSystems = 40; // UNUSED SYSTEMS: None
+  int numSystems = 41; // UNUSED SYSTEMS: None
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
@@ -123,6 +126,7 @@ public class SystemsServiceTest
     svcSchedProfile = locator.getService(SchedulerProfileServiceImpl.class);
     svcCred = locator.getService(CredentialsServiceImpl.class);
     svcImpl.initService(siteId, adminTenantName, RuntimeParameters.getInstance().getServicePassword());
+    credUtils = locator.getService(CredUtils.class);
 
     // Initialize users and service
     rAdminUser = new ResourceRequestUser(new AuthenticatedUser(adminUser, tenantName, TapisThreadContext.AccountType.user.name(),
@@ -294,11 +298,11 @@ public class SystemsServiceTest
 
     String targetUser = owner1;
     // Get username and password from environment
-    String loginUser = System.getenv(TAPIS_TEST_NAME_ENV_VAR);
+    String loginUser = System.getenv(TAPIS_TEST_USERNAME_ENV_VAR);
     String testTapisUserP = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
     if (StringUtils.isBlank(loginUser))
     {
-      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_NAME_ENV_VAR);
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_USERNAME_ENV_VAR);
     }
     if (StringUtils.isBlank(testTapisUserP))
     {
@@ -411,6 +415,46 @@ public class SystemsServiceTest
       String msg = e.getMessage();
       Assert.assertTrue(msg.contains("SYSLIB_CRED_NOT_FOUND"));
     }
+  }
+
+  // Test to verify that we can process ssh keypairs of various types and use them to connect to a remote host.
+  //  Assumes $TAPIS_VM_TESTUSER_NAME is set up on the test host vm with an authorizedkeys file including the public
+  //  key for all key-pairs being tested.
+  @Test
+  public void testCredCheckSSHByKeyType() throws Exception
+  {
+    // Get local test dir, test VM host, username and password from environment
+    String localTestFileDir = System.getenv(TAPIS_TEST_KEYS_DIR_ENV_VAR);
+    String loginUser = System.getenv(TAPIS_TEST_USERNAME_ENV_VAR);
+    String testHost = System.getenv(TAPIS_TEST_HOST_ENV_VAR);
+    if (StringUtils.isBlank(loginUser))
+    {
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_USERNAME_ENV_VAR);
+    }
+    if (StringUtils.isBlank(localTestFileDir))
+    {
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_KEYS_DIR_ENV_VAR);
+    }
+    if (StringUtils.isBlank(testHost))
+    {
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_HOST_ENV_VAR);
+    }
+
+    TSystem sys0 = systems[40];
+    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
+    sys0.setDefaultAuthnMethod(AuthnMethod.PKI_KEYS);
+    sys0.setHost(testHost);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
+    System.out.println("Found item: " + sys0.getId());
+
+    runSSHKeyTest("sshkeygen_rsa_pem", localTestFileDir, loginUser, sys0);
+    runSSHKeyTest("sshkeygen_rsa", localTestFileDir, loginUser, sys0);
+    runSSHKeyTest("tms_rsa", localTestFileDir, loginUser, sys0);
+    runSSHKeyTest("tms_ed25519", localTestFileDir, loginUser, sys0);
+    runSSHKeyTest("sshkeygen_ed25519", localTestFileDir, loginUser, sys0);
+    runSSHKeyTest("sshkeygen_ecdsa", localTestFileDir, loginUser, sys0);
   }
 
   // Test retrieving a system including default authn method
@@ -710,11 +754,11 @@ public class SystemsServiceTest
   {
     // Set up for evaluating HOST_EVAL. Tapis will need to ssh to the host.
     // Get username and password from environment
-    String loginUser = System.getenv(TAPIS_TEST_NAME_ENV_VAR);
+    String loginUser = System.getenv(TAPIS_TEST_USERNAME_ENV_VAR);
     String testTapisUserP = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
     if (StringUtils.isBlank(loginUser))
     {
-      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_NAME_ENV_VAR);
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_USERNAME_ENV_VAR);
     }
     if (StringUtils.isBlank(testTapisUserP))
     {
@@ -2969,5 +3013,50 @@ public class SystemsServiceTest
     // Update rootDir to match expected result, then use common method for validating attributes
     sys0.setRootDir(resultRootDir);
     checkCommonSysAttrs(sys0, tmpSys);
+  }
+
+  /*
+   * Read in a key from a resource file that is on the class path
+   */
+  private String readKeyFromFile(String localTestFileDir, String fileName)
+  {
+    StringBuilder sb = new StringBuilder();
+    String resourcePath = String.format("%s/%s", localTestFileDir, fileName);
+    File inputFile = new File(resourcePath);
+    try (InputStream inStream = new FileInputStream(inputFile))
+    {
+      assertNotNull(inStream, "InputStream was null for path: " + resourcePath);
+      try (BufferedReader r = new BufferedReader(new InputStreamReader(inStream)))
+      {
+        String l;
+        while ((l = r.readLine()) != null) sb.append(l).append("\n");
+      }
+    }
+    catch (FileNotFoundException e)
+    {
+      Assert.fail("File not found: " + resourcePath);
+    }
+    catch (IOException e)
+    {
+      Assert.fail("IOException reading resource file: " + resourcePath + " Error: " + e.getMessage());
+    }
+    return sb.toString();
+  }
+
+  /*
+   * Test ssh key-pair
+   */
+  private void runSSHKeyTest(String prvKeyFile, String localTestFileDir, String loginUser, TSystem sys) throws TapisException
+  {
+    String pubKeyFile = String.format("%s.pub", prvKeyFile);
+    String pubKeyStr = readKeyFromFile(localTestFileDir, pubKeyFile);
+    String prvKeyStr = readKeyFromFile(localTestFileDir, prvKeyFile);
+    // Create the credential object
+    Credential credToCheck = new Credential(AuthnMethod.PKI_KEYS, loginUser, null, prvKeyStr, pubKeyStr, null, null, null, null, null, null, null, null);
+    // Check the credential
+    Credential retCred = credUtils.verifyCredentials(rOwner1, sys, credToCheck, loginUser, AuthnMethod.PKI_KEYS);
+    Assert.assertNotNull(retCred, "Returned verified credential was null for keyType: " + prvKeyFile);
+    Assert.assertEquals(retCred.getValidationResult(), Boolean.TRUE,
+            "Credential failed to validate for keyType: " + prvKeyFile + " Error: " + retCred.getValidationMsg());
   }
 }
