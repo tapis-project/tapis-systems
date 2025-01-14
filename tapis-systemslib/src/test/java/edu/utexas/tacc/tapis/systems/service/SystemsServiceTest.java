@@ -25,6 +25,7 @@ import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.SystemShare;
 
+import okhttp3.*;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.ServiceLocatorUtilities;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
@@ -62,10 +63,22 @@ import static org.testng.Assert.assertNotNull;
  *    Tokens service - typically dev and obtained from tenants service
  *    Security Kernel service - typically dev and obtained from tenants service
  *
+ * TMS test settings for DEV
+ *   TMS_URL= https://tms-server-dev.tacc.utexas.edu:3000
+ *   TMS_TENANT= default
+ *   TMS_CLIENT_ID= tapis
+ *   TMS_CLIENT_KEY= *************
+ *   TMS_TEST_HOST=129.114.35.161
+ *   TMS_TEST_USER=testuser9
+ *   TMS_ADMIN_ID= "~~admin"
+ *   TMS_ADMIN_KEY= "*****"
  */
 @Test(groups={"integration"})
 public class SystemsServiceTest
 {
+  // Http client used to call TMS server
+  private static final OkHttpClient httpClient = new OkHttpClient();
+
   private SystemsService svc;
   private SystemsServiceImpl svcImpl;
   private CredUtils credUtils;
@@ -80,7 +93,7 @@ public class SystemsServiceTest
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
-  int numSystems = 41; // UNUSED SYSTEMS: None
+  int numSystems = 42; // UNUSED SYSTEMS: None
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
@@ -1710,6 +1723,113 @@ public class SystemsServiceTest
     // Get system as testUser5 and check cred.
     tmpSys = svc.getSystem(rFilesSvcTestUser5, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred5B_LoginUser.getPassword(), testUser5, testUser5LinuxUser);
+  }
+
+  // Test creating, reading and using a TMS ssh key-pair.
+  // - check that required env settings are in place
+  // - call the TMS server to
+  //    - fetch the TMS version to confirm the server is live
+  //    - create a TMS key-pair for the test user on the test host
+  //    - fetch the public key info for the test user
+  // - Create a Tapis system for use with TMS keys
+  // - Register TMS keys for the Tapis system
+  // - Login to the Tapis system using TMS keys
+  // - List files on the Tapis system
+  @Test(enabled = true)
+  public void testTMSKeys() throws Exception
+  {
+    // Get env variables to make sure we are configured for this test
+    String tmsUrl = System.getenv(TMS_URL_ENV_VAR);
+    String tmsTenant = System.getenv(TMS_TENANT_ENV_VAR);
+    String tmsClientId = System.getenv(TMS_CLIENT_ID_ENV_VAR);
+    String tmsClientKey = System.getenv(TMS_CLIENT_KEY_ENV_VAR);
+    String tmsTestHost = System.getenv(TMS_TEST_HOST_ENV_VAR);
+    String tmsTestUser = System.getenv(TMS_TEST_USER_ENV_VAR);
+    if (StringUtils.isBlank(tmsUrl)) Assert.fail("Missing environment variable. Please set env var: " + TMS_URL_ENV_VAR);
+    if (StringUtils.isBlank(tmsTenant)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TENANT_ENV_VAR);
+    if (StringUtils.isBlank(tmsClientId)) Assert.fail("Missing environment variable. Please set env var: " + TMS_CLIENT_ID_ENV_VAR);
+    if (StringUtils.isBlank(tmsClientKey)) Assert.fail("Missing environment variable. Please set env var: " + TMS_CLIENT_KEY_ENV_VAR);
+    if (StringUtils.isBlank(tmsTestHost)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_HOST_ENV_VAR);
+    if (StringUtils.isBlank(tmsTestUser)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_USER_ENV_VAR);
+    //
+    // Call TMS server to get version http
+    // Build the request and make the call
+    String urlGetVersion = String.format("%s/version", tmsUrl);
+    Request request = new Request.Builder().url(urlGetVersion).build();
+    Call call = httpClient.newCall(request);
+    int httpRespCode = -1;
+    String respBodyStr = null;
+    // Use try-with-resources to auto-close the response.
+    try (okhttp3.Response response = call.execute())
+    {
+      // Get the response body as a string
+      if (response.body() != null) respBodyStr = response.body().string();
+      System.out.println("Got response body: " + respBodyStr);
+      // If response status code is not 200 it is an error
+      httpRespCode = response.code();
+      Assert.assertEquals(httpRespCode, response.code(), "Unable to get version");
+  }
+/*
+    // Call TMS to generate the keypair and fingerprint
+    // Example:
+    //    tmsServerReqUrl = "https://tms-server-stage.tacc.utexas.edu:3000/v1/tms/pubkeys/creds";
+    //    tmsTenant = "test";
+    //    tmsClientId = "testclient1";
+    //    tmsClientSecret = "secret1";
+    //    String tmsClientUser = "testuser1";
+    //    String tmsHost = "testhost1";
+    //    String tmsHostAccount = "testhostaccount1";
+    String tmsClientUser = rUser.getOboUserId();
+    String tmsHost = system.getHost();
+    String tmsHostAccount = targetUser;
+    int numUses = -1;
+    int ttlMinutes = -1;
+    // Build the request
+    var tmsRequest = new TmsRequest(tmsClientUser, tmsHost, tmsHostAccount, TMS_KEY_TYPE_ED25519, numUses, ttlMinutes);
+    String reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsRequest);
+    RequestBody body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
+    Request.Builder requestBuilder = new Request.Builder().url(tmsServerReqUrl).post(body);
+
+    // Add headers for tenant, client id and client secret
+    Request request = requestBuilder.addHeader("X-TMS-TENANT", tmsTenant)
+            .addHeader("X-TMS-CLIENT-ID", tmsClientId)
+            .addHeader("X-TMS-CLIENT-SECRET", tmsClientSecret)
+            .build();
+    Call call = httpClient.newCall(request);
+    String msg = null;
+    String respBodyStr = null;
+    int httpRespCode = -1;
+    try
+    {
+      // Send the request to the REST endpoint
+      // Use try-with-resources to auto-close the response.
+      log.debug(LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_REQ", rUser, system.getId(), targetUser, tmsServerUrl));
+      try (okhttp3.Response response = call.execute())
+      {
+        // Get the response body as a string
+        if (response.body() != null) respBodyStr = response.body().string();
+        // If response status code is not in the 200s it is an error
+        httpRespCode = response.code();
+        if (httpRespCode < 200 || httpRespCode >= 300)
+        {
+          msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_HTTP_ERR", rUser, system.getId(), targetUser,
+                                    tmsServerUrl, httpRespCode, respBodyStr);
+          log.error(msg);
+        }
+      }
+    }
+ */
+
+//TODO    // TODO/TBD test TMS_KEYS case? Requires live TMS server
+//    // ------------------------
+//    // Test 1b - Create and fetch credentials using AuthnMethod=TMS_KEYS
+//    // -------------------------
+//    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysTrue, skipCredCheckTrue, rawDataEmptyJson);
+//    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.TMS_KEYS);
+//    Assert.assertNotNull(cred0.getTmsPrivateKey());
+//    Assert.assertNotNull(cred0.getTmsPublicKey());
+//    Assert.assertNotNull(cred0.getTmsFingerprint());
+
   }
 
   // Test creating, reading and deleting user credentials for a system

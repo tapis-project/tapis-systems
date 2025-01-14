@@ -93,6 +93,14 @@ public final class IntegrationUtils
   public static final String TAPIS_TEST_S3_HOST = "cics3.tacc.utexas.edu"; // TODO replace this with env var
   public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "scblack"; // TODO replace this with env var
   public static final String TAPIS_TEST_S3_BUCKET = "smoketest";
+  // TMS settings
+  public static final String TMS_URL_ENV_VAR = "TMS_URL";
+  public static final String TMS_TENANT_ENV_VAR = "TMS_TENANT";
+  public static final String TMS_CLIENT_ID_ENV_VAR = "TMS_CLIENT_ID";
+  public static final String TMS_CLIENT_KEY_ENV_VAR = "TMS_CLIENT_KEY";
+  public static final String TMS_TEST_HOST_ENV_VAR = "TMS_TEST_HOST";
+  public static final String TMS_TEST_USER_ENV_VAR = "TMS_TEST_USER";
+
 
   public static final String sysNamePrefix = "TestSys";
   public static final String schedProfileNamePrefix = "TestSchedProfile";
