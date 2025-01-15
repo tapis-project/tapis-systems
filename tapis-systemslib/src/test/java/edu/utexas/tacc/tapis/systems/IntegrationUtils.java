@@ -94,13 +94,14 @@ public final class IntegrationUtils
   public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "scblack"; // TODO replace this with env var
   public static final String TAPIS_TEST_S3_BUCKET = "smoketest";
   // TMS settings
-  public static final String TMS_URL_ENV_VAR = "TMS_URL";
-  public static final String TMS_TENANT_ENV_VAR = "TMS_TENANT";
-  public static final String TMS_CLIENT_ID_ENV_VAR = "TMS_CLIENT_ID";
-  public static final String TMS_CLIENT_KEY_ENV_VAR = "TMS_CLIENT_KEY";
+  public static final String TMS_URL_ENV_VAR = "TAPIS_TMS_SERVER_URL";
+  public static final String TMS_TENANT_ENV_VAR = "TAPIS_TMS_TENANT";
+  public static final String TMS_CLIENT_ID_ENV_VAR = "TAPIS_TMS_CLIENT_ID";
+  public static final String TMS_CLIENT_KEY_ENV_VAR = "TAPIS_TMS_CLIENT_SECRET";
   public static final String TMS_TEST_HOST_ENV_VAR = "TMS_TEST_HOST";
   public static final String TMS_TEST_USER_ENV_VAR = "TMS_TEST_USER";
-
+  public static final String TMS_GETVERSION_ENDPOINT = "v1/tms/version";
+  public static final String TMS_CLIENT_USER = "tapisSysIntegTest";
 
   public static final String sysNamePrefix = "TestSys";
   public static final String schedProfileNamePrefix = "TestSchedProfile";
@@ -609,4 +610,7 @@ public final class IntegrationUtils
       Assert.assertEquals(fetchedMap.get(kvKey).toString(), origMap.get(kvKey).toString());
     }
   }
+  // Wrapper for request info used when fetching a public key from TMS
+  public record TmsGetPubKeyRequest(String user, String user_uid, String host, String public_key_fingerprint,
+                                    String key_type) {}
 }

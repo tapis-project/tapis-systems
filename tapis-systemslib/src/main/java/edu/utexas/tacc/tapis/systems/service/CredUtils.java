@@ -69,9 +69,10 @@ public class CredUtils
   private static String tmsTenant;
   private static String tmsClientId;
   private static String tmsClientSecret;
-  private static final String TMS_CREATEKEYS_ENDPOINT = "v1/tms/pubkeys/creds";
-  private static final String TMS_KEY_TYPE_RSA = "rsa";
-  private static final String TMS_KEY_TYPE_ED25519 = "ed25519";
+  public static final String TMS_CREATEKEYS_ENDPOINT = "v1/tms/pubkeys/creds";
+  public static final String TMS_GETPUBKEY_ENDPOINT = "v1/tms/pubkeys/creds/retrieve";
+  public static final String TMS_KEY_TYPE_RSA = "rsa";
+  public static final String TMS_KEY_TYPE_ED25519 = "ed25519";
 
   // Permission constants
   // Permspec format for systems is "system:<tenant>:<perm_list>:<system_id>"
