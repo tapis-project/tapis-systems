@@ -140,24 +140,6 @@ public final class Credential
                           tmsFingerprint, cert, cred.getValidationResult(), cred.getValidationMsg());
   }
 
-  /**
-   * Check if private key is compatible with Tapis.
-   * SSH key-pairs that have a private key starting with: --- BEGIN OPENSSH PRIVATE KEY ---
-   * cannot be used in TapisV3. the Jsch library does not yet support them.
-   * Instead, a private key starting with:{{ — BEGIN RSA PRIVATE KEY ---}}
-   * should be used. Recent openssh versions generate OPENSSH type keys.
-   * To generate compatible keys one should use the option -m PEM with ssh-keygen, e.g.
-   * ssh-keygen -t rsa -b 4096 -m PEM
-   *
-   * @return  true if private key is compatible
-   */
-  public boolean isValidPrivateSshKey()
-  {
-    if (StringUtils.isBlank(privateKey)) return false;
-    if (privateKey.contains("BEGIN OPENSSH PRIVATE KEY")) return false;
-    return true;
-  }
-
   /* ********************************************************************** */
   /*                               Accessors                                */
   /* ********************************************************************** */
