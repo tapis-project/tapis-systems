@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.NotFoundException;
 import java.util.Set;
 
@@ -262,11 +263,6 @@ public class CredentialsServiceImpl
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_SYS", rUser, systemId));
 
-    // Get clientId configured for Tapis. If none throw an exception
-    String clientId = RuntimeParameters.getInstance().getGlobusClientId();
-    if (StringUtils.isBlank(clientId))
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
-
     // We will need info from system, so fetch it now
     // If system does not exist or has been deleted then throw an exception
     TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, false);
@@ -276,6 +272,19 @@ public class CredentialsServiceImpl
       log.info(msg);
       throw new NotFoundException(msg);
     }
+
+    // If system not of type GLOBUS it is an error
+    if (!TSystem.SystemType.GLOBUS.equals(system.getSystemType()))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_GLOBUS_OP_NOT_GLOBUS", rUser, systemId, system.getSystemType(), op.name());
+      log.warn(msg);
+      throw new BadRequestException(msg);
+    }
+
+    // Get clientId configured for Tapis. If none throw an exception
+    String clientId = RuntimeParameters.getInstance().getGlobusClientId();
+    if (StringUtils.isBlank(clientId))
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
 
     // Call Tapis GlobusProxy service and create a GlobusAuthInfo from the client response;
     ResultGlobusAuthInfo r = sysUtils.getGlobusProxyClient(rUser).getAuthInfo(clientId, system.getHost());
@@ -315,11 +324,6 @@ public class CredentialsServiceImpl
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_TOKENS", rUser,
               userName, authCode, sessionId));
 
-    // Get clientId configured for Tapis. If none throw an exception
-    String clientId = RuntimeParameters.getInstance().getGlobusClientId();
-    if (StringUtils.isBlank(clientId))
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
-
     // We will need info from system, so fetch it now
     // If system does not exist or has been deleted then throw an exception
     TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, false);
@@ -329,6 +333,19 @@ public class CredentialsServiceImpl
       log.info(msg);
       throw new NotFoundException(msg);
     }
+
+    // If system not of type GLOBUS it is an error
+    if (!TSystem.SystemType.GLOBUS.equals(system.getSystemType()))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_GLOBUS_OP_NOT_GLOBUS", rUser, systemId, system.getSystemType(), op.name());
+      log.warn(msg);
+      throw new BadRequestException(msg);
+    }
+
+    // Get clientId configured for Tapis. If none throw an exception
+    String clientId = RuntimeParameters.getInstance().getGlobusClientId();
+    if (StringUtils.isBlank(clientId))
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
 
     // ------------------------- Check service level authorization -------------------------
     authUtils.checkAuth(rUser, op, systemId, system.getOwner(), userName, null);

@@ -10,15 +10,15 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.8.2 - 2025-??-??
+## 1.8.2 - 2025-01-16
 
-Finish up support for Trusted Management System (TMS).
+Updates for support of Trusted Management System (TMS).
 
 ### New features:
-- Full support for Trusted Management System (TMS)
+- Updates for support of Trusted Management System (TMS)
 
 ### Bug fixes:
-- None
+- Do not attempt Globus operation if system not of type Globus. Return Bad Request (400).
 
 ---------------------------------------------------------------------------
 ## 1.8.1 - 2025-01-09
