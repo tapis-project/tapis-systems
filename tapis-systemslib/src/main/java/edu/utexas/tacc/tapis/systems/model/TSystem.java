@@ -788,13 +788,6 @@ public final class TSystem
       errMessages.add(LibUtils.getMsg("SYSLIB_CRED_DISALLOWED_INPUT"));
     }
 
-    // If credential is provided and contains ssh keys then validate private key format
-    if (authnCredential != null && !StringUtils.isBlank(authnCredential.getPrivateKey()))
-    {
-      if (!authnCredential.isValidPrivateSshKey())
-        errMessages.add(LibUtils.getMsg("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1"));
-    }
-
     // If canExec is false then dtnSystemId may not be set.
     if (!canExec && !StringUtils.isBlank(dtnSystemId))
       errMessages.add(LibUtils.getMsg("SYSLIB_DTN_CANEXEC_FALSE", dtnSystemId));

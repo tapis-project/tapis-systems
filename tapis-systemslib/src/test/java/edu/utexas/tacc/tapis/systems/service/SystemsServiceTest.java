@@ -474,8 +474,8 @@ public class SystemsServiceTest
     runSSHKeyTest("sshkeygen_rsa", localTestFileDir, loginUser, sys0);
     runSSHKeyTest("tms_rsa", localTestFileDir, loginUser, sys0);
     runSSHKeyTest("tms_ed25519", localTestFileDir, loginUser, sys0);
-    runSSHKeyTest("sshkeygen_ed25519", localTestFileDir, loginUser, sys0);
-    runSSHKeyTest("sshkeygen_ecdsa", localTestFileDir, loginUser, sys0);
+    runSSHKeyTest("sshkeygen_ed25519", localTestFileDir, loginUser, sys0); // OPENSSH type key
+    runSSHKeyTest("sshkeygen_ecdsa", localTestFileDir, loginUser, sys0); // OPENSSH type key
   }
 
   // Test retrieving a system including default authn method
@@ -1083,14 +1083,6 @@ public class SystemsServiceTest
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
 
     // Test create cases first since we will need to create a system to test the update cases
-    sys0.setAuthnCredential(credInvalidPrivateSshKey);
-    // Test system create with invalid private key
-    try
-    {
-      svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
-      Assert.fail("System create call should have thrown an exception when private ssh key is invalid");
-    }
-    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1")); }
     // Test system create with dynamic effectiveUserId
     sys0.setAuthnCredential(credNoLoginUser);
     try
@@ -1104,23 +1096,6 @@ public class SystemsServiceTest
     sys0.setAuthnCredential(null);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-
-    // Test credential update with invalid private key
-    try
-    {
-      svcCred.createUserCredential(rOwner1, sys0.getId(), sys0.getOwner(), credInvalidPrivateSshKey, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
-      Assert.fail("Credential update call should have thrown an exception when private ssh key is invalid");
-    }
-    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2")); }
-
-    // Test system update with invalid private key
-    tmpSys.setAuthnCredential(credInvalidPrivateSshKey);
-    try
-    {
-      svc.putSystem(rOwner1, tmpSys, skipCredCheckTrue, rawDataEmptyJson);
-      Assert.fail("Credential update call should have thrown an exception when private ssh key is invalid");
-    }
-    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1")); }
 
     // Test system update with dynamic effectiveUserId
     tmpSys.setAuthnCredential(credNoLoginUser);

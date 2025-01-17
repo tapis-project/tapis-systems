@@ -229,14 +229,6 @@ public class CredUtils
     // Secrets get stored on different paths based on this
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
-    // If private SSH key is set check that we have a compatible key.
-    if (!StringUtils.isBlank(cred.getPrivateKey()) && !cred.isValidPrivateSshKey())
-    {
-      msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2", rUser, systemId, targetUser);
-      log.warn(msg);
-      throw new NotAuthorizedException(msg, NO_CHALLENGE);
-    }
-
     // If TMS keys requested check that system allows for it, create the keys and add the keys to the Credential
     // Note that we must create the keys in the TMS server before verifying the credentials.
     TmsKeys tmsKeys;
