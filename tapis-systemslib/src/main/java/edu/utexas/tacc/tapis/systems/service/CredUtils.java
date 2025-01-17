@@ -914,8 +914,8 @@ public class CredUtils
     }
 
     // Log extracted data
-    msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_DATA", rUser, system.getId(), targetUser, privateKeyMasked,
-                              tmsPublicKey, tmsPublicKeyFingerprint);
+    msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_DATA", rUser, system.getId(), targetUser, tmsServerReqUrl,
+                              httpRespCode, privateKeyMasked, tmsPublicKey, tmsPublicKeyFingerprint);
     log.debug(msg);
     return new TmsKeys(tmsPrivateKey, tmsPublicKey, tmsPublicKeyFingerprint);
   }
