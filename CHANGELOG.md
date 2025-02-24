@@ -10,7 +10,7 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.8.2 - 2025-01-16
+## 1.8.2 - 2025-02-24
 
 Updates for support of Trusted Management System (TMS).
 
@@ -19,6 +19,7 @@ Updates for support of Trusted Management System (TMS).
 
 ### Bug fixes:
 - Do not attempt Globus operation if system not of type Globus. Return Bad Request (400).
+- Fix bug in support for use of PARTITION as a hidden option in a scheduler profile.
 
 ---------------------------------------------------------------------------
 ## 1.8.1 - 2025-01-09

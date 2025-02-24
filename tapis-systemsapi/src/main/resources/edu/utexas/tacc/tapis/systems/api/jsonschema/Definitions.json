@@ -100,6 +100,6 @@
       "certificate": { "type":  "string" }
     }
   },
-  "SchedulerHiddenOptionEnum": { "type": "string", "enum": ["MEM"] },
+  "SchedulerHiddenOptionEnum": { "type": "string", "enum": ["MEM", "PARTITION"] },
   "KeyValueInputModeEnum": { "type": "string", "enum": [ "REQUIRED", "FIXED", "INCLUDE_ON_DEMAND", "INCLUDE_BY_DEFAULT" ], "default": "INCLUDE_BY_DEFAULT" }
 }
