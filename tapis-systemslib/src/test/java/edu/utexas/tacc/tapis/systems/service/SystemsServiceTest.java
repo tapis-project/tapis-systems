@@ -274,7 +274,7 @@ public class SystemsServiceTest
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem2.getId());
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem1.getId());
 
-    for (int i = 0; i < numSchedulerProfiles; i++)
+    for (int i = 0; i < numSchedulerProfiles+1; i++)
     {
       svcSchedProfile.deleteSchedulerProfile(rTestUser2, schedulerProfiles[i].getName());
     }
@@ -2418,6 +2418,10 @@ public class SystemsServiceTest
     SchedulerProfile p0 = schedulerProfiles[0];
     svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
+    // The final profile is a little different, test it
+    SchedulerProfile pFinal = schedulerProfiles[schedulerProfiles.length-1];
+    svcSchedProfile.createSchedulerProfile(rTestUser2, pFinal);
+    System.out.println("Scheduler Profile created: " + pFinal.getName());
   }
 
   @Test

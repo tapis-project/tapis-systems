@@ -29,7 +29,7 @@ public final class SchedulerProfile
   // ************************************************************************
   // *********************** Enums ******************************************
   // ************************************************************************
-  public enum HiddenOption {MEM}
+  public enum HiddenOption {MEM, PARTITION}
   public enum SchedulerProfileOperation {create, read, modify, delete, changeOwner}
 
   // ************************************************************************
