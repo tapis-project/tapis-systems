@@ -528,16 +528,17 @@ public final class IntegrationUtils
   }
 
   /**
-   * Create an array of SchedulerProfile objects in memory
+   * Create an array of n+1 SchedulerProfile objects in memory
    * Names will be of format TestSchedProfile_K_NNN where K is the key and NNN runs from 000 to 999
    * We need a key because maven runs the tests in parallel so each set of profiles created by an integration
    *   test will need its own namespace.
+   * Final n+1 profile will have no modulesToLoad and two hidden options. As test for bug that was in Sys ver 1.8.1
    * @param n number of objects to create
    * @return array of objects created
    */
   public static SchedulerProfile[] makeSchedulerProfiles(int n, String key)
   {
-    SchedulerProfile[] schedulerProfiles = new SchedulerProfile[n];
+    SchedulerProfile[] schedulerProfiles = new SchedulerProfile[n+1];
     List<SchedulerProfile.HiddenOption> hiddenOptions = new ArrayList<>(List.of(SchedulerProfile.HiddenOption.MEM));
     for (int i = 0; i < n; i++)
     {
@@ -551,6 +552,15 @@ public final class IntegrationUtils
       schedulerProfiles[i] = new SchedulerProfile(tenantName, name, "Test profile" + suffix, testUser2,
                                                   moduleLoads, hiddenOptions, null, null, null);
     }
+    // Create a final n+1 profile that is a little different as an additional test
+    int i = n;
+    String iStr = String.format("%03d", i+1);
+    String suffix = key + "_" + iStr;
+    String name = getSchedulerProfileName(key, i+1);
+    List<ModuleLoadSpec> moduleLoads = null;
+    hiddenOptions = new ArrayList<>(List.of(SchedulerProfile.HiddenOption.MEM, SchedulerProfile.HiddenOption.PARTITION));
+    schedulerProfiles[i] = new SchedulerProfile(tenantName, name, "Test profile" + suffix, testUser2,
+                                                moduleLoads, hiddenOptions, null, null, null);
     return schedulerProfiles;
   }
 
