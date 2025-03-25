@@ -10,6 +10,17 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.8.3 - 2025-??-??
+
+Incremental improvements.
+
+### New features:
+- None
+
+### Bug fixes:
+- None
+
+---------------------------------------------------------------------------
 ## 1.8.2 - 2025-02-25
 
 Updates for support of Trusted Management System (TMS).

@@ -26,7 +26,7 @@ public final class Credential
   // Top level name for storing system secrets
   public static final String TOP_LEVEL_SECRET_NAME = "S1";
   // String used to mask secrets
-  public static final String SECRETS_MASK = "***";
+  public static final String SECRETS_MASK = "******";
 
   // Keys for constructing map when writing secrets to Security Kernel
   public static final String SK_KEY_PASSWORD = "password";
