@@ -781,13 +781,19 @@ public class CredUtils
     tmsClientId = runtimeParms.getTmsClientId();
     tmsClientSecret = runtimeParms.getTmsClientSecret();
     // String to log for secret, if it is set log the first and last 3 characters of the string
-    String tmsClientSecretMasked = SECRETS_MASK;
-    int secretLen = StringUtils.isBlank(tmsClientSecret) ? 0 : tmsClientSecret.length();
-    // Make sure we have enough characters so we mask at least a few characters
-    if (secretLen > 10)
+    String tmsClientSecretMasked = "";
+    if (!StringUtils.isBlank(tmsClientSecret))
     {
-      tmsClientSecretMasked =
-              String.format("%s***%s", tmsClientSecret.substring(0, 3), tmsClientSecret.substring(secretLen-3));
+      // Secret is set. Trim whitespace
+      String trimmedSecret = tmsClientSecret.trim();
+      int secretLen = trimmedSecret.length();
+      // Make sure we have enough characters so we mask at least a few characters
+      if (secretLen > 10)
+      {
+        tmsClientSecretMasked =
+                String.format("%s***%s", trimmedSecret.substring(0, 3), trimmedSecret.substring(secretLen - 3));
+      }
+      else tmsClientSecretMasked = SECRETS_MASK;
     }
     if (tmsEnabled && !StringUtils.startsWith(tmsServerUrl, "http"))
     {
