@@ -12,7 +12,7 @@ https://tapis-project.github.io/live-docs
 ---------------------------------------------------------------------------
 ## 1.8.3 - 2025-??-??
 
-Incremental improvements.
+Incremental improvements. TMS logging, remove unused pretty-print option from resource classes.
 
 ### New features:
 - None
