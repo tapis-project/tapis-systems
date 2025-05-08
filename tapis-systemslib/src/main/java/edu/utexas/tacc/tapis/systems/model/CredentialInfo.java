@@ -54,6 +54,7 @@ public class CredentialInfo
   private boolean hasPkiKeys; // Indicates if credentials for PKI_KEYS have been registered.
   private boolean hasAccessKey; // Indicates if credentials for ACCESS_KEY have been registered.
   private boolean hasToken; // Indicates if credentials for TOKEN have been registered.
+  private boolean hasTmsKeys; // Indicates if credentials for TMS keys have been registered.
   private SyncStatus syncStatus; // Indicates current status of synchronization between SK and Systems service.
   private int syncFailCount; // Number of sync attempts that have failed
   private String syncFailMessage; // Message indicating why last sync attempt failed
@@ -70,8 +71,9 @@ public class CredentialInfo
    */
   public CredentialInfo(int systemSeqId1, String tenant1, String systemId1, String tapisUser1, String loginUser1,
                         boolean isStatic1, boolean hasCredentials1, boolean hasPassword1, boolean hasPkiKeys1,
-                        boolean hasAccessKey1, boolean hasToken1, SyncStatus syncStatus1, int syncFailCount1,
-                        String syncFailMessage1, Instant syncFailed1,  Instant created1, Instant updated1)
+                        boolean hasAccessKey1, boolean hasToken1, boolean hasTmsKeys1, SyncStatus syncStatus1,
+                        int syncFailCount1, String syncFailMessage1, Instant syncFailed1,
+                        Instant created1, Instant updated1)
   {
     systemSeqId = systemSeqId1;
     tenant = tenant1;
@@ -84,6 +86,7 @@ public class CredentialInfo
     hasPkiKeys = hasPkiKeys1;
     hasAccessKey = hasAccessKey1;
     hasToken = hasToken1;
+    hasTmsKeys = hasTmsKeys1;
     syncStatus = syncStatus1;
     syncFailCount = syncFailCount1;
     syncFailMessage = syncFailMessage1;
@@ -110,6 +113,7 @@ public class CredentialInfo
     hasPkiKeys = false;
     hasAccessKey = false;
     hasToken = false;
+    hasTmsKeys = false;
     syncStatus = syncStatus1;
     syncFailCount = 0;
     syncFailMessage = null;
@@ -120,7 +124,7 @@ public class CredentialInfo
 
 // TODO/TBD Order of columns is
 //     seq_id, tenant, system_id, tapis_user, login_user, created, updated, has_credentials, is_static, has_password,
-//     has_pki_keys, has_access_key, has_token, sync_status, sync_failed, sync_fail_count, sync_fail_message
+//     has_pki_keys, has_access_key, has_token, has_tms_keys, sync_status, sync_failed, sync_fail_count, sync_fail_message
 
 //  /**
 //   * Constructor for jOOQ with input parameter matching order of columns in DB
@@ -158,6 +162,9 @@ public class CredentialInfo
 
   public boolean hasToken() { return hasToken; }
   public void setHasToken(boolean b) { hasToken = b; }
+
+  public boolean hasTmsKeys() { return hasTmsKeys; }
+  public void setHasTmsKeys(boolean b) { hasTmsKeys = b; }
 
   public SyncStatus getSyncStatus() { return syncStatus; }
   public void setSyncStatus(SyncStatus s) { syncStatus = s; }

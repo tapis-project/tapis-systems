@@ -20,6 +20,7 @@
 --   has_pki_keys - indicates if credentials for PKI_KEYS have been registered.
 --   has_access_key - indicates if credentials for ACCESS_KEY have been registered.
 --   has_token - indicates if credentials for TOKEN have been registered.
+--   has_tms_keys - indicates if credentials for TMS_KEYS have been registered.
 --   sync_status - indicates current status of synchronization between SK and Systems service.
 --      PENDING - Record requires synchronization
 --      IN_PROGRESS - Systems service is in the process of synchronizing the record
@@ -50,6 +51,7 @@
 --    has_pki_keys BOOLEAN NOT NULL DEFAULT false,
 --    has_access_key BOOLEAN NOT NULL DEFAULT false,
 --    has_token BOOLEAN NOT NULL DEFAULT false,
+--    has_tms_keys BOOLEAN NOT NULL DEFAULT false,
 --    sync_status TEXT NOT NULL DEFAULT 'PENDING',
 --    sync_failed TIMESTAMP WITHOUT TIME ZONE,
 --    sync_fail_count INTEGER NOT NULL DEFAULT 0,
@@ -70,6 +72,7 @@ ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_password BOOLEAN NOT 
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_pki_keys BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_access_key BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_token BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_tms_keys BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_status TEXT NOT NULL DEFAULT 'PENDING';
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_failed TIMESTAMP WITHOUT TIME ZONE;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_fail_count INTEGER NOT NULL DEFAULT 0;

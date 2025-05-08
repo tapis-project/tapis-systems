@@ -133,13 +133,8 @@ public class SystemsServiceImpl implements SystemsService
   public static String getServiceUserId() {return SERVICE_NAME;}
 
   // TODO/TBD CredentialInfo Finite State Machine (FSM)
-  private MemoryPersisterImpl<CredInfoSyncState> credInfoPersister;
-  private FSM<CredInfoSyncState> credInfoFSM;
-
-  // TODO/TBD Use a global ConcurrentHashMap.newKeySet() as an in-memory mutex for records
-  //          do we also need a global mutex to lock the full set so we can basically do a selectFoUpdate
-
-
+  //  private MemoryPersisterImpl<CredInfoSyncState> credInfoPersister;
+  //  private FSM<CredInfoSyncState> credInfoFSM;
 
   // ************************************************************************
   // *********************** Public Methods *********************************
@@ -177,13 +172,14 @@ public class SystemsServiceImpl implements SystemsService
     // TODO/TBD Do we really need this if all we are checking is that a transition is allowed?
     //          Could we just have a Set of allowed transitions (i.e. the events defined as Strings in CredInfoFSM)
     //          and check that proposed transition against that set? Do we really need an FSM?
-    credInfoPersister =
-            new MemoryPersisterImpl<>(CredInfoFSM.getStates(), CredInfoFSM.PendingState, CredInfoSyncState.STATE_FIELD_NAME);
-    credInfoFSM = new FSM<>(CredInfoFSM.FSM_NAME, credInfoPersister);
+//    credInfoPersister =
+//            new MemoryPersisterImpl<>(CredInfoFSM.getStates(), CredInfoFSM.PendingState, CredInfoSyncState.STATE_FIELD_NAME);
+//    credInfoFSM = new FSM<>(CredInfoFSM.FSM_NAME, credInfoPersister);
 
     // Check the systems_cred_info table and perform initial single-threaded synchronization steps.
     // IN_PROGRESS records moved to FAILED
-    credUtils.credInfoInit(credInfoFSM);
+// TODO   credUtils.credInfoInit(credInfoFSM);
+    credUtils.credInfoInit();
   }
 
   /**
@@ -1003,6 +999,7 @@ public class SystemsServiceImpl implements SystemsService
     // Remove SK artifacts
     removeSKArtifacts(rUser, system);
 
+    dao.deleteCredInfo();
     // Delete the system
     return dao.hardDeleteSystem(oboTenant, systemId);
   }

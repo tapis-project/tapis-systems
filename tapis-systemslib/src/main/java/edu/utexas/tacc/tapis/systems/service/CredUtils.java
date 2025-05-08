@@ -297,18 +297,7 @@ public class CredUtils
     // Create credential. Create or update SK records and CredentialInfo record
     // If this throws an exception we do not try to rollback. Attempting to track which secrets
     //   have been changed and reverting seems fraught th peril and not a good ROI.
-// TODO/TBD no need to convert TapisClientException to TapisException?
-//    try
-//    {
-      createCredential(rUser, fullCred, system, targetUser, isStaticEffectiveUser);
-//    }
-//    // If tapis client exception then log error and convert to TapisException
-//    catch (TapisClientException tce)
-//    {
-//      log.error(tce.toString());
-//      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
-//    }
-
+    createCredential(rUser, fullCred, system, targetUser, isStaticEffectiveUser);
     // If dynamic and an alternate loginUser has been provided that is not the same as the Tapis user
     //   then record the mapping
     if (!isStaticEffectiveUser && !StringUtils.isBlank(loginUser))
@@ -410,25 +399,8 @@ public class CredUtils
     // If this throws an exception we do not try to rollback. Attempting to track which secrets
     //   have been changed and reverting seems fraught with peril and not a good ROI.
     int changeCount;
-// TODO/TBD no need to convert TapisClientException to TapisException?
-//    try
-//    {
       // Remove SK records and CredentialInfo record
     changeCount = deleteCredential(rUser, system, targetUser, isStaticEffectiveUser);
-//    }
-//    // If tapis client exception then log error and convert to TapisException
-//    catch (TapisClientException tce)
-//    {
-//      log.error(tce.toString());
-//      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
-//    }
-
-// TODO/TBD this was probably removed in add-credinfo-table branch, confirm
-//    // If dynamic then remove any mapping from loginUser to tapisUser
-//    if (!isStaticEffectiveUser)
-//    {
-//      dao.deleteLoginUserMapping(rUser, rUser.getOboTenantId(), systemId, targetUser);
-//    }
 
     // Get a complete and succinct description of the update.
     String changeDescription = LibUtils.getChangeDescriptionCredDelete(systemId, targetUser);
@@ -572,31 +544,6 @@ public class CredUtils
       credInfo.mutex.unlock();
     }
 
-/* TODO/TBD Need to add the TMS related stuff here to method syncCredentialInfoToSK
-    // Store Access token and Refresh token if both present
-    if (!StringUtils.isBlank(credential.getAccessToken()) && !StringUtils.isBlank(credential.getRefreshToken()))
-    {
-      dataMap = new HashMap<>();
-      sParms.setKeyType(KeyType.token);
-      dataMap.put(SK_KEY_ACCESS_TOKEN, credential.getAccessToken());
-      dataMap.put(SK_KEY_REFRESH_TOKEN, credential.getRefreshToken());
-      sParms.setData(dataMap);
-      sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
-    }
-    // Store TmsKeys if both public and private keys are present
-    if (!StringUtils.isBlank(credential.getTmsPrivateKey()) && !StringUtils.isBlank(credential.getTmsPublicKey()))
-    {
-      dataMap = new HashMap<>();
-      sParms.setKeyType(KeyType.tmskey);
-      dataMap.put(SK_KEY_TMS_PUBLIC_KEY, credential.getTmsPublicKey());
-      dataMap.put(SK_KEY_TMS_PRIVATE_KEY, credential.getTmsPrivateKey());
-      dataMap.put(SK_KEY_TMS_FINGERPRINT, credential.getTmsFingerprint());
-      sParms.setData(dataMap);
-      String privKey = StringUtils.isBlank(credential.getTmsPrivateKey()) ? null : "*****";
-      sysUtils.getSKClient(rUser).writeSecret(oboTenant, oboUser, sParms);
-    }
-    // NOTE if necessary handle ssh certificate when supported
-*/ // origin/local
   }
 
   /**
@@ -639,51 +586,6 @@ public class CredUtils
       credInfo.mutex.unlock();
     }
     return retCode;
-/* TODO/TBD Make sure this is all included (esp TMS) in method removeSKSecrets =======
-    // Return 0 if credential does not exist
-    var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
-    // NOTE: For secrets of type "system" setUser value not used in the path, but SK requires that it be set.
-    sMetaParms.setTenant(oboTenant).setUser(oboUser);
-    sMetaParms.setSysId(systemId).setSysUser(targetUserPath);
-    // NOTE: To be sure we know that the secret does not exist we need to check each key type
-    //       By default keyType is sshkey which may not exist
-    boolean secretNotFound = true;
-    sMetaParms.setKeyType(KeyType.password);
-    try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.sshkey);
-    try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.accesskey);
-    try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.token);
-    try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.tmskey);
-    try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    if (secretNotFound) return 0;
-
-    // Construct basic SK secret parameters and attempt to destroy each type of secret.
-    // If destroy attempt throws an exception then log a message and continue.
-    sMetaParms.setKeyType(KeyType.password);
-    try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.sshkey);
-    try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.accesskey);
-    try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.token);
-    try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.tmskey);
-    try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    return 1;
-*/ // origin/local
   }
 
   /**
@@ -838,7 +740,8 @@ public class CredUtils
    *  - Mark all IN_PROGRESS records as FAILED
    *  - Create records as needed for undeleted systems that have a static effectiveUserId
    */
-  void credInfoInit(FSM<CredInfoSyncState> credInfoFSM) throws TapisException
+//TODO/TBD  void credInfoInit(FSM<CredInfoSyncState> credInfoFSM) throws TapisException
+  void credInfoInit() throws TapisException
   {
     // TODO: Any use of CredInfoFSM here? Maybe? check for allowed transition IN_PROGRESS to FAILED Do we really even need an FSM for that?
     // Mark all IN_PROGRESS records as FAILED
@@ -1252,7 +1155,7 @@ public class CredUtils
    * Method to write credentials to SK and update in-memory CredentialInfo object by reading
    *   data from SK.
    * Following CredentialInfo attributes need updating based on current SK data:
-   *   hasCredentials, hasPassword, hasPkiKeys, hasAccessKey, hasToken
+   *   hasCredentials, hasPassword, hasPkiKeys, hasAccessKey, hasToken, hasTmsKeys
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param credential - the Credential
    * @param system - Tapis system
@@ -1270,7 +1173,8 @@ public class CredUtils
     AuthnMethod defaultAuthnMethod = system.getDefaultAuthnMethod();
 
     // Flags used for building CredentialInfo
-    Boolean hasCredentials = null, hasPassword = null, hasPkiKeys = null, hasAccessKey = null, hasToken = null;
+    Boolean hasCredentials = null, hasPassword = null, hasPkiKeys = null, hasAccessKey = null, hasToken = null,
+            hasTmsKeys = null;
 
     // Persist the credential data to SK
     // Construct basic SK secret parameters including tenant, system and Tapis user for credential
@@ -1330,6 +1234,19 @@ public class CredUtils
       sParms.setData(dataMap);
       sysUtils.getSKClient(rUser).writeSecret(tenant, oboUser, sParms);
       hasToken = true;
+    }
+    // Store TmsKeys if both public and private keys are present
+    if (!StringUtils.isBlank(credential.getTmsPrivateKey()) && !StringUtils.isBlank(credential.getTmsPublicKey()))
+    {
+      dataMap = new HashMap<>();
+      sParms.setKeyType(KeyType.tmskey);
+      dataMap.put(SK_KEY_TMS_PUBLIC_KEY, credential.getTmsPublicKey());
+      dataMap.put(SK_KEY_TMS_PRIVATE_KEY, credential.getTmsPrivateKey());
+      dataMap.put(SK_KEY_TMS_FINGERPRINT, credential.getTmsFingerprint());
+      sParms.setData(dataMap);
+      String privKey = StringUtils.isBlank(credential.getTmsPrivateKey()) ? null : "*****";
+      sysUtils.getSKClient(rUser).writeSecret(tenant, oboUser, sParms);
+      hasTmsKeys = true;
     }
     // NOTE if necessary handle ssh certificate when supported
 
@@ -1391,11 +1308,26 @@ public class CredUtils
         else hasToken = !StringUtils.isBlank(dataMap.get(SK_KEY_ACCESS_TOKEN));
       }
     }
+    // TMS_KEYS
+    if (hasTmsKeys == null)
+    {
+      sReadParms.setKeyType(KeyType.tmskey);
+      skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);
+      if (skSecret == null) hasTmsKeys = false;
+      else
+      {
+        dataMap = skSecret.getSecretMap();
+        if (dataMap == null) hasTmsKeys = false;
+        else hasTmsKeys = !StringUtils.isBlank(dataMap.get(SK_KEY_TMS_PRIVATE_KEY));
+      }
+    }
+
     // Determine if credentials are registered for defaultAuthnMethod of the system
     hasCredentials = (AuthnMethod.PASSWORD.equals(defaultAuthnMethod) && hasPassword) ||
             (AuthnMethod.PKI_KEYS.equals(defaultAuthnMethod) && hasPkiKeys) ||
             (AuthnMethod.ACCESS_KEY.equals(defaultAuthnMethod) && hasAccessKey) ||
-            (AuthnMethod.TOKEN.equals(defaultAuthnMethod) && hasToken);
+            (AuthnMethod.TOKEN.equals(defaultAuthnMethod) && hasToken) ||
+            (AuthnMethod.TMS_KEYS.equals(defaultAuthnMethod) && hasTmsKeys);
 
     // Update the in-memory CredentialInfo object
     credInfo.setHasCredentials(hasCredentials);
@@ -1403,6 +1335,7 @@ public class CredUtils
     credInfo.setHasPkiKeys(hasPkiKeys);
     credInfo.setHasAccessKey(hasAccessKey);
     credInfo.setHasToken(hasToken);
+    credInfo.setHasTmsKeys(hasTmsKeys);
   }
 
   /**
@@ -1440,7 +1373,7 @@ public class CredUtils
     return credInfo;
   }
   /**
-   * Remove all secrets from SK
+   * Remove all secrets from SK for given user, tenant and system
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system - Tapis system
    * @param targetUser - User associated with the credential
@@ -1478,6 +1411,9 @@ public class CredUtils
     sMetaParms.setKeyType(KeyType.token);
     try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
     catch (Exception e) { log.trace(e.getMessage()); }
+    sMetaParms.setKeyType(KeyType.tmskey);
+    try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
+    catch (Exception e) { log.trace(e.getMessage()); }
     if (secretNotFound) return 0;
 
     // Construct basic SK secret parameters and attempt to destroy each type of secret.
@@ -1492,6 +1428,9 @@ public class CredUtils
     try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
     catch (Exception e) { log.trace(e.getMessage()); }
     sMetaParms.setKeyType(KeyType.token);
+    try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
+    catch (Exception e) { log.trace(e.getMessage()); }
+    sMetaParms.setKeyType(KeyType.tmskey);
     try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
     catch (Exception e) { log.trace(e.getMessage()); }
     return 1;
