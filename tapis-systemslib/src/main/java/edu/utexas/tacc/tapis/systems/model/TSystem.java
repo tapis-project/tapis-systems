@@ -199,7 +199,7 @@ public final class TSystem
                                getPerms, grantPerms, revokePerms, setCred, removeCred, getCred, checkCred,
                                getGlobusAuthInfo, setAccessRefreshTokens}
   public enum Permission {READ, MODIFY, EXECUTE}
-  public enum AuthnMethod {PASSWORD, PKI_KEYS, ACCESS_KEY, TOKEN, CERT}
+  public enum AuthnMethod {PASSWORD, PKI_KEYS, ACCESS_KEY, TOKEN, TMS_KEYS, CERT}
   public enum SchedulerType {SLURM, CONDOR, PBS, SGE, UGE, TORQUE}
 
   // ************************************************************************
@@ -786,13 +786,6 @@ public final class TSystem
     if (TSystem.APIUSERID_VAR.equals(effectiveUserId) && authnCredential != null)
     {
       errMessages.add(LibUtils.getMsg("SYSLIB_CRED_DISALLOWED_INPUT"));
-    }
-
-    // If credential is provided and contains ssh keys then validate private key format
-    if (authnCredential != null && !StringUtils.isBlank(authnCredential.getPrivateKey()))
-    {
-      if (!authnCredential.isValidPrivateSshKey())
-        errMessages.add(LibUtils.getMsg("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1"));
     }
 
     // If canExec is false then dtnSystemId may not be set.

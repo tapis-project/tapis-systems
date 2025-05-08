@@ -86,9 +86,6 @@ public class SchedulerProfileResource
   // Format strings
   private static final String PRF_CNT_STR = "%d scheduler profiles";
 
-  // Always return a nicely formatted response
-  private static final boolean PRETTY = true;
-
   // ************************************************************************
   // *********************** Fields *****************************************
   // ************************************************************************
@@ -122,7 +119,7 @@ public class SchedulerProfileResource
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
-    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    Response resp = ApiUtils.checkContext(threadContext);
     if (resp != null) return resp;
 
     // Create a user that collects together tenant, user and request information needed by the service call
@@ -191,7 +188,7 @@ public class SchedulerProfileResource
         // IllegalStateException with msg containing PRF_EXISTS indicates object exists - return 409 - Conflict
         msg = ApiUtils.getMsgAuth("SYSAPI_PRF_EXISTS", rUser, profileName);
         _log.warn(msg);
-        return Response.status(Status.CONFLICT).entity(TapisRestUtils.createErrorResponse(msg, PRETTY)).build();
+        return Response.status(Status.CONFLICT).entity(TapisRestUtils.createErrorResponse(msg)).build();
       }
       // IllegalStateException indicates an Invalid object was passed in
       msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, profileName, e.getMessage());
@@ -240,7 +237,7 @@ public class SchedulerProfileResource
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
-    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    Response resp = ApiUtils.checkContext(threadContext);
     if (resp != null) return resp;
 
     // Create a user that collects together tenant, user and request information needed by the service call
@@ -289,7 +286,7 @@ public class SchedulerProfileResource
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
-    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    Response resp = ApiUtils.checkContext(threadContext);
     if (resp != null) return resp;
 
     // Create a user that collects together tenant, user and request information needed by the service call
@@ -339,7 +336,7 @@ public class SchedulerProfileResource
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
-    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    Response resp = ApiUtils.checkContext(threadContext);
     if (resp != null) return resp;
 
     // Create a user that collects together tenant, user and request information needed by the service call
@@ -418,6 +415,6 @@ public class SchedulerProfileResource
    */
   private static Response createSuccessResponse(Status status, String msg, RespAbstract resp)
   {
-    return Response.status(status).entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp)).build();
+    return Response.status(status).entity(TapisRestUtils.createSuccessResponse(msg, resp)).build();
   }
 }

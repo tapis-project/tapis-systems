@@ -25,10 +25,11 @@ import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.SystemShare;
 
+import okhttp3.*;
+import org.apache.commons.lang3.StringUtils;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.ServiceLocatorUtilities;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
-import org.jooq.tools.StringUtils;
 import org.testng.Assert;
 import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
@@ -41,6 +42,7 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotFoundException;
+import java.io.*;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -51,6 +53,9 @@ import java.util.Set;
 import java.util.UUID;
 
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.*;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
+import static edu.utexas.tacc.tapis.systems.service.CredUtils.*;
+import static org.testng.Assert.assertNotNull;
 
 /**
  * Test the SystemsService implementation class against a DB running locally
@@ -60,12 +65,25 @@ import static edu.utexas.tacc.tapis.systems.IntegrationUtils.*;
  *    Tokens service - typically dev and obtained from tenants service
  *    Security Kernel service - typically dev and obtained from tenants service
  *
+ * TMS test settings for DEV
+ *   TMS_URL= https://tms-server-dev.tacc.utexas.edu:3000
+ *   TMS_TENANT= default
+ *   TMS_CLIENT_ID= tapis
+ *   TMS_CLIENT_KEY= *************
+ *   TMS_TEST_HOST=129.114.35.161
+ *   TMS_TEST_USER=testuser9
+ *   TMS_ADMIN_ID= "~~admin"
+ *   TMS_ADMIN_KEY= "*****"
  */
 @Test(groups={"integration"})
 public class SystemsServiceTest
 {
+  // Http client used to call TMS server
+  private static final OkHttpClient httpClient = new OkHttpClient();
+
   private SystemsService svc;
   private SystemsServiceImpl svcImpl;
+  private CredUtils credUtils;
   private SchedulerProfileServiceImpl svcSchedProfile;
   private CredentialsServiceImpl svcCred;
   private ResourceRequestUser rOwner1, rOwner3, rOwner4, rOwner5, rOwner6,
@@ -77,13 +95,18 @@ public class SystemsServiceTest
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
-  int numSystems = 40; // UNUSED SYSTEMS: None
+  int numSystems = 42; // UNUSED SYSTEMS: None
   int numSchedulerProfiles = 7;
   TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
   TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
   TSystem s3System1 = IntegrationUtils.makeS3System(testKey+"1"); // Used in testCredCheckS3
   TSystem s3System2 = IntegrationUtils.makeS3System(testKey+"2"); // Used in testCreateInvalidHostEvalRootDir
   TSystem[] systems = IntegrationUtils.makeSystems(numSystems, testKey);
+
+  // Create in-memory objects for credentials used by multiple tests.
+  Credential cred1NoLoginUser = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
+          "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1",
+          "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert1");
 
   // used for cleanup
   private static int MAX_PARENT_SYSTEMS=13;
@@ -122,7 +145,9 @@ public class SystemsServiceTest
     svcImpl = locator.getService(SystemsServiceImpl.class);
     svcSchedProfile = locator.getService(SchedulerProfileServiceImpl.class);
     svcCred = locator.getService(CredentialsServiceImpl.class);
-    svcImpl.initService(siteId, adminTenantName, RuntimeParameters.getInstance());
+    svcImpl.initService(siteId, adminTenantName, RuntimeParameters.getInstance().getServicePassword());
+    CredUtils.initTmsConfiguration();
+    credUtils = locator.getService(CredUtils.class);
 
     // Initialize users and service
     rAdminUser = new ResourceRequestUser(new AuthenticatedUser(adminUser, tenantName, TapisThreadContext.AccountType.user.name(),
@@ -249,7 +274,7 @@ public class SystemsServiceTest
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem2.getId());
     svcImpl.hardDeleteSystem(rAdminUser, tenantName, dtnSystem1.getId());
 
-    for (int i = 0; i < numSchedulerProfiles; i++)
+    for (int i = 0; i < numSchedulerProfiles+1; i++)
     {
       svcSchedProfile.deleteSchedulerProfile(rTestUser2, schedulerProfiles[i].getName());
     }
@@ -294,31 +319,31 @@ public class SystemsServiceTest
 
     String targetUser = owner1;
     // Get username and password from environment
-    String loginUser = System.getenv(TAPIS_TEST_NAME_ENV_VAR);
+    String loginUser = System.getenv(TAPIS_TEST_USERNAME_ENV_VAR);
     String testTapisUserP = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
     if (StringUtils.isBlank(loginUser))
     {
-      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_NAME_ENV_VAR);
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_USERNAME_ENV_VAR);
     }
     if (StringUtils.isBlank(testTapisUserP))
     {
       Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_PASSWORD_ENV_VAR);
     }
-    Credential credFake = new Credential(AuthnMethod.PASSWORD, loginUser, "fakePassword", null, null, null, null, null, null, null);
+    Credential credFake = new Credential(AuthnMethod.PASSWORD, loginUser, "fakePassword", null, null, null, null, null, null, null, null, null, null);
 
     // Cleanup any previous credentials
     svcCred.deleteUserCredential(rOwner1, sys0.getId(), targetUser);
 
     // Test create with invalid credentials
-    Credential checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, skipCredCheckFalse, rawDataEmptyJson);
+    Credential checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
 
     // Using valid credentials should succeed.
-    Credential credGood = new Credential(null, loginUser, testTapisUserP, null, null, null, null, null, null, null);
+    Credential credGood = new Credential(null, loginUser, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
     sys0.setAuthnCredential(credGood);
 
     // Test create and check with valid credentials
-    checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, skipCredCheckFalse, rawDataEmptyJson);
+    checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
     checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
@@ -379,21 +404,21 @@ public class SystemsServiceTest
     {
       Assert.fail("Missing cred environment variable. Please set env variables: " + TAPIS_TEST_S3_KEY_ENV_VAR + " and " + TAPIS_TEST_S3_SECRET_ENV_VAR);
     }
-    Credential credFake = new Credential(AuthnMethod.ACCESS_KEY, loginUser, null, null, null, "fakeAccessKey", "fakeAccessSecret", null, null, null);
+    Credential credFake = new Credential(AuthnMethod.ACCESS_KEY, loginUser, null, null, null, "fakeAccessKey", "fakeAccessSecret", null, null, null, null, null, null);
 
     // Cleanup any previous credentials
     svcCred.deleteUserCredential(rOwner1, sys0.getId(), targetUser);
 
     // Test create with invalid credentials
-    Credential checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, skipCredCheckFalse, rawDataEmptyJson);
+    Credential checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
 
     // Using valid credentials should succeed.
-    Credential credGood = new Credential(null, loginUser, null, null, null, testS3Key, testS3Secret, null, null, null);
+    Credential credGood = new Credential(null, loginUser, null, null, null, testS3Key, testS3Secret, null, null, null, null, null, null);
     sys0.setAuthnCredential(credGood);
 
     // Test create and check with valid credentials
-    checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, skipCredCheckFalse, rawDataEmptyJson);
+    checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
     checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
@@ -413,6 +438,46 @@ public class SystemsServiceTest
     }
   }
 
+  // Test to verify that we can process ssh keypairs of various types and use them to connect to a remote host.
+  //  Assumes $TAPIS_VM_TESTUSER_NAME is set up on the test host vm with an authorizedkeys file including the public
+  //  key for all key-pairs being tested.
+  @Test
+  public void testCredCheckSSHByKeyType() throws Exception
+  {
+    // Get local test dir, test VM host, username and password from environment
+    String localTestFileDir = System.getenv(TAPIS_TEST_KEYS_DIR_ENV_VAR);
+    String loginUser = System.getenv(TAPIS_TEST_USERNAME_ENV_VAR);
+    String testHost = System.getenv(TAPIS_TEST_HOST_ENV_VAR);
+    if (StringUtils.isBlank(loginUser))
+    {
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_USERNAME_ENV_VAR);
+    }
+    if (StringUtils.isBlank(localTestFileDir))
+    {
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_KEYS_DIR_ENV_VAR);
+    }
+    if (StringUtils.isBlank(testHost))
+    {
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_HOST_ENV_VAR);
+    }
+
+    TSystem sys0 = systems[40];
+    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
+    sys0.setDefaultAuthnMethod(AuthnMethod.PKI_KEYS);
+    sys0.setHost(testHost);
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
+    System.out.println("Found item: " + sys0.getId());
+
+    runSSHKeyTest("sshkeygen_rsa_pem", localTestFileDir, loginUser, sys0);
+    runSSHKeyTest("sshkeygen_rsa", localTestFileDir, loginUser, sys0);
+    runSSHKeyTest("tms_rsa", localTestFileDir, loginUser, sys0);
+    runSSHKeyTest("tms_ed25519", localTestFileDir, loginUser, sys0);
+    runSSHKeyTest("sshkeygen_ed25519", localTestFileDir, loginUser, sys0); // OPENSSH type key
+    runSSHKeyTest("sshkeygen_ecdsa", localTestFileDir, loginUser, sys0); // OPENSSH type key
+  }
+
   // Test retrieving a system including default authn method
   //   and test retrieving for specified authn method.
   @Test
@@ -421,7 +486,8 @@ public class SystemsServiceTest
     TSystem sys0 = systems[1];
     sys0.setJobCapabilities(capList1);
     Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-            "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken", "fakeCert");
+            "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // Retrieve system as owner, without and with requireExecPerm
@@ -709,18 +775,18 @@ public class SystemsServiceTest
   {
     // Set up for evaluating HOST_EVAL. Tapis will need to ssh to the host.
     // Get username and password from environment
-    String loginUser = System.getenv(TAPIS_TEST_NAME_ENV_VAR);
+    String loginUser = System.getenv(TAPIS_TEST_USERNAME_ENV_VAR);
     String testTapisUserP = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
     if (StringUtils.isBlank(loginUser))
     {
-      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_NAME_ENV_VAR);
+      Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_USERNAME_ENV_VAR);
     }
     if (StringUtils.isBlank(testTapisUserP))
     {
       Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_PASSWORD_ENV_VAR);
     }
     String systemOwner = owner1;
-    Credential cred0 = new Credential(null, null, testTapisUserP, null, null, null, null, null, null, null);
+    Credential cred0 = new Credential(null, null, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
 
     // Test case data
     // Positive cases
@@ -947,7 +1013,7 @@ public class SystemsServiceTest
 
     // Create a system with credentials for owner and another user
     sys0 = systems[23];
-    Credential cred0 = new Credential(null, null, null, "fakePrivateKey", "fakePublicKey", null, null, null, null, null);
+    Credential cred0 = new Credential(null, null, null, "fakePrivateKey", "fakePublicKey", null, null, null, null, null, null, null, null);
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
 
@@ -1017,14 +1083,6 @@ public class SystemsServiceTest
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
 
     // Test create cases first since we will need to create a system to test the update cases
-    sys0.setAuthnCredential(credInvalidPrivateSshKey);
-    // Test system create with invalid private key
-    try
-    {
-      svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
-      Assert.fail("System create call should have thrown an exception when private ssh key is invalid");
-    }
-    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1")); }
     // Test system create with dynamic effectiveUserId
     sys0.setAuthnCredential(credNoLoginUser);
     try
@@ -1038,23 +1096,6 @@ public class SystemsServiceTest
     sys0.setAuthnCredential(null);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-
-    // Test credential update with invalid private key
-    try
-    {
-      svcCred.createUserCredential(rOwner1, sys0.getId(), sys0.getOwner(), credInvalidPrivateSshKey, skipCredCheckTrue, rawDataEmptyJson);
-      Assert.fail("Credential update call should have thrown an exception when private ssh key is invalid");
-    }
-    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY2")); }
-
-    // Test system update with invalid private key
-    tmpSys.setAuthnCredential(credInvalidPrivateSshKey);
-    try
-    {
-      svc.putSystem(rOwner1, tmpSys, skipCredCheckTrue, rawDataEmptyJson);
-      Assert.fail("Credential update call should have thrown an exception when private ssh key is invalid");
-    }
-    catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_PRIVATE_SSHKEY1")); }
 
     // Test system update with dynamic effectiveUserId
     tmpSys.setAuthnCredential(credNoLoginUser);
@@ -1210,7 +1251,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[24];
     // Set up the system definition such that it looks like it could have valid credentials.
     sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
-    Credential fakeCred = new Credential(AuthnMethod.PASSWORD, null, "fakePassword", null, null, null, null, null, null, null);
+    Credential fakeCred = new Credential(AuthnMethod.PASSWORD, null, "fakePassword", null, null, null, null, null, null, null, null, null, null);
     sys0.setAuthnCredential(fakeCred);
     // Save off the original rootDir, cred and effUser. Used to reset test conditions
     String origRootDir = sys0.getRootDir();
@@ -1458,8 +1499,9 @@ public class SystemsServiceTest
 
   // Test creating, reading and deleting user credentials for a system
   // Initial system is dynamic, effectiveUserId = ${apiUserId}
-  //   - Test 1 - create and get cred as owner1, testuser3
-  //            - create and get should always use Tapis user (owner1, testuser3) in method arguments
+  //   - Test 1a - create and get cred as owner1, testuser3
+  //             - create and get should always use Tapis user (owner1, testuser3) in method arguments
+  //   - Test 1b - Create and fetch credentials using AuthnMethod=TMS_KEYS, testuser3 TODO/TBD: Requires TMS server
   // Also test loginUser mapping functionality.
   //   - Test 2 - basic loginUser mapping with dynamic TSystem. Create and get cred as owner1, testuser3, testuser4
   // Test switching system from dynamic to static
@@ -1477,17 +1519,15 @@ public class SystemsServiceTest
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR); // "${apiUserId}"
     // Create the system
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
-    // Create in-memory objects for all credentials we will use.
-    Credential cred1NoLoginUser = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
-            "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1", "fakeCert1");
     Credential cred3NoLoginUser = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
-            "fakeAccessKey3", "fakeAccessSecret3", "fakeAccessToken3", "fakeRefreshToken3", "fakeCert3");
-    Credential cred3NoLoginUserAccessAuthn = new Credential(null, null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null, null, null);
-    Credential cred4LoginUser = new Credential(null, testUser4LinuxUser, "fakePassword4", null, null, null, null, null, null, null);
-    Credential cred5A_NoLoginUser = new Credential(null, null, "fakePassword5a", null, null, null, null, null, null, null);
-    Credential cred5NoLoginLinuxUser = new Credential(null, null, "fakePassword5LinuxUser", null, null, null, null, null, null, null);
-    Credential cred5NoLoginStatic = new Credential(null, null, "fakePassword5Static", null, null, null, null, null, null, null);
-    Credential cred5B_LoginUser = new Credential(null, testUser5LinuxUser, "fakePassword5b", null, null, null, null, null, null, null);
+            "fakeAccessKey3", "fakeAccessSecret3", "fakeAccessToken3", "fakeRefreshToken3",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert3");
+    Credential cred3NoLoginUserAccessAuthn = new Credential(null, null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null, null, null, null, null, null);
+    Credential cred4LoginUser = new Credential(null, testUser4LinuxUser, "fakePassword4", null, null, null, null, null, null, null, null, null, null);
+    Credential cred5A_NoLoginUser = new Credential(null, null, "fakePassword5a", null, null, null, null, null, null, null, null, null, null);
+    Credential cred5NoLoginLinuxUser = new Credential(null, null, "fakePassword5LinuxUser", null, null, null, null, null, null, null, null, null, null);
+    Credential cred5NoLoginStatic = new Credential(null, null, "fakePassword5Static", null, null, null, null, null, null, null, null, null, null);
+    Credential cred5B_LoginUser = new Credential(null, testUser5LinuxUser, "fakePassword5b", null, null, null, null, null, null, null, null, null, null);
 
     // We will be updating credentials for testUser3, 5 so allow them READ access to system.
     svc.grantUserPermissions(rOwner1, sysId, testUser3, testPermsREAD, rawDataEmptyJson);
@@ -1496,13 +1536,13 @@ public class SystemsServiceTest
     // Make the separate calls required to store credentials for each user.
     // In this case for owner1, testUser3, testUser5
     // These should all go under the dynamic secret path in SK
-    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
-    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
-    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
 
     // ------------------------
-    // Test 1 - basic cred retrieve/delete for owner1, testuser3
-    //        - fetch creds for specific authnMethod
+    // Test 1a - basic cred retrieve/delete for owner1, testuser3
+    //         - fetch creds for specific authnMethod=PASSWORD
     // -------------------------
     // Get system as owner using files service, should get cred for owner
     TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
@@ -1546,7 +1586,7 @@ public class SystemsServiceTest
 
     // Update cred to set just ACCESS_KEY and test
     // This should go under the dynamic secret path in SK
-    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUserAccessAuthn, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUserAccessAuthn, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.ACCESS_KEY);
     Assert.assertEquals(cred0.getAccessKey(), cred3NoLoginUserAccessAuthn.getAccessKey());
     Assert.assertEquals(cred0.getAccessSecret(), cred3NoLoginUserAccessAuthn.getAccessSecret());
@@ -1568,7 +1608,7 @@ public class SystemsServiceTest
     // Create a credential for Tapis user testUser4 with a loginUser so that a mapping should be created.
     // owner should be permitted to update their own credential
     // This should go under the dynamic secret path in SK
-    svcCred.createUserCredential(rOwner1, sysId, testUser4, cred4LoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser4, cred4LoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     // Give testUser4 READ access to the system. Normally this would be done through sharing and call would
     // be made with impersonationId set to the system owner but here we are testing loginUser mapping, not impersonation.
     svc.grantUserPermissions(rOwner1, sysId, testUser4, testPermsREAD, rawDataEmptyJson);
@@ -1605,8 +1645,8 @@ public class SystemsServiceTest
     // Create "static" cred for testuser5LinuxUser and testuser5
     // These should go under the static secret path in SK
     // Note that we create a static cred for testuser5 to make sure it does not get mixed up with the dynamic cred for same user name
-    svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5NoLoginLinuxUser, skipCredCheckTrue, rawDataEmptyJson);
-    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5NoLoginStatic, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5NoLoginLinuxUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5NoLoginStatic, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     // Get cred and verify for testUser5LinuxUser
     cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser5LinuxUser, AuthnMethod.PASSWORD);
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser5LinuxUser);
@@ -1636,11 +1676,11 @@ public class SystemsServiceTest
     tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     Assert.assertEquals(tmpSys.getEffectiveUserId(), owner1);
     // Re-create creds for owner1, testuser3. Recall we deleted them above as part of the test
-    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
-    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     // Create "dynamic" cred for testuser5
     // This should go under the dynamic secret path in SK
-    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5B_LoginUser, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5B_LoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
 
     // Get system as owner and check cred, should be same as before for "dynamic" use case.
     tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
@@ -1654,6 +1694,185 @@ public class SystemsServiceTest
     checkCredPasswordAndEffectiveUser(tmpSys, cred5B_LoginUser.getPassword(), testUser5, testUser5LinuxUser);
   }
 
+  // Test creating, reading and using a TMS ssh key-pair.
+  // - check that required env settings are in place
+  // - call the TMS server to
+  //    - fetch the TMS version to confirm the server is live
+  //    - create a TMS key-pair for the test user on the test host
+  //    - fetch the public key info for the test user
+  // - Create a Tapis system for use with TMS keys
+  // - Register TMS keys for the Tapis system
+  // - Login to the Tapis system using TMS keys
+  // - List files on the Tapis system
+  @Test(enabled = true)
+  public void testTMSKeys() throws Exception
+  {
+    // -------------------------------------------------------------
+    // Test direct calls to the TMS server
+    // -------------------------------------------------------------
+    // Get env variables to make sure we are configured for this test
+    String tmsBaseUrl = System.getenv(TMS_URL_ENV_VAR);
+    String tmsTenant = System.getenv(TMS_TENANT_ENV_VAR);
+    String tmsClientId = System.getenv(TMS_CLIENT_ID_ENV_VAR);
+    String tmsClientKey = System.getenv(TMS_CLIENT_KEY_ENV_VAR);
+    String tmsTestHost = System.getenv(TMS_TEST_HOST_ENV_VAR);
+    String tmsTestUser = System.getenv(TMS_TEST_USER_ENV_VAR);
+    if (StringUtils.isBlank(tmsBaseUrl)) Assert.fail("Missing environment variable. Please set env var: " + TMS_URL_ENV_VAR);
+    if (StringUtils.isBlank(tmsTenant)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TENANT_ENV_VAR);
+    if (StringUtils.isBlank(tmsClientId)) Assert.fail("Missing environment variable. Please set env var: " + TMS_CLIENT_ID_ENV_VAR);
+    if (StringUtils.isBlank(tmsClientKey)) Assert.fail("Missing environment variable. Please set env var: " + TMS_CLIENT_KEY_ENV_VAR);
+    if (StringUtils.isBlank(tmsTestHost)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_HOST_ENV_VAR);
+    if (StringUtils.isBlank(tmsTestUser)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_USER_ENV_VAR);
+    String privateKeyMasked;
+    String respBodyStr;
+    //
+    // Call TMS server to get version
+    // Build the request and make the call
+    String urlGetVersion = String.format("%s/%s", tmsBaseUrl, TMS_GETVERSION_ENDPOINT);
+    Request request = new Request.Builder().url(urlGetVersion).build();
+    Call call = httpClient.newCall(request);
+    // Use try-with-resources to auto-close the response.
+    try (okhttp3.Response response = call.execute())
+    {
+      Assert.assertNotNull(response);
+      Assert.assertNotNull(response.body());
+      respBodyStr = response.body().string();
+      Assert.assertFalse(StringUtils.isBlank(respBodyStr));
+      System.out.println("TMS getVersion response body: " + respBodyStr);
+      // If response status code is not 200 it is an error
+      Assert.assertEquals(response.code(), 200, "Unable to get version");
+    }
+    // Call TMS to generate the keypair and fingerprint
+    // Example:
+    //    tmsServerReqUrl = "https://tms-server-stage.tacc.utexas.edu:3000/v1/tms/pubkeys/creds";
+    //    tmsTenant = "test";
+    //    tmsClientId = "testclient1";
+    //    tmsClientSecret = "secret1";
+    //    String tmsClientUser = "testuser1";
+    //    String tmsHost = "testhost1";
+    //    String tmsHostAccount = "testhostaccount1";
+    int numUses = -1;
+    int ttlMinutes = -1;
+    String urlCreateKeyPair = String.format("%s/%s", tmsBaseUrl, TMS_CREATEKEYS_ENDPOINT);
+    // Build the request
+    var tmsRequest = new CredUtils.TmsRequest(TMS_CLIENT_USER, tmsTestHost, tmsTestUser, TMS_KEY_TYPE_ED25519, numUses, ttlMinutes);
+    String reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsRequest);
+    RequestBody body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
+    Request.Builder requestBuilder = new Request.Builder().url(urlCreateKeyPair).post(body);
+    // Add headers for tenant, client id and client secret
+    request = requestBuilder.addHeader("X-TMS-TENANT", tmsTenant)
+            .addHeader("X-TMS-CLIENT-ID", tmsClientId)
+            .addHeader("X-TMS-CLIENT-SECRET", tmsClientKey)
+            .build();
+    call = httpClient.newCall(request);
+    // Use try-with-resources to auto-close the response.
+    try (okhttp3.Response response = call.execute())
+    {
+      Assert.assertNotNull(response);
+      Assert.assertNotNull(response.body());
+      respBodyStr = response.body().string();
+      Assert.assertFalse(StringUtils.isBlank(respBodyStr));
+      System.out.println("TMS createKeyPair response body: " + respBodyStr);
+      // If response status code is not in the 200 range it is an error
+      int httpRespCode = response.code();
+      Assert.assertTrue(httpRespCode >= 200 && httpRespCode < 300, "Unable to create key-pair");
+    }
+    JsonObject respBodyJson = TapisGsonUtils.getGson().fromJson(respBodyStr, JsonObject.class);
+    var privateKeyObj = respBodyJson.get("private_key");
+    var publicKeyObj = respBodyJson.get("public_key");
+    var publicKeyFingerprintObj = respBodyJson.get("public_key_fingerprint");
+    // If any are null it is an error
+    Assert.assertNotNull(privateKeyObj);
+    Assert.assertNotNull(publicKeyObj);
+    Assert.assertNotNull(publicKeyFingerprintObj);
+    String tmsPrivateKey = privateKeyObj.getAsString();
+    String tmsPublicKey = publicKeyObj.getAsString();
+    String tmsPublicKeyFingerprint = publicKeyFingerprintObj.getAsString();
+    privateKeyMasked = StringUtils.isBlank(tmsPrivateKey) ? null : SECRETS_MASK;
+    // If any are empty it is an error
+    Assert.assertFalse(StringUtils.isBlank(tmsPublicKey));
+    Assert.assertFalse(StringUtils.isBlank(tmsPrivateKey));
+    Assert.assertFalse(StringUtils.isBlank(tmsPublicKeyFingerprint));
+    System.out.println("TMS keypair public key: " + tmsPublicKey);
+    System.out.println("TMS keypair private key: " + privateKeyMasked);
+    System.out.println("TMS keypair fingerprint: " + tmsPublicKeyFingerprint);
+    // Call TMS server to fetch the public key for the previously generated keypair
+    String urlGetPubKey = String.format("%s/%s", tmsBaseUrl, TMS_GETPUBKEY_ENDPOINT);
+    // Build the request
+    var tmsGetPubKeyRequest = new TmsGetPubKeyRequest(tmsTestUser, "1111", tmsTestHost, tmsPublicKeyFingerprint, TMS_KEY_TYPE_ED25519);
+    reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsGetPubKeyRequest);
+    body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
+    requestBuilder = new Request.Builder().url(urlGetPubKey).post(body);
+    request = requestBuilder.build();
+    call = httpClient.newCall(request);
+    // Use try-with-resources to auto-close the response.
+    try (okhttp3.Response response = call.execute())
+    {
+      Assert.assertNotNull(response);
+      Assert.assertNotNull(response.body());
+      respBodyStr = response.body().string();
+      Assert.assertFalse(StringUtils.isBlank(respBodyStr));
+      System.out.println("TMS getPubKey response body: " + respBodyStr);
+      // If response status code is not 200 it is an error
+      Assert.assertEquals(response.code(), 200, "Unable to get public key");
+    }
+    respBodyJson = TapisGsonUtils.getGson().fromJson(respBodyStr, JsonObject.class);
+    var resultCode = respBodyJson.get("result_code");
+    var resultMsg = respBodyJson.get("result_msg");
+    publicKeyObj = respBodyJson.get("public_key");
+    // If any are null it is an error
+    Assert.assertNotNull(resultCode);
+    Assert.assertNotNull(resultMsg);
+    Assert.assertNotNull(publicKeyObj);
+    tmsPublicKey = publicKeyObj.getAsString();
+    String resultMsgStr = resultMsg.getAsString();
+    String resultCodeStr = resultCode.getAsString();
+    // If any are empty it is an error
+    Assert.assertFalse(StringUtils.isBlank(tmsPrivateKey));
+    Assert.assertFalse(StringUtils.isBlank(resultMsgStr));
+    Assert.assertFalse(StringUtils.isBlank(resultCodeStr));
+    System.out.println("TMS getPubKey public key: " + tmsPublicKey);
+    System.out.println("TMS getPubKey result_code: " + resultCodeStr);
+    System.out.println("TMS getPubKey result_msg: " + resultMsgStr);
+
+    // -------------------------------------------------------------
+    // Test use of TMS keys through the Systems and Files service
+    // -------------------------------------------------------------
+    // Create a system for use with TMS, must have a dynamic effectiveUserId, so effUsr = apiUserId
+    TSystem sys0 = systems[41];
+    String sysId = sys0.getId();
+    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR); // "${apiUserId}"
+    sys0.setHost(tmsTestHost);
+    sys0.setDefaultAuthnMethod(AuthnMethod.TMS_KEYS);
+    // Create the system
+    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull,
+                                   resourceTenantNull, fetchShareInfoFalse);
+    Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
+    System.out.println("Found item: " + sys0.getId());
+    // Share the system with test user
+    SystemShare systemShare;
+    String rawDataShare = "{\"users\": [\"" + tmsTestUser + "\"]}";
+    systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
+    svc.shareSystem(rOwner1, sysId, systemShare);
+    // Register credentials for TMS test user
+    svcCred.createUserCredential(rOwner1, sysId, testUser2, cred1NoLoginUser, createTmsKeysTrue, skipCredCheckTrue, rawDataEmptyJson);
+    Credential cred = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser2, AuthnMethod.TMS_KEYS);
+    Assert.assertNotNull(cred);
+    Assert.assertNotNull(cred.getTmsPrivateKey());
+    Assert.assertNotNull(cred.getTmsPublicKey());
+    Assert.assertNotNull(cred.getTmsFingerprint());
+    privateKeyMasked = StringUtils.isBlank(cred.getTmsPrivateKey()) ? null : SECRETS_MASK;
+    System.out.printf("SysId: %s TMS keypair public key: %s%n", sysId, cred.getTmsPublicKey());
+    System.out.printf("SysId: %s TMS keypair private key: %s%n", sysId, privateKeyMasked);
+    System.out.printf("SysId: %s TMS keypair fingerprint: %s%n", sysId, cred.getTmsFingerprint());
+    // Validate credentials
+    Credential checkedCred = svcCred.checkUserCredential(rOwner1, sysId, tmsTestUser, AuthnMethod.TMS_KEYS);
+    Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
+    // TODO List files using the system. NOTE: Currently this requires that the TMS test user be testuser2 ???
+
+  }
+
   // Test creating, reading and deleting user credentials for a system
   //  for the case of a static effectiveUserId
   @Test
@@ -1662,7 +1881,8 @@ public class SystemsServiceTest
     // Create a system where effectiveUserId is static and credentials are provided with system definition.
     TSystem sys0 = systems[28];
     Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
-                                      "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1", "fakeCert1");
+                                      "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert1");
     sys0.setEffectiveUserId(effectiveUserId1);
     sys0.setAuthnCredential(cred1);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
@@ -1719,8 +1939,9 @@ public class SystemsServiceTest
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
 
     Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
-                                      "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1", "fakeCert1");
-    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1, skipCredCheckTrue, rawDataEmptyJson);
+                                      "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1",
+                                      "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert1");
+    svcCred.createUserCredential(rOwner1, sysId, owner1, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
 
     String rawDataShare = "{\"users\": [\"" + testUser5 + "\"]}";
     SystemShare systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
@@ -1741,7 +1962,7 @@ public class SystemsServiceTest
 
     // Initially user testUser5 should not be able to set a cred.
     boolean pass = false;
-    try { svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson); }
+    try { svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1759,31 +1980,31 @@ public class SystemsServiceTest
 
     // Grant READ perm, now user should be able to set cred
     svc.grantUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREAD, rawDataEmptyJson);
-    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
 
     // Revoke READ perm and grant MODIFY perm. User should be able to set cred.
     svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREAD, rawDataEmptyJson);
     svc.grantUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsMODIFY, rawDataEmptyJson);
-    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
 
     // Revoke MODIFY perm and share system. User should be able to set cred.
     svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsMODIFY, rawDataEmptyJson);
     svc.shareSystem(rOwner1, sysId, systemShare);
-    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
 
     // Unshare and then share publicly. User should be able to set cred
     svc.unshareSystem(rOwner1, sysId, systemShare);
     svc.shareSystemPublicly(rOwner1, sysId);
-    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
 
     // Unshare public and now testUser5 should again be denied
     svc.unshareSystemPublicly(rOwner1, sysId);
     pass = false;
-    try { svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, skipCredCheckTrue, rawDataEmptyJson); }
+    try { svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -1874,8 +2095,8 @@ public class SystemsServiceTest
 
     // Create credential with no system should throw an exception
     pass = false;
-    cred = new Credential(null, null, null, null, null, "fakeAccessKey2", "fakeAccessSecret2", null, null, null);
-    try { svcCred.createUserCredential(rOwner1, fakeSystemName, fakeUserName, cred, skipCredCheckTrue, rawDataEmptyJson); }
+    cred = new Credential(null, null, null, null, null, "fakeAccessKey2", "fakeAccessSecret2", null, null, null, null, null, null);
+    try { svcCred.createUserCredential(rOwner1, fakeSystemName, fakeUserName, cred, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson); }
     catch (NotFoundException nfe)
     {
       pass = true;
@@ -1924,7 +2145,8 @@ public class SystemsServiceTest
 
     // Create system for remaining auth access tests
     Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-                                      "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken", "fakeCert");
+                                      "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // Grant testUesr3 - READ
@@ -2022,7 +2244,7 @@ public class SystemsServiceTest
 
     // SET_CRED - deny user not owner/admin and not target user
     pass = false;
-    try { svcCred.createUserCredential(rTestUser3, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmptyJson); }
+    try { svcCred.createUserCredential(rTestUser3, systemId, owner1, cred0, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -2032,7 +2254,7 @@ public class SystemsServiceTest
 
     // Services now allowed to modify, etc obo a user
 //    pass = false;
-//    try { svcCred.createUserCredential(rFilesSvcOwner1, systemId, owner1, cred0, skipCredCheckTrue, rawDataEmtpyJson); }
+//    try { svcCred.createUserCredential(rFilesSvcOwner1, systemId, owner1, cred0, createTmsKeysFalse, skipCredCheckTrue, rawDataEmtpyJson); }
 //    catch (ForbiddenException e)
 //    {
 //      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
@@ -2154,7 +2376,8 @@ public class SystemsServiceTest
     TSystem sys0 = systems[14];
     // Create system for remaining auth access tests
     Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-            "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken", "fakeCert");
+            "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // Grant User1 - READ and User2 - MODIFY
@@ -2195,6 +2418,10 @@ public class SystemsServiceTest
     SchedulerProfile p0 = schedulerProfiles[0];
     svcSchedProfile.createSchedulerProfile(rTestUser2, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
+    // The final profile is a little different, test it
+    SchedulerProfile pFinal = schedulerProfiles[schedulerProfiles.length-1];
+    svcSchedProfile.createSchedulerProfile(rTestUser2, pFinal);
+    System.out.println("Scheduler Profile created: " + pFinal.getName());
   }
 
   @Test
@@ -2463,7 +2690,8 @@ public class SystemsServiceTest
   {
     TSystem sys0 = systems[26];
     Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
-                                      "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken", "fakeCert");
+                                      "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     
@@ -2493,7 +2721,8 @@ public class SystemsServiceTest
     String sysId = sys0.getId();
     ResourceRequestUser ownerUser = rTestUser2;
     Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey", "fakeAccessKey",
-                                      "fakeAccessSecret", "fakeAccessToken1", "fakeRefreshToken1", "fakeCert");
+                                      "fakeAccessSecret", "fakeAccessToken1", "fakeRefreshToken1",
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
     sys0.setOwner(testUser2);
     sys0.setJobRuntimes(jobRuntimes1);
@@ -2949,5 +3178,50 @@ public class SystemsServiceTest
     // Update rootDir to match expected result, then use common method for validating attributes
     sys0.setRootDir(resultRootDir);
     checkCommonSysAttrs(sys0, tmpSys);
+  }
+
+  /*
+   * Read in a key from a resource file that is on the class path
+   */
+  private String readKeyFromFile(String localTestFileDir, String fileName)
+  {
+    StringBuilder sb = new StringBuilder();
+    String resourcePath = String.format("%s/%s", localTestFileDir, fileName);
+    File inputFile = new File(resourcePath);
+    try (InputStream inStream = new FileInputStream(inputFile))
+    {
+      assertNotNull(inStream, "InputStream was null for path: " + resourcePath);
+      try (BufferedReader r = new BufferedReader(new InputStreamReader(inStream)))
+      {
+        String l;
+        while ((l = r.readLine()) != null) sb.append(l).append("\n");
+      }
+    }
+    catch (FileNotFoundException e)
+    {
+      Assert.fail("File not found: " + resourcePath);
+    }
+    catch (IOException e)
+    {
+      Assert.fail("IOException reading resource file: " + resourcePath + " Error: " + e.getMessage());
+    }
+    return sb.toString();
+  }
+
+  /*
+   * Test ssh key-pair
+   */
+  private void runSSHKeyTest(String prvKeyFile, String localTestFileDir, String loginUser, TSystem sys) throws TapisException
+  {
+    String pubKeyFile = String.format("%s.pub", prvKeyFile);
+    String pubKeyStr = readKeyFromFile(localTestFileDir, pubKeyFile);
+    String prvKeyStr = readKeyFromFile(localTestFileDir, prvKeyFile);
+    // Create the credential object
+    Credential credToCheck = new Credential(AuthnMethod.PKI_KEYS, loginUser, null, prvKeyStr, pubKeyStr, null, null, null, null, null, null, null, null);
+    // Check the credential
+    Credential retCred = credUtils.verifyCredentials(rOwner1, sys, credToCheck, loginUser, AuthnMethod.PKI_KEYS);
+    Assert.assertNotNull(retCred, "Returned verified credential was null for keyType: " + prvKeyFile);
+    Assert.assertEquals(retCred.getValidationResult(), Boolean.TRUE,
+            "Credential failed to validate for keyType: " + prvKeyFile + " Error: " + retCred.getValidationMsg());
   }
 }

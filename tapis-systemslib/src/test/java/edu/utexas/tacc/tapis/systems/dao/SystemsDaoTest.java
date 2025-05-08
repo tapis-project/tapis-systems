@@ -81,7 +81,7 @@ public class SystemsDaoTest
     }
 
     // Delete scheduler profiles
-    for (int i = 0; i < numSchedulerProfiles; i++)
+    for (int i = 0; i < numSchedulerProfiles+1; i++)
     {
       dao.deleteSchedulerProfile(tenantName, schedulerProfiles[i].getName());
     }
@@ -392,6 +392,10 @@ public class SystemsDaoTest
     SchedulerProfile p0 = schedulerProfiles[0];
     dao.createSchedulerProfile(rOwner1, p0);
     System.out.println("Scheduler Profile created: " + p0.getName());
+    // The final profile is a little different, test it
+    SchedulerProfile pFinal = schedulerProfiles[schedulerProfiles.length-1];
+    dao.createSchedulerProfile(rOwner1, pFinal);
+    System.out.println("Scheduler Profile created: " + pFinal.getName());
   }
 
   @Test

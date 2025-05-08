@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.NotFoundException;
 import java.util.Set;
 
@@ -89,13 +90,14 @@ public class CredentialsServiceImpl
    * @param systemId - name of system
    * @param targetUser - Target user for operation
    * @param cred - Credentials to be stored
+   * @param createTmsKeys - Indicates if TMS keys should be created and stored
    * @param skipCredCheck - Indicates if cred check should happen (for LINUX, S3)
    * @param rawData - Client provided text used to create the credential - secrets should be scrubbed. Saved in update record.
    * @return null if skipping credCheck, else checked credential with validation result set
    * @throws TapisException - for Tapis related exceptions
    */
   public Credential createUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, Credential cred,
-                                         boolean skipCredCheck, String rawData)
+                                         boolean createTmsKeys, boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, IllegalStateException
   {
     TSystem.SystemOperation op = TSystem.SystemOperation.setCred;
@@ -119,7 +121,7 @@ public class CredentialsServiceImpl
     authUtils.checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
 
     // Use utility method to do most of the work
-    return credUtils.createCredentialForUser(rUser, system, targetUser, cred,  skipCredCheck, rawData);
+    return credUtils.createCredentialForUser(rUser, system, targetUser, cred, createTmsKeys, skipCredCheck, rawData);
   }
 
   /**
@@ -267,11 +269,6 @@ public class CredentialsServiceImpl
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_SYS", rUser, systemId));
 
-    // Get clientId configured for Tapis. If none throw an exception
-    String clientId = RuntimeParameters.getInstance().getGlobusClientId();
-    if (StringUtils.isBlank(clientId))
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
-
     // We will need info from system, so fetch it now
     // If system does not exist or has been deleted then throw an exception
     TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, false);
@@ -281,6 +278,19 @@ public class CredentialsServiceImpl
       log.info(msg);
       throw new NotFoundException(msg);
     }
+
+    // If system not of type GLOBUS it is an error
+    if (!TSystem.SystemType.GLOBUS.equals(system.getSystemType()))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_GLOBUS_OP_NOT_GLOBUS", rUser, systemId, system.getSystemType(), op.name());
+      log.warn(msg);
+      throw new BadRequestException(msg);
+    }
+
+    // Get clientId configured for Tapis. If none throw an exception
+    String clientId = RuntimeParameters.getInstance().getGlobusClientId();
+    if (StringUtils.isBlank(clientId))
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
 
     // Call Tapis GlobusProxy service and create a GlobusAuthInfo from the client response;
     ResultGlobusAuthInfo r = sysUtils.getGlobusProxyClient(rUser).getAuthInfo(clientId, system.getHost());
@@ -320,11 +330,6 @@ public class CredentialsServiceImpl
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_TOKENS", rUser,
               userName, authCode, sessionId));
 
-    // Get clientId configured for Tapis. If none throw an exception
-    String clientId = RuntimeParameters.getInstance().getGlobusClientId();
-    if (StringUtils.isBlank(clientId))
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
-
     // We will need info from system, so fetch it now
     // If system does not exist or has been deleted then throw an exception
     TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, false);
@@ -334,6 +339,19 @@ public class CredentialsServiceImpl
       log.info(msg);
       throw new NotFoundException(msg);
     }
+
+    // If system not of type GLOBUS it is an error
+    if (!TSystem.SystemType.GLOBUS.equals(system.getSystemType()))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_GLOBUS_OP_NOT_GLOBUS", rUser, systemId, system.getSystemType(), op.name());
+      log.warn(msg);
+      throw new BadRequestException(msg);
+    }
+
+    // Get clientId configured for Tapis. If none throw an exception
+    String clientId = RuntimeParameters.getInstance().getGlobusClientId();
+    if (StringUtils.isBlank(clientId))
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
 
     // ------------------------- Check service level authorization -------------------------
     authUtils.checkAuth(rUser, op, systemId, system.getOwner(), userName, null);
@@ -351,7 +369,7 @@ public class CredentialsServiceImpl
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
     // Create credential and save to SK
-    Credential credential = new Credential(null, null, null, null, null, null, null, accessToken, refreshToken, null);
+    Credential credential = new Credential(null, null, null, null, null, null, null, accessToken, refreshToken, null, null, null, null);
     try
     {
       credUtils.createCredential(rUser, credential, system, userName, isStaticEffectiveUser);

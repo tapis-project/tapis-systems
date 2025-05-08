@@ -27,7 +27,7 @@ public final class Credential
   // Top level name for storing system secrets
   public static final String TOP_LEVEL_SECRET_NAME = "S1";
   // String used to mask secrets
-  public static final String SECRETS_MASK = "***";
+  public static final String SECRETS_MASK = "******";
 
   // Keys for constructing map when writing secrets to Security Kernel
   public static final String SK_KEY_PASSWORD = "password";
@@ -37,6 +37,9 @@ public final class Credential
   public static final String SK_KEY_ACCESS_SECRET = "accessSecret";
   public static final String SK_KEY_ACCESS_TOKEN = "accessToken";
   public static final String SK_KEY_REFRESH_TOKEN = "refreshToken";
+  public static final String SK_KEY_TMS_PUBLIC_KEY = "tmsPublicKey";
+  public static final String SK_KEY_TMS_PRIVATE_KEY = "tmsPrivateKey";
+  public static final String SK_KEY_TMS_FINGERPRINT = "tmsFingerprint";
 
   // Default validation message
   public static final String VALIDATION_MSG_DEFAULT = "Error. Validation message not updated";
@@ -54,6 +57,9 @@ public final class Credential
   private final String accessSecret; // Access secret for when authnMethod is ACCESS_KEY
   private final String accessToken; // Access token
   private final String refreshToken; // Refresh token associated with access token
+  private final String tmsPrivateKey; // Private key for authnMethod TMS_KEYS
+  private final String tmsPublicKey; // Public key for authnMethod TMS_KEYS
+  private final String tmsFingerprint; // Fingerprint of TMS private key
   private final String certificate; // SSH certificate for authnMethod is CERT
   private final Boolean validationResult; // Result of validation, if performed. null if no validation
   private final String validationMsg; // Reason validation failed. Null if no validation or validation succeeded.
@@ -64,7 +70,8 @@ public final class Credential
 
   // Simple constructor to populate all attributes
   public Credential(AuthnMethod authnMethod1, String loginUser1, String password1, String privateKey1, String publicKey1,
-                    String accessKey1, String accessSecret1, String accessToken1, String refreshToken1, String cert1,
+                    String accessKey1, String accessSecret1, String accessToken1, String refreshToken1,
+                    String tmsPrivateKey1, String tmsPublicKey1, String tmsFingerprint1, String cert1,
                     Boolean validationResult1, String validationMsg1)
   {
     authnMethod = authnMethod1;
@@ -76,6 +83,9 @@ public final class Credential
     accessSecret = accessSecret1;
     accessToken = accessToken1;
     refreshToken = refreshToken1;
+    tmsPrivateKey = tmsPrivateKey1;
+    tmsPublicKey = tmsPublicKey1;
+    tmsFingerprint = tmsFingerprint1;
     certificate = cert1;
     validationResult = validationResult1;
     validationMsg = validationMsg1;
@@ -83,8 +93,9 @@ public final class Credential
   // Simple constructor to populate all attributes except validation result and message.
   // Validation result defaults to FALSE and validation message set to a default value.
   public Credential(AuthnMethod authnMethod1, String loginUser1, String password1, String privateKey1,
-                    String publicKey1, String accessKey1, String accessSecret1,
-                    String accessToken1, String refreshToken1, String cert1)
+                    String publicKey1, String accessKey1, String accessSecret1, String accessToken1,
+                    String refreshToken1, String tmsPrivateKey1, String tmsPublicKey1, String tmsFingerprint1,
+                    String cert1)
   {
     authnMethod = authnMethod1;
     loginUser = loginUser1;
@@ -95,6 +106,9 @@ public final class Credential
     accessSecret = accessSecret1;
     accessToken = accessToken1;
     refreshToken = refreshToken1;
+    tmsPrivateKey = tmsPrivateKey1;
+    tmsPublicKey = tmsPublicKey1;
+    tmsFingerprint = tmsFingerprint1;
     certificate = cert1;
     validationResult = Boolean.FALSE;
     validationMsg = VALIDATION_MSG_DEFAULT;
@@ -109,7 +123,8 @@ public final class Credential
   public static Credential createMaskedCredential(Credential cred)
   {
     if (cred == null) return null;
-    String accessToken, refreshToken, accessKey, accessSecret, password, privateKey, publicKey, cert;
+    String accessToken, refreshToken, accessKey, accessSecret, password, privateKey, publicKey,
+           tmsPrivateKey, tmsPublicKey, tmsFingerprint, cert;
     accessToken = (!StringUtils.isBlank(cred.getAccessToken())) ? SECRETS_MASK : cred.getAccessToken();
     refreshToken = (!StringUtils.isBlank(cred.getRefreshToken())) ? SECRETS_MASK : cred.getRefreshToken();
     accessKey = (!StringUtils.isBlank(cred.getAccessKey())) ? SECRETS_MASK : cred.getAccessKey();
@@ -117,28 +132,13 @@ public final class Credential
     password = (!StringUtils.isBlank(cred.getPassword())) ? SECRETS_MASK : cred.getPassword();
     privateKey = (!StringUtils.isBlank(cred.getPrivateKey())) ? SECRETS_MASK : cred.getPrivateKey();
     publicKey = (!StringUtils.isBlank(cred.getPublicKey())) ? SECRETS_MASK : cred.getPublicKey();
+    tmsPrivateKey = (!StringUtils.isBlank(cred.getTmsPrivateKey())) ? SECRETS_MASK : cred.getTmsPrivateKey();
+    tmsPublicKey = (!StringUtils.isBlank(cred.getTmsPublicKey())) ? SECRETS_MASK : cred.getTmsPublicKey();
+    tmsFingerprint = (!StringUtils.isBlank(cred.getTmsFingerprint())) ? SECRETS_MASK : cred.getTmsFingerprint();
     cert = (!StringUtils.isBlank(cred.getCertificate())) ? SECRETS_MASK : cred.getCertificate();
     return new Credential(cred.getAuthnMethod(), cred.getLoginUser(), password, privateKey, publicKey,
-                          accessKey, accessSecret, accessToken, refreshToken, cert, cred.getValidationResult(),
-                          cred.getValidationMsg());
-  }
-
-  /**
-   * Check if private key is compatible with Tapis.
-   * SSH key-pairs that have a private key starting with: --- BEGIN OPENSSH PRIVATE KEY ---
-   * cannot be used in TapisV3. the Jsch library does not yet support them.
-   * Instead, a private key starting with:{{ — BEGIN RSA PRIVATE KEY ---}}
-   * should be used. Recent openssh versions generate OPENSSH type keys.
-   * To generate compatible keys one should use the option -m PEM with ssh-keygen, e.g.
-   * ssh-keygen -t rsa -b 4096 -m PEM
-   *
-   * @return  true if private key is compatible
-   */
-  public boolean isValidPrivateSshKey()
-  {
-    if (StringUtils.isBlank(privateKey)) return false;
-    if (privateKey.contains("BEGIN OPENSSH PRIVATE KEY")) return false;
-    return true;
+                          accessKey, accessSecret, accessToken, refreshToken, tmsPrivateKey, tmsPublicKey,
+                          tmsFingerprint, cert, cred.getValidationResult(), cred.getValidationMsg());
   }
 
   /* ********************************************************************** */
@@ -153,6 +153,9 @@ public final class Credential
   public String getAccessSecret() { return accessSecret; }
   public String getAccessToken() { return accessToken; }
   public String getRefreshToken() { return refreshToken; }
+  public String getTmsPrivateKey() { return tmsPrivateKey; }
+  public String getTmsPublicKey() { return tmsPublicKey; }
+  public String getTmsFingerprint() { return tmsFingerprint; }
   public String getCertificate() { return certificate; }
   public Boolean getValidationResult() { return validationResult; }
   public String getValidationMsg() { return validationMsg; }
@@ -162,13 +165,17 @@ public final class Credential
   {
     String l = StringUtils.isBlank(loginUser) ? "<empty>" : loginUser;
     String p = StringUtils.isBlank(password) ? "<empty>" : "*********";
-    String privKey = StringUtils.isBlank(privateKey) ? "<empty>" : "*********";
-    String pubKey = StringUtils.isBlank(publicKey) ? "<empty>" : "*********";
+    String pPrivKey = StringUtils.isBlank(privateKey) ? "<empty>" : "*********";
+    String pPubKey = StringUtils.isBlank(publicKey) ? "<empty>" : "*********";
     String aKey = StringUtils.isBlank(accessKey) ? "<empty>" : "*********";
     String aSecret = StringUtils.isBlank(accessSecret) ? "<empty>" : "*********";
     String aTok = StringUtils.isBlank(accessToken) ? "<empty>" : "*********";
     String aRefresh = StringUtils.isBlank(refreshToken) ? "<empty>" : "*********";
-    return String.format("Credential:%n  AuthnMethod: %s%n  loginUser: %s%n  password: %s%n  privateKey: %s%n  publicKey: %s%n  accessKey: %s%n  accessSecret: %s%n accessToken: %s%n refreshToken: %s%n  validationResult: %B%n  validationMsg: %s%n",
-                          authnMethod, l, p, privKey, pubKey, aKey, aSecret, aTok, aRefresh, validationResult, validationMsg);
+    String tPrivKey = StringUtils.isBlank(tmsPrivateKey) ? "<empty>" : "*********";
+    String tPubKey = StringUtils.isBlank(tmsPublicKey) ? "<empty>" : "*********";
+    String tfingerprint = StringUtils.isBlank(tmsFingerprint) ? "<empty>" : "*********";
+    return String.format("Credential:%n  AuthnMethod: %s%n  loginUser: %s%n  password: %s%n  privateKey: %s%n  publicKey: %s%n  accessKey: %s%n  accessSecret: %s%n accessToken: %s%n refreshToken: %s%n  tmsPrivateKey: %s%n  tmsPublicKey: %s%n  tmsFingerPrint: %s%n  validationResult: %B%n  validationMsg: %s%n",
+                         authnMethod, l, p, pPrivKey, pPubKey, aKey, aSecret, aTok, aRefresh, tPrivKey, tPubKey, tfingerprint,
+                         validationResult, validationMsg);
   }
 }

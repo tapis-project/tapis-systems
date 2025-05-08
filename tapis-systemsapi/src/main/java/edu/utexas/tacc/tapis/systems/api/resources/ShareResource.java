@@ -72,9 +72,6 @@ public class ShareResource
   private static final String JSON_VALIDATION_ERR = "TAPIS_JSON_VALIDATION_ERROR";
   private static final String UPDATED = "SYSAPI_UPDATED";
 
-  // Always return a nicely formatted response
-  private static final boolean PRETTY = true;
-
   // ************************************************************************
   // *********************** Fields *****************************************
   // ************************************************************************
@@ -117,7 +114,7 @@ public class ShareResource
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
-    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    Response resp = ApiUtils.checkContext(threadContext);
     if (resp != null) return resp;
 
     // Create a user that collects together tenant, user and request information needed by the service call
@@ -169,7 +166,7 @@ public class ShareResource
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
-    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    Response resp = ApiUtils.checkContext(threadContext);
     if (resp != null) return resp;
 
     // Create a user that collects together tenant, user and request information needed by the service call
@@ -256,7 +253,7 @@ public class ShareResource
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
-    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    Response resp = ApiUtils.checkContext(threadContext);
     if (resp != null) return resp;
 
     // Create a user that collects together tenant, user and request information needed by the service call
@@ -338,7 +335,7 @@ public class ShareResource
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
-    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    Response resp = ApiUtils.checkContext(threadContext);
     if (resp != null) return resp;
 
     // Create a user that collects together tenant, user and request information needed by the service call
@@ -388,7 +385,7 @@ public class ShareResource
       TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
       // Check that we have all we need from the context, the jwtTenantId and jwtUserId
       // Utility method returns null if all OK and appropriate error response if there was a problem.
-    Response resp = ApiUtils.checkContext(threadContext, PRETTY);
+    Response resp = ApiUtils.checkContext(threadContext);
     if (resp != null) return resp;
 
     // Create a user that collects together tenant, user and request information needed by the service call
@@ -429,6 +426,6 @@ public class ShareResource
    */
   private static Response createSuccessResponse(Status status, String msg, RespAbstract resp)
   {
-    return Response.status(status).entity(TapisRestUtils.createSuccessResponse(msg, PRETTY, resp)).build();
+    return Response.status(status).entity(TapisRestUtils.createSuccessResponse(msg, resp)).build();
   }
 }

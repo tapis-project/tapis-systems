@@ -80,18 +80,29 @@ public final class IntegrationUtils
 
   // Properties for one of the Tapis v3 test VMs
   public static final String TAPIS_TEST_HOST_LOGIN_USER = testUser3;
-  public static final String TAPIS_TEST_NAME_ENV_VAR = "TAPIS_VM_TESTUSER_NAME";
+  public static final String TAPIS_TEST_HOST_ENV_VAR = "TAPIS_VM_TEST_HOST";
+  public static final String TAPIS_TEST_HOST_IP = "129.114.35.53"; // tapisv3-vm1 // TODO replace this with env var TAPIS_VM_TEST_HOST
+  public static final String TAPIS_TEST_USERNAME_ENV_VAR = "TAPIS_VM_TESTUSER_NAME";
   public static final String TAPIS_TEST_PASSWORD_ENV_VAR = "TAPIS_VM_TESTUSER_PASSWORD";
-  public static final String TAPIS_TEST_HOST_IP = "129.114.35.53";
   public static final String TAPIS_TEST_S3_KEY_ENV_VAR = "TAPIS_S3_SCBLACK_KEY";
   public static final String TAPIS_TEST_S3_SECRET_ENV_VAR = "TAPIS_S3_SCBLACK_SECRET";
+  public static final String TAPIS_TEST_KEYS_DIR_ENV_VAR = "TAPIS_TEST_KEYS_LOCAL_DIR"; // Local dir containing test ssh key-pairs
   public static final String TAPIS_TEST_S3_ROOTDIR = "";
 //  public static final String TAPIS_TEST_S3_HOST = "tapisdemotest2.s3.amazonaws.com";
 //  public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "tapisdemo2";
 //  public static final String TAPIS_TEST_S3_BUCKET = "tapisdemotest2";
-  public static final String TAPIS_TEST_S3_HOST = "cics3.tacc.utexas.edu";
-  public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "scblack";
+  public static final String TAPIS_TEST_S3_HOST = "cics3.tacc.utexas.edu"; // TODO replace this with env var
+  public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "scblack"; // TODO replace this with env var
   public static final String TAPIS_TEST_S3_BUCKET = "smoketest";
+  // TMS settings
+  public static final String TMS_URL_ENV_VAR = "TAPIS_TMS_SERVER_URL";
+  public static final String TMS_TENANT_ENV_VAR = "TAPIS_TMS_TENANT";
+  public static final String TMS_CLIENT_ID_ENV_VAR = "TAPIS_TMS_CLIENT_ID";
+  public static final String TMS_CLIENT_KEY_ENV_VAR = "TAPIS_TMS_CLIENT_SECRET";
+  public static final String TMS_TEST_HOST_ENV_VAR = "TMS_TEST_HOST";
+  public static final String TMS_TEST_USER_ENV_VAR = "TMS_TEST_USER";
+  public static final String TMS_GETVERSION_ENDPOINT = "v1/tms/version";
+  public static final String TMS_CLIENT_USER = "tapisSysIntegTest";
 
   public static final String sysNamePrefix = "TestSys";
   public static final String schedProfileNamePrefix = "TestSchedProfile";
@@ -112,6 +123,8 @@ public final class IntegrationUtils
   public static final boolean canExecFalse = false;
   public static final boolean skipCredCheckTrue = true;
   public static final boolean skipCredCheckFalse = false;
+  public static final boolean createTmsKeysTrue = true;
+  public static final boolean createTmsKeysFalse = false;
   public static final boolean getCredsTrue = true;
   public static final boolean getCredsFalse = false;
   public static final boolean requireExecPermFalse = false;
@@ -295,9 +308,9 @@ public final class IntegrationUtils
   public static final String invalidPublicSshKey = "testPubSshKey";
 
   public static final Credential credInvalidPrivateSshKey =
-          new Credential(null, null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null, null, null);
+          new Credential(null, null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null, null, null, null, null, null);
   public static final Credential credNoLoginUser =
-          new Credential(null, null, "fakePassword", null, null, null, null, null, null, null);
+          new Credential(null, null, "fakePassword", null, null, null, null, null, null, null, null, null, null);
 
   // Permissions
   public static final Set<TSystem.Permission> testPermsREADMODIFY = new HashSet<>(Set.of(TSystem.Permission.READ, TSystem.Permission.MODIFY));
@@ -516,16 +529,17 @@ public final class IntegrationUtils
   }
 
   /**
-   * Create an array of SchedulerProfile objects in memory
+   * Create an array of n+1 SchedulerProfile objects in memory
    * Names will be of format TestSchedProfile_K_NNN where K is the key and NNN runs from 000 to 999
    * We need a key because maven runs the tests in parallel so each set of profiles created by an integration
    *   test will need its own namespace.
+   * Final n+1 profile will have no modulesToLoad and two hidden options. As test for bug that was in Sys ver 1.8.1
    * @param n number of objects to create
    * @return array of objects created
    */
   public static SchedulerProfile[] makeSchedulerProfiles(int n, String key)
   {
-    SchedulerProfile[] schedulerProfiles = new SchedulerProfile[n];
+    SchedulerProfile[] schedulerProfiles = new SchedulerProfile[n+1];
     List<SchedulerProfile.HiddenOption> hiddenOptions = new ArrayList<>(List.of(SchedulerProfile.HiddenOption.MEM));
     for (int i = 0; i < n; i++)
     {
@@ -539,6 +553,15 @@ public final class IntegrationUtils
       schedulerProfiles[i] = new SchedulerProfile(tenantName, name, "Test profile" + suffix, testUser2,
                                                   moduleLoads, hiddenOptions, null, null, null);
     }
+    // Create a final n+1 profile that is a little different as an additional test
+    int i = n;
+    String iStr = String.format("%03d", i+1);
+    String suffix = key + "_" + iStr;
+    String name = getSchedulerProfileName(key, i+1);
+    List<ModuleLoadSpec> moduleLoads = null;
+    hiddenOptions = new ArrayList<>(List.of(SchedulerProfile.HiddenOption.MEM, SchedulerProfile.HiddenOption.PARTITION));
+    schedulerProfiles[i] = new SchedulerProfile(tenantName, name, "Test profile" + suffix, testUser2,
+                                                moduleLoads, hiddenOptions, null, null, null);
     return schedulerProfiles;
   }
 
@@ -598,4 +621,7 @@ public final class IntegrationUtils
       Assert.assertEquals(fetchedMap.get(kvKey).toString(), origMap.get(kvKey).toString());
     }
   }
+  // Wrapper for request info used when fetching a public key from TMS
+  public record TmsGetPubKeyRequest(String user, String user_uid, String host, String public_key_fingerprint,
+                                    String key_type) {}
 }

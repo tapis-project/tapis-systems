@@ -160,6 +160,7 @@ public class SystemsServiceImpl implements SystemsService
     siteId = siteId1;
     siteAdminTenantId = siteAdminTenantId1;
     serviceContext.initServiceJWT(siteId, SYSTEMS_SERVICE, svcPassword);
+    CredUtils.initTmsConfiguration();
     // Make sure DB is present and updated to latest version using flyway
     dao.migrateDB();
 
@@ -328,7 +329,9 @@ public class SystemsServiceImpl implements SystemsService
       // ---------------- Verify credentials if not skipped
       if (!skipCredCheck && manageCredentials)
       {
-        Credential c = credUtils.verifyCredentials(rUser, system, cred, cred.getLoginUser(), system.getDefaultAuthnMethod());
+        // During create, we only verify for static effectiveUser and system default authnMethod, so we pass in the
+        //   effectiveUser from request as hostLoginUser and the authnMethod from the system.
+        Credential c = credUtils.verifyCredentials(rUser, system, cred, system.getEffectiveUserId(), system.getDefaultAuthnMethod());
         system.setAuthnCredential(c);
         // If credential validation failed we do not create the system. Return now.
         if (Boolean.FALSE.equals(c.getValidationResult())) return system;

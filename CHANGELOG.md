@@ -10,12 +10,47 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.7.1 - 2024-??-??
+## 1.8.3 - 2025-04-29
 
-TBD
+Incremental improvements. TMS logging, remove unused pretty-print option from resource classes.
 
 ### New features:
+- Ignore expired JWTs older than 90 days (update from shared code).
+
+### Bug fixes:
 - None
+
+---------------------------------------------------------------------------
+## 1.8.2 - 2025-02-25
+
+Updates for support of Trusted Management System (TMS).
+
+### New features:
+- Updates for support of Trusted Management System (TMS)
+
+### Bug fixes:
+- Do not attempt Globus operation if system not of type Globus. Return Bad Request (400).
+- Fix bug in support for use of PARTITION as a hidden option in a scheduler profile.
+
+---------------------------------------------------------------------------
+## 1.8.1 - 2025-01-09
+
+Update from Java jdk-17 to jdk-21. Exit on service JWT refresh error.
+
+### New features:
+- Update to jdk-21.
+- Incorporate latest JWT refresh code from tapis-shared-java. Exit on service JWT refresh error.
+
+### Bug fixes:
+- None
+
+---------------------------------------------------------------------------
+## 1.8.0 - 2024-11-21
+
+Support for Trust Manager System (TMS) Minimal Viable Product (MVP)
+
+### New features:
+- Initial support for Trust Manager System (TMS). New credential type and related functionality.
 
 ### Bug fixes:
 - None

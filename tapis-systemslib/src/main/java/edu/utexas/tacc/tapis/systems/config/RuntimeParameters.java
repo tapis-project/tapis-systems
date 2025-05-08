@@ -22,6 +22,8 @@ import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
+import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
+
 /* This class contains the complete and effective set of runtime parameters
  * for this service.  Each service has it own version of this file that
  * contains the resolved values of configuration parameters needed to
@@ -124,6 +126,12 @@ public final class RuntimeParameters implements EmailClientParameters
 
   // TAPIS_SVC_MAINTENANCE_INTERVAL (in minutes)
   private int svcMaintenanceInterval = SystemsServiceImpl.DEFAULT_SVC_MAINT_INTERVAL;
+  // TMS parameters
+  private boolean tmsEnabled = false;
+  private String tmsServerUrl;
+  private String tmsTenant;
+  private String tmsClientId;
+  private String tmsClientSecret;
 
   /* ********************************************************************** */
   /*                              Constructors                              */
@@ -230,9 +238,32 @@ public final class RuntimeParameters implements EmailClientParameters
     parm = inputProperties.getProperty(EnvVar2.TAPIS_SVC_ADMIN_TENANT.getEnvName());
     if (!StringUtils.isBlank(parm)) setServiceAdminTenant(parm);
 
-    // --------------------- Default Globus client Id ----------------------------
+    // --------------------- Globus client Id ----------------------------
     parm = inputProperties.getProperty(EnvVar2.TAPIS_GLOBUS_CLIENT_ID.getEnvName());
     if (!StringUtils.isBlank(parm)) setGlobusClientId(parm);
+
+    // --------------------- TMS Configuration ----------------------------
+    // If TAPIS_TMS_ENABLED set, attempt to interpret it as a boolean. Fail on error
+    parm = inputProperties.getProperty(EnvVar2.TAPIS_TMS_ENABLED.getEnvName());
+    if (!StringUtils.isBlank(parm))
+    {
+      try {tmsEnabled = Boolean.parseBoolean(parm);}
+      catch (Exception e)
+      {
+        String msg = MsgUtils.getMsg("TAPIS_SERVICE_PARM_INITIALIZATION_FAILED",
+                                     TapisConstants.SERVICE_NAME_SYSTEMS, "TAPIS_TMS_ENALBED", e.getMessage());
+        _log.error(msg, e);
+        throw new TapisRuntimeException(msg, e);
+      }
+    }
+    parm = inputProperties.getProperty(EnvVar2.TAPIS_TMS_SERVER_URL.getEnvName());
+    if (!StringUtils.isBlank(parm)) setTmsServerUrl(parm);
+    parm = inputProperties.getProperty(EnvVar2.TAPIS_TMS_TENANT.getEnvName());
+    if (!StringUtils.isBlank(parm)) setTmsTenant(parm);
+    parm = inputProperties.getProperty(EnvVar2.TAPIS_TMS_CLIENT_ID.getEnvName());
+    if (!StringUtils.isBlank(parm)) setTmsClientId(parm);
+    parm = inputProperties.getProperty(EnvVar2.TAPIS_TMS_CLIENT_SECRET.getEnvName());
+    if (!StringUtils.isBlank(parm)) setTmsClientSecret(parm);
 
     // --------------------- Site on which we are running ----------------------------
     // Site is required. Throw runtime exception if not found.
@@ -485,9 +516,22 @@ public final class RuntimeParameters implements EmailClientParameters
     buf.append("\ntapis.svc.sk.url: ");
     buf.append(skSvcURL);
 
-    buf.append("\n------- Default Globus Client Id ----------------------");
+    buf.append("\n------- Globus Client Id ----------------------");
     buf.append("\ntapis.globus.client.id: ");
     buf.append(globusClientId);
+
+    buf.append("\n------- TMS Configuration ----------------------");
+    buf.append("\ntapis.tms.enabled: ");
+    buf.append(tmsEnabled);
+    buf.append("\ntapis.tms.server.url: ");
+    buf.append(tmsServerUrl);
+    buf.append("\ntapis.tms.tenant: ");
+    buf.append(tmsTenant);
+    buf.append("\ntapis.tms.client.id: ");
+    buf.append(tmsClientId);
+    buf.append("\ntapis.tms.client.secret: ");
+    String tmsSecretStr = StringUtils.isBlank(tmsClientSecret) ? tmsClientSecret : SECRETS_MASK;
+    buf.append(tmsSecretStr);
 
     buf.append("\n------- Email Configuration -----------------------");
     buf.append("\ntapis.mail.provider: ");
@@ -689,6 +733,16 @@ public final class RuntimeParameters implements EmailClientParameters
   public int getSvcMaintenanceInterval() { return svcMaintenanceInterval; }
   private void setSvcMaintenanceInterval(int i) { svcMaintenanceInterval = i; }
 
+  public boolean getTmsEnalbed() { return tmsEnabled; }
+  public String getTmsServerUrl() { return tmsServerUrl; }
+  private void setTmsServerUrl(String s) {tmsServerUrl = s; }
+  public String getTmsTenant() { return tmsTenant; }
+  private void setTmsTenant(String s) {tmsTenant = s; }
+  public String getTmsClientId() { return tmsClientId; }
+  private void setTmsClientId(String s) {tmsClientId = s; }
+  public String getTmsClientSecret() { return tmsClientSecret; }
+  private void setTmsClientSecret(String s) {tmsClientSecret = s; }
+
   /* ********************************************************************** */
   /*                            Private Methods                             */
   /* ********************************************************************** */
@@ -769,6 +823,11 @@ public final class RuntimeParameters implements EmailClientParameters
     TAPIS_MIGRATE_JOB_APPLY("tapis.migrate.job.apply"),
     TAPIS_GLOBUS_CLIENT_ID("tapis.globus.client.id"),
     TAPIS_SVC_MAINTENANCE_INTERVAL("tapis.svc.maintenance.interval");
+    TAPIS_TMS_ENABLED("tapis.tms.enabled"),
+    TAPIS_TMS_SERVER_URL("tapis.tms.server.url"),
+    TAPIS_TMS_TENANT("tapis.tms.tenant"),
+    TAPIS_TMS_CLIENT_ID("tapis.tms.client.id"),
+    TAPIS_TMS_CLIENT_SECRET("tapis.tms.client.secret");
     private final String _envName;
     EnvVar2(String envName) {
       _envName = envName;
