@@ -14,7 +14,6 @@ import javax.inject.Inject;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
-
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -151,15 +150,13 @@ public class SystemsServiceImpl implements SystemsService
    *   init service context
    *   migrate DB
    */
-  @Override
-  public void initService(String siteId1, String siteAdminTenantId1, RuntimeParameters runParms)
-          throws TapisException, TapisClientException
+  public void initService(String siteId1, String siteAdminTenantId1, RuntimeParameters runtimeParameters)
+        throws TapisException, TapisClientException
   {
     // Initialize service context and site info
-    String svcPassword = runParms.getServicePassword();
     siteId = siteId1;
     siteAdminTenantId = siteAdminTenantId1;
-    serviceContext.initServiceJWT(siteId, SYSTEMS_SERVICE, svcPassword);
+    serviceContext.initServiceJWT(siteId, SYSTEMS_SERVICE, runtimeParameters.getServicePassword());
     CredUtils.initTmsConfiguration();
     // Make sure DB is present and updated to latest version using flyway
     dao.migrateDB();

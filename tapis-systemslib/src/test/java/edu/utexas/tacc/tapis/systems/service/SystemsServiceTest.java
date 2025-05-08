@@ -145,7 +145,7 @@ public class SystemsServiceTest
     svcImpl = locator.getService(SystemsServiceImpl.class);
     svcSchedProfile = locator.getService(SchedulerProfileServiceImpl.class);
     svcCred = locator.getService(CredentialsServiceImpl.class);
-    svcImpl.initService(siteId, adminTenantName, RuntimeParameters.getInstance().getServicePassword());
+    svcImpl.initService(siteId, adminTenantName, RuntimeParameters.getInstance());
     CredUtils.initTmsConfiguration();
     credUtils = locator.getService(CredUtils.class);
 

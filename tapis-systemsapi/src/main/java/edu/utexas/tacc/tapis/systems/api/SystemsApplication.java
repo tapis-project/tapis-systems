@@ -65,9 +65,11 @@ public class SystemsApplication extends ResourceConfig
   // For all logging use println or similar, so we do not have a dependency on a logging subsystem.
   public SystemsApplication()
   {
-    // Log our existence.
+    RuntimeParameters runParms = RuntimeParameters.getInstance();
     // Output version information on startup
-    System.out.println("**** Starting Systems Service. Version: " + TapisUtils.getTapisFullVersion() + " ****");
+    System.out.printf("**** Starting Systems Service. Version: %s ****%n", TapisUtils.getTapisFullVersion());
+    // Log our config
+    System.out.println(runParms.getRuntimeInfo());
 
     // Needed for properly returning timestamps
     // Also allows for setting a breakpoint when response is being constructed.
@@ -96,9 +98,6 @@ public class SystemsApplication extends ResourceConfig
     // Perform remaining init steps in try block, so we can print a fatal error message if something goes wrong.
     try
     {
-      // Get runtime parameters
-      RuntimeParameters runParms = RuntimeParameters.getInstance();
-
       // Set site on which we are running. This is a required runtime parameter.
       siteId = runParms.getSiteId();
 
@@ -163,10 +162,11 @@ public class SystemsApplication extends ResourceConfig
     InjectionManager im = handler.getInjectionManager();
     ServiceLocator locator = im.getInstance(ServiceLocator.class);
     SystemsService svc = locator.getService(SystemsService.class);
+    RuntimeParameters runParms = RuntimeParameters.getInstance();
 
     // Call the main service init method
     System.out.println("Initializing service");
-    svc.initService(siteId, siteAdminTenantId, RuntimeParameters.getInstance());
+    svc.initService(siteId, siteAdminTenantId, runParms);
 
     // Add a shutdown hook so we can gracefully stop
     System.out.println("Registering shutdownHook");
@@ -177,7 +177,7 @@ public class SystemsApplication extends ResourceConfig
     //  - updates FAILED and PENDING credInfo records
     // NOTE: Starting this after initial sync in initService so initial sync is single-threaded.
     System.out.println("Starting maintenance background task");
-    svc.startMaintenanceTask(RuntimeParameters.getInstance().getSvcMaintenanceInterval());
+    svc.startMaintenanceTask(runParms.getSvcMaintenanceInterval());
 
     // Create and start the server
     System.out.println("Starting http server");

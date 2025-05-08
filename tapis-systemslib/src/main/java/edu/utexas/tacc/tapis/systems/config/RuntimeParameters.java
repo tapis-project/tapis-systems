@@ -822,7 +822,7 @@ public final class RuntimeParameters implements EmailClientParameters
     TAPIS_SVC_ADMIN_TENANT("tapis.svc.admin.tenant"),
     TAPIS_MIGRATE_JOB_APPLY("tapis.migrate.job.apply"),
     TAPIS_GLOBUS_CLIENT_ID("tapis.globus.client.id"),
-    TAPIS_SVC_MAINTENANCE_INTERVAL("tapis.svc.maintenance.interval");
+    TAPIS_SVC_MAINTENANCE_INTERVAL("tapis.svc.maintenance.interval"),
     TAPIS_TMS_ENABLED("tapis.tms.enabled"),
     TAPIS_TMS_SERVER_URL("tapis.tms.server.url"),
     TAPIS_TMS_TENANT("tapis.tms.tenant"),

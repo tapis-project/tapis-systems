@@ -221,7 +221,7 @@ public class CredUtils
    * @throws TapisException - for Tapis related exceptions
    */
   Credential createCredentialForUser(ResourceRequestUser rUser, TSystem system, String targetUser,
-                                     Credential cred, boolean skipCheck, String rawData)
+                                     Credential cred, boolean createTmsKeys, boolean skipCheck, String rawData)
           throws TapisException, TapisClientException, IllegalStateException
   {
     SystemOperation op = SystemOperation.setCred;
@@ -229,6 +229,7 @@ public class CredUtils
     Credential fullCred = cred; // The full Credential, including TMS keys info if generated.
     String msg;
     // Extract some attributes for convenience and clarity
+    String oboTenant = rUser.getOboTenantId();
     String loginUser = cred.getLoginUser();
     String systemId = system.getId();
     SystemType systemType = system.getSystemType();
@@ -295,11 +296,11 @@ public class CredUtils
 
     // Create credential. Create or update SK records and CredentialInfo record
     // If this throws an exception we do not try to rollback. Attempting to track which secrets
-    //   have been changed and reverting seems fraught with peril and not a good ROI.
+    //   have been changed and reverting seems fraught th peril and not a good ROI.
 // TODO/TBD no need to convert TapisClientException to TapisException?
 //    try
 //    {
-      createCredential(rUser, fullCred, systemId, targetUser, isStaticEffectiveUser);
+      createCredential(rUser, fullCred, system, targetUser, isStaticEffectiveUser);
 //    }
 //    // If tapis client exception then log error and convert to TapisException
 //    catch (TapisClientException tce)
@@ -312,7 +313,7 @@ public class CredUtils
     //   then record the mapping
     if (!isStaticEffectiveUser && !StringUtils.isBlank(loginUser))
     {
-      dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, loginUser);
+      dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, loginUser, isStaticEffectiveUser);
     }
 
     // Construct Json string representing the update, with actual secrets masked out
