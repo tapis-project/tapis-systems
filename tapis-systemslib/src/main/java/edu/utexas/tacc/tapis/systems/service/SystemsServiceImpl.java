@@ -718,7 +718,8 @@ public class SystemsServiceImpl implements SystemsService
    * Undelete a system
    *  - Add permissions for owner
    *  - Update deleted to false for a system
-   *  TODO/TBD - re-create CredInfo record if system has static effectiveUserId? mark as PENDING? probably
+   *  TODO/TBD - re-create CredInfo record if system has static effectiveUserId? mark as PENDING? probably,
+   *                                  but how to sync/track?
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @return Number of items updated
@@ -743,6 +744,17 @@ public class SystemsServiceImpl implements SystemsService
     // We just checked for system, so it should never be null. But just in case.
     if (system == null) return 0;
 
+    // Get owner, if not found it is an error
+    String owner = system.getOwner();
+    if (StringUtils.isBlank(owner))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, systemId, op.name());
+      log.error(msg);
+      throw new TapisException(msg);
+    }
+    // ------------------------- Check authorization -------------------------
+    authUtils.checkAuthOwnerKnown(rUser, op, systemId, owner);
+
     // if this is a child system, make sure that the parent hasn't been deleted, and that
     // the parent still allows children
     if (isChildSystem(system)) {
@@ -761,21 +773,19 @@ public class SystemsServiceImpl implements SystemsService
       }
     }
 
-    // Get owner, if not found it is an error
-    String owner = system.getOwner();
-    if (StringUtils.isBlank(owner)) {
-      String msg = LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, systemId, op.name());
-      log.error(msg);
-      throw new TapisException(msg);
-    }
-    // ------------------------- Check authorization -------------------------
-    authUtils.checkAuthOwnerKnown(rUser, op, systemId, owner);
-
     // Consider using a notification instead (jira cic-3071)
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
     // Consider using a notification instead (jira cic-3071)
     // Give owner files service related permission for root directory
     sysUtils.getSKClient(rUser).grantUserPermission(oboTenant, owner, filesPermSpec);
+
+    // TODO Create a PENDING record in the CredInfo table
+    // TODO/TBD: Make sure no record exists??
+    dao.createCredInfo(rUser, null);// TODO/TBD this one? or use addCredInfoRecordAndLock
+    credUtils.addCredInfoRecordAndLock(); // TODO/TBD this one? make sure to check for valid transition?
+                                          //            but this method is currently private, make public?
+                                          //          or create another CredUtils method that calls addCredInfoRecordAndLock
+                                          //             look at other cases where we are updating
 
     // Update deleted attribute
     return updateDeleted(rUser, systemId, op);
