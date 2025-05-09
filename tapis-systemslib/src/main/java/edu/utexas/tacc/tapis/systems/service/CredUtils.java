@@ -737,23 +737,17 @@ public class CredUtils
   /**
    * Check the systems_cred_info table and update as needed
    * NOTE: This method should only be called at startup when there is only a single thread running.
+   *  - Check that IN_PROGRESS to FAILED transition is allowed
    *  - Mark all IN_PROGRESS records as FAILED
+   *  - Remove deleted records
    *  - Create records as needed for undeleted systems that have a static effectiveUserId
    */
-//TODO/TBD  void credInfoInit(FSM<CredInfoSyncState> credInfoFSM) throws TapisException
-  void credInfoInit() throws TapisException
+    void credInfoInit() throws TapisException
   {
-    // TODO: Any use of CredInfoFSM here? Maybe? check for allowed transition IN_PROGRESS to FAILED Do we really even need an FSM for that?
     // Mark all IN_PROGRESS records as FAILED
-    // TODO: First check that transition is valid. If not valid then abort startup by throwing an exception.
-//TODO    String transition = CredInfoFSM.InProgressToFailed;
+    // First check that transition is valid. If not valid then abort startup by throwing an exception.
 //    transition = "NoSuchTransition"; // TODO temp, for testing
-//    if (!CredInfoFSM.allowedEvents.contains(transition))
-//    {
-//      String msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FSM_INVALID_TRANSITION", transition);
-//      log.error(msg);
-//      throw new TapisException(msg);
-//    }
+    CredInfoFSM.checkForAllowedTransition(CredInfoFSM.InProgressToFailed);
 
     String failMsg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED_BEGIN");
     log.info(failMsg);

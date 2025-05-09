@@ -66,7 +66,8 @@ public final class MaintenanceTask implements Runnable
   /* ********************************************************************** */
 
   /*
-   * Main method
+   * Main method. Performs the following:
+   *   - Update the systems_cred_info table to keep it in sync with SK
    */
   public void run()
   {

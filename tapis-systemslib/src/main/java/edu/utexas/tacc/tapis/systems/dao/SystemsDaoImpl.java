@@ -1770,6 +1770,7 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS_CRED_INFO.HAS_PKI_KEYS, credInfo.hasPkiKeys())
               .set(SYSTEMS_CRED_INFO.HAS_ACCESS_KEY, credInfo.hasAccessKey())
               .set(SYSTEMS_CRED_INFO.HAS_TOKEN, credInfo.hasToken())
+              .set(SYSTEMS_CRED_INFO.HAS_TMS_KEYS, credInfo.hasTmsKeys())
               .set(SYSTEMS_CRED_INFO.SYNC_STATUS, credInfo.getSyncStatus())
               .set(SYSTEMS_CRED_INFO.SYNC_FAILED, (LocalDateTime) null)
               .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, credInfo.getSyncFailCount())
@@ -1840,7 +1841,51 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   /**
-   * Delete CredInfo record
+   * getCredentialInfoRecordsForSystem
+   */
+  @Override
+  public List<CredentialInfo> getCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenantId, String sysId)
+        throws TapisException
+  {
+    // The result list should always be non-null.
+    List<CredentialInfo> retList = new ArrayList<>();
+
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+
+      var records = db.selectFrom(SYSTEMS_CRED_INFO)
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId)).fetch();
+      if (records == null || records.isEmpty()) return Collections.emptyList();
+
+      for (SystemsCredInfoRecord scir : records)
+      {
+        CredentialInfo credInfo = getCredentialInfoFromRecord(scir);
+        retList.add(credInfo);
+      }
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "CredentialInfoRecords", tenantId, sysId, e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return retList;
+  }
+
+  /**
+   * Delete CredInfo record given tenant, systemId, tapis user and isStatic
    */
   @Override
   public void deleteCredInfo(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser, boolean isStatic)
@@ -1873,6 +1918,60 @@ public class SystemsDaoImpl implements SystemsDao
     {
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * Delete CredInfo record given CredInfo record
+   */
+  @Override
+  public void deleteCredInfoRecord(ResourceRequestUser rUser, CredentialInfo credInfo)
+        throws TapisException
+  {
+    String tenantId = credInfo.getTenant();
+    String sysId = credInfo.getSystemId();
+    String tapisUser = credInfo.getTapisUser();
+    // If anything missing throw an exception. These values make up the primary key
+    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
+    {
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NULL_PK", rUser, tenantId, sysId, tapisUser));
+    }
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      db.deleteFrom(SYSTEMS_CRED_INFO)
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
+                  SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
+            .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_DELETE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * Delete all CredInfo records associated with a system
+   */
+  @Override
+  public void deleteAllCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenant, String systemId)
+        throws TapisException
+  {
+    List<CredentialInfo> credInfoList = getCredInfoRecordsForSystem(rUser, tenant, systemId);
+    for (CredentialInfo credInfo : credInfoList)
+    {
+      deleteCredInfoRecord(rUser, credInfo);
     }
   }
 
@@ -2065,6 +2164,7 @@ public class SystemsDaoImpl implements SystemsDao
 
   /**
    * In SYSTEMS_CRED_INFO table, create records as needed for undeleted systems that have a static effectiveUserId
+   * Records are created in the PENDING state
    * @throws TapisException on error
    */
   @Override
@@ -2092,8 +2192,9 @@ public class SystemsDaoImpl implements SystemsDao
       // NOTE: For static users, tapis_user can be system owner. What about for dynamic users?
       //       Use null? No, because tapis_user is part of the primary key, so for dynamic effectiveUserId
       //       we cannot create CredInfo records as part of the maintenance task.
-      // Values to use for created, updated: timestamp
+      // Initialize timestamp to use for created and updated fields.
       LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
+      // Insert the records based on the query result
       for (SystemsRecord r : results)
       {
         int count = db.insertInto(SYSTEMS_CRED_INFO)
@@ -2461,8 +2562,7 @@ public class SystemsDaoImpl implements SystemsDao
   @Override
   public List<SchedulerProfile> getSchedulerProfiles(String tenantId) throws TapisException
   {
-    List<SchedulerProfile> retList1;
-    var retList2 = new ArrayList<SchedulerProfile>();
+    List<SchedulerProfile> retList = new ArrayList<SchedulerProfile>();
     // ------------------------- Build and execute SQL ----------------------------
     Connection conn = null;
     try
@@ -2496,7 +2596,7 @@ public class SystemsDaoImpl implements SystemsDao
                                                     spr.getOwner(), moduleLoads, hoList2, spr.getUuid(),
                                                     spr.getCreated().toInstant(ZoneOffset.UTC),
                                                     spr.getUpdated().toInstant(ZoneOffset.UTC));
-        retList2.add(sp2);
+        retList.add(sp2);
       }
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -2511,7 +2611,7 @@ public class SystemsDaoImpl implements SystemsDao
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
     }
-    return retList2;
+    return retList;
   }
 
   /**
@@ -3373,7 +3473,7 @@ public class SystemsDaoImpl implements SystemsDao
   {
     return new CredentialInfo(r.getSystemSeqId(), r.getTenant(), r.getSystemId(), r.getTapisUser(), r.getLoginUser(),
             r.getIsStatic(), r.getHasCredentials(), r.getHasPassword(), r.getHasPkiKeys(),
-            r.getHasAccessKey(), r.getHasToken(), r.getSyncStatus(), r.getSyncFailCount(),
+            r.getHasAccessKey(), r.getHasToken(), r.getHasTmsKeys(), r.getSyncStatus(), r.getSyncFailCount(),
             r.getSyncFailMessage(), r.getSyncFailed().toInstant(ZoneOffset.UTC),
             r.getCreated().toInstant(ZoneOffset.UTC), r.getUpdated().toInstant(ZoneOffset.UTC));
   }

@@ -91,11 +91,17 @@ public interface SystemsDao
   CredentialInfo getCredInfo(ResourceRequestUser rUser, String tenantId, String systemId, String tapisUser, boolean isStatic)
           throws TapisException;
 
-  void deleteCredInfo(ResourceRequestUser rUser, String tenantId, String systemId, String tapisUser, boolean isStatic)
-          throws TapisException;
+  List<CredentialInfo> getCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenantId, String systemId)
+        throws TapisException;
 
-  CredentialInfo createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
-          throws TapisException;
+  void deleteCredInfo(ResourceRequestUser rUser, String tenantId, String systemId, String tapisUser, boolean isStatic)
+        throws TapisException;
+
+  void deleteCredInfoRecord(ResourceRequestUser rUser, CredentialInfo credInfo) throws TapisException;
+
+  void deleteAllCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenant, String systemId) throws TapisException;
+
+  CredentialInfo createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo) throws TapisException;
 
   String getLoginUser(String tenantId, String id, String tapisUser) throws TapisException;
 

@@ -20,8 +20,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.jvnet.hk2.annotations.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.statefulj.fsm.FSM;
-import org.statefulj.persistence.memory.MemoryPersisterImpl;
 
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.search.SearchUtils;
@@ -132,10 +130,6 @@ public class SystemsServiceImpl implements SystemsService
   public static String getServiceTenantId() {return siteAdminTenantId;}
   public static String getServiceUserId() {return SERVICE_NAME;}
 
-  // TODO/TBD CredentialInfo Finite State Machine (FSM)
-  //  private MemoryPersisterImpl<CredInfoSyncState> credInfoPersister;
-  //  private FSM<CredInfoSyncState> credInfoFSM;
-
   // ************************************************************************
   // *********************** Public Methods *********************************
   // ************************************************************************
@@ -166,20 +160,9 @@ public class SystemsServiceImpl implements SystemsService
     // Create the maintenanceTask runnable
     maintenanceTask = new MaintenanceTask(rUserSvc);
 
-    // Initialize the Finite State Machine that tracks CredentialInfo SyncState
-    // FSM Used for validating state transitions.
-    // Main usefulness is in catching difficult to find bugs introduced by future code changes.
-    // TODO/TBD Do we really need this if all we are checking is that a transition is allowed?
-    //          Could we just have a Set of allowed transitions (i.e. the events defined as Strings in CredInfoFSM)
-    //          and check that proposed transition against that set? Do we really need an FSM?
-//    credInfoPersister =
-//            new MemoryPersisterImpl<>(CredInfoFSM.getStates(), CredInfoFSM.PendingState, CredInfoSyncState.STATE_FIELD_NAME);
-//    credInfoFSM = new FSM<>(CredInfoFSM.FSM_NAME, credInfoPersister);
-
     // Check the systems_cred_info table and perform initial single-threaded synchronization steps.
-    // IN_PROGRESS records moved to FAILED
-// TODO   credUtils.credInfoInit(credInfoFSM);
-    credUtils.credInfoInit();
+    // IN_PROGRESS records moved to FAILED, DELETED records removed from data store
+   credUtils.credInfoInit();
   }
 
   /**
@@ -685,8 +668,8 @@ public class SystemsServiceImpl implements SystemsService
    * Soft delete a system
    *   - Remove effectiveUser credentials associated with the system.
    *   - Remove permissions associated with the system.
+   *   - Remove CredInfo records associated with the system
    *   - Update deleted to true for a system
-   *  TODO/TBD - delete CredInfo record if system has static effectiveUserId?
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @return Number of items updated
@@ -710,18 +693,22 @@ public class SystemsServiceImpl implements SystemsService
     // We just checked for system, so it should never be null. But just in case.
     if (system == null) return 0;
 
-    // cant delete a system if it has children
+    // ------------------------- Check authorization -------------------------
+    authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
+
+    // Reject the request if the system has children
     if (dao.hasChildren(rUser.getOboTenantId(), systemId)) {
       String msg = LibUtils.getMsg("SYSLIB_CHILD_HAS_CHILD_ERROR", rUser, systemId);
       log.warn(msg);
       throw new IllegalStateException(msg);
     }
-    // ------------------------- Check authorization -------------------------
-    authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
-
     // Remove effectiveUser credentials associated with the system
     // Remove permissions associated with the system
     removeSKArtifacts(rUser, system);
+
+    // Remove CredInfo records associated with the system.
+    // They will eventually be re-created if it is undeleted.
+    dao.deleteAllCredInfoRecordsForSystem(rUser, system.getTenant(), systemId);
 
     // Update deleted attribute
     return updateDeleted(rUser, systemId, op);
@@ -970,27 +957,28 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Hard delete a system record given the system name.
-   * Also remove artifacts from the Security Kernel
-   *  TODO - Delete all CredInfo records
+   *   - remove artifacts from the Security Kernel
+   *   - delete all CredInfo records for the system
+   *   - remove system record from data store
    * NOTE: This is package-private. Only test code should ever use it.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param oboTenant - Tenant containing resources.
+   * @param tenant - Tenant containing resources.
    * @param systemId - name of system
    * @return Number of items deleted
    * @throws TapisException - for Tapis related exceptions
    * @throws TapisClientException - for Tapis related exceptions
    */
-  int hardDeleteSystem(ResourceRequestUser rUser, String oboTenant, String systemId)
+  int hardDeleteSystem(ResourceRequestUser rUser, String tenant, String systemId)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.hardDelete;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(oboTenant) ||  StringUtils.isBlank(systemId))
+    if (StringUtils.isBlank(tenant) ||  StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     // If system does not exist then 0 changes
-    TSystem system = dao.getSystem(oboTenant, systemId, true);
+    TSystem system = dao.getSystem(tenant, systemId, true);
     if (system == null) return 0;
 
     // ------------------------- Check authorization -------------------------
@@ -999,9 +987,11 @@ public class SystemsServiceImpl implements SystemsService
     // Remove SK artifacts
     removeSKArtifacts(rUser, system);
 
-    dao.deleteCredInfo();
+    // Delete all CredInfo records associated with the system
+    dao.deleteAllCredInfoRecordsForSystem(rUser, tenant, systemId);
+
     // Delete the system
-    return dao.hardDeleteSystem(oboTenant, systemId);
+    return dao.hardDeleteSystem(tenant, systemId);
   }
 
   /**
