@@ -223,6 +223,7 @@ public class CredUtils
     String oboTenant = rUser.getOboTenantId();
     String loginUser = cred.getLoginUser();
     String systemId = system.getId();
+    String sysTenant = system.getTenant();
     SystemType systemType = system.getSystemType();
 
     // Determine the effectiveUser type, either static or dynamic
@@ -234,6 +235,13 @@ public class CredUtils
     TmsKeys tmsKeys;
     if (createTmsKeys)
     {
+      // Check if TMS is allowed for the tenant. Not all tenants are allowed to create TMS credentials
+      if (!RuntimeParameters.getInstance().getTmsAllowedTenants().contains(sysTenant))
+      {
+        msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_TENANT_NOT_ALLOWED", rUser, sysTenant, systemId);
+        throw new BadRequestException(msg);
+      }
+
       // Make sure we are configured for TMS support
       if (!CredUtils.tmsEnabled)
       {

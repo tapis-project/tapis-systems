@@ -15,7 +15,7 @@ import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsLoginUser;
 /**
  * Convenience access to all tables in tapis_sys.
  */
-@SuppressWarnings({ "all", "unchecked", "rawtypes" })
+@SuppressWarnings({ "all", "unchecked", "rawtypes", "this-escape" })
 public class Tables {
 
     /**
