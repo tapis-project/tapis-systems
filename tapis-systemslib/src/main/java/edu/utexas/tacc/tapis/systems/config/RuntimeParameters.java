@@ -833,7 +833,7 @@ public final class RuntimeParameters implements EmailClientParameters
   public String getTmsClientSecret() { return tmsClientSecret; }
   private void setTmsClientSecret(String s) {tmsClientSecret = s; }
   public Set<String> getTmsAllowedTenants() { return tmsAllowedTenants; }
-  private void setTmsAllowedTenants(String s) { processTmsAllowedTenantsParm(s); }
+  public void setTmsAllowedTenants(String s) { processTmsAllowedTenantsParm(s); } // public for use in testing
 
   /* ********************************************************************** */
   /*                            Private Methods                             */
