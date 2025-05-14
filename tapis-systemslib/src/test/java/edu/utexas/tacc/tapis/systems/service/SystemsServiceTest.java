@@ -1499,9 +1499,8 @@ public class SystemsServiceTest
 
   // Test creating, reading and deleting user credentials for a system
   // Initial system is dynamic, effectiveUserId = ${apiUserId}
-  //   - Test 1a - create and get cred as owner1, testuser3
+  //   - Test 1 - create and get cred as owner1, testuser3
   //             - create and get should always use Tapis user (owner1, testuser3) in method arguments
-  //   - Test 1b - Create and fetch credentials using AuthnMethod=TMS_KEYS, testuser3 TODO/TBD: Requires TMS server
   // Also test loginUser mapping functionality.
   //   - Test 2 - basic loginUser mapping with dynamic TSystem. Create and get cred as owner1, testuser3, testuser4
   // Test switching system from dynamic to static
@@ -1541,7 +1540,7 @@ public class SystemsServiceTest
     svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
 
     // ------------------------
-    // Test 1a - basic cred retrieve/delete for owner1, testuser3
+    // Test 1 - basic cred retrieve/delete for owner1, testuser3
     //         - fetch creds for specific authnMethod=PASSWORD
     // -------------------------
     // Get system as owner using files service, should get cred for owner
@@ -1707,6 +1706,8 @@ public class SystemsServiceTest
   @Test(enabled = true)
   public void testTMSKeys() throws Exception
   {
+    // Update config to allow TMS keys in dev and tacc tenants
+    RuntimeParameters.getInstance().setTmsAllowedTenants(tenantName + ",tacc");
     // -------------------------------------------------------------
     // Test direct calls to the TMS server
     // -------------------------------------------------------------
@@ -1871,6 +1872,22 @@ public class SystemsServiceTest
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
     // TODO List files using the system. NOTE: Currently this requires that the TMS test user be testuser2 ???
 
+    // Check that we are not able to create TMS keys for a tenant not in the allowed list.
+    // Update config to only allow TMS keys in tacc tenants
+    RuntimeParameters.getInstance().setTmsAllowedTenants("tacc");
+    boolean pass = false;
+    try
+    {
+      svcCred.createUserCredential(rOwner1, sysId, testUser2, cred1NoLoginUser, createTmsKeysTrue, skipCredCheckTrue, rawDataEmptyJson);
+      Assert.fail("System checkUserCredential call should have thrown an exception when tenant not in TMS allowed list");
+    }
+    catch (Exception e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_CRED_TMS_KEYS_TENANT_NOT_ALLOWED"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
   }
 
   // Test creating, reading and deleting user credentials for a system

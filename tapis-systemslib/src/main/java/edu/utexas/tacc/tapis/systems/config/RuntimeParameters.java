@@ -136,6 +136,7 @@ public final class RuntimeParameters implements EmailClientParameters
 
   // TAPIS_SVC_MAINTENANCE_INTERVAL (in minutes)
   private int svcMaintenanceInterval = SystemsServiceImpl.DEFAULT_SVC_MAINT_INTERVAL;
+
   // TMS parameters
   private boolean tmsEnabled = false;
   private String tmsServerUrl;

@@ -139,12 +139,6 @@ public class CredUtils
   // Global ConcurrentHashMap.newKeySet() used as in-memory records for CredentialInfo objects that
   //   also serve as mutexes.
   Map<String,CredentialInfo> credInfoConcurrentMap = new ConcurrentHashMap<>();
-  // Wrapper for TmsKeys info.
-  public record TmsKeys(String privateKey, String publicKey, String fingerprint) {}
-
-  // Wrapper for TmsRequest info used when creating a key pair
-  public record TmsRequest(String client_user_id, String host, String host_account,
-                           String key_type, int num_uses, int ttl_minutes) {}
 
   // Wrapper for TmsKeys info.
   public record TmsKeys(String privateKey, String publicKey, String fingerprint) {}
@@ -272,6 +266,13 @@ public class CredUtils
     TmsKeys tmsKeys;
     if (createTmsKeys)
     {
+      // Check if TMS is allowed for the tenant. Not all tenants are allowed to create TMS credentials
+      if (!RuntimeParameters.getInstance().getTmsAllowedTenants().contains(sysTenant))
+      {
+        msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_TENANT_NOT_ALLOWED", rUser, sysTenant, systemId);
+        throw new BadRequestException(msg);
+      }
+
       // Make sure we are configured for TMS support
       if (!CredUtils.tmsEnabled)
       {
@@ -325,7 +326,7 @@ public class CredUtils
 
     // Create credential. Create or update SK records and CredentialInfo record
     // If this throws an exception we do not try to rollback. Attempting to track which secrets
-    //   have been changed and reverting seems fraught th peril and not a good ROI.
+    //   have been changed and reverting seems fraught with peril and not a good ROI.
     createCredential(rUser, fullCred, system, targetUser, isStaticEffectiveUser);
     // If dynamic and an alternate loginUser has been provided that is not the same as the Tapis user
     //   then record the mapping
@@ -458,10 +459,6 @@ public class CredUtils
           throws TapisException
   {
     String op = "verifyCredentials";
-    // TODO/TBD remove this? Create an initial cred as a fallback to return if there is an error.
-//    Credential retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-//            cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
-//            cred.getAccessToken(), cred.getRefreshToken(), cred.getCertificate());
     // We must have the system and credentials to check.
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (tSystem1 == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));

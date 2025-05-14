@@ -50,13 +50,13 @@ public final class Credential
 
   private final AuthnMethod authnMethod; // Authentication method associated with a retrieved credential
   private final String loginUser; // For a system with a dynamic effectiveUserId, this is the host login user.
-  private final String password; // Password for when authnMethod is PASSWORD
-  private final String privateKey; // Private key for when authnMethod is PKI_KEYS or CERT
-  private final String publicKey; // Public key for when authnMethod is PKI_KEYS or CERT
-  private final String accessKey; // Access key for when authnMethod is ACCESS_KEY
-  private final String accessSecret; // Access secret for when authnMethod is ACCESS_KEY
-  private final String accessToken; // Access token
-  private final String refreshToken; // Refresh token associated with access token
+  private final String password; // Password for authnMethod PASSWORD
+  private final String privateKey; // Private key for authnMethod PKI_KEYS
+  private final String publicKey; // Public key for authnMethod PKI_KEYS
+  private final String accessKey; // Access key for authnMethod ACCESS_KEY
+  private final String accessSecret; // Access secret for authnMethod is ACCESS_KEY
+  private final String accessToken; // Access token for authnMethod TOKEN
+  private final String refreshToken; // Refresh token for authnMethod TOKEN
   private final String tmsPrivateKey; // Private key for authnMethod TMS_KEYS
   private final String tmsPublicKey; // Public key for authnMethod TMS_KEYS
   private final String tmsFingerprint; // Fingerprint of TMS private key

@@ -26,8 +26,8 @@ import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils.RESPONSE_STATUS;
 import edu.utexas.tacc.tapis.systems.api.SystemsApplication;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
+import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
-import edu.utexas.tacc.tapis.systems.service.SystemsService;
 
 
 /*
