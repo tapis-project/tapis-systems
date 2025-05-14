@@ -513,6 +513,8 @@ public final class RuntimeParameters implements EmailClientParameters
     buf.append("\n------- TMS Configuration ----------------------");
     buf.append("\ntapis.tms.enabled: ");
     buf.append(tmsEnabled);
+    buf.append("\ntapis.tms.allowed.tenants: ");
+    buf.append(String.join(",", tmsAllowedTenants));
     buf.append("\ntapis.tms.server.url: ");
     buf.append(tmsServerUrl);
     buf.append("\ntapis.tms.tenant: ");
