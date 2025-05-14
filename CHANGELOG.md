@@ -10,12 +10,13 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.8.3 - 2025-04-29
+## 1.8.3 - 2025-05-14
 
 Incremental improvements. TMS logging, remove unused pretty-print option from resource classes.
 
 ### New features:
 - Ignore expired JWTs older than 90 days (update from shared code).
+- Add support for restricting TMS support to certain tenants. Env variable TAPIS_TMS_ALLOWED_TENANTS.
 
 ### Bug fixes:
 - None
