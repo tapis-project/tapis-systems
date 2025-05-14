@@ -128,7 +128,7 @@ public class SystemUpdates extends TableImpl<SystemUpdatesRecord> {
      * The column <code>tapis_sys.system_updates.created</code>. UTC time for
      * when record was created
      */
-    public final TableField<SystemUpdatesRecord, LocalDateTime> CREATED = createField(DSL.name("created"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("timezone('utc'::text, now())", SQLDataType.LOCALDATETIME)), this, "UTC time for when record was created");
+    public final TableField<SystemUpdatesRecord, LocalDateTime> CREATED = createField(DSL.name("created"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("(now() AT TIME ZONE 'utc'::text)", SQLDataType.LOCALDATETIME)), this, "UTC time for when record was created");
 
     private SystemUpdates(Name alias, Table<SystemUpdatesRecord> aliased) {
         this(alias, aliased, null);

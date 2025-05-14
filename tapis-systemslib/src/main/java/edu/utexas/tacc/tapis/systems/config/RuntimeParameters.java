@@ -1,10 +1,16 @@
 package edu.utexas.tacc.tapis.systems.config;
 
 import java.text.NumberFormat;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
+import java.util.Set;
+import java.util.regex.Pattern;
+
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,6 +75,10 @@ public final class RuntimeParameters implements EmailClientParameters
   // Value to which special env var must be set to trigger the job to make changes.
   public static final String MIGRATE_JOB_ENV_FLAG = "apply_changes";
 
+  // Regex for splitting a string containing a comma-delimited list
+  //   Match "," but not "\," (i.e. match only an unescaped comma)
+  private static final Pattern COMMASPLIT_PATTERN = Pattern.compile("(?<!\\\\),");
+
   /* ********************************************************************** */
   /*                                 Fields                                 */
   /* ********************************************************************** */
@@ -132,6 +142,7 @@ public final class RuntimeParameters implements EmailClientParameters
   private String tmsTenant;
   private String tmsClientId;
   private String tmsClientSecret;
+  private Set<String> tmsAllowedTenants = Collections.emptySet();
 
   /* ********************************************************************** */
   /*                              Constructors                              */
@@ -264,6 +275,8 @@ public final class RuntimeParameters implements EmailClientParameters
     if (!StringUtils.isBlank(parm)) setTmsClientId(parm);
     parm = inputProperties.getProperty(EnvVar2.TAPIS_TMS_CLIENT_SECRET.getEnvName());
     if (!StringUtils.isBlank(parm)) setTmsClientSecret(parm);
+    parm = inputProperties.getProperty(EnvVar2.TAPIS_TMS_ALLOWED_TENANTS.getEnvName());
+    if (!StringUtils.isBlank(parm)) setTmsAllowedTenants(parm);
 
     // --------------------- Site on which we are running ----------------------------
     // Site is required. Throw runtime exception if not found.
@@ -452,24 +465,6 @@ public final class RuntimeParameters implements EmailClientParameters
     // Empty support email means no support emails will be sent.
     parm = inputProperties.getProperty(EnvVar.TAPIS_SUPPORT_EMAIL.getEnvName());
     if (!StringUtils.isBlank(parm)) setSupportEmail(parm);
-
-    // --------------------- Background maintenance task thread -----------------------
-    //  svcMaintenanceInterval
-    parm = inputProperties.getProperty(EnvVar2.TAPIS_SVC_MAINTENANCE_INTERVAL.name());
-    int parmInt = SystemsServiceImpl.DEFAULT_SVC_MAINT_INTERVAL;
-    // If parameter is set attempt to parse it as an integer
-    if (!StringUtils.isBlank(parm))
-    {
-      try { parmInt = Integer.parseInt(parm); }
-      catch (NumberFormatException e)
-      {
-        // Log error and stop
-        String msg = LibUtils.getMsg("SYSLIB_RUNTIME_NUM_PARSE_FAIL", EnvVar2.TAPIS_SVC_MAINTENANCE_INTERVAL, parm);
-        _log.error(msg, e);
-        throw new TapisRuntimeException(msg, e);
-      }
-    }
-    setSvcMaintenanceInterval(parmInt);
   }
 
   /**
@@ -482,7 +477,6 @@ public final class RuntimeParameters implements EmailClientParameters
     buf.append("\nRuntime Parameters");
     buf.append("\n======================");
     buf.append("\n------- Service Specific -------------------------------");
-    buf.append("\ntapis.svc.maintenance.interval: ").append(getSvcMaintenanceInterval());
     buf.append("\n------- Migrate Job Configuration ---------------------");
     buf.append("\ntapis.migrate.job.apply: ");
     buf.append(this.migrateJobApply);
@@ -523,6 +517,8 @@ public final class RuntimeParameters implements EmailClientParameters
     buf.append("\n------- TMS Configuration ----------------------");
     buf.append("\ntapis.tms.enabled: ");
     buf.append(tmsEnabled);
+    buf.append("\ntapis.tms.allowed.tenants: ");
+    buf.append(String.join(",", tmsAllowedTenants));
     buf.append("\ntapis.tms.server.url: ");
     buf.append(tmsServerUrl);
     buf.append("\ntapis.tms.tenant: ");
@@ -742,6 +738,8 @@ public final class RuntimeParameters implements EmailClientParameters
   private void setTmsClientId(String s) {tmsClientId = s; }
   public String getTmsClientSecret() { return tmsClientSecret; }
   private void setTmsClientSecret(String s) {tmsClientSecret = s; }
+  public Set<String> getTmsAllowedTenants() { return tmsAllowedTenants; }
+  public void setTmsAllowedTenants(String s) { processTmsAllowedTenantsParm(s); } // public for use in testing
 
   /* ********************************************************************** */
   /*                            Private Methods                             */
@@ -787,6 +785,14 @@ public final class RuntimeParameters implements EmailClientParameters
     return addresses;
   }
 
+  /*
+   * Given a list of comma separated tenants, create a set of tenants
+   */
+  private void processTmsAllowedTenantsParm(String s)
+  {
+    tmsAllowedTenants = new HashSet<>(Arrays.asList(COMMASPLIT_PATTERN.split(s)));
+  }
+
   /**
    * Check for input parameters set using system properties and environment variables
    * This method does not read a properties file.
@@ -827,7 +833,8 @@ public final class RuntimeParameters implements EmailClientParameters
     TAPIS_TMS_SERVER_URL("tapis.tms.server.url"),
     TAPIS_TMS_TENANT("tapis.tms.tenant"),
     TAPIS_TMS_CLIENT_ID("tapis.tms.client.id"),
-    TAPIS_TMS_CLIENT_SECRET("tapis.tms.client.secret");
+    TAPIS_TMS_CLIENT_SECRET("tapis.tms.client.secret"),
+    TAPIS_TMS_ALLOWED_TENANTS("tapis.tms.allowed.tenants");
     private final String _envName;
     EnvVar2(String envName) {
       _envName = envName;

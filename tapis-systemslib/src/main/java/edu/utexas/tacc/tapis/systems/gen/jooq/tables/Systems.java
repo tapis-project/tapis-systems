@@ -266,13 +266,13 @@ public class Systems extends TableImpl<SystemsRecord> {
      * The column <code>tapis_sys.systems.created</code>. UTC time for when
      * record was created
      */
-    public final TableField<SystemsRecord, LocalDateTime> CREATED = createField(DSL.name("created"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("timezone('utc'::text, now())", SQLDataType.LOCALDATETIME)), this, "UTC time for when record was created");
+    public final TableField<SystemsRecord, LocalDateTime> CREATED = createField(DSL.name("created"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("(now() AT TIME ZONE 'utc'::text)", SQLDataType.LOCALDATETIME)), this, "UTC time for when record was created");
 
     /**
      * The column <code>tapis_sys.systems.updated</code>. UTC time for when
      * record was last updated
      */
-    public final TableField<SystemsRecord, LocalDateTime> UPDATED = createField(DSL.name("updated"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("timezone('utc'::text, now())", SQLDataType.LOCALDATETIME)), this, "UTC time for when record was last updated");
+    public final TableField<SystemsRecord, LocalDateTime> UPDATED = createField(DSL.name("updated"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("(now() AT TIME ZONE 'utc'::text)", SQLDataType.LOCALDATETIME)), this, "UTC time for when record was last updated");
 
     /**
      * The column <code>tapis_sys.systems.enable_cmd_prefix</code>.

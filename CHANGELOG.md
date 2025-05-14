@@ -17,16 +17,14 @@ Incremental improvements. Addition of table and code for tracking credential met
 ### New features:
 - Addition of table and code for tracking credential metadata.
 
-### Bug fixes:
-- None
-
 ---------------------------------------------------------------------------
-## 1.8.3 - 2025-04-29
+## 1.8.3 - 2025-05-14
 
 Incremental improvements. TMS logging, remove unused pretty-print option from resource classes.
 
 ### New features:
 - Ignore expired JWTs older than 90 days (update from shared code).
+- Add support for restricting TMS support to certain tenants. Env variable TAPIS_TMS_ALLOWED_TENANTS.
 
 ### Bug fixes:
 - None

@@ -22,6 +22,24 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.S3Client;
 
+import javax.inject.Inject;
+import javax.ws.rs.BadRequestException;
+import javax.ws.rs.NotAuthorizedException;
+import javax.ws.rs.NotFoundException;
+import javax.ws.rs.core.Response;
+import java.io.IOException;
+import java.util.*;
+import com.google.gson.JsonObject;
+import okhttp3.*;
+import org.apache.commons.lang3.EnumUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.security.client.SKClient;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
@@ -30,6 +48,7 @@ import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisSSHAuthException;
 import edu.utexas.tacc.tapis.shared.s3.S3Connection;
 import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
+import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.shared.utils.PathUtils;
@@ -113,11 +132,20 @@ public class CredUtils
   @Inject
   private SystemsDao dao;
   @Inject
+  private ServiceClients serviceClients;
+  @Inject
   private SysUtils sysUtils;
 
   // Global ConcurrentHashMap.newKeySet() used as in-memory records for CredentialInfo objects that
   //   also serve as mutexes.
   Map<String,CredentialInfo> credInfoConcurrentMap = new ConcurrentHashMap<>();
+  // Wrapper for TmsKeys info.
+  public record TmsKeys(String privateKey, String publicKey, String fingerprint) {}
+
+  // Wrapper for TmsRequest info used when creating a key pair
+  public record TmsRequest(String client_user_id, String host, String host_account,
+                           String key_type, int num_uses, int ttl_minutes) {}
+
   // Wrapper for TmsKeys info.
   public record TmsKeys(String privateKey, String publicKey, String fingerprint) {}
 
@@ -222,7 +250,7 @@ public class CredUtils
    */
   Credential createCredentialForUser(ResourceRequestUser rUser, TSystem system, String targetUser,
                                      Credential cred, boolean createTmsKeys, boolean skipCheck, String rawData)
-          throws TapisException, TapisClientException, IllegalStateException
+          throws TapisException, IllegalStateException
   {
     SystemOperation op = SystemOperation.setCred;
     Credential retCred = null; // Credential to be returned.
@@ -232,6 +260,7 @@ public class CredUtils
     String oboTenant = rUser.getOboTenantId();
     String loginUser = cred.getLoginUser();
     String systemId = system.getId();
+    String sysTenant = system.getTenant();
     SystemType systemType = system.getSystemType();
 
     // Determine the effectiveUser type, either static or dynamic
@@ -390,7 +419,7 @@ public class CredUtils
    * @throws TapisException - for Tapis related exceptions
    */
   int deleteCredentialForUser(ResourceRequestUser rUser, TSystem system, String targetUser, SystemOperation op)
-          throws TapisException, TapisClientException
+          throws TapisException
   {
     String systemId = system.getId();
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
