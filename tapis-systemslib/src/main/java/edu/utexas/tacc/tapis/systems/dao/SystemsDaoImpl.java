@@ -2033,8 +2033,7 @@ public class SystemsDaoImpl implements SystemsDao
   @Override
   public List<SchedulerProfile> getSchedulerProfiles(String tenantId) throws TapisException
   {
-    List<SchedulerProfile> retList1;
-    var retList2 = new ArrayList<SchedulerProfile>();
+    List<SchedulerProfile> retList = new ArrayList<SchedulerProfile>();
     // ------------------------- Build and execute SQL ----------------------------
     Connection conn = null;
     try
@@ -2068,7 +2067,7 @@ public class SystemsDaoImpl implements SystemsDao
                                                     spr.getOwner(), moduleLoads, hoList2, spr.getUuid(),
                                                     spr.getCreated().toInstant(ZoneOffset.UTC),
                                                     spr.getUpdated().toInstant(ZoneOffset.UTC));
-        retList2.add(sp2);
+        retList.add(sp2);
       }
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -2083,7 +2082,7 @@ public class SystemsDaoImpl implements SystemsDao
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
     }
-    return retList2;
+    return retList;
   }
 
   /**
@@ -2934,8 +2933,8 @@ public class SystemsDaoImpl implements SystemsDao
   private SystemHistoryItem getSystemHistoryFromRecord(Record r)
   {
 	return new SystemHistoryItem(r.get(SYSTEM_UPDATES.JWT_TENANT), r.get(SYSTEM_UPDATES.JWT_USER),
-                                 r.get(SYSTEM_UPDATES.OBO_TENANT), r.get(SYSTEM_UPDATES.OBO_USER), r.get(SYSTEM_UPDATES.OPERATION),
-	                             r.get(SYSTEM_UPDATES.DESCRIPTION), r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
+            r.get(SYSTEM_UPDATES.OBO_TENANT), r.get(SYSTEM_UPDATES.OBO_USER), r.get(SYSTEM_UPDATES.OPERATION),
+            r.get(SYSTEM_UPDATES.DESCRIPTION), r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
   }
 
   /*

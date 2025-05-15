@@ -40,3 +40,16 @@ To update the schema and re-create the jooq code:
    to start adding the new model attributes to the code.
 
 10. Commit the updates.
+
+------------------------------
+NOTES
+------------------------------
+To map an enum to a DB column, add a forcedType to tapis-systemslib/pom.xml
+For example:
+   <forcedType>
+     <userType>edu.utexas.tacc.tapis.systems.model.TSystem.SystemType</userType>
+     <enumConverter>true</enumConverter>
+     <includeExpression>systems\.system_type</includeExpression>
+     <includeTypes>.*</includeTypes>
+   </forcedType>
+--------------------------------------------------------------------

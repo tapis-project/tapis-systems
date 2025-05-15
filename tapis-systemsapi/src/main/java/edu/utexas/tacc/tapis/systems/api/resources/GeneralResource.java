@@ -11,6 +11,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import edu.utexas.tacc.tapis.systems.service.SystemsService;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,7 +66,7 @@ public class GeneralResource
 
   // **************** Inject Services using HK2 ****************
   @Inject
-  private SystemsServiceImpl svcImpl;
+  private SystemsService svc;
   @Inject
   private ServiceContext serviceContext;
 
@@ -104,28 +105,28 @@ public class GeneralResource
    * This intended to serve as a kubernetes readiness probe
    * Note that no JWT is required on this call and CallSiteToggle is used to limit logging.
    * Based on similar method in tapis-securityapi.../SecurityResource
-   *
+   * <p>
    * For this service readiness means service can:
    *    - retrieve tenants map
    *    - get a service JWT
    *    - connect to the DB and verify and that main service table exists
    *    - Make a call to list resources. This should verify that the service JWT is valid.
-   *
+   * <p>
    * It is intended as the endpoint that monitoring applications can use to check
    * whether the application is ready to accept traffic.  In particular, kubernetes
    * can use this endpoint as part of its pod readiness check.
-   *
+   * <p>
    * Note that no JWT is required on this call.
-   *
+   * <p>
    * A good synopsis of the difference between liveness and readiness checks:
-   *
+   * <p>
    * ---------
    * The probes have different meaning with different results:
-   *
+   * <p>
    *    - failing liveness probes  -> restart pod
    *    - failing readiness probes -> do not send traffic to that pod
-   *
-   * See https://stackoverflow.com/questions/54744943/why-both-liveness-is-needed-with-readiness
+   * <p>
+   * See <a href="https://stackoverflow.com/questions/54744943/why-both-liveness-is-needed-with-readiness">...</a>
    * ---------
    *
    * @return a success response if all is ok
@@ -160,7 +161,7 @@ public class GeneralResource
         _log.warn(msg, readyCheckException);
         _log.warn(ApiUtils.getMsg("SYSAPI_READYCHECK_TENANTS_ERRTOGGLE_SET"));
       }
-      return Response.status(Status.SERVICE_UNAVAILABLE).entity(TapisRestUtils.createErrorResponse(msg, false, r)).build();
+      return Response.status(Status.SERVICE_UNAVAILABLE).entity(TapisRestUtils.createErrorResponse(msg, r)).build();
     }
     else
     {
@@ -186,7 +187,7 @@ public class GeneralResource
         _log.warn(msg, readyCheckException);
         _log.warn(ApiUtils.getMsg("SYSAPI_READYCHECK_JWT_ERRTOGGLE_SET"));
       }
-      return Response.status(Status.SERVICE_UNAVAILABLE).entity(TapisRestUtils.createErrorResponse(msg, false, r)).build();
+      return Response.status(Status.SERVICE_UNAVAILABLE).entity(TapisRestUtils.createErrorResponse(msg, r)).build();
     }
     else
     {
@@ -212,7 +213,7 @@ public class GeneralResource
         _log.warn(msg, readyCheckException);
         _log.warn(ApiUtils.getMsg("SYSAPI_READYCHECK_DB_ERRTOGGLE_SET"));
       }
-      return Response.status(Status.SERVICE_UNAVAILABLE).entity(TapisRestUtils.createErrorResponse(msg, false, r)).build();
+      return Response.status(Status.SERVICE_UNAVAILABLE).entity(TapisRestUtils.createErrorResponse(msg, r)).build();
     }
     else
     {
@@ -290,7 +291,7 @@ public class GeneralResource
   private Exception checkDB()
   {
     Exception result;
-    try { result = svcImpl.checkDB(); }
+    try { result = svc.checkDB(); }
     catch (Exception e) { result = e; }
     return result;
   }

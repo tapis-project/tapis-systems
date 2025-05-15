@@ -245,6 +245,9 @@ public class CredentialsServiceImpl
     return credUtils.getCredentialForUser(rUser, system, targetUser, authnMethod);
   }
 
+  // ------------------------------------------------------------------------
+  //                         Globus
+  // ------------------------------------------------------------------------
   /**
    * Obtain a URL+SessionId that can be used to obtain a Globus Native App Authorization Code associated
    * with given system.

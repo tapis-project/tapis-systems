@@ -128,8 +128,12 @@ public class CredUtils
   /*                                Package-Private Methods                       */
   /* **************************************************************************** */
 
+  /*-------------------------------------------------------------------------*/
+  /*                 Methods for Credentials/SK                              */
+  /*-------------------------------------------------------------------------*/
+
   /**
-   * Get credential for given system, target user and authn method
+   * Get credential for given system, target user and authentication method
    * <p>
    * If the *effectiveUserId* for the system is dynamic (i.e. equal to *${apiUserId}*) then *targetUser* is
    * interpreted as a Tapis user. Note that their may me a mapping of the Tapis user to a host *loginUser*.
@@ -182,9 +186,9 @@ public class CredUtils
    * Store or update credential for given system and target user.
    *
    * NOTE that credential returned even if invalid. Caller must check Credential.getValidationResult()
-   *
-   * Secret path depends on whether effUser type is dynamic or static
-   *
+   * <p>
+   * Path to secrets in SK depend on whether effUser type is dynamic or static
+   * <p>
    * If the *effectiveUserId* for the system is dynamic (i.e. equal to *${apiUserId}*) then *targetUser* is interpreted
    * as a Tapis user and the Credential may contain the optional attribute *loginUser* which will be used to map the
    * Tapis user to a username to be used when accessing the system. If the login user is not provided then there is
@@ -373,9 +377,14 @@ public class CredUtils
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
     // ---------------- Verify credentials using defaultAuthnMethod --------------------
-    // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
-    String hostLoginUser = targetUser;
-    if (!isStaticEffectiveUser)
+    // Determine hostLoginUser.
+    String hostLoginUser;
+    //  If static use targetUser, else dynamic so use call to resolveEffUsr
+    if (isStaticEffectiveUser)
+    {
+      hostLoginUser = targetUser;
+    }
+    else
     {
       // Dynamic eff user, there may be a mapping. Note that targetUser is interpreted as a Tapis user.
       hostLoginUser = sysUtils.resolveEffectiveUserId(system, targetUser);
