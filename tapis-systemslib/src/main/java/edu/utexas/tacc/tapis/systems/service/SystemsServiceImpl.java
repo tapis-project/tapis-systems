@@ -10,7 +10,6 @@ import javax.inject.Inject;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
-
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -33,9 +32,11 @@ import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
 import edu.utexas.tacc.tapis.systems.client.gen.model.TapisSystem;
 import edu.utexas.tacc.tapis.systems.client.gen.model.SystemTypeEnum;
+import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import edu.utexas.tacc.tapis.systems.model.*;
+
 import static edu.utexas.tacc.tapis.shared.TapisConstants.SYSTEMS_SERVICE;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
 import static edu.utexas.tacc.tapis.systems.service.AuthUtils.*;
@@ -119,12 +120,13 @@ public class SystemsServiceImpl implements SystemsService
    *   init service context
    *   migrate DB
    */
-  public void initService(String siteId1, String siteAdminTenantId1, String svcPassword) throws TapisException, TapisClientException
+  public void initService(String siteId1, String siteAdminTenantId1, RuntimeParameters runtimeParameters)
+        throws TapisException, TapisClientException
   {
     // Initialize service context and site info
     siteId = siteId1;
     siteAdminTenantId = siteAdminTenantId1;
-    serviceContext.initServiceJWT(siteId, SYSTEMS_SERVICE, svcPassword);
+    serviceContext.initServiceJWT(siteId, SYSTEMS_SERVICE, runtimeParameters.getServicePassword());
     CredUtils.initTmsConfiguration();
     // Make sure DB is present and updated to latest version using flyway
     dao.migrateDB();
@@ -134,6 +136,7 @@ public class SystemsServiceImpl implements SystemsService
    * Check that we can connect with DB and that the main table of the service exists.
    * @return null if all OK else return an Exception
    */
+  @Override
   public Exception checkDB()
   {
     return dao.checkDB();
@@ -629,15 +632,15 @@ public class SystemsServiceImpl implements SystemsService
     // We just checked for system, so it should never be null. But just in case.
     if (system == null) return 0;
 
-    // cant delete a system if it has children
+    // ------------------------- Check authorization -------------------------
+    authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
+
+    // Reject the request if the system has children
     if (dao.hasChildren(rUser.getOboTenantId(), systemId)) {
       String msg = LibUtils.getMsg("SYSLIB_CHILD_HAS_CHILD_ERROR", rUser, systemId);
       log.warn(msg);
       throw new IllegalStateException(msg);
     }
-    // ------------------------- Check authorization -------------------------
-    authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
-
     // Remove effectiveUser credentials associated with the system
     // Remove permissions associated with the system
     removeSKArtifacts(rUser, system);
@@ -674,6 +677,17 @@ public class SystemsServiceImpl implements SystemsService
     // We just checked for system, so it should never be null. But just in case.
     if (system == null) return 0;
 
+    // Get owner, if not found it is an error
+    String owner = system.getOwner();
+    if (StringUtils.isBlank(owner))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, systemId, op.name());
+      log.error(msg);
+      throw new TapisException(msg);
+    }
+    // ------------------------- Check authorization -------------------------
+    authUtils.checkAuthOwnerKnown(rUser, op, systemId, owner);
+
     // if this is a child system, make sure that the parent hasn't been deleted, and that
     // the parent still allows children
     if (isChildSystem(system)) {
@@ -691,16 +705,6 @@ public class SystemsServiceImpl implements SystemsService
         throw new IllegalStateException(msg);
       }
     }
-
-    // Get owner, if not found it is an error
-    String owner = system.getOwner();
-    if (StringUtils.isBlank(owner)) {
-      String msg = LibUtils.getMsgAuth("SYSLIB_OP_NO_OWNER", rUser, systemId, op.name());
-      log.error(msg);
-      throw new TapisException(msg);
-    }
-    // ------------------------- Check authorization -------------------------
-    authUtils.checkAuthOwnerKnown(rUser, op, systemId, owner);
 
     // Consider using a notification instead (jira cic-3071)
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
@@ -892,22 +896,22 @@ public class SystemsServiceImpl implements SystemsService
    * NOTE: This is package-private. Only test code should ever use it.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param oboTenant - Tenant containing resources.
+   * @param tenant - Tenant containing resources.
    * @param systemId - name of system
    * @return Number of items deleted
    * @throws TapisException - for Tapis related exceptions
    * @throws TapisClientException - for Tapis related exceptions
    */
-  int hardDeleteSystem(ResourceRequestUser rUser, String oboTenant, String systemId)
+  int hardDeleteSystem(ResourceRequestUser rUser, String tenant, String systemId)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.hardDelete;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(oboTenant) ||  StringUtils.isBlank(systemId))
+    if (StringUtils.isBlank(tenant) ||  StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     // If system does not exist then 0 changes
-    TSystem system = dao.getSystem(oboTenant, systemId, true);
+    TSystem system = dao.getSystem(tenant, systemId, true);
     if (system == null) return 0;
 
     // ------------------------- Check authorization -------------------------
@@ -917,7 +921,7 @@ public class SystemsServiceImpl implements SystemsService
     removeSKArtifacts(rUser, system);
 
     // Delete the system
-    return dao.hardDeleteSystem(oboTenant, systemId);
+    return dao.hardDeleteSystem(tenant, systemId);
   }
 
   /**
