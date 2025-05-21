@@ -26,7 +26,7 @@ import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils.RESPONSE_STATUS;
 import edu.utexas.tacc.tapis.systems.api.SystemsApplication;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
-import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
+import edu.utexas.tacc.tapis.systems.service.SystemsService;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
 
@@ -104,28 +104,28 @@ public class GeneralResource
    * This intended to serve as a kubernetes readiness probe
    * Note that no JWT is required on this call and CallSiteToggle is used to limit logging.
    * Based on similar method in tapis-securityapi.../SecurityResource
-   *
+   * <p>
    * For this service readiness means service can:
    *    - retrieve tenants map
    *    - get a service JWT
    *    - connect to the DB and verify and that main service table exists
    *    - Make a call to list resources. This should verify that the service JWT is valid.
-   *
+   * <p>
    * It is intended as the endpoint that monitoring applications can use to check
    * whether the application is ready to accept traffic.  In particular, kubernetes
    * can use this endpoint as part of its pod readiness check.
-   *
+   * <p>
    * Note that no JWT is required on this call.
-   *
+   * <p>
    * A good synopsis of the difference between liveness and readiness checks:
-   *
+   * <p>
    * ---------
    * The probes have different meaning with different results:
-   *
+   * <p>
    *    - failing liveness probes  -> restart pod
    *    - failing readiness probes -> do not send traffic to that pod
-   *
-   * See https://stackoverflow.com/questions/54744943/why-both-liveness-is-needed-with-readiness
+   * <p>
+   * See <a href="https://stackoverflow.com/questions/54744943/why-both-liveness-is-needed-with-readiness">...</a>
    * ---------
    *
    * @return a success response if all is ok
@@ -160,7 +160,7 @@ public class GeneralResource
         _log.warn(msg, readyCheckException);
         _log.warn(ApiUtils.getMsg("SYSAPI_READYCHECK_TENANTS_ERRTOGGLE_SET"));
       }
-      return Response.status(Status.SERVICE_UNAVAILABLE).entity(TapisRestUtils.createErrorResponse(msg, false, r)).build();
+      return Response.status(Status.SERVICE_UNAVAILABLE).entity(TapisRestUtils.createErrorResponse(msg, r)).build();
     }
     else
     {
@@ -186,7 +186,7 @@ public class GeneralResource
         _log.warn(msg, readyCheckException);
         _log.warn(ApiUtils.getMsg("SYSAPI_READYCHECK_JWT_ERRTOGGLE_SET"));
       }
-      return Response.status(Status.SERVICE_UNAVAILABLE).entity(TapisRestUtils.createErrorResponse(msg, false, r)).build();
+      return Response.status(Status.SERVICE_UNAVAILABLE).entity(TapisRestUtils.createErrorResponse(msg, r)).build();
     }
     else
     {
@@ -212,7 +212,7 @@ public class GeneralResource
         _log.warn(msg, readyCheckException);
         _log.warn(ApiUtils.getMsg("SYSAPI_READYCHECK_DB_ERRTOGGLE_SET"));
       }
-      return Response.status(Status.SERVICE_UNAVAILABLE).entity(TapisRestUtils.createErrorResponse(msg, false, r)).build();
+      return Response.status(Status.SERVICE_UNAVAILABLE).entity(TapisRestUtils.createErrorResponse(msg, r)).build();
     }
     else
     {

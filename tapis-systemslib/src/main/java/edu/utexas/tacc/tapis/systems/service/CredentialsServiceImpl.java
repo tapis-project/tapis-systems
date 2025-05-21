@@ -67,7 +67,7 @@ public class CredentialsServiceImpl
   /**
    * Store or update credential for given system and target user.
    * <p>
-   * NOTE that credential returned even if invalid. Caller must check Credential.getValidationResult()
+   * NOTE that a credential is returned even if invalid. Caller must check Credential.getValidationResult()
    * <p>
    * Required: rUser, systemId, targetUser, credential.
    * <p>
@@ -76,7 +76,8 @@ public class CredentialsServiceImpl
    * If the *effectiveUserId* for the system is dynamic (i.e. equal to *${apiUserId}*) then *targetUser* is interpreted
    * as a Tapis user and the Credential may contain the optional attribute *loginUser* which will be used to map the
    * Tapis user to a username to be used when accessing the system. If the login user is not provided then there is
-   * no mapping and the Tapis user is always used when accessing the system.
+   * no mapping and the Tapis user is always used when accessing the system. Note that the Tapis user comes from
+   * the username claim in the Tapis JWT.
    * <p>
    * If the *effectiveUserId* for the system is static (i.e. not *${apiUserId}*) then *targetUser* is interpreted
    * as the login user to be used when accessing the host.
@@ -370,24 +371,9 @@ public class CredentialsServiceImpl
 
     // Create credential and save to SK
     Credential credential = new Credential(null, null, null, null, null, null, null, accessToken, refreshToken, null, null, null, null);
-    try
-    {
-      credUtils.createCredential(rUser, credential, system, userName, isStaticEffectiveUser);
-    }
-    // If tapis client exception then log error and convert to TapisException
-    catch (TapisClientException tce)
-    {
-      log.error(tce.toString());
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
-    }
-
-    // Construct Json string representing the update, with actual secrets masked out
-    Credential maskedCredential = Credential.createMaskedCredential(credential);
-    String updateJsonStr = TapisGsonUtils.getGson().toJson(maskedCredential);
-
-    // Create a record of the update
-    String updateText = null;
-    dao.addUpdateRecord(rUser, systemId, op, updateJsonStr, updateText);
+    // For Globus type system credentials both the target user and host login user are set to userName.
+    // When connecting to Globus there is no username directly set. Username is used when storing the credentials in SK.
+    credUtils.createCredential(rUser, credential, system, userName, userName, isStaticEffectiveUser, op);
   }
 
   // ************************************************************************

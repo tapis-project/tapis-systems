@@ -13,6 +13,7 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import edu.utexas.tacc.tapis.shared.exceptions.runtime.TapisRuntimeException;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
@@ -213,7 +214,7 @@ public class LibUtils
    * Roll back a DB transaction and throw an exception
    * This method always throws an exception, either IllegalStateException or TapisException
    */
-  public static void rollbackDB(Connection conn, Exception e, String msgKey, Object... parms) throws TapisException
+  public static void rollbackDB(Connection conn, Exception e, String msgKey, Object... parms)
   {
     try
     {
@@ -226,12 +227,11 @@ public class LibUtils
 
     // If IllegalStateException or TapisException pass it back up
     if (e instanceof IllegalStateException) throw (IllegalStateException) e;
-    if (e instanceof TapisException) throw (TapisException) e;
 
     // Log the exception.
     String msg = MsgUtils.getMsg(msgKey, parms);
     _log.error(msg, e);
-    throw new TapisException(msg, e);
+    throw new TapisRuntimeException(msg, e);
   }
 
   /**
@@ -403,12 +403,11 @@ public class LibUtils
   /**
    * Create a change description for a credential update.
    */
-  public static String getChangeDescriptionCredCreate(String systemId, String user, boolean skipCredCheck, Credential cred)
+  public static String getChangeDescriptionCredCreate(String systemId, String user, Credential cred)
   {
     var o = new JSONObject();
     o.put("System", systemId);
     o.put("TargetUser", user);
-    o.put("SkipCredCheck", skipCredCheck);
     var oCred = new JSONObject();
     var cEntry = new JSONObject();
     cEntry.put("Password", cred.getPassword());

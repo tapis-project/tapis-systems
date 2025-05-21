@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import static edu.utexas.tacc.tapis.systems.model.Credential.*;
@@ -138,7 +137,7 @@ public final class MaintenanceTask implements Runnable
     //          do that here or in calling method and pass in db connection instead of dao?
     // Mark record as IN_PROGRESS
     LocalDateTime updated = TapisUtils.getUTCTimeNow();
-    dao.credInfoUpdateStatus(credInfo, SyncStatus.IN_PROGRESS, updated);
+    dao.updateCredInfoRecord(credInfo, SyncStatus.IN_PROGRESS, updated);
     //TODO Call SK to get credential info.
     // On any error mark as failed and return
     CredentialInfo skCredInfo;

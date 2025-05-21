@@ -231,7 +231,7 @@ public class SystemsServiceImpl implements SystemsService
     log.trace(LibUtils.getMsgAuth("SYSLIB_CREATE_TRACE", rUser, rawData));
 
     // Extract some attributes for convenience and clarity.
-    // NOTE: do not do this for effectiveUserId since it may be ${owner} and get resolved below.
+    // NOTE: do not do this here for effectiveUserId since it may be ${owner} and only get resolved below.
     String tenant = system.getTenant();
     String systemId = system.getId();
     SystemType systemType = system.getSystemType();
@@ -268,8 +268,11 @@ public class SystemsServiceImpl implements SystemsService
     //       and the only variable of interest in rootDir should be HOST_EVAL($var)
     system.resolveVariablesAtCreate(rUser.getOboUserId());
 
+    // Now we can extract effUser, for convenience and clarity.
+    String effUserId = system.getEffectiveUserId();
+
     // Determine if effectiveUserId is static
-    boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+    boolean isStaticEffectiveUser = !APIUSERID_VAR.equals(effUserId);
 
     // ---------------- Check constraints on TSystem attributes ------------------------
     validateTSystem(rUser, system, true);
@@ -307,7 +310,7 @@ public class SystemsServiceImpl implements SystemsService
       {
         // During create, we only verify for static effectiveUser and system default authnMethod, so we pass in the
         //   effectiveUser from request as hostLoginUser and the authnMethod from the system.
-        Credential c = credUtils.verifyCredentials(rUser, system, cred, system.getEffectiveUserId(), system.getDefaultAuthnMethod());
+        Credential c = credUtils.verifyCredentials(rUser, system, cred, effUserId, system.getDefaultAuthnMethod());
         system.setAuthnCredential(c);
         // If credential validation failed we do not create the system. Return now.
         if (Boolean.FALSE.equals(c.getValidationResult())) return system;
@@ -360,7 +363,8 @@ public class SystemsServiceImpl implements SystemsService
       if (manageCredentials)
       {
         // Use internal method instead of public API to skip auth and other checks not needed here.
-        credUtils.createCredential(rUser, cred, system, system.getEffectiveUserId(), isStaticEffectiveUser);
+        // This is createSystem, so isStatic is true so targetUser and hostLoginUser are the eff user id.
+        credUtils.createCredential(rUser, cred, system, effUserId, effUserId, isStaticEffectiveUser, op);
       }
     }
     catch (Exception e0)
@@ -386,7 +390,7 @@ public class SystemsServiceImpl implements SystemsService
         try
         {
           // Remove SK records and CredInfo record
-          credUtils.deleteCredential(rUser, system, system.getEffectiveUserId(), isStaticEffectiveUser);
+          credUtils.deleteCredential(rUser, system, effUserId, isStaticEffectiveUser);
         }
         catch (Exception e)
         {
@@ -551,7 +555,6 @@ public class SystemsServiceImpl implements SystemsService
    *   tenant, id, systemType, owner, enabled, bucketName, rootDir, canExec, effectiveUserId
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param putSystem - Pre-populated TSystem object (including tenantId and systemId)
-   * @param skipCredCheck - Indicates if cred check should happen (for LINUX, S3)
    * @param rawData - Text used to create the System object - secrets should be scrubbed. Saved in update record.
    * @return TSystem with defaults set and validated credentials filled in as needed
    * @throws TapisException - for Tapis related exceptions
@@ -559,7 +562,7 @@ public class SystemsServiceImpl implements SystemsService
    * @throws IllegalArgumentException - invalid parameter passed in
    */
   @Override
-  public TSystem putSystem(ResourceRequestUser rUser, TSystem putSystem, boolean skipCredCheck, String rawData)
+  public TSystem putSystem(ResourceRequestUser rUser, TSystem putSystem, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException
   {
     SystemOperation op = SystemOperation.modify;

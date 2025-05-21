@@ -3,7 +3,6 @@ package edu.utexas.tacc.tapis.systems.dao;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
-
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
@@ -14,7 +13,6 @@ import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
-
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.AuthListType;
 
 public interface SystemsDao
@@ -22,7 +20,7 @@ public interface SystemsDao
 
   Exception checkDB();
 
-  void migrateDB() throws TapisException;
+  void migrateDB();
 
   /* ********************************************************************** */
   /*                             Systems                                    */
@@ -48,8 +46,7 @@ public interface SystemsDao
 
   void updateDeleted(ResourceRequestUser rUser, String tenantId, String id, boolean deleted) throws TapisException;
 
-  void addUpdateRecord(ResourceRequestUser rUser, String id, SystemOperation op, String changeDescription, String rawData)
-          throws TapisException;
+  void addUpdateRecord(ResourceRequestUser rUser, String id, SystemOperation op, String changeDescription, String rawData);
 
   int hardDeleteSystem(String tenantId, String id) throws TapisException;
 
@@ -80,16 +77,13 @@ public interface SystemsDao
 
   String getSystemOwner(String tenantId, String id) throws TapisException;
 
-  String getSystemEffectiveUserId(String tenantId, String id) throws TapisException;
-
   AuthnMethod getSystemDefaultAuthnMethod(String tenantId, String id) throws TapisException;
 
   /* ********************************************************************** */
   /*                        CredentialInfo Table                            */
   /* ********************************************************************** */
 
-  CredentialInfo getCredInfo(ResourceRequestUser rUser, String tenantId, String systemId, String tapisUser, boolean isStatic)
-          throws TapisException;
+  CredentialInfo getCredInfo(ResourceRequestUser rUser, String tenantId, String systemId, String tapisUser, boolean isStatic);
 
   List<CredentialInfo> getCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenantId, String systemId)
         throws TapisException;
@@ -101,9 +95,13 @@ public interface SystemsDao
 
   void deleteAllCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenant, String systemId) throws TapisException;
 
-  CredentialInfo createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo) throws TapisException;
+  CredentialInfo createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo);
 
-  String getLoginUser(String tenantId, String id, String tapisUser) throws TapisException;
+  void updateCredInfoRecord(CredentialInfo credInfo, LocalDateTime updated);
+
+  void updateCredInfoStatus(CredentialInfo credInfo, CredentialInfo.SyncStatus newSyncStatus, LocalDateTime updated);
+
+  String getLoginUser(String tenantId, String id, String tapisUser);
 
   void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser, boolean isStatic) throws TapisException;
 
@@ -112,8 +110,6 @@ public interface SystemsDao
   int credInfoMarkInProgressAsFailed(String failMsg) throws TapisException;
 
   void credInfoMarkFailedAsPending() throws TapisException;
-
-  void credInfoUpdateStatus(CredentialInfo credInfo, CredentialInfo.SyncStatus syncStatus, LocalDateTime updated) throws TapisException;
 
   void credInfoMarkAsComplete(CredentialInfo credInfo) throws TapisException;
 

@@ -44,7 +44,7 @@ public interface SystemsService
   void patchSystem(ResourceRequestUser rUser, String systemId, PatchSystem patchSystem, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException;
 
-  TSystem putSystem(ResourceRequestUser rUser, TSystem putSystem, boolean skipCredCheck, String rawData)
+  TSystem putSystem(ResourceRequestUser rUser, TSystem putSystem, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException;
 
   int enableSystem(ResourceRequestUser rUser, String systemId)

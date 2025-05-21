@@ -13,7 +13,14 @@
 --
 -- Re-purpose systems_login_user table for recording information on credential registrations for systems.
 -- Rename table from systems_login_user to systems_cred_info
+-- Rename column login_user to login_user_mapping to better describe meaning.
+-- Remove the NOT NULL constraint on the login_user_mapping column since now we will have records even if there
+--    is no mapping.
+-- Change primary key from (tenant, system_id, tapis_user) to (tenant, system_id, tapis_user, is_static)
+--    since that is what makes a record unique
+--
 -- Add new columns:
+--   host_login_user -- username used for connecting to the host, the resolved effectiveUserId
 --   is_static - indicates if record is for the static or dynamic effectiveUserId case
 --   has_credentials - indicates if system has credentials registered for the current defaultAuthnMethod
 --   has_password - indicates if credentials for PASSWORD have been registered.
@@ -32,11 +39,6 @@
 --
 -- Default for is_static is false since if there is an existing record then it is for a login user mapping and that
 --    is only used for dynamic.
--- Remove the NOT NULL constraint on the login_user column since now we will have records even if there
---    is no mapping.
--- Change primary key from (tenant, system_id, tapis_user) to (tenant, system_id, tapis_user, is_static)
---    since that is what makes a record unique
---
 -- New table
 --CREATE TABLE systems_cred_info
 --(
@@ -44,7 +46,8 @@
 --    tenant TEXT NOT NULL,
 --    system_id TEXT NOT NULL,
 --    tapis_user TEXT NOT NULL,
---    login_user TEXT,
+--    login_user_mapping TEXT,
+--    host_login_user TEXT NOT NULL,
 --    has_credentials BOOLEAN NOT NULL DEFAULT false,
 --    is_static BOOLEAN NOT NULL DEFAULT false,
 --    has_password BOOLEAN NOT NULL DEFAULT false,
@@ -63,11 +66,22 @@
 --
 -- Rename table
 ALTER TABLE IF EXISTS systems_login_user RENAME TO systems_cred_info;
--- Allow login_user to be NULL
-ALTER TABLE systems_cred_info ALTER login_user DROP NOT NULL;
+
+-- Rename column
+DO $$
+BEGIN
+  IF EXISTS(SELECT * FROM information_schema.columns WHERE table_name='systems_cred_info' and column_name='login_user')
+  THEN
+      ALTER TABLE systems_cred_info RENAME COLUMN login_user TO login_user_mapping;
+  END IF;
+END $$;
+
+-- Allow login_user_mapping to be NULL. NOTE: login_user_mapping is for dynamic login user mapping.
+ALTER TABLE systems_cred_info ALTER login_user_mapping DROP NOT NULL;
 -- Add columns
-ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_credentials BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS host_login_user TEXT NOT NULL;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS is_static BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_credentials BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_password BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_pki_keys BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_access_key BOOLEAN NOT NULL DEFAULT false;

@@ -14,7 +14,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import javax.sql.DataSource;
-
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import org.flywaydb.core.Flyway;
@@ -30,7 +29,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.*;
 import edu.utexas.tacc.tapis.search.parser.ASTBinaryExpression;
 import edu.utexas.tacc.tapis.search.parser.ASTLeaf;
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
@@ -41,9 +39,9 @@ import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
+import edu.utexas.tacc.tapis.shared.exceptions.runtime.TapisRuntimeException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy.OrderByDir;
-import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisDBConnectionException;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.shareddb.datasource.TapisDataSource;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
@@ -61,6 +59,7 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.AuthListType;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.*;
 
 import static edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator.CONTAINS;
 import static edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator.NCONTAINS;
@@ -70,6 +69,11 @@ import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.*;
 
 /*
  * Class to handle persistence and queries for Tapis System objects.
+ * Note that some methods throw a TapisRuntimeException if there is a problem connecting to the DB.
+ * If we cannot connect to the DB then we consider it a serious problem and the process should exit.
+ * For kubernetes deployments attempts will be made to re-start the service until the DB
+ *   and other services this service depends on have recovered.
+ *
  */
 public class SystemsDaoImpl implements SystemsDao
 {
@@ -117,7 +121,7 @@ public class SystemsDaoImpl implements SystemsDao
     if (system.getSystemType() == null) LibUtils.logAndThrowNullParmException(opName, "systemType");
     if (system.getDefaultAuthnMethod() == null) LibUtils.logAndThrowNullParmException(opName, "defaultAuthnMethod");
     
-    // Make sure owner, effectiveUserId, etc are set
+    // Make sure owner, effectiveUserId, etc. are set
     String owner = TSystem.DEFAULT_OWNER;
     if (StringUtils.isNotBlank(system.getOwner())) owner = system.getOwner();
     String effectiveUserId = TSystem.DEFAULT_EFFECTIVEUSERID;
@@ -860,7 +864,7 @@ public class SystemsDaoImpl implements SystemsDao
    * Use Flyway to make sure DB schema is at the latest version
    */
   @Override
-  public void migrateDB() throws TapisException
+  public void migrateDB()
   {
     Flyway flyway = Flyway.configure().dataSource(getDataSource()).load();
     // Use repair as workaround to avoid checksum error during develop/deploy of SNAPSHOT versions when it is not
@@ -1628,43 +1632,6 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   /**
-   * getSystemEffectiveUserId
-   * @param tenantId - name of tenant
-   * @param id - name of system
-   * @return EffectiveUserId or null if no system found
-   * @throws TapisException - on error
-   */
-  @Override
-  public String getSystemEffectiveUserId(String tenantId, String id) throws TapisException
-  {
-    String effectiveUserId = null;
-
-    // ------------------------- Call SQL ----------------------------
-    Connection conn = null;
-    try
-    {
-      // Get a database connection.
-      conn = getConnection();
-      DSLContext db = DSL.using(conn);
-      effectiveUserId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(id)).fetchOne(SYSTEMS.EFFECTIVE_USER_ID);
-
-      // Close out and commit
-      LibUtils.closeAndCommitDB(conn, null, null);
-    }
-    catch (Exception e)
-    {
-      // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_QUERY_ERROR", "systems", e.getMessage());
-    }
-    finally
-    {
-      // Always return the connection back to the connection pool.
-      LibUtils.finalCloseDB(conn);
-    }
-    return effectiveUserId;
-  }
-
-  /**
    * getSystemDefaultAuthnMethod
    * @param tenantId - name of tenant
    * @param id - name of system
@@ -1706,7 +1673,6 @@ public class SystemsDaoImpl implements SystemsDao
    */
   @Override
   public void addUpdateRecord(ResourceRequestUser rUser, String sysId, SystemOperation op, String changeDescription, String rawData)
-          throws TapisException
   {
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1737,15 +1703,16 @@ public class SystemsDaoImpl implements SystemsDao
   /* ********************************************************************** */
 
   /**
-   * Create CredInfo record
+   * Create CredInfo record.
+   * If no rUser or credInfo provided log error and return null.
    */
   @Override
   public CredentialInfo createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
-          throws TapisException
   {
     String opName = "createCredInfo";
-    // If anything missing throw an exception.
-    if (credInfo == null) throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NULL", rUser));
+    // If anything missing log error and throw exception
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (credInfo == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NULL", rUser));
     CredentialInfo retCredInfo = null;
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1761,7 +1728,8 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS_CRED_INFO.TENANT, credInfo.getTenant())
               .set(SYSTEMS_CRED_INFO.SYSTEM_ID, credInfo.getSystemId())
               .set(SYSTEMS_CRED_INFO.TAPIS_USER, credInfo.getTapisUser())
-              .set(SYSTEMS_CRED_INFO.LOGIN_USER, credInfo.getLoginUser())
+              .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, credInfo.getHostLoginUser())
+              .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, credInfo.getLoginUserMapping())
               .set(SYSTEMS_CRED_INFO.CREATED, utcNow)
               .set(SYSTEMS_CRED_INFO.UPDATED, utcNow)
               .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, credInfo.hasCredentials())
@@ -1807,7 +1775,6 @@ public class SystemsDaoImpl implements SystemsDao
   @Override
   public CredentialInfo getCredInfo(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser,
                                     boolean isStatic)
-          throws TapisException
   {
     // Initialize result.
     CredentialInfo credInfo = null;
@@ -2049,13 +2016,10 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   /**
-   * In SYSTEMS_CRED_INFO table, Mark a record as IN_PROGRESS
-   * TODO Check other methods that might also be trying to move record to IN_PROGRESS
-   * @throws TapisException on error
+   * Update a record in the SYSTEMS_CRED_INFO table based on the provided CredInfo object
    */
   @Override
-  public void credInfoUpdateStatus(CredentialInfo credInfo, SyncStatus syncStatus, LocalDateTime updated)
-          throws TapisException
+  public void updateCredInfoRecord(CredentialInfo credInfo, LocalDateTime updated)
   {
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -2065,13 +2029,60 @@ public class SystemsDaoImpl implements SystemsDao
       DSLContext db = DSL.using(conn);
       // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
       db.update(SYSTEMS_CRED_INFO)
-              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, syncStatus)
-              .set(SYSTEMS_CRED_INFO.UPDATED, updated)
-              .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
-                      SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
-                      SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
-                      SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
-              .execute();
+            .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, credInfo.getHostLoginUser())
+            .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, credInfo.getLoginUserMapping())
+            .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, credInfo.hasCredentials())
+            .set(SYSTEMS_CRED_INFO.HAS_PASSWORD, credInfo.hasPassword())
+            .set(SYSTEMS_CRED_INFO.HAS_PKI_KEYS, credInfo.hasPkiKeys())
+            .set(SYSTEMS_CRED_INFO.HAS_ACCESS_KEY, credInfo.hasAccessKey())
+            .set(SYSTEMS_CRED_INFO.HAS_TOKEN, credInfo.hasToken())
+            .set(SYSTEMS_CRED_INFO.HAS_TMS_KEYS, credInfo.hasTmsKeys())
+            .set(SYSTEMS_CRED_INFO.SYNC_STATUS, credInfo.getSyncStatus())
+            .set(SYSTEMS_CRED_INFO.SYNC_FAILED, LocalDateTime.ofInstant(credInfo.getSyncFailed(), ZoneOffset.UTC))
+            .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, credInfo.getSyncFailCount())
+            .set(SYSTEMS_CRED_INFO.SYNC_FAIL_MESSAGE, credInfo.getSyncFailMessage())
+            .set(SYSTEMS_CRED_INFO.UPDATED, updated)
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
+                  SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
+                  SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
+                  SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
+            .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * In SYSTEMS_CRED_INFO table, updated status for given record
+   */
+  @Override
+  public void updateCredInfoStatus(CredentialInfo credInfo, SyncStatus newSyncStatus, LocalDateTime updated)
+  {
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
+      db.update(SYSTEMS_CRED_INFO)
+            .set(SYSTEMS_CRED_INFO.SYNC_STATUS, newSyncStatus)
+            .set(SYSTEMS_CRED_INFO.UPDATED, updated)
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
+                  SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
+                  SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
+                  SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
+            .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -2258,7 +2269,7 @@ public class SystemsDaoImpl implements SystemsDao
     return numRecords;
   }
 
-  /**
+  /** TODO Update for CredInfo changes
    * getLoginUser
    * Given a System Id and a tapisUser get the mapping to the loginUser if the map table has an entry.
    * If there is no mapping return null
@@ -2268,10 +2279,10 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException - on error
    */
   @Override
-  public String getLoginUser(String tenantId, String id, String tapisUser) throws TapisException
+  public String getLoginUser(String tenantId, String id, String tapisUser)
   {
     // Initialize result.
-    String loginUser = null;
+    String loginUserMapping = null;
 
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -2281,36 +2292,37 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
       // Run the sql
-      loginUser = db.selectFrom(SYSTEMS_CRED_INFO)
+      loginUserMapping = db.selectFrom(SYSTEMS_CRED_INFO)
               .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(id),SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser))
-              .fetchOne(SYSTEMS_CRED_INFO.LOGIN_USER);
+              .fetchOne(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING);
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
     catch (Exception e)
     {
       // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "System_login_user", tenantId, id, e.getMessage());
+      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "System_login_user_mapping", tenantId, id, e.getMessage());
     }
     finally
     {
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
     }
-    return loginUser;
+    return loginUserMapping;
   }
 
   /**
    * Create a new mapping for tapisUser to loginUser
+   * TODO/TBD still needed?
+   *          if yes needs updating?
    */
   @Override
-  public void createOrUpdateLoginUserMapping(String tenantId, String systemId, String tapisUser, String loginUser,
-                                             boolean isStatic)
-          throws TapisException
+  public void createOrUpdateLoginUserMapping(String tenantId, String systemId, String tapisUser,
+                                             String loginUserMapping, boolean isStatic)
   {
 
     if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(systemId) || StringUtils.isBlank(tapisUser) ||
-            StringUtils.isBlank(loginUser))
+        StringUtils.isBlank(loginUserMapping))
     {
       return;
     }
@@ -2327,7 +2339,7 @@ public class SystemsDaoImpl implements SystemsDao
       // If record not there insert it, else update it
       if (!recordExists)
       {
-        log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_INSERT_LOGINMAP", tenantId, systemId, tapisUser, loginUser));
+        log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_INSERT_LOGINMAP", tenantId, systemId, tapisUser, loginUserMapping));
         int sysSeqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId))
                 .fetchOne(SYSTEMS.SEQ_ID);
         db.insertInto(SYSTEMS_CRED_INFO)
@@ -2335,14 +2347,14 @@ public class SystemsDaoImpl implements SystemsDao
                 .set(SYSTEMS_CRED_INFO.TENANT, tenantId)
                 .set(SYSTEMS_CRED_INFO.SYSTEM_ID, systemId)
                 .set(SYSTEMS_CRED_INFO.TAPIS_USER, tapisUser)
-                .set(SYSTEMS_CRED_INFO.LOGIN_USER, loginUser)
+                .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, loginUserMapping)
                 .execute();
       }
       else
       {
-        log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_UPDATE_LOGINMAP", tenantId, systemId, tapisUser, loginUser));
+        log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_UPDATE_LOGINMAP", tenantId, systemId, tapisUser, loginUserMapping));
         db.update(SYSTEMS_CRED_INFO)
-                .set(SYSTEMS_CRED_INFO.LOGIN_USER, loginUser)
+                .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, loginUserMapping)
                 .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),
                         SYSTEMS_CRED_INFO.SYSTEM_ID.eq(systemId),
                         SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser))
@@ -2365,6 +2377,8 @@ public class SystemsDaoImpl implements SystemsDao
 
   /**
    * Delete a mapping entry for tapisUser to loginUser
+   * TODO/TBD still needed?
+   *          if still needed then need to update for adding isStatic to primary key
    */
   @Override
   public void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser)
@@ -2757,34 +2771,30 @@ public class SystemsDaoImpl implements SystemsDao
   /* ********************************************************************** */
 
   /**
-   *  Return a connection from the static datasource.  Create the datasource
-   *  on demand if it doesn't exist.
+   *  Return a connection from the static datasource.
+   *  Create the datasource on demand if it does not exist.
    *
    * @return a database connection
-   * @throws TapisException on error
    */
   private static synchronized Connection getConnection()
-          throws TapisException
   {
     // Use the existing datasource.
     DataSource ds = getDataSource();
-
     // Get the connection.
     Connection conn = null;
     try {conn = ds.getConnection();}
     catch (Exception e) {
       String msg = MsgUtils.getMsg("DB_FAILED_CONNECTION");
       log.error(msg, e);
-      throw new TapisDBConnectionException(msg, e);
+      throw new TapisRuntimeException(msg, e);
     }
-
     return conn;
   }
 
   /* ---------------------------------------------------------------------- */
   /* getDataSource:                                                         */
   /* ---------------------------------------------------------------------- */
-  private static DataSource getDataSource() throws TapisException
+  private static DataSource getDataSource()
   {
     // Use the existing datasource.
     DataSource ds = TapisDataSource.getDataSource();
@@ -2800,14 +2810,13 @@ public class SystemsDaoImpl implements SystemsDao
                 parms.getDbConnectionPoolSize(),
                 parms.getDbMeterMinutes());
       }
-      catch (TapisException e) {
+      catch (Exception e) {
         // Details are already logged at exception site.
         String msg = MsgUtils.getMsg("DB_FAILED_DATASOURCE");
         log.error(msg, e);
-        throw new TapisException(msg, e);
+        throw new TapisRuntimeException(msg, e);
       }
     }
-
     return ds;
   }
 
@@ -3471,10 +3480,10 @@ public class SystemsDaoImpl implements SystemsDao
    */
   private CredentialInfo getCredentialInfoFromRecord(SystemsCredInfoRecord r)
   {
-    return new CredentialInfo(r.getSystemSeqId(), r.getTenant(), r.getSystemId(), r.getTapisUser(), r.getLoginUser(),
-            r.getIsStatic(), r.getHasCredentials(), r.getHasPassword(), r.getHasPkiKeys(),
-            r.getHasAccessKey(), r.getHasToken(), r.getHasTmsKeys(), r.getSyncStatus(), r.getSyncFailCount(),
-            r.getSyncFailMessage(), r.getSyncFailed().toInstant(ZoneOffset.UTC),
+    return new CredentialInfo(r.getSystemSeqId(), r.getTenant(), r.getSystemId(), r.getTapisUser(),
+            r.getHostLoginUser(), r.getLoginUserMapping(), r.getIsStatic(), r.getHasCredentials(), r.getHasPassword(),
+            r.getHasPkiKeys(), r.getHasAccessKey(), r.getHasToken(), r.getHasTmsKeys(), r.getSyncStatus(),
+            r.getSyncFailCount(), r.getSyncFailMessage(), r.getSyncFailed().toInstant(ZoneOffset.UTC),
             r.getCreated().toInstant(ZoneOffset.UTC), r.getUpdated().toInstant(ZoneOffset.UTC));
   }
 
