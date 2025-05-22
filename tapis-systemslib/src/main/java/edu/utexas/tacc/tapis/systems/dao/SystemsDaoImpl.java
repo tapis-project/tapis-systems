@@ -2368,15 +2368,14 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
       boolean recordExists = db.fetchExists(SYSTEMS_CRED_INFO,SYSTEMS_CRED_INFO.TENANT.eq(tenantId),
-              SYSTEMS_CRED_INFO.SYSTEM_ID.eq(systemId),
-              SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),
-              SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic));
+                                            SYSTEMS_CRED_INFO.SYSTEM_ID.eq(systemId),
+                                            SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),
+                                            SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic));
       // If record not there insert it, else update it
       if (!recordExists)
       {
         log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_INSERT_LOGINMAP", tenantId, systemId, tapisUser, loginUserMapping));
-        int sysSeqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId))
-                .fetchOne(SYSTEMS.SEQ_ID);
+        int sysSeqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId)).fetchOne(SYSTEMS.SEQ_ID);
         db.insertInto(SYSTEMS_CRED_INFO)
                 .set(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID, sysSeqId)
                 .set(SYSTEMS_CRED_INFO.TENANT, tenantId)
@@ -2391,8 +2390,8 @@ public class SystemsDaoImpl implements SystemsDao
         db.update(SYSTEMS_CRED_INFO)
                 .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, loginUserMapping)
                 .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),
-                        SYSTEMS_CRED_INFO.SYSTEM_ID.eq(systemId),
-                        SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser))
+                       SYSTEMS_CRED_INFO.SYSTEM_ID.eq(systemId),
+                       SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser))
                 .execute();
       }
       // Close out and commit
