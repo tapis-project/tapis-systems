@@ -3,6 +3,7 @@ package edu.utexas.tacc.tapis.systems.dao;
 import java.sql.Connection;
 import java.sql.Types;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,7 +14,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import javax.sql.DataSource;
-
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import org.flywaydb.core.Flyway;
@@ -39,38 +39,41 @@ import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
+import edu.utexas.tacc.tapis.shared.exceptions.runtime.TapisRuntimeException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy.OrderByDir;
-import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisDBConnectionException;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.shareddb.datasource.TapisDataSource;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedulerProfilesRecord;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SchedProfileModLoadRecord;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemUpdatesRecord;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.SystemsRecord;
+import edu.utexas.tacc.tapis.systems.model.Capability;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
+import edu.utexas.tacc.tapis.systems.model.JobRuntime;
+import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
 import edu.utexas.tacc.tapis.systems.model.ModuleLoadSpec;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
-import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
-import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
-import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.AuthListType;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.records.*;
 
 import static edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator.CONTAINS;
 import static edu.utexas.tacc.tapis.search.SearchUtils.SearchOperator.NCONTAINS;
-import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.*;
-import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.SYSTEMS;
 import static edu.utexas.tacc.tapis.shared.threadlocal.OrderBy.DEFAULT_ORDERBY_DIRECTION;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.DEFAULT_LIST_TYPE;
+import static edu.utexas.tacc.tapis.systems.gen.jooq.Tables.*;
 
 /*
  * Class to handle persistence and queries for Tapis System objects.
+ * Note that some methods throw a TapisRuntimeException if there is a problem connecting to the DB.
+ * If we cannot connect to the DB then we consider it a serious problem and the process should exit.
+ * For kubernetes deployments attempts will be made to re-start the service until the DB
+ *   and other services this service depends on have recovered.
+ *
  */
 public class SystemsDaoImpl implements SystemsDao
 {
@@ -118,7 +121,7 @@ public class SystemsDaoImpl implements SystemsDao
     if (system.getSystemType() == null) LibUtils.logAndThrowNullParmException(opName, "systemType");
     if (system.getDefaultAuthnMethod() == null) LibUtils.logAndThrowNullParmException(opName, "defaultAuthnMethod");
     
-    // Make sure owner, effectiveUserId, etc are set
+    // Make sure owner, effectiveUserId, etc. are set
     String owner = TSystem.DEFAULT_OWNER;
     if (StringUtils.isNotBlank(system.getOwner())) owner = system.getOwner();
     String effectiveUserId = TSystem.DEFAULT_EFFECTIVEUSERID;
@@ -861,7 +864,7 @@ public class SystemsDaoImpl implements SystemsDao
    * Use Flyway to make sure DB schema is at the latest version
    */
   @Override
-  public void migrateDB() throws TapisException
+  public void migrateDB()
   {
     Flyway flyway = Flyway.configure().dataSource(getDataSource()).load();
     // Use repair as workaround to avoid checksum error during develop/deploy of SNAPSHOT versions when it is not
@@ -1701,13 +1704,584 @@ public class SystemsDaoImpl implements SystemsDao
     return authnMethod;
   }
 
+  /* ********************************************************************** */
+  /*                        CredentialInfo Table                            */
+  /* ********************************************************************** */
+
+  /**
+   * Create CredInfo record.
+   * If no rUser or credInfo provided log error and return null.
+   */
+  @Override
+  public CredentialInfo createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
+  {
+    String opName = "createCredInfo";
+    // If anything missing log error and throw exception
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (credInfo == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NULL", rUser));
+    CredentialInfo retCredInfo = null;
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      // Values to use for created, updated: timestamp
+      LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
+      // Create the record in the main table.
+      SystemsCredInfoRecord record = db.insertInto(SYSTEMS_CRED_INFO)
+              .set(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID, credInfo.getSystemSeqId())
+              .set(SYSTEMS_CRED_INFO.TENANT, credInfo.getTenant())
+              .set(SYSTEMS_CRED_INFO.SYSTEM_ID, credInfo.getSystemId())
+              .set(SYSTEMS_CRED_INFO.TAPIS_USER, credInfo.getTapisUser())
+              .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, credInfo.getHostLoginUser())
+              .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, credInfo.getLoginUserMapping())
+              .set(SYSTEMS_CRED_INFO.CREATED, utcNow)
+              .set(SYSTEMS_CRED_INFO.UPDATED, utcNow)
+              .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, credInfo.hasCredentials())
+              .set(SYSTEMS_CRED_INFO.IS_STATIC, credInfo.isStatic())
+              .set(SYSTEMS_CRED_INFO.HAS_PASSWORD, credInfo.hasPassword())
+              .set(SYSTEMS_CRED_INFO.HAS_PKI_KEYS, credInfo.hasPkiKeys())
+              .set(SYSTEMS_CRED_INFO.HAS_ACCESS_KEY, credInfo.hasAccessKey())
+              .set(SYSTEMS_CRED_INFO.HAS_TOKEN, credInfo.hasToken())
+              .set(SYSTEMS_CRED_INFO.HAS_TMS_KEYS, credInfo.hasTmsKeys())
+              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, credInfo.getSyncStatus())
+              .set(SYSTEMS_CRED_INFO.SYNC_FAILED, (LocalDateTime) null)
+              .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, credInfo.getSyncFailCount())
+              .set(SYSTEMS_CRED_INFO.SYNC_FAIL_MESSAGE, credInfo.getSyncFailMessage())
+              .returning().fetchOne();
+      // If record is null it is an error
+      if (record == null)
+      {
+        throw new TapisException(LibUtils.getMsgAuth("SYSLIB_DB_NULL_RESULT", rUser, credInfo.getSystemId(), opName));
+      }
+      // Convert record to CredentialInfo object
+      retCredInfo = getCredentialInfoFromRecord(record);
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    // Return the CredentialInfo object
+    return retCredInfo;
+  }
+
+  /**
+   * getCredentialInfo
+   *
+   */
+  @Override
+  public CredentialInfo getCredInfo(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser,
+                                    boolean isStatic)
+  {
+    // Initialize result.
+    CredentialInfo credInfo = null;
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      SystemsCredInfoRecord r = db.selectFrom(SYSTEMS_CRED_INFO)
+              .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
+                     SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic)).fetchOne();
+      if (r == null) return null;
+      else credInfo = getCredentialInfoFromRecord(r);
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "CredentialInfo", tenantId, sysId, e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return credInfo;
+  }
+
+  /**
+   * getCredentialInfoRecordsForSystem
+   */
+  @Override
+  public List<CredentialInfo> getCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenantId, String sysId)
+        throws TapisException
+  {
+    // The result list should always be non-null.
+    List<CredentialInfo> retList = new ArrayList<>();
+
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+
+      var records = db.selectFrom(SYSTEMS_CRED_INFO)
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId)).fetch();
+      if (records == null || records.isEmpty()) return Collections.emptyList();
+
+      for (SystemsCredInfoRecord scir : records)
+      {
+        CredentialInfo credInfo = getCredentialInfoFromRecord(scir);
+        retList.add(credInfo);
+      }
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "CredentialInfoRecords", tenantId, sysId, e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return retList;
+  }
+
+  /**
+   * Delete CredInfo record given tenant, systemId, tapis user and isStatic
+   */
+  @Override
+  public void deleteCredInfo(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser, boolean isStatic)
+          throws TapisException
+  {
+    // If anything missing throw an exception. These values make up the primary key
+    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
+    {
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NULL_PK", rUser, tenantId, sysId, tapisUser));
+    }
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      db.deleteFrom(SYSTEMS_CRED_INFO)
+              .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
+                      SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
+              .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_DELETE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * Delete CredInfo record given CredInfo record
+   */
+  @Override
+  public void deleteCredInfoRecord(ResourceRequestUser rUser, CredentialInfo credInfo)
+        throws TapisException
+  {
+    String tenantId = credInfo.getTenant();
+    String sysId = credInfo.getSystemId();
+    String tapisUser = credInfo.getTapisUser();
+    // If anything missing throw an exception. These values make up the primary key
+    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
+    {
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NULL_PK", rUser, tenantId, sysId, tapisUser));
+    }
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      db.deleteFrom(SYSTEMS_CRED_INFO)
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
+                  SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
+            .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_DELETE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * Delete all CredInfo records associated with a system
+   */
+  @Override
+  public void deleteAllCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenant, String systemId)
+        throws TapisException
+  {
+    List<CredentialInfo> credInfoList = getCredInfoRecordsForSystem(rUser, tenant, systemId);
+    for (CredentialInfo credInfo : credInfoList)
+    {
+      deleteCredInfoRecord(rUser, credInfo);
+    }
+  }
+
+  /**
+   * In SYSTEMS_CRED_INFO table, Update all IN_PROGRESS cred info records to FAILED state
+   * @throws TapisException on error
+   */
+  @Override
+  public int credInfoMarkInProgressAsFailed(String failMsg) throws TapisException
+  {
+    int numRecords = 0;
+    // Values to use for update: timestamp, fail message
+    LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      numRecords = db.update(SYSTEMS_CRED_INFO)
+              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.FAILED)
+              .set(SYSTEMS_CRED_INFO.UPDATED, utcNow)
+              .set(SYSTEMS_CRED_INFO.SYNC_FAILED, utcNow)
+              .set(SYSTEMS_CRED_INFO.SYNC_FAIL_MESSAGE, failMsg)
+              .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT.plus(1))
+              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.IN_PROGRESS))
+              .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return numRecords;
+  }
+
+  /**
+   * In SYSTEMS_CRED_INFO table, Mark all FAILED records as PENDING
+   * @throws TapisException on error
+   */
+  @Override
+  public void credInfoMarkFailedAsPending() throws TapisException
+  {
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      db.update(SYSTEMS_CRED_INFO)
+              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.PENDING)
+              .set(SYSTEMS_CRED_INFO.UPDATED, TapisUtils.getUTCTimeNow())
+              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.FAILED))
+              .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * Update a record in the SYSTEMS_CRED_INFO table based on the provided CredInfo object
+   */
+  @Override
+  public void updateCredInfoRecord(CredentialInfo credInfo, LocalDateTime updated)
+  {
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
+      db.update(SYSTEMS_CRED_INFO)
+            .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, credInfo.getHostLoginUser())
+            .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, credInfo.getLoginUserMapping())
+            .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, credInfo.hasCredentials())
+            .set(SYSTEMS_CRED_INFO.HAS_PASSWORD, credInfo.hasPassword())
+            .set(SYSTEMS_CRED_INFO.HAS_PKI_KEYS, credInfo.hasPkiKeys())
+            .set(SYSTEMS_CRED_INFO.HAS_ACCESS_KEY, credInfo.hasAccessKey())
+            .set(SYSTEMS_CRED_INFO.HAS_TOKEN, credInfo.hasToken())
+            .set(SYSTEMS_CRED_INFO.HAS_TMS_KEYS, credInfo.hasTmsKeys())
+            .set(SYSTEMS_CRED_INFO.SYNC_STATUS, credInfo.getSyncStatus())
+            .set(SYSTEMS_CRED_INFO.SYNC_FAILED, LocalDateTime.ofInstant(credInfo.getSyncFailed(), ZoneOffset.UTC))
+            .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, credInfo.getSyncFailCount())
+            .set(SYSTEMS_CRED_INFO.SYNC_FAIL_MESSAGE, credInfo.getSyncFailMessage())
+            .set(SYSTEMS_CRED_INFO.UPDATED, updated)
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
+                  SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
+                  SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
+                  SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
+            .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * In SYSTEMS_CRED_INFO table, updated status for given record
+   */
+  @Override
+  public void updateCredInfoStatus(CredentialInfo credInfo, SyncStatus newSyncStatus, LocalDateTime updated)
+  {
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
+      db.update(SYSTEMS_CRED_INFO)
+            .set(SYSTEMS_CRED_INFO.SYNC_STATUS, newSyncStatus)
+            .set(SYSTEMS_CRED_INFO.UPDATED, updated)
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
+                  SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
+                  SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
+                  SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
+            .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * In SYSTEMS_CRED_INFO table, update record and mark as COMPLETE
+   * @throws TapisException on error
+   */
+  @Override
+  public void credInfoMarkAsComplete(CredentialInfo credInfo) throws TapisException
+  {
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
+      db.update(SYSTEMS_CRED_INFO)
+            .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.COMPLETED)
+            .set(SYSTEMS_CRED_INFO.UPDATED, TapisUtils.getUTCTimeNow())
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
+                    SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
+                    SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
+                    SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
+            .execute();
+
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
+  /**
+   * In SYSTEMS_CRED_INFO table, fetch all PENDING records
+   * @throws TapisException on error
+   */
+  @Override
+  public List<CredentialInfo> credInfoGetPendingRecords() throws TapisException
+  {
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    List<CredentialInfo> retList = new ArrayList<>();
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      var records = db.selectFrom(SYSTEMS_CRED_INFO)
+              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.PENDING)).fetch();
+      if (records == null || records.isEmpty()) return retList;
+
+      for (SystemsCredInfoRecord r : records) { retList.add(getCredentialInfoFromRecord(r)); }
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_QUERY_ERROR", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return retList;
+  }
+
+  /**
+   * In SYSTEMS_CRED_INFO table, create records as needed for undeleted systems that have a static effectiveUserId
+   * Records are created in the PENDING state
+   * @throws TapisException on error
+   */
+  @Override
+  public int credInfoInitStaticSystems() throws TapisException
+  {
+    int numRecords = 0;
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+
+      // Get all undeleted systems with static effectiveUserId that do not already have an entry in the credInfo table
+      // Use jOOQ support for antiJoin
+      Result<SystemsRecord> results =
+              db.selectFrom(SYSTEMS.leftAntiJoin(SYSTEMS_CRED_INFO)
+                              .on(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID.eq(SYSTEMS.SEQ_ID)))
+                      .where(SYSTEMS.DELETED.eq(false))
+                      .andNot(SYSTEMS.EFFECTIVE_USER_ID.eq(TSystem.APIUSERID_VAR))
+                      .forUpdate()
+                      .fetch();
+
+      // For each system found, insert a record in the credInfo table
+      // NOTE: For static users, tapis_user can be system owner. What about for dynamic users?
+      //       Use null? No, because tapis_user is part of the primary key, so for dynamic effectiveUserId
+      //       we cannot create CredInfo records as part of the maintenance task.
+      // Initialize timestamp to use for created and updated fields.
+      LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
+      // Insert the records based on the query result
+      for (SystemsRecord r : results)
+      {
+        int count = db.insertInto(SYSTEMS_CRED_INFO)
+                .set(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID, r.getSeqId())
+                .set(SYSTEMS_CRED_INFO.TENANT, r.getTenant())
+                .set(SYSTEMS_CRED_INFO.SYSTEM_ID, r.getId())
+                .set(SYSTEMS_CRED_INFO.TAPIS_USER, r.getOwner())
+                .set(SYSTEMS_CRED_INFO.IS_STATIC, true)
+                .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.PENDING)
+                .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, 0)
+                .set(SYSTEMS_CRED_INFO.CREATED, utcNow)
+                .set(SYSTEMS_CRED_INFO.UPDATED, utcNow)
+                .execute();
+        numRecords = numRecords + count;
+      }
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return numRecords;
+  }
+
+  /**
+   * In SYSTEMS_CRED_INFO table, remove all records marked as DELETED
+   * @throws TapisException on error
+   */
+  @Override
+  public int credInfoRemoveDeletedRecords() throws TapisException
+  {
+    int numRecords = 0;
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      numRecords = db.deleteFrom(SYSTEMS_CRED_INFO)
+              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.DELETED)).execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_DELETE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return numRecords;
+  }
+
+
   /**
    * Add an update record given the system Id and operation type
    *
    */
   @Override
   public void addUpdateRecord(ResourceRequestUser rUser, String sysId, SystemOperation op, String changeDescription, String rawData)
-          throws TapisException
   {
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1740,13 +2314,12 @@ public class SystemsDaoImpl implements SystemsDao
    * @param id - system name
    * @param tapisUser - Tapis username
    * @return loginUser or null if no mapping
-   * @throws TapisException - on error
    */
   @Override
-  public String getLoginUser(String tenantId, String id, String tapisUser) throws TapisException
+  public String getLoginUser(String tenantId, String id, String tapisUser)
   {
     // Initialize result.
-    String loginUser = null;
+    String loginUserMapping = null;
 
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1756,34 +2329,35 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
       // Run the sql
-      loginUser = db.selectFrom(SYSTEMS_LOGIN_USER)
-              .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(id),SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
-              .fetchOne(SYSTEMS_LOGIN_USER.LOGIN_USER);
+      loginUserMapping = db.selectFrom(SYSTEMS_CRED_INFO)
+              .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(id),SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser))
+              .fetchOne(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING);
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
     catch (Exception e)
     {
       // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "System_login_user", tenantId, id, e.getMessage());
+      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "System_login_user_mapping", tenantId, id, e.getMessage());
     }
     finally
     {
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
     }
-    return loginUser;
+    return loginUserMapping;
   }
 
   /**
    * Create a new mapping for tapisUser to loginUser
    */
   @Override
-  public void createOrUpdateLoginUserMapping(String tenantId, String systemId, String tapisUser, String loginUser) throws TapisException
+  public void createOrUpdateLoginUserMapping(String tenantId, String systemId, String tapisUser,
+                                             String loginUserMapping, boolean isStatic)
   {
 
     if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(systemId) || StringUtils.isBlank(tapisUser) ||
-        StringUtils.isBlank(loginUser))
+        StringUtils.isBlank(loginUserMapping))
     {
       return;
     }
@@ -1793,30 +2367,32 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      boolean recordExists = db.fetchExists(SYSTEMS_LOGIN_USER,SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),
-                                            SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(systemId),
-                                            SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser));
+      boolean recordExists = db.fetchExists(SYSTEMS_CRED_INFO,SYSTEMS_CRED_INFO.TENANT.eq(tenantId),
+              SYSTEMS_CRED_INFO.SYSTEM_ID.eq(systemId),
+              SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),
+              SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic));
       // If record not there insert it, else update it
       if (!recordExists)
       {
-        log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_INSERT_LOGINMAP", tenantId, systemId, tapisUser, loginUser));
-        int sysSeqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId)).fetchOne(SYSTEMS.SEQ_ID);
-        db.insertInto(SYSTEMS_LOGIN_USER)
-                .set(SYSTEMS_LOGIN_USER.SYSTEM_SEQ_ID, sysSeqId)
-                .set(SYSTEMS_LOGIN_USER.TENANT, tenantId)
-                .set(SYSTEMS_LOGIN_USER.SYSTEM_ID, systemId)
-                .set(SYSTEMS_LOGIN_USER.TAPIS_USER, tapisUser)
-                .set(SYSTEMS_LOGIN_USER.LOGIN_USER, loginUser)
+        log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_INSERT_LOGINMAP", tenantId, systemId, tapisUser, loginUserMapping));
+        int sysSeqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId))
+                .fetchOne(SYSTEMS.SEQ_ID);
+        db.insertInto(SYSTEMS_CRED_INFO)
+                .set(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID, sysSeqId)
+                .set(SYSTEMS_CRED_INFO.TENANT, tenantId)
+                .set(SYSTEMS_CRED_INFO.SYSTEM_ID, systemId)
+                .set(SYSTEMS_CRED_INFO.TAPIS_USER, tapisUser)
+                .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, loginUserMapping)
                 .execute();
       }
       else
       {
-        log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_UPDATE_LOGINMAP", tenantId, systemId, tapisUser, loginUser));
-        db.update(SYSTEMS_LOGIN_USER)
-                .set(SYSTEMS_LOGIN_USER.LOGIN_USER, loginUser)
-                .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),
-                       SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(systemId),
-                       SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
+        log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_UPDATE_LOGINMAP", tenantId, systemId, tapisUser, loginUserMapping));
+        db.update(SYSTEMS_CRED_INFO)
+                .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, loginUserMapping)
+                .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),
+                        SYSTEMS_CRED_INFO.SYSTEM_ID.eq(systemId),
+                        SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser))
                 .execute();
       }
       // Close out and commit
@@ -1825,7 +2401,7 @@ public class SystemsDaoImpl implements SystemsDao
     catch (Exception e)
     {
       // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "systems_login_user");
+      LibUtils.rollbackDB(conn, e,"DB_INSERT_FAILURE", "SYSTEMS_CRED_INFO");
     }
     finally
     {
@@ -1852,8 +2428,8 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      db.deleteFrom(SYSTEMS_LOGIN_USER)
-              .where(SYSTEMS_LOGIN_USER.TENANT.eq(tenantId),SYSTEMS_LOGIN_USER.SYSTEM_ID.eq(sysId),SYSTEMS_LOGIN_USER.TAPIS_USER.eq(tapisUser))
+      db.deleteFrom(SYSTEMS_CRED_INFO)
+              .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser))
               .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -2228,34 +2804,30 @@ public class SystemsDaoImpl implements SystemsDao
   /* ********************************************************************** */
 
   /**
-   *  Return a connection from the static datasource.  Create the datasource
-   *  on demand if it doesn't exist.
+   *  Return a connection from the static datasource.
+   *  Create the datasource on demand if it does not exist.
    *
    * @return a database connection
-   * @throws TapisException on error
    */
   private static synchronized Connection getConnection()
-          throws TapisException
   {
     // Use the existing datasource.
     DataSource ds = getDataSource();
-
     // Get the connection.
     Connection conn = null;
     try {conn = ds.getConnection();}
     catch (Exception e) {
       String msg = MsgUtils.getMsg("DB_FAILED_CONNECTION");
       log.error(msg, e);
-      throw new TapisDBConnectionException(msg, e);
+      throw new TapisRuntimeException(msg, e);
     }
-
     return conn;
   }
 
   /* ---------------------------------------------------------------------- */
   /* getDataSource:                                                         */
   /* ---------------------------------------------------------------------- */
-  private static DataSource getDataSource() throws TapisException
+  private static DataSource getDataSource()
   {
     // Use the existing datasource.
     DataSource ds = TapisDataSource.getDataSource();
@@ -2271,14 +2843,13 @@ public class SystemsDaoImpl implements SystemsDao
                 parms.getDbConnectionPoolSize(),
                 parms.getDbMeterMinutes());
       }
-      catch (TapisException e) {
+      catch (Exception e) {
         // Details are already logged at exception site.
         String msg = MsgUtils.getMsg("DB_FAILED_DATASOURCE");
         log.error(msg, e);
-        throw new TapisException(msg, e);
+        throw new TapisRuntimeException(msg, e);
       }
     }
-
     return ds;
   }
 
@@ -2935,6 +3506,18 @@ public class SystemsDaoImpl implements SystemsDao
 	return new SystemHistoryItem(r.get(SYSTEM_UPDATES.JWT_TENANT), r.get(SYSTEM_UPDATES.JWT_USER),
             r.get(SYSTEM_UPDATES.OBO_TENANT), r.get(SYSTEM_UPDATES.OBO_USER), r.get(SYSTEM_UPDATES.OPERATION),
             r.get(SYSTEM_UPDATES.DESCRIPTION), r.get(SYSTEM_UPDATES.CREATED).toInstant(ZoneOffset.UTC));
+  }
+
+  /*
+   * Given a record from a select, create a CredentialInfo object
+   */
+  private CredentialInfo getCredentialInfoFromRecord(SystemsCredInfoRecord r)
+  {
+    return new CredentialInfo(r.getSystemSeqId(), r.getTenant(), r.getSystemId(), r.getTapisUser(),
+            r.getHostLoginUser(), r.getLoginUserMapping(), r.getIsStatic(), r.getHasCredentials(), r.getHasPassword(),
+            r.getHasPkiKeys(), r.getHasAccessKey(), r.getHasToken(), r.getHasTmsKeys(), r.getSyncStatus(),
+            r.getSyncFailCount(), r.getSyncFailMessage(), r.getSyncFailed().toInstant(ZoneOffset.UTC),
+            r.getCreated().toInstant(ZoneOffset.UTC), r.getUpdated().toInstant(ZoneOffset.UTC));
   }
 
   /*

@@ -315,7 +315,7 @@ public class CredUtils
     //   then record the mapping
     if (!isStaticEffectiveUser && !StringUtils.isBlank(loginUser))
     {
-      dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, loginUser);
+      dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, loginUser, isStaticEffectiveUser);
     }
 
     // Construct Json string representing the update, with actual secrets masked out

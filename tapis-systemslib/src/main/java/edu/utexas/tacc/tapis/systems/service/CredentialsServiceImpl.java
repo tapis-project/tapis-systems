@@ -66,7 +66,7 @@ public class CredentialsServiceImpl
   /**
    * Store or update credential for given system and target user.
    * <p>
-   * NOTE that credential returned even if invalid. Caller must check Credential.getValidationResult()
+   * NOTE that a credential is returned even if invalid. Caller must check Credential.getValidationResult()
    * <p>
    * Required: rUser, systemId, targetUser, credential.
    * <p>
@@ -75,7 +75,8 @@ public class CredentialsServiceImpl
    * If the *effectiveUserId* for the system is dynamic (i.e. equal to *${apiUserId}*) then *targetUser* is interpreted
    * as a Tapis user and the Credential may contain the optional attribute *loginUser* which will be used to map the
    * Tapis user to a username to be used when accessing the system. If the login user is not provided then there is
-   * no mapping and the Tapis user is always used when accessing the system.
+   * no mapping and the Tapis user is always used when accessing the system. Note that the Tapis user comes from
+   * the username claim in the Tapis JWT.
    * <p>
    * If the *effectiveUserId* for the system is static (i.e. not *${apiUserId}*) then *targetUser* is interpreted
    * as the login user to be used when accessing the host.

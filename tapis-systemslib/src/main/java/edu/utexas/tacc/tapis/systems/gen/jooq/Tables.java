@@ -9,7 +9,7 @@ import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedProfileModLoad;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemUpdates;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.Systems;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsLoginUser;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsCredInfo;
 
 
 /**
@@ -44,7 +44,7 @@ public class Tables {
     public static final Systems SYSTEMS = Systems.SYSTEMS;
 
     /**
-     * The table <code>tapis_sys.systems_login_user</code>.
+     * The table <code>tapis_sys.systems_cred_info</code>.
      */
-    public static final SystemsLoginUser SYSTEMS_LOGIN_USER = SystemsLoginUser.SYSTEMS_LOGIN_USER;
+    public static final SystemsCredInfo SYSTEMS_CRED_INFO = SystemsCredInfo.SYSTEMS_CRED_INFO;
 }

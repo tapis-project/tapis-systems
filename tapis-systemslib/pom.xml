@@ -6,7 +6,7 @@
   <parent>
     <groupId>edu.utexas.tacc.tapis</groupId>
     <artifactId>tapis-systems</artifactId>
-    <version>1.8.3</version>
+    <version>1.8.4</version>
   </parent>
   
   <artifactId>tapis-systemslib</artifactId>
@@ -82,6 +82,11 @@
       <groupId>org.threeten</groupId>
       <artifactId>threetenbp</artifactId>
       <version>${threetenbp.version}</version>
+    </dependency>
+    <!-- StatefulJ -->
+    <dependency>
+      <groupId>org.statefulj</groupId>
+      <artifactId>statefulj-fsm</artifactId>
     </dependency>
     <!-- Gson -->
     <dependency>
@@ -277,6 +282,12 @@
                     <userType>edu.utexas.tacc.tapis.systems.model.TSystem.SystemType</userType>
                     <enumConverter>true</enumConverter>
                     <includeExpression>systems\.system_type</includeExpression>
+                    <includeTypes>.*</includeTypes>
+                  </forcedType>
+                  <forcedType>
+                    <userType>edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus</userType>
+                    <enumConverter>true</enumConverter>
+                    <includeExpression>systems_cred_info\.sync_status</includeExpression>
                     <includeTypes>.*</includeTypes>
                   </forcedType>
 <!--                  <forcedType>-->
