@@ -10,12 +10,13 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.?.? - 2025-??-??
+## 1.8.4 - 2025-05-??
 
-Incremental improvements. Addition of table and code for tracking credential metadata.
+Incremental improvements. Re-purpose existing table as first step to support credential metadata tracking.
+Re-purpose table systems_login_user, rename to systems_cred_info and add columns.
 
 ### New features:
-- Addition of table and code for tracking credential metadata.
+- Addition of table for tracking credential metadata. No public facing changes.
 
 ---------------------------------------------------------------------------
 ## 1.8.3 - 2025-05-15

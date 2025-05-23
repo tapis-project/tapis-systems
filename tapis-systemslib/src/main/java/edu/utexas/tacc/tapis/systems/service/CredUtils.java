@@ -297,9 +297,24 @@ public class CredUtils
     //   have been changed and reverting seems fraught with peril and not a good ROI.
     createCredential(rUser, retCred, system, targetUser, hostLoginUser, isStaticEffectiveUser, op);
 
-    // If skipping check return null, else return the verified credential
-    if (skipCheck) return null;
-    else return retCred;
+//    // If skipping check return null, else return the verified credential
+//    if (skipCheck) return null;
+//    else return retCred;
+    // If dynamic and an alternate loginUser has been provided that is not the same as the Tapis user
+    //   then record the mapping
+    if (!isStaticEffectiveUser && !StringUtils.isBlank(loginUser))
+    {
+      dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, loginUser, isStaticEffectiveUser);
+    }
+
+    // Construct Json string representing the update, with actual secrets masked out
+    Credential maskedCredential = Credential.createMaskedCredential(fullCred);
+    // Get a complete and succinct description of the update.
+    String changeDescription = LibUtils.getChangeDescriptionCredCreate(systemId, targetUser, skipCheck, maskedCredential);
+    // Create a record of the update
+    dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
+
+    return retCred;
   }
 
   /**

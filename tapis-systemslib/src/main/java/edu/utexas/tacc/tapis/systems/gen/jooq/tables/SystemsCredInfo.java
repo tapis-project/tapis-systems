@@ -16,11 +16,11 @@ import java.util.function.Function;
 
 import org.jooq.Field;
 import org.jooq.ForeignKey;
-import org.jooq.Function18;
+import org.jooq.Function19;
 import org.jooq.Name;
 import org.jooq.Record;
 import org.jooq.Records;
-import org.jooq.Row18;
+import org.jooq.Row19;
 import org.jooq.Schema;
 import org.jooq.SelectField;
 import org.jooq.Table;
@@ -75,29 +75,34 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
     public final TableField<SystemsCredInfoRecord, String> TAPIS_USER = createField(DSL.name("tapis_user"), SQLDataType.CLOB.nullable(false), this, "");
 
     /**
-     * The column <code>tapis_sys.systems_cred_info.login_user</code>.
+     * The column <code>tapis_sys.systems_cred_info.login_user_mapping</code>.
      */
-    public final TableField<SystemsCredInfoRecord, String> LOGIN_USER = createField(DSL.name("login_user"), SQLDataType.CLOB, this, "");
+    public final TableField<SystemsCredInfoRecord, String> LOGIN_USER_MAPPING = createField(DSL.name("login_user_mapping"), SQLDataType.CLOB, this, "");
 
     /**
      * The column <code>tapis_sys.systems_cred_info.created</code>.
      */
-    public final TableField<SystemsCredInfoRecord, LocalDateTime> CREATED = createField(DSL.name("created"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("timezone('utc'::text, now())", SQLDataType.LOCALDATETIME)), this, "");
+    public final TableField<SystemsCredInfoRecord, LocalDateTime> CREATED = createField(DSL.name("created"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("(now() AT TIME ZONE 'utc'::text)", SQLDataType.LOCALDATETIME)), this, "");
 
     /**
      * The column <code>tapis_sys.systems_cred_info.updated</code>.
      */
-    public final TableField<SystemsCredInfoRecord, LocalDateTime> UPDATED = createField(DSL.name("updated"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("timezone('utc'::text, now())", SQLDataType.LOCALDATETIME)), this, "");
+    public final TableField<SystemsCredInfoRecord, LocalDateTime> UPDATED = createField(DSL.name("updated"), SQLDataType.LOCALDATETIME(6).nullable(false).defaultValue(DSL.field("(now() AT TIME ZONE 'utc'::text)", SQLDataType.LOCALDATETIME)), this, "");
 
     /**
-     * The column <code>tapis_sys.systems_cred_info.has_credentials</code>.
+     * The column <code>tapis_sys.systems_cred_info.host_login_user</code>.
      */
-    public final TableField<SystemsCredInfoRecord, Boolean> HAS_CREDENTIALS = createField(DSL.name("has_credentials"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "");
+    public final TableField<SystemsCredInfoRecord, String> HOST_LOGIN_USER = createField(DSL.name("host_login_user"), SQLDataType.CLOB.nullable(false), this, "");
 
     /**
      * The column <code>tapis_sys.systems_cred_info.is_static</code>.
      */
     public final TableField<SystemsCredInfoRecord, Boolean> IS_STATIC = createField(DSL.name("is_static"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "");
+
+    /**
+     * The column <code>tapis_sys.systems_cred_info.has_credentials</code>.
+     */
+    public final TableField<SystemsCredInfoRecord, Boolean> HAS_CREDENTIALS = createField(DSL.name("has_credentials"), SQLDataType.BOOLEAN.nullable(false).defaultValue(DSL.field("false", SQLDataType.BOOLEAN)), this, "");
 
     /**
      * The column <code>tapis_sys.systems_cred_info.has_password</code>.
@@ -246,18 +251,18 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
     }
 
     // -------------------------------------------------------------------------
-    // Row18 type methods
+    // Row19 type methods
     // -------------------------------------------------------------------------
 
     @Override
-    public Row18<Integer, String, String, String, String, LocalDateTime, LocalDateTime, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, SyncStatus, LocalDateTime, Integer, String> fieldsRow() {
-        return (Row18) super.fieldsRow();
+    public Row19<Integer, String, String, String, String, LocalDateTime, LocalDateTime, String, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, SyncStatus, LocalDateTime, Integer, String> fieldsRow() {
+        return (Row19) super.fieldsRow();
     }
 
     /**
      * Convenience mapping calling {@link SelectField#convertFrom(Function)}.
      */
-    public <U> SelectField<U> mapping(Function18<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super SyncStatus, ? super LocalDateTime, ? super Integer, ? super String, ? extends U> from) {
+    public <U> SelectField<U> mapping(Function19<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super String, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super SyncStatus, ? super LocalDateTime, ? super Integer, ? super String, ? extends U> from) {
         return convertFrom(Records.mapping(from));
     }
 
@@ -265,7 +270,7 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
      * Convenience mapping calling {@link SelectField#convertFrom(Class,
      * Function)}.
      */
-    public <U> SelectField<U> mapping(Class<U> toType, Function18<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super SyncStatus, ? super LocalDateTime, ? super Integer, ? super String, ? extends U> from) {
+    public <U> SelectField<U> mapping(Class<U> toType, Function19<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super String, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super SyncStatus, ? super LocalDateTime, ? super Integer, ? super String, ? extends U> from) {
         return convertFrom(toType, Records.mapping(from));
     }
 }
