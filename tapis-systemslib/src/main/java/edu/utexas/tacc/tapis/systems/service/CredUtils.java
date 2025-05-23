@@ -758,14 +758,6 @@ public class CredUtils
   }
 
   /*
-   * Return segment of secret path for target user, including static or dynamic scope
-   * Note that SK uses + rather than / to create sub-folders.
-   */
-  static String getTargetUserSecretPath(String targetUser, boolean isStatic)
-  {
-    return String.format("%s+%s", isStatic ? "static" : "dynamic", targetUser);
-  }
-  /*
    * Check to see if TMS is configured. Set flag.
    */
   public static void initTmsConfiguration()
@@ -807,31 +799,31 @@ public class CredUtils
   /* **************************************************************************** */
 
 // TODO use this or getHostLoginUser?
-//  /**
-//   * Determine final host login user value when caller has provided a credential
-//   * @param sys - Tapis system
-//   * @param targetUser - target user associated with the create operation
-//   * @param credHostLoginUser - login user mapping (if any) provided as part of credential.
-//   * @param isStaticEffectiveUser - whether eff user is static
-//   * @return host login user
-//   */
-//  private String determineHostloginUser(TSystem sys, String targetUser, String credHostLoginUser,
-//                                        boolean isStaticEffectiveUser)
-//  {
-//    // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
-//    String hostLoginUser = targetUser;
-//    // If dynamic need to check for host login user mapping.
-//    if (!isStaticEffectiveUser)
-//    {
-//      // Since this is a create operation, the host login user mapping might be in the DB or part of the incoming
-//      //   credential or both. The one in the credential has priority because it will be replacing the DB record
-//      String mappedLoginUser = credHostLoginUser;
-//      if (StringUtils.isBlank(mappedLoginUser)) mappedLoginUser = dao.getLoginUser(sys.getTenant(), sys.getId(), targetUser);
-//      // mappedLoginUser may or may not be blank. If not blank update the hostLoginUser.
-//      if (!StringUtils.isBlank(mappedLoginUser)) hostLoginUser = mappedLoginUser;
-//    }
-//    return hostLoginUser;
-//  }
+  /**
+   * Determine final host login user value when caller has provided a credential
+   * @param sys - Tapis system
+   * @param targetUser - target user associated with the create operation
+   * @param credHostLoginUser - login user mapping (if any) provided as part of credential.
+   * @param isStaticEffectiveUser - whether eff user is static
+   * @return host login user
+   */
+  private String determineHostloginUser(TSystem sys, String targetUser, String credHostLoginUser,
+                                        boolean isStaticEffectiveUser)
+  {
+    // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
+    String hostLoginUser = targetUser;
+    // If dynamic need to check for host login user mapping.
+    if (!isStaticEffectiveUser)
+    {
+      // Since this is a create operation, the host login user mapping might be in the DB or part of the incoming
+      //   credential or both. The one in the credential has priority because it will be replacing the DB record
+      String mappedLoginUser = credHostLoginUser;
+      if (StringUtils.isBlank(mappedLoginUser)) mappedLoginUser = dao.getLoginUser(sys.getTenant(), sys.getId(), targetUser);
+      // mappedLoginUser may or may not be blank. If not blank update the hostLoginUser.
+      if (!StringUtils.isBlank(mappedLoginUser)) hostLoginUser = mappedLoginUser;
+    }
+    return hostLoginUser;
+  }
 
   /*
    * Make sure we are configured for TMS keys and that system allows for it
@@ -1145,10 +1137,6 @@ public class CredUtils
     return retCred;
   }
 
-  /**
-   * Update CredentialInfo status for in-memory and DB record
-   * WARNING ***** CredInfo object MUST be locked before calling this method ****
-   * Check that transition from current status to new status is allowed.
   /*
    * For credential creation operation, determine the host login user, i.e. the resolved effectiveUserId.
    */
@@ -1167,9 +1155,10 @@ public class CredUtils
     return hostLoginUser;
   }
 
-  /*
-   * Return segment of secret path for target user, including static or dynamic scope
-   * Note that SK uses + rather than / to create sub-folders.
+  /**
+   * Update CredentialInfo status for in-memory and DB record
+   * WARNING ***** CredInfo object MUST be locked before calling this method ****
+   * Check that transition from current status to new status is allowed.
    */
   private void updateCredentialInfoStatus(CredentialInfo credInfo, SyncStatus newSyncStatus)
   {
@@ -1601,5 +1590,14 @@ public class CredUtils
     try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
     catch (Exception e) { log.trace(e.getMessage()); }
     return 1;
+  }
+
+  /*
+   * Return segment of secret path for target user, including static or dynamic scope
+   * Note that SK uses + rather than / to create sub-folders.
+   */
+  private static String getTargetUserSecretPath(String targetUser, boolean isStatic)
+  {
+    return String.format("%s+%s", isStatic ? "static" : "dynamic", targetUser);
   }
 }
