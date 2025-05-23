@@ -225,7 +225,7 @@ public class CredUtils
     String msg;
     // Extract some attributes for convenience and clarity
     String oboTenant = rUser.getOboTenantId();
-    String loginUser = cred.getLoginUser();
+    String userLoginMapping = cred.getLoginUser();
     String systemId = system.getId();
     String sysTenant = system.getTenant();
     SystemType systemType = system.getSystemType();
@@ -257,15 +257,15 @@ public class CredUtils
         msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_INVALID_SYS_TYPE", rUser, systemId, systemType);
         throw new BadRequestException(msg);
       }
-      if (!StringUtils.isBlank(loginUser) || isStaticEffectiveUser)
+      if (!StringUtils.isBlank(userLoginMapping) || isStaticEffectiveUser)
       {
-        msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_NOT_ALLOWED", rUser, systemId, loginUser, isStaticEffectiveUser);
+        msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_NOT_ALLOWED", rUser, systemId, userLoginMapping, isStaticEffectiveUser);
         throw new BadRequestException(msg);
       }
       // Call TMS to create the keypair and fingerprint
       tmsKeys = createTmsKeys(rUser, system, targetUser);
       // Add TMS keys info the full credential
-      fullCred = new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
+      fullCred = new Credential(cred.getAuthnMethod(), userLoginMapping, cred.getPassword(), cred.getPrivateKey(),
                                 cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
                                 cred.getAccessToken(), cred.getRefreshToken(),
                                 tmsKeys.privateKey, tmsKeys.publicKey, tmsKeys.fingerprint, cred.getCertificate());
@@ -274,21 +274,14 @@ public class CredUtils
     // Skip check if not LINUX or S3
     if (!SystemType.LINUX.equals(systemType) && !SystemType.S3.equals(systemType)) skipCheck = true;
 
+    // Determine the host login user, i.e. the resolved effectiveUserId
+    // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
+    String hostLoginUser = getHostLoginUser(oboTenant, systemId, targetUser, userLoginMapping, isStaticEffectiveUser);
+
     // ---------------- Verify credentials ------------------------
     // If not skipping credential validation then do it now
     if (!skipCheck)
     {
-      // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
-      String hostLoginUser = targetUser;
-      // If dynamic need to check for host login user mapping.
-      if (!isStaticEffectiveUser)
-      {
-        // Since this is a create operation, the host login user mapping might be in the DB or part of the incoming
-        //   credential or both. The one in the credential has priority because it will be replacing the DB record
-        String mappedLoginUser = cred.getLoginUser();
-        if (StringUtils.isBlank(mappedLoginUser)) mappedLoginUser = dao.getLoginUser(oboTenant, systemId, targetUser);
-        if (!StringUtils.isBlank(mappedLoginUser)) hostLoginUser = mappedLoginUser;
-      }
       // When creating a cred requesting user does not specify authMethod, so use the one from the system.
       retCred = verifyCredentials(rUser, system, fullCred, hostLoginUser, system.getDefaultAuthnMethod());
       // If call returns null credential or null validation result then something went wrong.
@@ -313,9 +306,10 @@ public class CredUtils
 
     // If dynamic and an alternate loginUser has been provided that is not the same as the Tapis user
     //   then record the mapping
-    if (!isStaticEffectiveUser && !StringUtils.isBlank(loginUser))
+    if (!isStaticEffectiveUser && !StringUtils.isBlank(userLoginMapping))
     {
-      dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, loginUser, isStaticEffectiveUser);
+      dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, userLoginMapping, hostLoginUser,
+                                         isStaticEffectiveUser);
     }
 
     // Construct Json string representing the update, with actual secrets masked out
@@ -1101,6 +1095,24 @@ public class CredUtils
     log.info(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
             hostLoginUser, authnMethod, validationResult, msg));
     return retCred;
+  }
+
+  /*
+   * For credential creation operation, determine the host login user, i.e. the resolved effectiveUserId.
+   */
+  private String getHostLoginUser(String sysTenant, String sysId, String targetUser, String loginUserMapping, boolean isStatic)
+  {
+    // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
+    String hostLoginUser = targetUser;
+    // If dynamic need to check for host login user mapping.
+    if (!isStatic)
+    {
+      // Since this is a cred create operation, the host login user mapping might be in the DB or part of the incoming
+      //   credential or both. The one in the credential has priority because it will be replacing the DB record
+      if (StringUtils.isBlank(loginUserMapping)) loginUserMapping = dao.getLoginUser(sysTenant, sysId, targetUser);
+      if (!StringUtils.isBlank(loginUserMapping)) hostLoginUser = loginUserMapping;
+    }
+    return hostLoginUser;
   }
 
   /*

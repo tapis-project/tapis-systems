@@ -105,7 +105,8 @@ public interface SystemsDao
 
   String getLoginUser(String tenantId, String id, String tapisUser);
 
-  void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser, boolean isStatic) throws TapisException;
+  void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser,
+                                      String hostLoginUser, boolean isStatic) throws TapisException;
 
   void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String id, String tapisUser) throws TapisException;
 
