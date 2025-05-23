@@ -236,6 +236,8 @@ public class CredUtils
     String msg;
     // Extract some attributes for convenience and clarity
     String credLoginUserMapping = cred.getLoginUser(); // Host login mapping from provided credential
+    String oboTenant = rUser.getOboTenantId();
+    String userLoginMapping = cred.getLoginUser();
     String systemId = system.getId();
     String sysTenant = system.getTenant();
     SystemType systemType = system.getSystemType();
@@ -272,8 +274,14 @@ public class CredUtils
     // Skip check if not LINUX or S3
     if (!SystemType.LINUX.equals(systemType) && !SystemType.S3.equals(systemType)) skipCheck = true;
 
-    // Determine hostLoginUser resulting from the update.
-    String hostLoginUser = determineHostloginUser(system, targetUser, credLoginUserMapping, isStaticEffectiveUser);
+// HEAD
+//    // Determine hostLoginUser resulting from the update.
+//    String hostLoginUser = determineHostloginUser(system, targetUser, credLoginUserMapping, isStaticEffectiveUser);
+// =======
+    // Determine the host login user, i.e. the resolved effectiveUserId
+    // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
+    String hostLoginUser = getHostLoginUser(oboTenant, systemId, targetUser, userLoginMapping, isStaticEffectiveUser);
+// origin/add-creds-table0
 
     // ---------------- Verify credentials ------------------------
     // If not skipping credential validation then do it now
@@ -302,9 +310,10 @@ public class CredUtils
 //    else return retCred;
     // If dynamic and an alternate loginUser has been provided that is not the same as the Tapis user
     //   then record the mapping
-    if (!isStaticEffectiveUser && !StringUtils.isBlank(loginUser))
+    if (!isStaticEffectiveUser && !StringUtils.isBlank(userLoginMapping))
     {
-      dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, loginUser, isStaticEffectiveUser);
+      dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, userLoginMapping, hostLoginUser,
+                                         isStaticEffectiveUser);
     }
 
     // Construct Json string representing the update, with actual secrets masked out
@@ -797,31 +806,32 @@ public class CredUtils
   /*                                Private Methods                               */
   /* **************************************************************************** */
 
-  /**
-   * Determine final host login user value when caller has provided a credential
-   * @param sys - Tapis system
-   * @param targetUser - target user associated with the create operation
-   * @param credHostLoginUser - login user mapping (if any) provided as part of credential.
-   * @param isStaticEffectiveUser - whether eff user is static
-   * @return host login user
-   */
-  private String determineHostloginUser(TSystem sys, String targetUser, String credHostLoginUser,
-                                        boolean isStaticEffectiveUser)
-  {
-    // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
-    String hostLoginUser = targetUser;
-    // If dynamic need to check for host login user mapping.
-    if (!isStaticEffectiveUser)
-    {
-      // Since this is a create operation, the host login user mapping might be in the DB or part of the incoming
-      //   credential or both. The one in the credential has priority because it will be replacing the DB record
-      String mappedLoginUser = credHostLoginUser;
-      if (StringUtils.isBlank(mappedLoginUser)) mappedLoginUser = dao.getLoginUser(sys.getTenant(), sys.getId(), targetUser);
-      // mappedLoginUser may or may not be blank. If not blank update the hostLoginUser.
-      if (!StringUtils.isBlank(mappedLoginUser)) hostLoginUser = mappedLoginUser;
-    }
-    return hostLoginUser;
-  }
+// TODO use this or getHostLoginUser?
+//  /**
+//   * Determine final host login user value when caller has provided a credential
+//   * @param sys - Tapis system
+//   * @param targetUser - target user associated with the create operation
+//   * @param credHostLoginUser - login user mapping (if any) provided as part of credential.
+//   * @param isStaticEffectiveUser - whether eff user is static
+//   * @return host login user
+//   */
+//  private String determineHostloginUser(TSystem sys, String targetUser, String credHostLoginUser,
+//                                        boolean isStaticEffectiveUser)
+//  {
+//    // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
+//    String hostLoginUser = targetUser;
+//    // If dynamic need to check for host login user mapping.
+//    if (!isStaticEffectiveUser)
+//    {
+//      // Since this is a create operation, the host login user mapping might be in the DB or part of the incoming
+//      //   credential or both. The one in the credential has priority because it will be replacing the DB record
+//      String mappedLoginUser = credHostLoginUser;
+//      if (StringUtils.isBlank(mappedLoginUser)) mappedLoginUser = dao.getLoginUser(sys.getTenant(), sys.getId(), targetUser);
+//      // mappedLoginUser may or may not be blank. If not blank update the hostLoginUser.
+//      if (!StringUtils.isBlank(mappedLoginUser)) hostLoginUser = mappedLoginUser;
+//    }
+//    return hostLoginUser;
+//  }
 
   /*
    * Make sure we are configured for TMS keys and that system allows for it
@@ -1139,6 +1149,27 @@ public class CredUtils
    * Update CredentialInfo status for in-memory and DB record
    * WARNING ***** CredInfo object MUST be locked before calling this method ****
    * Check that transition from current status to new status is allowed.
+  /*
+   * For credential creation operation, determine the host login user, i.e. the resolved effectiveUserId.
+   */
+  private String getHostLoginUser(String sysTenant, String sysId, String targetUser, String loginUserMapping, boolean isStatic)
+  {
+    // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
+    String hostLoginUser = targetUser;
+    // If dynamic need to check for host login user mapping.
+    if (!isStatic)
+    {
+      // Since this is a cred create operation, the host login user mapping might be in the DB or part of the incoming
+      //   credential or both. The one in the credential has priority because it will be replacing the DB record
+      if (StringUtils.isBlank(loginUserMapping)) loginUserMapping = dao.getLoginUser(sysTenant, sysId, targetUser);
+      if (!StringUtils.isBlank(loginUserMapping)) hostLoginUser = loginUserMapping;
+    }
+    return hostLoginUser;
+  }
+
+  /*
+   * Return segment of secret path for target user, including static or dynamic scope
+   * Note that SK uses + rather than / to create sub-folders.
    */
   private void updateCredentialInfoStatus(CredentialInfo credInfo, SyncStatus newSyncStatus)
   {

@@ -2889,7 +2889,7 @@ public class SystemsDaoImpl implements SystemsDao
    */
   @Override
   public void createOrUpdateLoginUserMapping(String tenantId, String systemId, String tapisUser,
-                                             String loginUserMapping, boolean isStatic)
+                                             String loginUserMapping, String hostLoginUser, boolean isStatic)
   {
 
     if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(systemId) || StringUtils.isBlank(tapisUser) ||
@@ -2912,12 +2912,23 @@ public class SystemsDaoImpl implements SystemsDao
       {
         log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_INSERT_LOGINMAP", tenantId, systemId, tapisUser, loginUserMapping));
         int sysSeqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId)).fetchOne(SYSTEMS.SEQ_ID);
+        // TODO Pass in a CredInfo object and fill in CredInfo related fields.
         db.insertInto(SYSTEMS_CRED_INFO)
                 .set(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID, sysSeqId)
                 .set(SYSTEMS_CRED_INFO.TENANT, tenantId)
                 .set(SYSTEMS_CRED_INFO.SYSTEM_ID, systemId)
                 .set(SYSTEMS_CRED_INFO.TAPIS_USER, tapisUser)
                 .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, loginUserMapping)
+                .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, hostLoginUser) //TODO
+                .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, false) //TODO
+                .set(SYSTEMS_CRED_INFO.HAS_PKI_KEYS, false) //TODO
+                .set(SYSTEMS_CRED_INFO.HAS_ACCESS_KEY, false) //TODO
+                .set(SYSTEMS_CRED_INFO.HAS_TOKEN, false) //TODO
+                .set(SYSTEMS_CRED_INFO.HAS_TMS_KEYS, false) //TODO
+                .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.PENDING) //TODO
+                .set(SYSTEMS_CRED_INFO.SYNC_FAILED, (LocalDateTime) null) //TODO
+                .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, 0) //TODO
+                .set(SYSTEMS_CRED_INFO.SYNC_FAIL_MESSAGE, (String) null) //TODO
                 .execute();
       }
       else
@@ -2926,8 +2937,9 @@ public class SystemsDaoImpl implements SystemsDao
         db.update(SYSTEMS_CRED_INFO)
                 .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, loginUserMapping)
                 .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),
-                        SYSTEMS_CRED_INFO.SYSTEM_ID.eq(systemId),
-                        SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser))
+                       SYSTEMS_CRED_INFO.SYSTEM_ID.eq(systemId),
+                       SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),
+                       SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
                 .execute();
       }
       // Close out and commit
