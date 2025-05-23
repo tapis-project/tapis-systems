@@ -18,7 +18,7 @@ Incremental improvements. Addition of table and code for tracking credential met
 - Addition of table and code for tracking credential metadata.
 
 ---------------------------------------------------------------------------
-## 1.8.3 - 2025-05-14
+## 1.8.3 - 2025-05-15
 
 Incremental improvements. TMS logging, remove unused pretty-print option from resource classes.
 
