@@ -1101,6 +1101,7 @@ public class CredUtils
    * For credential creation operation, determine the host login user, i.e. the resolved effectiveUserId.
    */
   private String getHostLoginUser(String sysTenant, String sysId, String targetUser, String loginUserMapping, boolean isStatic)
+        throws TapisException
   {
     // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
     String hostLoginUser = targetUser;

@@ -13,7 +13,6 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import edu.utexas.tacc.tapis.shared.exceptions.runtime.TapisRuntimeException;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
@@ -214,7 +213,7 @@ public class LibUtils
    * Roll back a DB transaction and throw an exception
    * This method always throws an exception, either IllegalStateException or TapisException
    */
-  public static void rollbackDB(Connection conn, Exception e, String msgKey, Object... parms)
+  public static void rollbackDB(Connection conn, Exception e, String msgKey, Object... parms) throws TapisException
   {
     try
     {
@@ -227,11 +226,12 @@ public class LibUtils
 
     // If IllegalStateException or TapisException pass it back up
     if (e instanceof IllegalStateException) throw (IllegalStateException) e;
+    if (e instanceof TapisException) throw (TapisException) e;
 
     // Log the exception.
     String msg = MsgUtils.getMsg(msgKey, parms);
     _log.error(msg, e);
-    throw new TapisRuntimeException(msg, e);
+    throw new TapisException(msg, e);
   }
 
   /**
