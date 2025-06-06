@@ -81,7 +81,7 @@ public final class IntegrationUtils
   // Properties for one of the Tapis v3 test VMs
   public static final String TAPIS_TEST_HOST_LOGIN_USER = testUser3;
   public static final String TAPIS_TEST_HOST_ENV_VAR = "TAPIS_VM_TEST_HOST";
-  public static final String TAPIS_TEST_HOST_IP = "129.114.35.53"; // tapisv3-vm1 // TODO replace this with env var TAPIS_VM_TEST_HOST
+  public static final String TAPIS_TEST_HOST_IP = "129.114.35.53"; // tapisv3-vm1 // NOTE: could replace this with env var TAPIS_VM_TEST_HOST
   public static final String TAPIS_TEST_USERNAME_ENV_VAR = "TAPIS_VM_TESTUSER_NAME";
   public static final String TAPIS_TEST_PASSWORD_ENV_VAR = "TAPIS_VM_TESTUSER_PASSWORD";
   public static final String TAPIS_TEST_S3_KEY_ENV_VAR = "TAPIS_S3_SCBLACK_KEY";
@@ -91,8 +91,8 @@ public final class IntegrationUtils
 //  public static final String TAPIS_TEST_S3_HOST = "tapisdemotest2.s3.amazonaws.com";
 //  public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "tapisdemo2";
 //  public static final String TAPIS_TEST_S3_BUCKET = "tapisdemotest2";
-  public static final String TAPIS_TEST_S3_HOST = "cics3.tacc.utexas.edu"; // TODO replace this with env var
-  public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "scblack"; // TODO replace this with env var
+  public static final String TAPIS_TEST_S3_HOST = "cics3.tacc.utexas.edu"; // NOTE: could be an env var
+  public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "scblack"; // NOTE: could be an env var
   public static final String TAPIS_TEST_S3_BUCKET = "smoketest";
   // TMS settings
   public static final String TMS_URL_ENV_VAR = "TAPIS_TMS_SERVER_URL";
@@ -159,7 +159,7 @@ public final class IntegrationUtils
   public static final Object notesNull = null;
 
   // Two keyValue pairs for checking defaults. Use default constructor to simulate behavior of jax-rs
-//  public static final KeyValuePair kvDefault1 = new KeyValuePair(); TODO invalid, key cannot be empty string
+//  public static final KeyValuePair kvDefault1 = new KeyValuePair(); NOTE: invalid, key cannot be empty string
   public static final KeyValuePair kvDefault2 = new KeyValuePair("CHK_DEFAULT",null, null, KeyValuePair.KeyValueInputMode.REQUIRED, null);
 
   public static final List<KeyValuePair> jobEnvVariables1 =

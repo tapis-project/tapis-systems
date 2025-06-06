@@ -1870,7 +1870,6 @@ public class SystemsServiceTest
     // Validate credentials
     Credential checkedCred = svcCred.checkUserCredential(rOwner1, sysId, tmsTestUser, AuthnMethod.TMS_KEYS);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
-    // TODO List files using the system. NOTE: Currently this requires that the TMS test user be testuser2 ???
 
     // Check that we are not able to create TMS keys for a tenant not in the allowed list.
     // Update config to only allow TMS keys in tacc tenants
