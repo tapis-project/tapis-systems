@@ -719,7 +719,7 @@ public class CredUtils
       {
         // This is the dynamic case, so targetUser must be a Tapis user.
         // See if the target Tapis user has a mapping to a host login user.
-        String mappedLoginUser = dao.getLoginUser(oboTenant, systemId, targetUser);
+        String mappedLoginUser = dao.getLoginUserMapping(oboTenant, systemId, targetUser);
         // If so then the mapped value becomes loginUser, else loginUser=targetUser
         if (!StringUtils.isBlank(mappedLoginUser))
           loginUser = mappedLoginUser;
@@ -1110,7 +1110,7 @@ public class CredUtils
     {
       // Since this is a cred create operation, the host login user mapping might be in the DB or part of the incoming
       //   credential or both. The one in the credential has priority because it will be replacing the DB record
-      if (StringUtils.isBlank(loginUserMapping)) loginUserMapping = dao.getLoginUser(sysTenant, sysId, targetUser);
+      if (StringUtils.isBlank(loginUserMapping)) loginUserMapping = dao.getLoginUserMapping(sysTenant, sysId, targetUser);
       if (!StringUtils.isBlank(loginUserMapping)) hostLoginUser = loginUserMapping;
     }
     return hostLoginUser;

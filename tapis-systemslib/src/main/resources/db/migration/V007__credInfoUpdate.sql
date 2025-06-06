@@ -79,7 +79,7 @@ END $$;
 -- Allow login_user_mapping to be NULL. NOTE: login_user_mapping is for dynamic login user mapping.
 ALTER TABLE systems_cred_info ALTER login_user_mapping DROP NOT NULL;
 -- Add columns
-ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS host_login_user TEXT NOT NULL;
+ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS host_login_user TEXT NOT NULL DEFAULT '';
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS is_static BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_credentials BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS has_password BOOLEAN NOT NULL DEFAULT false;
@@ -99,6 +99,9 @@ ALTER TABLE systems_cred_info DROP CONSTRAINT systems_login_user_pkey;
 -- Create new primary key
 ALTER TABLE systems_cred_info ADD primary key (tenant, system_id, tapis_user, is_static);
 
+-- Since all existing entries are dynamic with a login user mapping, the host_login_user is the login_user_mapping.
+-- The WHERE clause ensures we are idempotent and do not attempt to set a NOT NULL column to null.
+UPDATE systems_cred_info SET host_login_user = login_user_mapping WHERE is_static = false AND login_user_mapping IS NOT NULL;
 --
 -- NOTES
 --  - Are entries in the login_user table are deleted when a system is deleted or a credential is deleted?

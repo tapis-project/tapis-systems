@@ -60,7 +60,7 @@ public final class IntegrationUtils
   public static final String owner6 = "owner6";
   public static final String owner7 = "owner7";
   public static final String ownerNull = null;
-  public static final String loginUser1 = "loginUser1";
+  public static final String loginUserMapping1 = "loginUser1";
   public static final String testUser0 = "testuser0";
   public static final String testUser1 = "testuser1";
   public static final String testUser2 = "testuser2";

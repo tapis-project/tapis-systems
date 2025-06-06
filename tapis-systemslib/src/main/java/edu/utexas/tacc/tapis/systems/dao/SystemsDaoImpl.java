@@ -866,8 +866,8 @@ public class SystemsDaoImpl implements SystemsDao
   public void migrateDB() throws TapisException
   {
     Flyway flyway = Flyway.configure().dataSource(getDataSource()).load();
-    // Use repair as workaround to avoid checksum error during develop/deploy of SNAPSHOT versions when it is not
-    // a true migration.
+    // Use repair as workaround to avoid checksum error during develop/deploy of SNAPSHOT versions when it is not a true
+    // migration. This is useful when the sql is being developed and we are repeatedly running the migration.
 //    flyway.repair();
     flyway.migrate();
   }
@@ -1745,7 +1745,7 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException - on error
    */
   @Override
-  public String getLoginUser(String tenantId, String id, String tapisUser) throws TapisException
+  public String getLoginUserMapping(String tenantId, String id, String tapisUser) throws TapisException
   {
     // Initialize result.
     String loginUserMapping = null;
@@ -1828,12 +1828,22 @@ public class SystemsDaoImpl implements SystemsDao
       {
         log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_UPDATE_LOGINMAP", tenantId, systemId, tapisUser, loginUserMapping));
         db.update(SYSTEMS_CRED_INFO)
-                .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, loginUserMapping)
-                .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),
-                       SYSTEMS_CRED_INFO.SYSTEM_ID.eq(systemId),
-                       SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),
-                       SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
-                .execute();
+              .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, loginUserMapping)
+              .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, hostLoginUser) //TODO
+              .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, false) //TODO
+              .set(SYSTEMS_CRED_INFO.HAS_PKI_KEYS, false) //TODO
+              .set(SYSTEMS_CRED_INFO.HAS_ACCESS_KEY, false) //TODO
+              .set(SYSTEMS_CRED_INFO.HAS_TOKEN, false) //TODO
+              .set(SYSTEMS_CRED_INFO.HAS_TMS_KEYS, false) //TODO
+              .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.PENDING) //TODO
+              .set(SYSTEMS_CRED_INFO.SYNC_FAILED, (LocalDateTime) null) //TODO
+              .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, 0) //TODO
+              .set(SYSTEMS_CRED_INFO.SYNC_FAIL_MESSAGE, (String) null) //TODO
+              .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),
+                     SYSTEMS_CRED_INFO.SYSTEM_ID.eq(systemId),
+                     SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),
+                     SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
+              .execute();
       }
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
