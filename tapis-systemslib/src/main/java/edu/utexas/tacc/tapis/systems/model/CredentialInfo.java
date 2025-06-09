@@ -125,31 +125,29 @@ public class CredentialInfo
     updated = null;
   }
 
-// TODO/TBD Order of columns is
-//-- New table
+// NOTE: Table schema and order of columns after update
 //--CREATE TABLE systems_cred_info
 //--(
-//--    system_seq_id INTEGER REFERENCES systems(seq_id) ON DELETE CASCADE,
-//--    tenant TEXT NOT NULL,
-//--    system_id TEXT NOT NULL,
-//--    tapis_user TEXT NOT NULL,
-//--    login_user TEXT,
-//--    has_credentials BOOLEAN NOT NULL DEFAULT false,
-//      --    is_static BOOLEAN NOT NULL DEFAULT false,
-//      --    has_password BOOLEAN NOT NULL DEFAULT false,
-//      --    has_pki_keys BOOLEAN NOT NULL DEFAULT false,
-//      --    has_access_key BOOLEAN NOT NULL DEFAULT false,
-//      --    has_token BOOLEAN NOT NULL DEFAULT false,
-//      --    has_tms_keys BOOLEAN NOT NULL DEFAULT false,
-//      --    sync_status TEXT NOT NULL DEFAULT 'PENDING',
-//      --    sync_failed TIMESTAMP WITHOUT TIME ZONE,
-//      --    sync_fail_count INTEGER NOT NULL DEFAULT 0,
-//      --    sync_fail_message TEXT,
-//--    created    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-//      --    updated    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-//      --    PRIMARY KEY (tenant, system_id, tapis_user, is_static)
-//     seq_id, tenant, system_id, tapis_user, login_user, created, updated, has_credentials, is_static, has_password,
-//     has_pki_keys, has_access_key, has_token, has_tms_keys, sync_status, sync_failed, sync_fail_count, sync_fail_message
+//--  system_seq_id INTEGER REFERENCES systems(seq_id) ON DELETE CASCADE,
+//--  tenant TEXT NOT NULL,
+//--  system_id TEXT NOT NULL,
+//--  tapis_user TEXT NOT NULL,
+//--  login_user_mapping TEXT,
+//--  created    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+//--  updated    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+//--  host_login_user TEXT NOT NULL,
+//--  is_static BOOLEAN NOT NULL DEFAULT false,
+//--  has_credentials BOOLEAN NOT NULL DEFAULT false,
+//--  has_password BOOLEAN NOT NULL DEFAULT false,
+//--  has_pki_keys BOOLEAN NOT NULL DEFAULT false,
+//--  has_access_key BOOLEAN NOT NULL DEFAULT false,
+//--  has_token BOOLEAN NOT NULL DEFAULT false,
+//--  has_tms_keys BOOLEAN NOT NULL DEFAULT false,
+//--  sync_status TEXT NOT NULL DEFAULT 'PENDING',
+//--  sync_failed TIMESTAMP WITHOUT TIME ZONE,
+//--  sync_fail_count INTEGER NOT NULL DEFAULT 0,
+//--  sync_fail_message TEXT,
+//--    PRIMARY KEY (tenant, system_id, tapis_user, is_static)
 
 //  /**
 //   * Constructor for jOOQ with input parameter matching order of columns in DB

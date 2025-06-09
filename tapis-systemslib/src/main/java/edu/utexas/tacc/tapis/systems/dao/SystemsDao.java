@@ -101,7 +101,7 @@ public interface SystemsDao
 
   void updateCredInfoStatus(CredentialInfo credInfo, CredentialInfo.SyncStatus newSyncStatus, LocalDateTime updated);
 
-  String getLoginUser(String tenantId, String id, String tapisUser);
+  String getLoginUserMapping(String tenantId, String id, String tapisUser);
 
   void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser,
                                       String hostLoginUser, boolean isStatic) throws TapisException;
