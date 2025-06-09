@@ -9,7 +9,7 @@ import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedProfileModLoad;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SchedulerProfiles;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemUpdates;
 import edu.utexas.tacc.tapis.systems.gen.jooq.tables.Systems;
-import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsLoginUser;
+import edu.utexas.tacc.tapis.systems.gen.jooq.tables.SystemsCredInfo;
 
 import java.util.Arrays;
 import java.util.List;
@@ -58,9 +58,9 @@ public class TapisSys extends SchemaImpl {
     public final Systems SYSTEMS = Systems.SYSTEMS;
 
     /**
-     * The table <code>tapis_sys.systems_login_user</code>.
+     * The table <code>tapis_sys.systems_cred_info</code>.
      */
-    public final SystemsLoginUser SYSTEMS_LOGIN_USER = SystemsLoginUser.SYSTEMS_LOGIN_USER;
+    public final SystemsCredInfo SYSTEMS_CRED_INFO = SystemsCredInfo.SYSTEMS_CRED_INFO;
 
     /**
      * No further instances allowed
@@ -83,7 +83,7 @@ public class TapisSys extends SchemaImpl {
             SchedulerProfiles.SCHEDULER_PROFILES,
             SystemUpdates.SYSTEM_UPDATES,
             Systems.SYSTEMS,
-            SystemsLoginUser.SYSTEMS_LOGIN_USER
+            SystemsCredInfo.SYSTEMS_CRED_INFO
         );
     }
 }

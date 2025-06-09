@@ -24,8 +24,10 @@ import edu.utexas.tacc.tapis.search.parser.ASTParser;
 import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.security.ServiceContext;
+import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.shared.ssh.apache.system.TapisRunCommand;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
+import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
 import edu.utexas.tacc.tapis.shared.utils.PathUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
@@ -107,6 +109,7 @@ public class SystemsServiceImpl implements SystemsService
   // These are initialized in method initService()
   private static String siteId;
   private static String siteAdminTenantId;
+  private static ResourceRequestUser rUserSvc;
   public static String getSiteId() {return siteId;}
   public static String getServiceTenantId() {return siteAdminTenantId;}
   public static String getServiceUserId() {return SERVICE_NAME;}
@@ -130,6 +133,13 @@ public class SystemsServiceImpl implements SystemsService
     CredUtils.initTmsConfiguration();
     // Make sure DB is present and updated to latest version using flyway
     dao.migrateDB();
+
+    // Create a ResourceRequest user representing the service. Used by some methods for logging.
+    String svcName = getServiceUserId();
+    String svcTenant = getServiceTenantId();
+    var authUser = new AuthenticatedUser(svcName, svcTenant, TapisThreadContext.AccountType.service.name(), null,
+                                         svcName, svcTenant, null, siteId, null);
+    rUserSvc = new ResourceRequestUser(authUser);
   }
 
   /**
@@ -172,7 +182,7 @@ public class SystemsServiceImpl implements SystemsService
     log.trace(LibUtils.getMsgAuth("SYSLIB_CREATE_TRACE", rUser, rawData));
 
     // Extract some attributes for convenience and clarity.
-    // NOTE: do not do this for effectiveUserId since it may be ${owner} and get resolved below.
+    // NOTE: do not do this here for effectiveUserId since it may be ${owner} and only get resolved below.
     String tenant = system.getTenant();
     String systemId = system.getId();
     SystemType systemType = system.getSystemType();
@@ -209,8 +219,11 @@ public class SystemsServiceImpl implements SystemsService
     //       and the only variable of interest in rootDir should be HOST_EVAL($var)
     system.resolveVariablesAtCreate(rUser.getOboUserId());
 
+    // Now we can extract effUser, for convenience and clarity.
+    String effUserId = system.getEffectiveUserId();
+
     // Determine if effectiveUserId is static
-    boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+    boolean isStaticEffectiveUser = !APIUSERID_VAR.equals(effUserId);
 
     // ---------------- Check constraints on TSystem attributes ------------------------
     validateTSystem(rUser, system, true);
@@ -248,7 +261,7 @@ public class SystemsServiceImpl implements SystemsService
       {
         // During create, we only verify for static effectiveUser and system default authnMethod, so we pass in the
         //   effectiveUser from request as hostLoginUser and the authnMethod from the system.
-        Credential c = credUtils.verifyCredentials(rUser, system, cred, system.getEffectiveUserId(), system.getDefaultAuthnMethod());
+        Credential c = credUtils.verifyCredentials(rUser, system, cred, effUserId, system.getDefaultAuthnMethod());
         system.setAuthnCredential(c);
         // If credential validation failed we do not create the system. Return now.
         if (Boolean.FALSE.equals(c.getValidationResult())) return system;
@@ -301,7 +314,7 @@ public class SystemsServiceImpl implements SystemsService
       if (manageCredentials)
       {
         // Use internal method instead of public API to skip auth and other checks not needed here.
-        credUtils.createCredential(rUser, cred, systemId, system.getEffectiveUserId(), isStaticEffectiveUser);
+        credUtils.createCredential(rUser, cred, systemId, effUserId, isStaticEffectiveUser);
       }
     }
     catch (Exception e0)
@@ -326,7 +339,7 @@ public class SystemsServiceImpl implements SystemsService
         // Note that we only manageCredentials for the static case and for the static case targetUser=effectiveUserId
         try
         {
-          credUtils.deleteCredential(rUser, systemId, system.getEffectiveUserId(), isStaticEffectiveUser);
+          credUtils.deleteCredential(rUser, systemId, effUserId, isStaticEffectiveUser);
         }
         catch (Exception e)
         {
@@ -892,7 +905,8 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Hard delete a system record given the system name.
-   * Also remove artifacts from the Security Kernel
+   *   - remove artifacts from the Security Kernel
+   *   - remove system record from data store
    * NOTE: This is package-private. Only test code should ever use it.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
