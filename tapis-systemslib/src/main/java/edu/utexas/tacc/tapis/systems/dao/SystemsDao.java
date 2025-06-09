@@ -82,9 +82,10 @@ public interface SystemsDao
 
   AuthnMethod getSystemDefaultAuthnMethod(String tenantId, String id) throws TapisException;
 
-  String getLoginUser(String tenantId, String id, String tapisUser) throws TapisException;
+  String getLoginUserMapping(String tenantId, String id, String tapisUser) throws TapisException;
 
-  void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser) throws TapisException;
+  void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUserMapping,
+                                      String hostLoginUser, boolean isStatic) throws TapisException;
 
   void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String id, String tapisUser) throws TapisException;
 

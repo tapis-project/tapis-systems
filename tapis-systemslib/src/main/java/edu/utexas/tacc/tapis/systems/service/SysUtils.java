@@ -78,10 +78,10 @@ public class SysUtils
     // At this point we know we have a dynamic effectiveUserId. Figure it out.
     // Determine the loginUser associated with the credential
     // Now see if there is a mapping from that Tapis user to a different login user on the host
-    String loginUser = dao.getLoginUser(tenant, systemId, tapisUser);
+    String loginUserMapping = dao.getLoginUserMapping(tenant, systemId, tapisUser);
 
     // If a mapping then return it, else return oboUser/impersonationId
-    return (!StringUtils.isBlank(loginUser)) ? loginUser : tapisUser;
+    return (!StringUtils.isBlank(loginUserMapping)) ? loginUserMapping : tapisUser;
   }
 
   /**
