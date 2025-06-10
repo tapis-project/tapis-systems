@@ -162,7 +162,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Check the systems_cred_info table and perform initial single-threaded synchronization steps.
     // IN_PROGRESS records moved to FAILED, DELETED records removed from data store
-   credUtils.credInfoInit();
+   credUtils.credInfoInit(rUserSvc);
   }
 
   /**
@@ -782,14 +782,14 @@ public class SystemsServiceImpl implements SystemsService
     // Give owner files service related permission for root directory
     sysUtils.getSKClient(rUser).grantUserPermission(oboTenant, owner, filesPermSpec);
 
-    // TODO Create a PENDING record in the CredInfo table
-    // TODO/TBD: Make sure no record exists??
-    dao.createCredInfo(rUser, null);// TODO/TBD this one? or use addCredInfoRecordAndLock
-    credUtils.addCredInfoRecordAndLock(); // TODO/TBD this one? make sure to check for valid transition?
-                                          //            but this method is currently private, make public?
-                                          //          or create another CredUtils method that calls addCredInfoRecordAndLock
-                                          //             look at other cases where we are updating
-
+//    // TODO Create a PENDING record in the CredInfo table
+//    // TODO/TBD: Make sure no record exists??
+//    dao.createCredInfo(rUser, null);// TODO/TBD this one? or use addCredInfoRecordAndLock
+//    credUtils.addCredInfoRecordAndLock(); // TODO/TBD this one? make sure to check for valid transition?
+//                                          //            but this method is currently private, make public?
+//                                          //          or create another CredUtils method that calls addCredInfoRecordAndLock
+//                                          //             look at other cases where we are updating
+//
     // Update deleted attribute
     return updateDeleted(rUser, systemId, op);
   }

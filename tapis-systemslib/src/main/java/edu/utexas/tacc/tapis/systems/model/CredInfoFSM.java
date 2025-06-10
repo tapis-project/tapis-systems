@@ -3,6 +3,7 @@ package edu.utexas.tacc.tapis.systems.model;
 import java.util.List;
 import java.util.Set;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
+import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.service.CredUtils;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import org.slf4j.Logger;
@@ -21,6 +22,21 @@ import static edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus.*;
  *
  * Transitions
  * When records are first created they start off in the PENDING state
+ *
+ * ================================================================================================
+ * Transitions that can happen during single-threaded startup. See CredUtils.credInfoInit()
+ * ================================================================================================
+ * IN_PROGRESS    -> FAILED
+ * DELETED        -> <non-existent>
+ * <non-existent> -> PENDING
+ * FAILED         -> PENDING
+ * ------------------------------------------------------------------------------------------------
+ * ================================================================================================
+ * Transitions that can happen during run of maintenance thread. See MaintenanceTask.credInfoRunMaintenance
+ * ================================================================================================
+ * ???? -> ????
+ *
+ * ------------------------------------------------------------------------------------------------
  * Normal flow until deleted
  *    Pending->InProgress    - start of an update attempt
  *    InProgress->Completed  - successful update
@@ -68,8 +84,9 @@ public final class CredInfoFSM
   public static final String FailedToPending = String.format("%s-%s", FAILED, PENDING);
   public static final String FailedToDeleted = String.format("%s-%s", FAILED, DELETED);
   public static final String DeletedToPending = String.format("%s-%s", DELETED, PENDING);
-  public static final Set<String> allowedEvents = Set.of(PendingToInProgress, InProgressToCompleted, InProgressToFailed,
-                                                         CompletedToPending, FailedToPending, DeletedToPending);
+  public static final Set<String> allowedEvents =
+        Set.of(PendingToInProgress, InProgressToCompleted, CompletedToPending,
+               InProgressToFailed, FailedToPending, DeletedToPending);
 
   // Actions
   public static final Action<CredInfoSyncState> pendingToInProgressAction = new CredInfoSyncAction<>(IN_PROGRESS.name());
@@ -91,12 +108,12 @@ public final class CredInfoFSM
   /*
    * Determine if transition is allowed
    */
-  public static void checkForAllowedTransition(SyncStatus beginSate, SyncStatus endState)
+  public static void checkForAllowedTransition(ResourceRequestUser rUser, SyncStatus beginSate, SyncStatus endState)
   {
     String transition = String.format("%s-%s", beginSate, endState);
     if (!CredInfoFSM.allowedEvents.contains(transition))
     {
-      String msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FSM_INVALID_TRANSITION", transition);
+      String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_FSM_INVALID_TRANSITION", rUser, transition);
       log.error(msg);
       throw new IllegalStateException();
     }

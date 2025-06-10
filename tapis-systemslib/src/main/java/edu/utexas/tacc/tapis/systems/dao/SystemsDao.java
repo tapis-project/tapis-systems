@@ -77,13 +77,15 @@ public interface SystemsDao
 
   String getSystemOwner(String tenantId, String id) throws TapisException;
 
-  AuthnMethod getSystemDefaultAuthnMethod(String tenantId, String id) throws TapisException;
+  AuthnMethod getSystemDefaultAuthnMethod(String tenantId, String id);
 
   /* ********************************************************************** */
   /*                        CredentialInfo Table                            */
   /* ********************************************************************** */
 
-  CredentialInfo getCredInfo(ResourceRequestUser rUser, String tenantId, String systemId, String tapisUser, boolean isStatic);
+  CredentialInfo getCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic);
+
+  CredentialInfo getCredInfo(CredentialInfo credInfo);
 
   List<CredentialInfo> getCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenantId, String systemId)
         throws TapisException;
@@ -108,17 +110,17 @@ public interface SystemsDao
 
   void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String id, String tapisUser) throws TapisException;
 
-  int credInfoMarkInProgressAsFailed(String failMsg) throws TapisException;
+  int credInfoMarkInProgressAsFailed(ResourceRequestUser rUser, String failMsg);
 
-  void credInfoMarkFailedAsPending() throws TapisException;
+  int credInfoMarkFailedAsPending(ResourceRequestUser rUser);
 
   void credInfoMarkAsComplete(CredentialInfo credInfo) throws TapisException;
 
-  List<CredentialInfo> credInfoGetPendingRecords() throws TapisException;
+  List<CredentialInfo> credInfoGetRecordsInStatus(CredentialInfo.SyncStatus status);
 
-  int credInfoInitStaticSystems() throws TapisException;
+  int credInfoInitStaticSystems();
 
-  int credInfoRemoveDeletedRecords() throws TapisException;
+  int credInfoRemoveDeletedRecords();
 
   /* ********************************************************************** */
   /*                             Scheduler Profiles                         */

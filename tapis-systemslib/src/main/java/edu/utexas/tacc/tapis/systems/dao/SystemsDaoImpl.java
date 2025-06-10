@@ -48,6 +48,7 @@ import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
+import edu.utexas.tacc.tapis.systems.model.CredInfoFSM;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
@@ -1639,7 +1640,7 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException - on error
    */
   @Override
-  public AuthnMethod getSystemDefaultAuthnMethod(String tenantId, String id) throws TapisException
+  public AuthnMethod getSystemDefaultAuthnMethod(String tenantId, String id)
   {
     AuthnMethod authnMethod = null;
     // ------------------------- Call SQL ----------------------------
@@ -1768,13 +1769,11 @@ public class SystemsDaoImpl implements SystemsDao
     return retCredInfo;
   }
 
-  /**
-   * getCredentialInfo
-   *
+  /*
+   * getCredentialInfo given attributes of primary key
    */
   @Override
-  public CredentialInfo getCredInfo(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser,
-                                    boolean isStatic)
+  public CredentialInfo getCredInfo(String tenantId, String sysId, String tapisUser, boolean isStatic)
   {
     // Initialize result.
     CredentialInfo credInfo = null;
@@ -1805,6 +1804,48 @@ public class SystemsDaoImpl implements SystemsDao
       LibUtils.finalCloseDB(conn);
     }
     return credInfo;
+  }
+
+  /*
+   * Get a CredentialInfo given a credInfo
+   */
+  @Override
+  public CredentialInfo getCredInfo(CredentialInfo credInfo)
+  {
+    // Initialize result.
+    CredentialInfo dbCredInfo = null;
+    String tenantId = credInfo.getTenant();
+    String sysId = credInfo.getSystemId();
+    String tapisUser = credInfo.getTapisUser();
+    boolean isStatic = credInfo.isStatic();
+
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      SystemsCredInfoRecord r = db.selectFrom(SYSTEMS_CRED_INFO)
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
+                  SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic)).fetchOne();
+      if (r == null) return null;
+      else dbCredInfo = getCredentialInfoFromRecord(r);
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"SYSLIB_DB_SELECT_ERROR", "CredentialInfo", tenantId, sysId, e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return dbCredInfo;
   }
 
   /**
@@ -1944,11 +1985,13 @@ public class SystemsDaoImpl implements SystemsDao
 
   /**
    * In SYSTEMS_CRED_INFO table, Update all IN_PROGRESS cred info records to FAILED state
-   * @throws TapisException on error
    */
   @Override
-  public int credInfoMarkInProgressAsFailed(String failMsg) throws TapisException
+  public int credInfoMarkInProgressAsFailed(ResourceRequestUser rUser, String failMsg)
   {
+    // First check that transition is valid. If not valid then throw runtime exception
+//    transition = "NoSuchTransition"; // TODO temp, for testing
+    CredInfoFSM.checkForAllowedTransition(rUser, SyncStatus.IN_PROGRESS, SyncStatus.FAILED);
     int numRecords = 0;
     // Values to use for update: timestamp, fail message
     LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
@@ -1984,20 +2027,24 @@ public class SystemsDaoImpl implements SystemsDao
 
   /**
    * In SYSTEMS_CRED_INFO table, Mark all FAILED records as PENDING
-   * @throws TapisException on error
    */
   @Override
-  public void credInfoMarkFailedAsPending() throws TapisException
+  public int credInfoMarkFailedAsPending(ResourceRequestUser rUser)
   {
+    // First check that transition is valid. If not valid then throw runtime exception
+    CredInfoFSM.checkForAllowedTransition(rUser, SyncStatus.FAILED, SyncStatus.PENDING);
+    int numRecords = 0;
+    // Values to use for update: timestamp, fail message
+    LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
     try
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      db.update(SYSTEMS_CRED_INFO)
+      numRecords = db.update(SYSTEMS_CRED_INFO)
               .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.PENDING)
-              .set(SYSTEMS_CRED_INFO.UPDATED, TapisUtils.getUTCTimeNow())
+              .set(SYSTEMS_CRED_INFO.UPDATED, utcNow)
               .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.FAILED))
               .execute();
       // Close out and commit
@@ -2013,6 +2060,7 @@ public class SystemsDaoImpl implements SystemsDao
       // Always return the connection back to the connection pool.
       LibUtils.finalCloseDB(conn);
     }
+    return numRecords;
   }
 
   /**
@@ -2142,7 +2190,7 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException on error
    */
   @Override
-  public List<CredentialInfo> credInfoGetPendingRecords() throws TapisException
+  public List<CredentialInfo> credInfoGetRecordsInStatus(SyncStatus status)
   {
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -2152,7 +2200,7 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
       var records = db.selectFrom(SYSTEMS_CRED_INFO)
-              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.PENDING)).fetch();
+              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(status)).fetch();
       if (records == null || records.isEmpty()) return retList;
 
       for (SystemsCredInfoRecord r : records) { retList.add(getCredentialInfoFromRecord(r)); }
@@ -2176,10 +2224,9 @@ public class SystemsDaoImpl implements SystemsDao
   /**
    * In SYSTEMS_CRED_INFO table, create records as needed for undeleted systems that have a static effectiveUserId
    * Records are created in the PENDING state
-   * @throws TapisException on error
    */
   @Override
-  public int credInfoInitStaticSystems() throws TapisException
+  public int credInfoInitStaticSystems()
   {
     int numRecords = 0;
     // ------------------------- Call SQL ----------------------------
@@ -2239,10 +2286,9 @@ public class SystemsDaoImpl implements SystemsDao
 
   /**
    * In SYSTEMS_CRED_INFO table, remove all records marked as DELETED
-   * @throws TapisException on error
    */
   @Override
-  public int credInfoRemoveDeletedRecords() throws TapisException
+  public int credInfoRemoveDeletedRecords()
   {
     int numRecords = 0;
     // ------------------------- Call SQL ----------------------------

@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import static edu.utexas.tacc.tapis.systems.model.Credential.*;
 
@@ -49,7 +50,7 @@ public final class MaintenanceTask implements Runnable
   private CredUtils credUtils;
 
   // ResourceRequestUser associated with maintenance task. Should only be used for logging.
-  private ResourceRequestUser rUser;
+  private final ResourceRequestUser rUser;
 
   // ************************************************************************
   // *********************** Constructors ***********************************
@@ -70,7 +71,7 @@ public final class MaintenanceTask implements Runnable
    */
   public void run()
   {
-    log.info(LibUtils.getMsg("SYSLIB_MAINT_TASK_RUN"));
+    log.info(LibUtils.getMsg("SYSLIB_MAINT_RUN_BEGIN"));
     try
     {
       // Run maintenance tasks for CredInfo table
@@ -78,8 +79,9 @@ public final class MaintenanceTask implements Runnable
     }
     catch (Exception e)
     {
-      log.error(LibUtils.getMsg("SYSLIB_MAINT_TASK_ERR", e.getMessage()), e);
+      log.error(LibUtils.getMsg("SYSLIB_MAINT_RUN_ERR", e.getMessage()), e);
     }
+    log.info(LibUtils.getMsg("SYSLIB_MAINT_RUN_END"));
   }
 
   /* ********************************************************************** */
@@ -88,163 +90,96 @@ public final class MaintenanceTask implements Runnable
 
   /*
    * Check the systems_cred_info table and update as needed
-   *  - For each PENDING record read info from SK and update the cred info table.
-   *  TODO/TBD only do this at startup? - Mark all FAILED records as PENDING
+   *  - Mark all FAILED records as PENDING
    *  - For each PENDING record read info from SK and update the cred info table.
    */
   private void credInfoRunMaintenance() throws TapisException
   {
-    // TODO Remove Create records in credInfo table as needed for undeleted systems that have a static effectiveUserId
-    // TODO Remove NO, this should only be done at startup when process is single threaded.
-    // TODO Remove dao.credInfoInitStaticSystems();
-
-    // For each PENDING record read info from SK and update the cred info table.
-// TODO    credInfoSyncPendingRecords();
-
     // Mark all FAILED records as PENDING
-// TODO    dao.credInfoMarkFailedAsPending();
-
+    credInfoMarkFailedAsPending();
     // For each PENDING record read info from SK and update the cred info table.
-// TODO    credInfoSyncPendingRecords();
+    credInfoSyncPendingRecords();
   }
 
   /**
-   * TODO Move this method to CredUtils?
-   * Sync all CredInfo PENDING records with SK
+   * Multithreaded update of all CredInfo FAILED records to PENDING
    */
-  private void credInfoSyncPendingRecords(ResourceRequestUser rUser, SystemsDao dao)
-          throws TapisException
+  private void credInfoMarkFailedAsPending()
+  {
+    // Find all FAILED records
+    List<CredentialInfo> failedRecords = dao.credInfoGetRecordsInStatus(SyncStatus.FAILED);
+    String msg = LibUtils.getMsg("SYSLIB_MAINT_CREDINFO_FAIL_COUNT", failedRecords.size());
+    log.info(msg);
+    // For each record update the status
+    for (CredentialInfo credInfo: failedRecords)
+    {
+      // Get the shared record in the locked state (WE MUST UNLOCK)
+      CredentialInfo lockedCredInfo = credUtils.getLockedInMemoryCredInfo(credInfo);
+      // null means it got removed from DB before we got to it, so we must skip
+      if (lockedCredInfo == null) continue;
+      try
+      {
+        // Make sure still in FAILED, if not then skip
+        if (!SyncStatus.FAILED.equals(lockedCredInfo.getSyncStatus())) { continue; }
+        // Update status to PENDING
+        credUtils.updateCredentialInfoStatus(rUser, lockedCredInfo, SyncStatus.PENDING);
+      }
+      finally
+      {
+        lockedCredInfo.mutex.unlock();
+      }
+    }
+  }
+
+  /**
+   * Multithreaded sync of all CredInfo PENDING records with SK
+   */
+  private void credInfoSyncPendingRecords()
   {
     // Find all PENDING records
-    List<CredentialInfo> pendingRecords = dao.credInfoGetPendingRecords();
+    List<CredentialInfo> pendingRecords = dao.credInfoGetRecordsInStatus(SyncStatus.PENDING);
+    String msg = LibUtils.getMsg("SYSLIB_MAINT_CREDINFO_PENDING_COUNT", pendingRecords.size());
+    log.info(msg);
     // For each record sync it with SK
     for (CredentialInfo credInfo: pendingRecords)
     {
-      // TODO/TBD start a db connection and use selectForUpdate to synchronize on the record?
-      //          pass in db connection instead of dao?
-      // TODO/TBD still need to check that record is PENDING?
-      credInfoSyncWithSK(rUser, dao, credInfo);
+      // Get the shared record in the locked state (WE MUST UNLOCK)
+      CredentialInfo lockedCredInfo = credUtils.getLockedInMemoryCredInfo(credInfo);
+      // null means it got removed from DB before we got to it, so we must skip
+      if (lockedCredInfo == null) continue;
+      try
+      {
+        // Make sure still in PENDING, if not then skip
+        if (!SyncStatus.PENDING.equals(lockedCredInfo.getSyncStatus())) { continue; }
+        // Update status to IN_PROGRESS
+        credUtils.updateCredentialInfoStatus(rUser, lockedCredInfo, SyncStatus.IN_PROGRESS);
+        try
+        {
+          // Sync records
+          credUtils.readCredInfoFromSK(rUser, lockedCredInfo);
+          credUtils.updateCredentialInfo(rUser, lockedCredInfo);
+          // Update status to COMPLETED
+          credUtils.updateCredentialInfoStatus(rUser, lockedCredInfo, SyncStatus.COMPLETED);
+        }
+        catch (Exception e)
+        {
+          // Log error, update the credInfo record to FAILED.
+          String failMsg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_SYNC_FAIL", rUser, credInfo.getTenant(),
+                credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.getLoginUserMapping(), credInfo.isStatic(),
+                credInfo.getSyncFailCount(), e.getMessage());
+          log.error(failMsg);
+          // Update failure related attributes of the credInfo
+          lockedCredInfo.setSyncFailed(TapisUtils.getUTCTimeNow().toInstant(ZoneOffset.UTC));
+          lockedCredInfo.setSyncFailCount(lockedCredInfo.getSyncFailCount()+1);
+          lockedCredInfo.setSyncFailMessage(e.getMessage());
+          lockedCredInfo.setSyncStatus(SyncStatus.FAILED);
+          credUtils.updateCredentialInfo(rUser, lockedCredInfo);
+        }
+      }
+      finally
+      {
+        lockedCredInfo.mutex.unlock();
+      }
     }
-  }
-
-  /**
-   * For a given record in the SYSTEMS_CRED_INFO table read from SK and update the record.
-   */
-  private void credInfoSyncWithSK(ResourceRequestUser rUser, SystemsDao dao, CredentialInfo credInfo)
-          throws TapisException
-  {
-    // TODO/TBD start a db connection and use selectForUpdate to synchronize on the record?
-    //          do that here or in calling method and pass in db connection instead of dao?
-    // Mark record as IN_PROGRESS
-    LocalDateTime updated = TapisUtils.getUTCTimeNow();
-    dao.updateCredInfoRecord(credInfo, SyncStatus.IN_PROGRESS, updated);
-    //TODO Call SK to get credential info.
-    // On any error mark as failed and return
-    CredentialInfo skCredInfo;
-    try
-    {
-      skCredInfo = getSkCredInfo(rUser, dao, credInfo);
-    }
-    catch (Exception e)
-    {
-      // Mark record as failed
-      // TODO message
-      String failMsg = LibUtils.getMsg("SYSLIB_???????");
-      dao.credInfoMarkInProgressAsFailed(failMsg);;
-      return;
-    }
-
-    // Update CredInfo table record - clear failure info, set status to COMPLETE
-    dao.credInfoMarkAsComplete(skCredInfo);
-  }
-
-  /**
-   * For syncing data.
-   * Given CredentialInfo record call SK to get latest data.
-   * No exceptions are caught.
-   *
-   * @param rUser ResourceRequest user, for logging purposes
-   * @param credInfo CredentialInfo object with current data from Systems server datastore
-   * @throws TapisException - on DAO error
-   * @throws TapisClientException - on SK error
-   * @return CredentialInfo object with latest data from Security Kernel (SK)
-   */ // TODO pass in credUtils instead of dao
-  CredentialInfo getSkCredInfo(ResourceRequestUser rUser, SystemsDao dao, CredentialInfo credInfo)
-          throws TapisException, TapisClientException
-  {
-    CredentialInfo skCredInfo;
-    boolean hasCredentials, hasPassword, hasPkiKeys, hasAccessKey, hasToken;
-    String tenant = credInfo.getTenant();
-    String targetUser = credInfo.getTapisUser();
-    String systemId = credInfo.getSystemId();
-    boolean isStaticEffectiveUser = !credInfo.isStatic();
-    TSystem.AuthnMethod defaultAuthnMethod= dao.getSystemDefaultAuthnMethod(tenant, systemId);
-    // Construct basic SK secret parameters
-    // Establish secret type ("system") and secret name ("S1")
-    var sParms = new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
-
-    // Fill in systemId and targetUserPath for the path to the secret.
-    String targetUserPath = CredUtils.getTargetUserSecretPath(targetUser, isStaticEffectiveUser);
-
-    // Set tenant, system and user associated with the secret.
-    // These values are used to build the vault path to the secret.
-    sParms.setTenant(tenant).setSysId(systemId).setSysUser(targetUserPath);
-
-    // NOTE: For secrets of type "system" setUser value not used in the path, but SK requires that it be set.
-    sParms.setUser(targetUser);
-
-    // PASSWORD
-    sParms.setKeyType(KeyType.password);
-    SkSecret skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-    if (skSecret == null) hasPassword = false;
-    else
-    {
-      var dataMap = skSecret.getSecretMap();
-      if (dataMap == null) hasPassword = false;
-      else hasPassword = !StringUtils.isBlank(dataMap.get(SK_KEY_PASSWORD));
-    }
-    // PKI_KEYS
-    sParms.setKeyType(KeyType.sshkey);
-    skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-    if (skSecret == null) hasPkiKeys = false;
-    else
-    {
-      var dataMap = skSecret.getSecretMap();
-      if (dataMap == null) hasPkiKeys = false;
-      else hasPkiKeys = !StringUtils.isBlank(dataMap.get(SK_KEY_PRIVATE_KEY));
-    }
-    // ACCESS_KEY
-    sParms.setKeyType(KeyType.accesskey);
-    skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-    if (skSecret == null) hasAccessKey = false;
-    else
-    {
-      var dataMap = skSecret.getSecretMap();
-      if (dataMap == null) hasAccessKey = false;
-      else hasAccessKey = !StringUtils.isBlank(dataMap.get(SK_KEY_ACCESS_KEY));
-    }
-    // TOKEN
-    sParms.setKeyType(KeyType.token);
-    skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-    if (skSecret == null) hasToken = false;
-    else
-    {
-      var dataMap = skSecret.getSecretMap();
-      if (dataMap == null) hasToken = false;
-      else hasToken = !StringUtils.isBlank(dataMap.get(SK_KEY_ACCESS_TOKEN));
-    }
-
-    // Determine if credentials are registered for defaultAuthnMethod of the system
-    hasCredentials = (TSystem.AuthnMethod.PASSWORD.equals(defaultAuthnMethod) && hasPassword) ||
-            (TSystem.AuthnMethod.PKI_KEYS.equals(defaultAuthnMethod) && hasPkiKeys) ||
-            (TSystem.AuthnMethod.ACCESS_KEY.equals(defaultAuthnMethod) && hasAccessKey) ||
-            (TSystem.AuthnMethod.TOKEN.equals(defaultAuthnMethod) && hasToken);
-    // TODO? Create credentialInfo
-//  public CredentialInfo(int systemSeqId1, String tenant1, String systemId1, String tapisUser1, String loginUser1,
-//    boolean isStatic1, boolean hasCredentials1, boolean hasPassword1, boolean hasPkiKeys1,
-//    boolean hasAccessKey1, boolean hasToken1, SyncStatus syncStatus1, int syncFailCount1,
-//    String syncFailMessage1, Instant syncFailed1, java.time.Instant created1, java.time.Instant updated1)
-//    return skCredInfo;
-    return null; // TODO
   }
 }

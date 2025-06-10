@@ -162,6 +162,14 @@ public class CredentialInfo
 
   public void incrementSyncFailCount() { syncFailCount++; }
 
+  /*
+   * Construct the key used for the global concurrent map
+   */
+  public String createMapKey()
+  {
+    return String.format("%s:%s:%s:%s", tenant, systemId, tapisUser, isStatic);
+  }
+
   /* ********************************************************************** */
   /*                               Accessors                                */
   /* ********************************************************************** */
