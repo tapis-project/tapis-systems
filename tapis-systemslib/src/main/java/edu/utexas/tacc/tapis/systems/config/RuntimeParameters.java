@@ -25,6 +25,8 @@ import edu.utexas.tacc.tapis.shared.parameters.TapisInput;
 import edu.utexas.tacc.tapis.shared.providers.email.EmailClientParameters;
 import edu.utexas.tacc.tapis.shared.providers.email.enumeration.EmailProviderType;
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
+import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
+import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 
@@ -131,6 +133,9 @@ public final class RuntimeParameters implements EmailClientParameters
 
   // Tapis Globus client id
   private String globusClientId;
+
+  // TAPIS_SVC_MAINTENANCE_INTERVAL (in minutes)
+  private int svcMaintenanceInterval = SystemsServiceImpl.DEFAULT_SVC_MAINT_INTERVAL;
 
   // TMS parameters
   private boolean tmsEnabled = false;
@@ -722,6 +727,9 @@ public final class RuntimeParameters implements EmailClientParameters
   public String getGlobusClientId() { return globusClientId; }
   private void setGlobusClientId(String s) {globusClientId = s; }
 
+  public int getSvcMaintenanceInterval() { return svcMaintenanceInterval; }
+  private void setSvcMaintenanceInterval(int i) { svcMaintenanceInterval = i; }
+
   public boolean getTmsEnalbed() { return tmsEnabled; }
   public String getTmsServerUrl() { return tmsServerUrl; }
   private void setTmsServerUrl(String s) {tmsServerUrl = s; }
@@ -821,6 +829,7 @@ public final class RuntimeParameters implements EmailClientParameters
     TAPIS_SVC_ADMIN_TENANT("tapis.svc.admin.tenant"),
     TAPIS_MIGRATE_JOB_APPLY("tapis.migrate.job.apply"),
     TAPIS_GLOBUS_CLIENT_ID("tapis.globus.client.id"),
+    TAPIS_SVC_MAINTENANCE_INTERVAL("tapis.svc.maintenance.interval"),
     TAPIS_TMS_ENABLED("tapis.tms.enabled"),
     TAPIS_TMS_SERVER_URL("tapis.tms.server.url"),
     TAPIS_TMS_TENANT("tapis.tms.tenant"),

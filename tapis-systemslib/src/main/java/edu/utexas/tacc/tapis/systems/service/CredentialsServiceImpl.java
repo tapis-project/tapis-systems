@@ -27,6 +27,7 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
  * Service level methods for System credentials.
  *   Uses Dao layer and other service library classes to perform all top level service operations.
  * Annotate as an hk2 Service so that default scope for Dependency Injection is singleton
+ * TODO manage CredInfo records
  */
 @Service
 public class CredentialsServiceImpl
@@ -66,7 +67,7 @@ public class CredentialsServiceImpl
   /**
    * Store or update credential for given system and target user.
    * <p>
-   * NOTE that credential returned even if invalid. Caller must check Credential.getValidationResult()
+   * NOTE Return null if we skip cred check.
    * <p>
    * Required: rUser, systemId, targetUser, credential.
    * <p>
@@ -75,7 +76,8 @@ public class CredentialsServiceImpl
    * If the *effectiveUserId* for the system is dynamic (i.e. equal to *${apiUserId}*) then *targetUser* is interpreted
    * as a Tapis user and the Credential may contain the optional attribute *loginUser* which will be used to map the
    * Tapis user to a username to be used when accessing the system. If the login user is not provided then there is
-   * no mapping and the Tapis user is always used when accessing the system.
+   * no mapping and the Tapis user is always used when accessing the system. Note that the Tapis user comes from
+   * the username claim in the Tapis JWT.
    * <p>
    * If the *effectiveUserId* for the system is static (i.e. not *${apiUserId}*) then *targetUser* is interpreted
    * as the login user to be used when accessing the host.
@@ -146,7 +148,7 @@ public class CredentialsServiceImpl
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
 
-    // Use utility method to do most of the work
+    // Use utility method to remove SK records and TODO: CredInfo record
     return credUtils.deleteCredentialForUser(rUser, system, targetUser, op);
   }
 
@@ -162,6 +164,7 @@ public class CredentialsServiceImpl
    * as the login user to be used when accessing the host.
    * <p>
    * System must exist and not be deleted.
+   *  TODO/TBD - sync CredInfo record
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
@@ -216,6 +219,7 @@ public class CredentialsServiceImpl
    * <p>
    * The result includes the attribute *authnMethod* indicating the authentication method associated with
    * the returned credentials.
+   *  TODO/TBD - sync CredInfo record
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
@@ -367,24 +371,10 @@ public class CredentialsServiceImpl
 
     // Create credential and save to SK
     Credential credential = new Credential(null, null, null, null, null, null, null, accessToken, refreshToken, null, null, null, null);
-    try
-    {
-      credUtils.createCredential(rUser, credential, systemId, userName, isStaticEffectiveUser);
-    }
-    // If tapis client exception then log error and convert to TapisException
-    catch (TapisClientException tce)
-    {
-      log.error(tce.toString());
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
-    }
-
-    // Construct Json string representing the update, with actual secrets masked out
-    Credential maskedCredential = Credential.createMaskedCredential(credential);
-    String updateJsonStr = TapisGsonUtils.getGson().toJson(maskedCredential);
-
-    // Create a record of the update
-    String updateText = null;
-    dao.addUpdateRecord(rUser, systemId, op, updateJsonStr, updateText);
+    // For Globus type system credentials both the target user and host login user are set to userName.
+    // When connecting to Globus there is no username directly set. Username is used when storing the credentials in SK.
+    boolean skipCheck = true; // We never check when generating globus tokens
+    credUtils.createCredential(rUser, credential, system, userName, userName, isStaticEffectiveUser, skipCheck, op);
   }
 
   // ************************************************************************
