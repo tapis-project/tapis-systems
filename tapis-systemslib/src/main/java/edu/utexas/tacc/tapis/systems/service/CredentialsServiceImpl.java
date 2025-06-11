@@ -67,7 +67,7 @@ public class CredentialsServiceImpl
   /**
    * Store or update credential for given system and target user.
    * <p>
-   * NOTE that a credential is returned even if invalid. Caller must check Credential.getValidationResult()
+   * NOTE Return null if we skip cred check.
    * <p>
    * Required: rUser, systemId, targetUser, credential.
    * <p>
@@ -373,7 +373,8 @@ public class CredentialsServiceImpl
     Credential credential = new Credential(null, null, null, null, null, null, null, accessToken, refreshToken, null, null, null, null);
     // For Globus type system credentials both the target user and host login user are set to userName.
     // When connecting to Globus there is no username directly set. Username is used when storing the credentials in SK.
-    credUtils.createCredential(rUser, credential, system, userName, userName, isStaticEffectiveUser, op);
+    boolean skipCheck = true; // We never check when generating globus tokens
+    credUtils.createCredential(rUser, credential, system, userName, userName, isStaticEffectiveUser, skipCheck, op);
   }
 
   // ************************************************************************

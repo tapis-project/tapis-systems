@@ -553,7 +553,7 @@ public class SystemsServiceTest
     TSystem putSystem = IntegrationUtils.makePutSystemFull(testKey, tmpSys);
 
     // Update using PUT
-    svc.putSystem(rOwner1, putSystem, rawDataPut);
+    svc.putSystem(rOwner1, putSystem, skipCredCheckTrue, rawDataPut);
     tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
 
     // Get last updated timestamp
@@ -755,7 +755,7 @@ public class SystemsServiceTest
     Assert.assertEquals(tmpSys.getProxyPort(), sys0.getProxyPort());
     // Set effectiveUserId to dynamic user and verify effUsr is resolved
     tmpSys.setEffectiveUserId(TSystem.APIUSERID_VAR);
-    svc.putSystem(rOwner1, tmpSys, rawDataEmptyJson);
+    svc.putSystem(rOwner1, tmpSys, true, rawDataEmptyJson);
     // Get with resolve
     tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     Assert.assertNotNull(tmpSys, "Failed to get item: " + sys0.getId());
@@ -1102,7 +1102,7 @@ public class SystemsServiceTest
     tmpSys.setEffectiveUserId(TSystem.APIUSERID_VAR);
     try
     {
-      svc.putSystem(rOwner1, tmpSys, rawDataEmptyJson);
+      svc.putSystem(rOwner1, tmpSys, skipCredCheckTrue, rawDataEmptyJson);
       Assert.fail("System create call should have thrown an exception when effectiveUserId is dynamic");
     }
     catch (Exception e) { Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_DISALLOWED_INPUT")); }
@@ -2769,7 +2769,7 @@ public class SystemsServiceTest
     putSystem.setJobMaxJobs(jobMaxJobs3);
     putSystem.setTags(tags3);
     putSystem.setJobEnvVariables(jobEnvVariables3);
-    svc.putSystem(ownerUser, putSystem, rawDataPut);
+    svc.putSystem(ownerUser, putSystem, skipCredCheckTrue, rawDataPut);
     // Delete - record 6
     svc.deleteSystem(ownerUser, sysId);
 

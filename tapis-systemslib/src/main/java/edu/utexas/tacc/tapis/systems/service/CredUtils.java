@@ -198,7 +198,8 @@ public class CredUtils
    * NOTE: Instead of returning null we should always return a cred. Make validation result an enum
    *       instead of boolean. The enum values could be PASS, FAIL, SKIPPED (TBD: and ERROR? and UNSET?)
    * <p>
-   * NOTE that a credential is returned even if validation fails. Caller must check Credential.getValidationResult()
+   * NOTE Return null if we skip cred check.
+   * <p>
    * Path to secrets in SK depend on whether effUser type is dynamic or static
    * <p>
    * If the *effectiveUserId* for the system is dynamic (i.e. equal to *${apiUserId}*) then *targetUser* is interpreted
@@ -233,7 +234,7 @@ public class CredUtils
           throws TapisException
   {
     SystemOperation op = SystemOperation.setCred;
-    Credential retCred; // The full Credential that is returned, including TMS keys info if generated.
+    Credential retCred; // Unless skipping credCheck, the full Credential that is returned, including TMS keys if generated.
     String msg;
     // Extract some attributes for convenience and clarity
     String credLoginUserMapping = cred.getLoginUser(); // Host login mapping from provided credential
@@ -275,14 +276,9 @@ public class CredUtils
     // Skip check if not LINUX or S3
     if (!SystemType.LINUX.equals(systemType) && !SystemType.S3.equals(systemType)) skipCheck = true;
 
-// HEAD
-//    // Determine hostLoginUser resulting from the update.
-//    String hostLoginUser = determineHostloginUser(system, targetUser, credLoginUserMapping, isStaticEffectiveUser);
-// =======
     // Determine the host login user, i.e. the resolved effectiveUserId
     // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
-    String hostLoginUser = getHostLoginUser(oboTenant, systemId, targetUser, userLoginMapping, isStaticEffectiveUser);
-// origin/add-creds-table0
+    String hostLoginUser = getHostLoginUserAtCreate(oboTenant, systemId, targetUser, userLoginMapping, isStaticEffectiveUser);
 
     // ---------------- Verify credentials ------------------------
     // If not skipping credential validation then do it now
@@ -304,11 +300,8 @@ public class CredUtils
     // Create credential. Create or update SK records and CredentialInfo record
     // If this throws an exception we do not try to rollback. Attempting to track which secrets
     //   have been changed and reverting seems fraught with peril and not a good ROI.
-    createCredential(rUser, retCred, system, targetUser, hostLoginUser, isStaticEffectiveUser, op);
+    createCredential(rUser, retCred, system, targetUser, hostLoginUser, isStaticEffectiveUser, skipCheck, op);
 
-//    // If skipping check return null, else return the verified credential
-//    if (skipCheck) return null;
-//    else return retCred;
     // If dynamic and an alternate loginUser has been provided that is not the same as the Tapis user
     //   then record the mapping
     if (!isStaticEffectiveUser && !StringUtils.isBlank(userLoginMapping))
@@ -318,13 +311,14 @@ public class CredUtils
     }
 
     // Construct Json string representing the update, with actual secrets masked out
-    Credential maskedCredential = Credential.createMaskedCredential(fullCred);
+    Credential maskedCredential = Credential.createMaskedCredential(retCred);
     // Get a complete and succinct description of the update.
     String changeDescription = LibUtils.getChangeDescriptionCredCreate(systemId, targetUser, skipCheck, maskedCredential);
     // Create a record of the update
     dao.addUpdateRecord(rUser, systemId, op, changeDescription, rawData);
 
-    return retCred;
+    if (skipCheck) return null;
+    else return retCred;
   }
 
   /**
@@ -346,7 +340,7 @@ public class CredUtils
    */
   Credential checkCredentialForUser(ResourceRequestUser rUser, TSystem system, String targetUser,
                                     AuthnMethod authnMethod, SystemOperation op)
-          throws TapisException, IllegalStateException
+          throws TapisException, TapisClientException, IllegalStateException
   {
     String oboTenant = rUser.getOboTenantId();
     String systemId = system.getId();
@@ -412,9 +406,17 @@ public class CredUtils
     // If this throws an exception we do not try to rollback. Attempting to track which secrets
     //   have been changed and reverting seems fraught with peril and not a good ROI.
     int changeCount;
+    try
+    {
       // Remove SK records and CredentialInfo record
-    changeCount = deleteCredential(rUser, system, targetUser, isStaticEffectiveUser);
-
+      changeCount = deleteCredential(rUser, system, targetUser, isStaticEffectiveUser);
+    }
+    // If tapis client exception then log error and convert to TapisException
+    catch (TapisClientException tce)
+    {
+      log.error(tce.toString());
+      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
+    }
     // Get a complete and succinct description of the update.
     String changeDescription = LibUtils.getChangeDescriptionCredDelete(systemId, targetUser);
     // Create a record of the update
@@ -477,7 +479,7 @@ public class CredUtils
    * No checks are done for incoming arguments and the system must exist
    */
   void createCredential(ResourceRequestUser rUser, Credential credential, TSystem system, String targetUser,
-                        String hostLoginUser, boolean isStatic, SystemOperation op)
+                        String hostLoginUser, boolean isStatic, boolean skipCredCheck, SystemOperation op)
   {
     String oboUser = rUser.getOboUserId();
     String loginUserMapping = credential.getLoginUser();
@@ -502,7 +504,8 @@ public class CredUtils
         // Construct Json string representing the update, with actual secrets masked out
         Credential maskedCredential = Credential.createMaskedCredential(credential);
         // Get a complete and succinct description of the update.
-        String changeDescription = LibUtils.getChangeDescriptionCredCreate(system.getId(), targetUser, maskedCredential);
+        String changeDescription = LibUtils.getChangeDescriptionCredCreate(system.getId(), targetUser, skipCredCheck,
+                                                                           maskedCredential);
         // Create a record of the update
         String rawUpdateData = null;
         dao.addUpdateRecord(rUser, system.getId(), op, changeDescription, rawUpdateData);
@@ -548,7 +551,7 @@ public class CredUtils
     // Use a synchronized method to make sure we have a DB record and in-memory object
     // If not already in memory or in DB it is created with status of PENDING
     // The CredentialInfo record returned is already locked. This ensures we have exclusive access
-    CredentialInfo credInfo = getLockedDBCredInfoRecord(rUser, system.getSeqId(), oboTenant, systemId, oboUser, isStatic);
+    CredentialInfo credInfo = getLockedDBCredInfoRecord(rUser, system, oboTenant, systemId, oboUser, isStatic);
 
     // Now we have a locked record so no other threads will attempt an update during this update
     // This is basically the equivalent of a selectForUpdate DB type operation.
@@ -877,8 +880,8 @@ public class CredUtils
     Instant updatedInstant = updated.toInstant(ZoneOffset.UTC);
     credInfo.setUpdated(updatedInstant);
     credInfo.setSyncFailed(updatedInstant);
-    credInfo.setSyncFailCount();
-    credInfo.setSyncFailMessage();
+    credInfo.incrementSyncFailCount();
+    credInfo.setSyncFailMessage("TODO"); // TODO
     credInfo.setSyncStatus(newSyncStatus);
 
     // Persist the update
@@ -987,33 +990,6 @@ public class CredUtils
   /* **************************************************************************** */
   /*                                Private Methods                               */
   /* **************************************************************************** */
-
-// TODO use this or getHostLoginUser?
-  /**
-   * Determine final host login user value when caller has provided a credential
-   * @param sys - Tapis system
-   * @param targetUser - target user associated with the create operation
-   * @param credHostLoginUser - login user mapping (if any) provided as part of credential.
-   * @param isStaticEffectiveUser - whether eff user is static
-   * @return host login user
-   */
-  private String determineHostloginUser(TSystem sys, String targetUser, String credHostLoginUser,
-                                        boolean isStaticEffectiveUser)
-  {
-    // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
-    String hostLoginUser = targetUser;
-    // If dynamic need to check for host login user mapping.
-    if (!isStaticEffectiveUser)
-    {
-      // Since this is a create operation, the host login user mapping might be in the DB or part of the incoming
-      //   credential or both. The one in the credential has priority because it will be replacing the DB record
-      String mappedLoginUser = credHostLoginUser;
-      if (StringUtils.isBlank(mappedLoginUser)) mappedLoginUser = dao.getLoginUserMapping(sys.getTenant(), sys.getId(), targetUser);
-      // mappedLoginUser may or may not be blank. If not blank update the hostLoginUser.
-      if (!StringUtils.isBlank(mappedLoginUser)) hostLoginUser = mappedLoginUser;
-    }
-    return hostLoginUser;
-  }
 
   /*
    * Make sure we are configured for TMS keys and that system allows for it
@@ -1330,7 +1306,7 @@ public class CredUtils
   /*
    * For credential creation operation, determine the host login user, i.e. the resolved effectiveUserId.
    */
-  private String getHostLoginUser(String sysTenant, String sysId, String targetUser, String loginUserMapping, boolean isStatic)
+  private String getHostLoginUserAtCreate(String sysTenant, String sysId, String targetUser, String loginUserMapping, boolean isStatic)
   {
     // Determine hostLoginUser. If static or dynamic and no mapping, then use targetUser.
     String hostLoginUser = targetUser;

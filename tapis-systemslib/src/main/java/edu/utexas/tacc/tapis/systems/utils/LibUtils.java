@@ -403,11 +403,12 @@ public class LibUtils
   /**
    * Create a change description for a credential update.
    */
-  public static String getChangeDescriptionCredCreate(String systemId, String user, Credential cred)
+  public static String getChangeDescriptionCredCreate(String systemId, String user, boolean skipCredCheck, Credential cred)
   {
     var o = new JSONObject();
     o.put("System", systemId);
     o.put("TargetUser", user);
+    o.put("SkipCredCheck", skipCredCheck);
     var oCred = new JSONObject();
     var cEntry = new JSONObject();
     cEntry.put("Password", cred.getPassword());

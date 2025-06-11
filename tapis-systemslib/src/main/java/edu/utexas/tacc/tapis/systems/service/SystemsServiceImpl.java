@@ -364,7 +364,7 @@ public class SystemsServiceImpl implements SystemsService
       {
         // Use internal method instead of public API to skip auth and other checks not needed here.
         // This is createSystem, so isStatic is true so targetUser and hostLoginUser are the eff user id.
-        credUtils.createCredential(rUser, cred, system, effUserId, effUserId, isStaticEffectiveUser, op);
+        credUtils.createCredential(rUser, cred, system, effUserId, effUserId, isStaticEffectiveUser, skipCredCheck, op);
       }
     }
     catch (Exception e0)
@@ -555,6 +555,7 @@ public class SystemsServiceImpl implements SystemsService
    *   tenant, id, systemType, owner, enabled, bucketName, rootDir, canExec, effectiveUserId
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param putSystem - Pre-populated TSystem object (including tenantId and systemId)
+   * @param skipCredCheck - Indicates if cred check should happen (for LINUX, S3)
    * @param rawData - Text used to create the System object - secrets should be scrubbed. Saved in update record.
    * @return TSystem with defaults set and validated credentials filled in as needed
    * @throws TapisException - for Tapis related exceptions
@@ -562,7 +563,7 @@ public class SystemsServiceImpl implements SystemsService
    * @throws IllegalArgumentException - invalid parameter passed in
    */
   @Override
-  public TSystem putSystem(ResourceRequestUser rUser, TSystem putSystem, String rawData)
+  public TSystem putSystem(ResourceRequestUser rUser, TSystem putSystem, boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException
   {
     SystemOperation op = SystemOperation.modify;

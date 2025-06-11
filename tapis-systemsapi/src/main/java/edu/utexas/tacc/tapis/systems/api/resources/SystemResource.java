@@ -571,6 +571,7 @@ public class SystemResource {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response putSystem(@PathParam("systemId") String systemId,
+                            @QueryParam("skipCredentialCheck") @DefaultValue("false") boolean skipCredCheck,
                             InputStream payloadStream,
                             @Context SecurityContext securityContext) throws TapisClientException
   {
@@ -586,7 +587,7 @@ public class SystemResource {
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
 
     // Trace this request.
-    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "skipCredentialCheck="+skipCredCheck, "systemId="+systemId);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -630,6 +631,7 @@ public class SystemResource {
 
     // Create a TSystem from the request
     TSystem putSystem = createTSystemFromPutRequest(rUser.getOboTenantId(), systemId, req, rawJson);
+    boolean creatingCreds = (putSystem.getAuthnCredential() != null);
 
     // Mask any secret info that might be contained in rawJson
     String scrubbedJson = rawJson;
@@ -639,7 +641,7 @@ public class SystemResource {
     // ---------------------------- Make service call to update the system -------------------------------
     try
     {
-      putSystem = service.putSystem(rUser, putSystem, scrubbedJson);
+      putSystem = service.putSystem(rUser, putSystem, skipCredCheck, scrubbedJson);
     }
     catch (IllegalStateException e)
     {
@@ -663,6 +665,18 @@ public class SystemResource {
       msg = ApiUtils.getMsgAuth(UPDATE_ERR, rUser, systemId, opName, e.getMessage());
       _log.error(msg, e);
       throw new WebApplicationException(msg);
+    }
+
+    // If credentials provided, and we are validating them, make sure they were OK.
+    // If validation failed then system was not created, and we need to report an error.
+    if (!skipCredCheck && creatingCreds)
+    {
+      // We only support registering credentials in the static effective user case, so in log messages report effUserId.
+      String userName = putSystem.getEffectiveUserId();
+      // Check validation result. Return UNAUTHORIZED (401) if not valid.
+      resp = ApiUtils.checkCredValidationResult(rUser, systemId, userName, putSystem.getAuthnCredential(),
+                                                putSystem.getDefaultAuthnMethod(), skipCredCheck);
+      if (resp != null) return resp;
     }
 
     // ---------------------------- Success -------------------------------

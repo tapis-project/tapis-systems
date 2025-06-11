@@ -170,7 +170,7 @@ public final class MaintenanceTask implements Runnable
           log.error(failMsg);
           // Update failure related attributes of the credInfo
           lockedCredInfo.setSyncFailed(TapisUtils.getUTCTimeNow().toInstant(ZoneOffset.UTC));
-          lockedCredInfo.setSyncFailCount(lockedCredInfo.getSyncFailCount()+1);
+          lockedCredInfo.incrementSyncFailCount();
           lockedCredInfo.setSyncFailMessage(e.getMessage());
           lockedCredInfo.setSyncStatus(SyncStatus.FAILED);
           credUtils.updateCredentialInfo(rUser, lockedCredInfo);
