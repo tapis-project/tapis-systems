@@ -173,6 +173,12 @@ public class SystemsApplication extends ResourceConfig
     Thread shudownHook = new SystemsApplication.ServiceShutdown(svc);
     Runtime.getRuntime().addShutdownHook(shudownHook);
 
+    // Schedule maintenance task thread. This task:
+    //  - updates FAILED and PENDING credInfo records
+    // NOTE: Starting this after initial sync in initService so initial sync is single-threaded.
+    System.out.printf("Starting maintenance background task. Interval: %d minutes%n", runParms.getSvcMaintenanceInterval());
+    svc.startMaintenanceTask(runParms.getSvcMaintenanceInterval());
+
     // Create and start the server
     System.out.println("Starting http server");
     final HttpServer server = GrizzlyHttpServerFactory.createHttpServer(baseUri, config, false);
@@ -196,6 +202,8 @@ public class SystemsApplication extends ResourceConfig
     public void run()
     {
       System.out.printf("**** Stopping Systems Service. Version: %s ****%n", TapisUtils.getTapisFullVersion());
+      // We are shutting down, stop the maintenance task
+      svc.stopMaintenanceTask();
       // Perform any remaining shutdown steps
 //      svc.shutDown();
     }

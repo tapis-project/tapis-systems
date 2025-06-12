@@ -29,6 +29,8 @@ public interface SystemsService
   void initService(String siteId1, String siteAdminTenantId1, RuntimeParameters runParms)
           throws TapisException, TapisClientException;
   Exception checkDB();
+  void startMaintenanceTask(long intervalMinutes);
+  void stopMaintenanceTask();
 
   // ------------------------- Systems -------------------------------------
   // -----------------------------------------------------------------------

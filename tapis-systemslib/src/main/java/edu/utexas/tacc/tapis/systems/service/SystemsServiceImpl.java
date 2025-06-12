@@ -4,6 +4,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
@@ -63,6 +67,12 @@ public class SystemsServiceImpl implements SystemsService
   public static final String APPS_SERVICE = TapisConstants.SERVICE_NAME_APPS;
   public static final String JOBS_SERVICE = TapisConstants.SERVICE_NAME_JOBS;
 
+  // Default interval in minutes for running the maintenance background task
+  public static final int DEFAULT_SVC_MAINT_INTERVAL = 60;
+
+  // Allow interrupt when shutting down executor services.
+  private static final boolean mayInterruptIfRunning = true;
+
   // Message keys
   static final String NOT_FOUND = "SYSLIB_NOT_FOUND";
   static final String ERROR_ROLLBACK = "SYSLIB_ERROR_ROLLBACK";
@@ -105,6 +115,12 @@ public class SystemsServiceImpl implements SystemsService
   @Inject
   private ServiceContext serviceContext;
 
+  private MaintenanceTask maintenanceTask; // Runnable maintenance task run via executor
+
+  // ExecutorService and future for maintenance task
+  private final ScheduledExecutorService maintenanceExecService = Executors.newSingleThreadScheduledExecutor();
+  private Future<?> maintenanceTaskFuture;
+
   // We must be running on a specific site and this will never change
   // These are initialized in method initService()
   private static String siteId;
@@ -140,6 +156,39 @@ public class SystemsServiceImpl implements SystemsService
     var authUser = new AuthenticatedUser(svcName, svcTenant, TapisThreadContext.AccountType.service.name(), null,
                                          svcName, svcTenant, null, siteId, null);
     rUserSvc = new ResourceRequestUser(authUser);
+
+    // Create the maintenanceTask runnable
+    maintenanceTask = new MaintenanceTask(rUserSvc);
+
+    // Check the systems_cred_info table and perform initial single-threaded synchronization steps.
+    // IN_PROGRESS records moved to FAILED, DELETED records removed from data store
+//TODO CredInfo   credUtils.credInfoInit(rUserSvc);
+  }
+
+  /**
+   * Start the maintenance task thread
+   * The maintenanceTask is a ScheduledExecutorService that runs periodically using the value passed
+   * in as the period in minutes.
+   *
+   * @param intervalMinutes execution period in minutes
+   */
+  @Override
+  public void startMaintenanceTask(long intervalMinutes)
+  {
+    log.info(LibUtils.getMsg("SYSLIB_MAINT_TASK_START"));
+    maintenanceTaskFuture =
+            maintenanceExecService.scheduleAtFixedRate(() -> MaintenanceTask.runMaintenance(maintenanceTask),
+                  intervalMinutes, intervalMinutes, TimeUnit.MINUTES);
+  }
+
+  /*
+   * Stop the maintenance task thread
+   */
+  @Override
+  public void stopMaintenanceTask()
+  {
+    log.info(LibUtils.getMsg("SYSLIB_MAINT_TASK_STOP"));
+    if (maintenanceTaskFuture != null) maintenanceTaskFuture.cancel(mayInterruptIfRunning);
   }
 
   /**
@@ -314,7 +363,8 @@ public class SystemsServiceImpl implements SystemsService
       if (manageCredentials)
       {
         // Use internal method instead of public API to skip auth and other checks not needed here.
-        credUtils.createCredential(rUser, cred, systemId, effUserId, isStaticEffectiveUser);
+        // This is createSystem, so isStatic is true so targetUser and hostLoginUser are the eff user id.
+        credUtils.createCredential(rUser, cred, system, effUserId, effUserId, isStaticEffectiveUser, skipCredCheck, op);
       }
     }
     catch (Exception e0)
@@ -339,7 +389,8 @@ public class SystemsServiceImpl implements SystemsService
         // Note that we only manageCredentials for the static case and for the static case targetUser=effectiveUserId
         try
         {
-          credUtils.deleteCredential(rUser, systemId, effUserId, isStaticEffectiveUser);
+          // Remove SK records and TODO CredInfo record
+          credUtils.deleteCredential(rUser, system, effUserId, isStaticEffectiveUser);
         }
         catch (Exception e)
         {
@@ -621,6 +672,7 @@ public class SystemsServiceImpl implements SystemsService
    * Soft delete a system
    *   - Remove effectiveUser credentials associated with the system.
    *   - Remove permissions associated with the system.
+TODO CredInfo   *   - Remove CredInfo records associated with the system
    *   - Update deleted to true for a system
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
@@ -657,6 +709,10 @@ public class SystemsServiceImpl implements SystemsService
     // Remove effectiveUser credentials associated with the system
     // Remove permissions associated with the system
     removeSKArtifacts(rUser, system);
+
+//TODO CredInfo    // Remove CredInfo records associated with the system.
+//TODO CredInfo    // They will eventually be re-created if it is undeleted.
+//TODO CredInfo    dao.deleteAllCredInfoRecordsForSystem(rUser, system.getTenant(), systemId);
 
     // Update deleted attribute
     return updateDeleted(rUser, systemId, op);
@@ -906,6 +962,7 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Hard delete a system record given the system name.
    *   - remove artifacts from the Security Kernel
+TODO CredInfo   *   - delete all CredInfo records for the system
    *   - remove system record from data store
    * NOTE: This is package-private. Only test code should ever use it.
    *
@@ -933,6 +990,9 @@ public class SystemsServiceImpl implements SystemsService
 
     // Remove SK artifacts
     removeSKArtifacts(rUser, system);
+
+//TODO CredInfo    // Delete all CredInfo records associated with the system
+//TODO CredInfo    dao.deleteAllCredInfoRecordsForSystem(rUser, tenant, systemId);
 
     // Delete the system
     return dao.hardDeleteSystem(tenant, systemId);
@@ -2143,7 +2203,7 @@ public class SystemsServiceImpl implements SystemsService
     // Remove credentials associated with the system if system has a static effectiveUserId
     if (!effectiveUserId.equals(APIUSERID_VAR)) {
       // Use private internal method instead of public API to skip auth and other checks not needed here.
-      credUtils.deleteCredential(rUser, system.getId(), resolvedEffectiveUserId, true);
+      credUtils.deleteCredential(rUser, system, resolvedEffectiveUserId, true);
     }
   }
 
