@@ -177,8 +177,8 @@ public class SystemsServiceImpl implements SystemsService
   {
     log.info(LibUtils.getMsg("SYSLIB_MAINT_TASK_START"));
     maintenanceTaskFuture =
-            maintenanceExecService.scheduleAtFixedRate(maintenanceTask,intervalMinutes,
-                                                 intervalMinutes, TimeUnit.MINUTES);
+            maintenanceExecService.scheduleAtFixedRate(() -> MaintenanceTask.runMaintenance(maintenanceTask),
+                  intervalMinutes, intervalMinutes, TimeUnit.MINUTES);
   }
 
   /*

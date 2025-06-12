@@ -466,6 +466,22 @@ public final class RuntimeParameters implements EmailClientParameters
     // Empty support email means no support emails will be sent.
     parm = inputProperties.getProperty(EnvVar.TAPIS_SUPPORT_EMAIL.getEnvName());
     if (!StringUtils.isBlank(parm)) setSupportEmail(parm);
+
+    // Get the email server port.
+    parm = inputProperties.getProperty(EnvVar2.TAPIS_SVC_MAINTENANCE_INTERVAL.getEnvName());
+    if (StringUtils.isBlank(parm)) setSvcMaintenanceInterval(SystemsServiceImpl.DEFAULT_SVC_MAINT_INTERVAL);
+    else
+      try {setSvcMaintenanceInterval(Integer.parseInt(parm));}
+      catch (Exception e) {
+        // Stop on bad input.
+        String msg = MsgUtils.getMsg("TAPIS_SERVICE_PARM_INITIALIZATION_FAILED",
+              TapisConstants.SERVICE_NAME_SYSTEMS,
+              "svcMaintInterval",
+              e.getMessage());
+        _log.error(msg, e);
+        throw new TapisRuntimeException(msg, e);
+      }
+
   }
 
   /**
@@ -478,6 +494,8 @@ public final class RuntimeParameters implements EmailClientParameters
     buf.append("\nRuntime Parameters");
     buf.append("\n======================");
     buf.append("\n------- Service Specific -------------------------------");
+    buf.append("\ntapis.svc.maintenance.interval: ");
+    buf.append(this.getSvcMaintenanceInterval());
     buf.append("\n------- Migrate Job Configuration ---------------------");
     buf.append("\ntapis.migrate.job.apply: ");
     buf.append(this.migrateJobApply);
