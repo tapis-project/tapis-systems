@@ -959,7 +959,8 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException - on error
    */
   @Override
-  public boolean isEnabled(String tenantId, String sysId) throws TapisException {
+  public boolean isEnabled(String tenantId, String sysId)
+  {
     // Initialize result.
     boolean result = false;
     // ------------------------- Call SQL ----------------------------
@@ -997,7 +998,8 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException - on error
    */
   @Override
-  public String getParent(String tenantId, String sysId) throws TapisException {
+  public String getParent(String tenantId, String sysId)
+  {
     // Initialize result.
     String result = null;
     // ------------------------- Call SQL ----------------------------
@@ -2585,7 +2587,7 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException - on error
    */
   @Override
-  public SchedulerProfile getSchedulerProfile(String tenantId, String name) throws TapisException
+  public SchedulerProfile getSchedulerProfile(String tenantId, String name)
   {
     // Initialize result.
     SchedulerProfile sp = null;
@@ -2640,7 +2642,7 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException - on error
    */
   @Override
-  public List<SchedulerProfile> getSchedulerProfiles(String tenantId) throws TapisException
+  public List<SchedulerProfile> getSchedulerProfiles(String tenantId)
   {
     List<SchedulerProfile> retList = new ArrayList<SchedulerProfile>();
     // ------------------------- Build and execute SQL ----------------------------
@@ -2761,7 +2763,7 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException - on error
    */
   @Override
-  public String getSchedulerProfileOwner(String tenant, String name) throws TapisException
+  public String getSchedulerProfileOwner(String tenant, String name)
   {
     String owner = null;
     // ------------------------- Call SQL ----------------------------
@@ -2798,7 +2800,8 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public List<SystemHistoryItem> getSystemHistory(String oboTenant, String systemId) throws TapisException {
+  public List<SystemHistoryItem> getSystemHistory(String oboTenant, String systemId)
+  {
     // Initialize result.
     List<SystemHistoryItem> resultList = new ArrayList<SystemHistoryItem>();
 

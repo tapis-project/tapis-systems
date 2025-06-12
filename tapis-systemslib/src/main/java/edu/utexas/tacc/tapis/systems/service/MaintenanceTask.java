@@ -1,5 +1,12 @@
 package edu.utexas.tacc.tapis.systems.service;
 
+import javax.inject.Inject;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
 import edu.utexas.tacc.tapis.security.client.model.KeyType;
@@ -13,21 +20,14 @@ import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
 import static edu.utexas.tacc.tapis.systems.model.Credential.*;
 
 /*
  * Support maintenance tasks for the Systems service
- * Contains a single public method that is run at fixed intervals using a ScheduledExecutorService.
+ * Contains a static public method that is run at fixed intervals using a ScheduledExecutorService.
  */
-public final class MaintenanceTask implements Runnable
+public final class MaintenanceTask
 {
   /* ********************************************************************** */
   /*                               Constants                                */
@@ -69,13 +69,13 @@ public final class MaintenanceTask implements Runnable
    * Main method. Performs the following:
    *   - Update the systems_cred_info table to keep it in sync with SK
    */
-  public void run()
+  public static void runMaintenance(MaintenanceTask maintenanceTask)
   {
     log.info(LibUtils.getMsg("SYSLIB_MAINT_RUN_BEGIN"));
     try
     {
       // Run maintenance tasks for CredInfo table
-      credInfoRunMaintenance();
+      maintenanceTask.credInfoRunMaintenance();
     }
     catch (Exception e)
     {

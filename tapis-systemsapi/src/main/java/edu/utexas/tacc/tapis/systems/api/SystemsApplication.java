@@ -176,7 +176,7 @@ public class SystemsApplication extends ResourceConfig
     // Schedule maintenance task thread. This task:
     //  - updates FAILED and PENDING credInfo records
     // NOTE: Starting this after initial sync in initService so initial sync is single-threaded.
-    System.out.println("Starting maintenance background task");
+    System.out.printf("Starting maintenance background task. Interval: %d minutes%n", runParms.getSvcMaintenanceInterval());
     svc.startMaintenanceTask(runParms.getSvcMaintenanceInterval());
 
     // Create and start the server

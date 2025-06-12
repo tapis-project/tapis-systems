@@ -195,8 +195,7 @@ public class CredUtils
    * Store or update credential for given system and target user.
    * Optionally verify the credential. If verification fails, credentials are not registered.
    * Return null if skipping cred check, else return checked credential with validation result set
-   * NOTE: Instead of returning null we should always return a cred. Make validation result an enum
-   *       instead of boolean. The enum values could be PASS, FAIL, SKIPPED (TBD: and ERROR? and UNSET?)
+   * NOTE that credential returned even if invalid. Caller must check Credential.getValidationResult()
    * <p>
    * NOTE Return null if we skip cred check.
    * <p>
@@ -340,7 +339,7 @@ public class CredUtils
    */
   Credential checkCredentialForUser(ResourceRequestUser rUser, TSystem system, String targetUser,
                                     AuthnMethod authnMethod, SystemOperation op)
-          throws TapisException, TapisClientException, IllegalStateException
+          throws TapisException, IllegalStateException
   {
     String oboTenant = rUser.getOboTenantId();
     String systemId = system.getId();
@@ -542,12 +541,12 @@ public class CredUtils
    * No checks are done for incoming arguments and the system must exist
    */
   int deleteCredential(ResourceRequestUser rUser, TSystem system, String targetUser, boolean isStatic)
-          throws TapisClientException, TapisException
+          throws TapisClientException
   {
     String oboTenant = rUser.getOboTenantId();
     String oboUser = rUser.getOboUserId();
     String systemId = system.getId();
-    int retCode;
+    int changeCount;
     // Use a synchronized method to make sure we have a DB record and in-memory object
     // If not already in memory or in DB it is created with status of PENDING
     // The CredentialInfo record returned is already locked. This ensures we have exclusive access
@@ -563,7 +562,7 @@ public class CredUtils
       updateCredentialInfoStatus(rUser, credInfo, SyncStatus.DELETED);
 
       // Remove secrets from SK
-      retCode = removeSKSecrets(rUser, system, targetUser, isStatic);
+      changeCount = removeSKSecrets(rUser, system, targetUser, isStatic);
 
       // Log successful update
       String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_DEL", rUser, credInfo.getTenant(), systemId,
@@ -575,7 +574,7 @@ public class CredUtils
       // Unlock the record
       credInfo.mutex.unlock();
     }
-    return retCode;
+    return changeCount;
   }
 
   /**

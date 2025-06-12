@@ -53,9 +53,9 @@ public interface SystemsDao
   boolean checkForSystem(String tenantId, String id, boolean includeDeleted) throws TapisException;
   boolean hasChildren(String tenantId, String id) throws TapisException;
 
-  boolean isEnabled(String tenantId, String id) throws TapisException;
+  boolean isEnabled(String tenantId, String id);
 
-  String getParent(String tenantId, String sysId) throws TapisException;
+  String getParent(String tenantId, String sysId);
 
   TSystem getSystem(String tenantId, String id) throws TapisException;
 
@@ -128,15 +128,15 @@ public interface SystemsDao
 
   void createSchedulerProfile(ResourceRequestUser rUser, SchedulerProfile profile) throws TapisException, IllegalStateException;
 
-  SchedulerProfile getSchedulerProfile(String tenantId, String name) throws TapisException;
+  SchedulerProfile getSchedulerProfile(String tenantId, String name);
 
-  List<SchedulerProfile> getSchedulerProfiles(String tenantId) throws TapisException;
+  List<SchedulerProfile> getSchedulerProfiles(String tenantId);
 
   int deleteSchedulerProfile(String tenantId, String name) throws TapisException;
 
   boolean checkForSchedulerProfile(String tenantId, String name) throws TapisException;
 
-  String getSchedulerProfileOwner(String tenant, String name) throws TapisException;
+  String getSchedulerProfileOwner(String tenant, String name);
 
-  List<SystemHistoryItem> getSystemHistory(String oboTenant, String systemId) throws TapisException;
+  List<SystemHistoryItem> getSystemHistory(String oboTenant, String systemId);
 }
