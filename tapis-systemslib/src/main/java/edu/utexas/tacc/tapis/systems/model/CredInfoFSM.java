@@ -50,6 +50,7 @@ import static edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus.*;
  *    Failed->Pending    - ready for an update attempt
  *    Failed->Deleted    - deleted before becoming ready for an update attempt
  *    Deleted->Pending   - ready for an update attempt prior to clean up of deleted records
+ *    Deleted->Deleted   - cred delete prior to clean up of deleted records
  *
  * Based on StatefulJ FSM library.
  * This class is non-instantiable.
@@ -82,11 +83,15 @@ public final class CredInfoFSM
   public static final String CompletedToPending = String.format("%s-%s", COMPLETED, PENDING);
   public static final String CompletedToDeleted = String.format("%s-%s", COMPLETED, DELETED);
   public static final String FailedToPending = String.format("%s-%s", FAILED, PENDING);
+  public static final String PendingToFailed = String.format("%s-%s", PENDING, FAILED);
   public static final String FailedToDeleted = String.format("%s-%s", FAILED, DELETED);
   public static final String DeletedToPending = String.format("%s-%s", DELETED, PENDING);
+  public static final String PendingToDeleted = String.format("%s-%s", PENDING, DELETED);
+  public static final String DeletedToDeleted = String.format("%s-%s", DELETED, DELETED);
+  // TODO are there 2 missing from this list? check above
   public static final Set<String> allowedEvents =
-        Set.of(PendingToInProgress, InProgressToCompleted, CompletedToPending,
-               InProgressToFailed, FailedToPending, DeletedToPending);
+        Set.of(PendingToInProgress, InProgressToCompleted, CompletedToPending, InProgressToFailed,
+               FailedToPending, DeletedToPending, PendingToFailed, PendingToDeleted, DeletedToDeleted);
 
   // Actions
   public static final Action<CredInfoSyncState> pendingToInProgressAction = new CredInfoSyncAction<>(IN_PROGRESS.name());

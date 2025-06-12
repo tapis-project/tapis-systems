@@ -2071,6 +2071,10 @@ public class SystemsDaoImpl implements SystemsDao
   @Override
   public void updateCredInfoRecord(CredentialInfo credInfo, LocalDateTime updated)
   {
+    // SyncFailed timestamp might be null
+    Instant syncFailedI = credInfo.getSyncFailed();
+    LocalDateTime syncFailedLDT =
+          syncFailedI == null ? null : LocalDateTime.ofInstant(credInfo.getSyncFailed(), ZoneOffset.UTC);
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
     try
@@ -2088,7 +2092,7 @@ public class SystemsDaoImpl implements SystemsDao
             .set(SYSTEMS_CRED_INFO.HAS_TOKEN, credInfo.hasToken())
             .set(SYSTEMS_CRED_INFO.HAS_TMS_KEYS, credInfo.hasTmsKeys())
             .set(SYSTEMS_CRED_INFO.SYNC_STATUS, credInfo.getSyncStatus())
-            .set(SYSTEMS_CRED_INFO.SYNC_FAILED, LocalDateTime.ofInstant(credInfo.getSyncFailed(), ZoneOffset.UTC))
+            .set(SYSTEMS_CRED_INFO.SYNC_FAILED, syncFailedLDT)
             .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, credInfo.getSyncFailCount())
             .set(SYSTEMS_CRED_INFO.SYNC_FAIL_MESSAGE, credInfo.getSyncFailMessage())
             .set(SYSTEMS_CRED_INFO.UPDATED, updated)
@@ -3549,10 +3553,13 @@ public class SystemsDaoImpl implements SystemsDao
    */
   private CredentialInfo getCredentialInfoFromRecord(SystemsCredInfoRecord r)
   {
+    // SyncFailed timestamp might be null
+    LocalDateTime syncFailedLDT = r.getSyncFailed();
+    Instant syncFailedI = syncFailedLDT == null ? null : syncFailedLDT.toInstant(ZoneOffset.UTC);
     return new CredentialInfo(r.getSystemSeqId(), r.getTenant(), r.getSystemId(), r.getTapisUser(),
             r.getHostLoginUser(), r.getLoginUserMapping(), r.getIsStatic(), r.getHasCredentials(), r.getHasPassword(),
             r.getHasPkiKeys(), r.getHasAccessKey(), r.getHasToken(), r.getHasTmsKeys(), r.getSyncStatus(),
-            r.getSyncFailCount(), r.getSyncFailMessage(), r.getSyncFailed().toInstant(ZoneOffset.UTC),
+            r.getSyncFailCount(), r.getSyncFailMessage(), syncFailedI,
             r.getCreated().toInstant(ZoneOffset.UTC), r.getUpdated().toInstant(ZoneOffset.UTC));
   }
 

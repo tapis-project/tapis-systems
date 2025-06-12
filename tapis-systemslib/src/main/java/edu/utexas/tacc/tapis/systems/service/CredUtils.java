@@ -920,57 +920,93 @@ public class CredUtils
     // NOTE: For secrets of type "system" setUser value not used in the path, but SK requires that it be set.
     sParms.setUser(targetUser);
 
+    Map<String, String> dataMap;
+    SkSecret skSecret = null;
+    boolean secretNotFound = false;
     // PASSWORD
+    // Attempt to read the secret, if not found (404) that is OK, but any other exception is an SK error.
     sParms.setKeyType(KeyType.password);
-    SkSecret skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-    if (skSecret == null) hasPassword = false;
+    try { skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);}
+    catch (TapisClientException tce)
+    {
+      if (tce.getCode() == 404 ) secretNotFound = true;
+      else throw tce;
+    }
+    if (secretNotFound || skSecret == null) hasPassword = false;
     else
     {
-      var dataMap = skSecret.getSecretMap();
+      dataMap = skSecret.getSecretMap();
       if (dataMap == null) hasPassword = false;
       else hasPassword = !StringUtils.isBlank(dataMap.get(SK_KEY_PASSWORD));
     }
     // PKI_KEYS
+    skSecret = null;
+    secretNotFound = false;
     sParms.setKeyType(KeyType.sshkey);
-    skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-    if (skSecret == null) hasPkiKeys = false;
+    try { skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);}
+    catch (TapisClientException tce)
+    {
+      if (tce.getCode() == 404 ) secretNotFound = true;
+      else throw tce;
+    }
+    if (secretNotFound || skSecret == null) hasPkiKeys = false;
     else
     {
-      var dataMap = skSecret.getSecretMap();
+      dataMap = skSecret.getSecretMap();
       if (dataMap == null) hasPkiKeys = false;
       else hasPkiKeys = !StringUtils.isBlank(dataMap.get(SK_KEY_PRIVATE_KEY));
     }
     // ACCESS_KEY
+    skSecret = null;
+    secretNotFound = false;
     sParms.setKeyType(KeyType.accesskey);
-    skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-    if (skSecret == null) hasAccessKey = false;
+    try { skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);}
+    catch (TapisClientException tce)
+    {
+      if (tce.getCode() == 404 ) secretNotFound = true;
+      else throw tce;
+    }
+    if (secretNotFound || skSecret == null) hasAccessKey = false;
     else
     {
-      var dataMap = skSecret.getSecretMap();
+      dataMap = skSecret.getSecretMap();
       if (dataMap == null) hasAccessKey = false;
       else hasAccessKey = !StringUtils.isBlank(dataMap.get(SK_KEY_ACCESS_KEY));
     }
     // TOKEN
+    skSecret = null;
+    secretNotFound = false;
     sParms.setKeyType(KeyType.token);
-    skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-    if (skSecret == null) hasToken = false;
+    try { skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);}
+    catch (TapisClientException tce)
+    {
+      if (tce.getCode() == 404 ) secretNotFound = true;
+      else throw tce;
+    }
+    if (secretNotFound || skSecret == null) hasToken = false;
     else
     {
-      var dataMap = skSecret.getSecretMap();
+      dataMap = skSecret.getSecretMap();
       if (dataMap == null) hasToken = false;
       else hasToken = !StringUtils.isBlank(dataMap.get(SK_KEY_ACCESS_TOKEN));
     }
-
-      // TMS_KEYS
-      sParms.setKeyType(KeyType.tmskey);
-      skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-      if (skSecret == null) hasTmsKeys = false;
-      else
-      {
-        var dataMap = skSecret.getSecretMap();
-        if (dataMap == null) hasTmsKeys = false;
-        else hasTmsKeys = !StringUtils.isBlank(dataMap.get(SK_KEY_TMS_PRIVATE_KEY));
-      }
+    // TMS_KEYS
+    skSecret = null;
+    secretNotFound = false;
+    sParms.setKeyType(KeyType.tmskey);
+    try { skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);}
+    catch (TapisClientException tce)
+    {
+      if (tce.getCode() == 404 ) secretNotFound = true;
+      else throw tce;
+    }
+    if (secretNotFound || skSecret == null) hasTmsKeys = false;
+    else
+    {
+      dataMap = skSecret.getSecretMap();
+      if (dataMap == null) hasTmsKeys = false;
+      else hasTmsKeys = !StringUtils.isBlank(dataMap.get(SK_KEY_TMS_PRIVATE_KEY));
+    }
 
     // Determine if credentials are registered for defaultAuthnMethod of the system
     hasCredentials = (TSystem.AuthnMethod.PASSWORD.equals(defaultAuthnMethod) && hasPassword) ||
@@ -1543,14 +1579,23 @@ public class CredUtils
       var sReadParms = new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
       sReadParms.setTenant(tenant).setSysId(systemId).setSysUser(targetUserPath);
       sReadParms.setUser(targetUser);
-      SkSecret skSecret;
+
+      SkSecret skSecret = null;
+      boolean secretNotFound = false;
       // PASSWORD
       if (hasPassword == null)
       {
-        sReadParms.setKeyType(KeyType.password);
-        skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);
-        if (skSecret == null) hasPassword = false;
-        else {
+        // Attempt to read the secret, if not found (404) that is OK, but any other exception is an SK error.
+        sParms.setKeyType(KeyType.password);
+        try { skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);}
+        catch (TapisClientException tce)
+        {
+          if (tce.getCode() == 404 ) secretNotFound = true;
+          else throw tce;
+        }
+        if (secretNotFound || skSecret == null) hasPassword = false;
+        else
+        {
           dataMap = skSecret.getSecretMap();
           if (dataMap == null) hasPassword = false;
           else hasPassword = !StringUtils.isBlank(dataMap.get(SK_KEY_PASSWORD));
@@ -1560,8 +1605,13 @@ public class CredUtils
       if (hasPkiKeys == null)
       {
         sReadParms.setKeyType(KeyType.sshkey);
-        skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);
-        if (skSecret == null) hasPkiKeys = false;
+        try { skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);}
+        catch (TapisClientException tce)
+        {
+          if (tce.getCode() == 404 ) secretNotFound = true;
+          else throw tce;
+        }
+        if (secretNotFound || skSecret == null) hasPkiKeys = false;
         else
         {
           dataMap = skSecret.getSecretMap();
@@ -1573,8 +1623,13 @@ public class CredUtils
       if (hasAccessKey == null)
       {
         sReadParms.setKeyType(KeyType.accesskey);
-        skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);
-        if (skSecret == null) hasAccessKey = false;
+        try { skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);}
+        catch (TapisClientException tce)
+        {
+          if (tce.getCode() == 404 ) secretNotFound = true;
+          else throw tce;
+        }
+        if (secretNotFound || skSecret == null) hasAccessKey = false;
         else
         {
           dataMap = skSecret.getSecretMap();
@@ -1586,8 +1641,13 @@ public class CredUtils
       if (hasToken == null)
       {
         sReadParms.setKeyType(KeyType.token);
-        skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);
-        if (skSecret == null) hasToken = false;
+        try { skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);}
+        catch (TapisClientException tce)
+        {
+          if (tce.getCode() == 404 ) secretNotFound = true;
+          else throw tce;
+        }
+        if (secretNotFound || skSecret == null) hasToken = false;
         else
         {
           dataMap = skSecret.getSecretMap();
@@ -1599,8 +1659,13 @@ public class CredUtils
       if (hasTmsKeys == null)
       {
         sReadParms.setKeyType(KeyType.tmskey);
-        skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);
-        if (skSecret == null) hasTmsKeys = false;
+        try { skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);}
+        catch (TapisClientException tce)
+        {
+          if (tce.getCode() == 404 ) secretNotFound = true;
+          else throw tce;
+        }
+        if (secretNotFound || skSecret == null) hasTmsKeys = false;
         else
         {
           dataMap = skSecret.getSecretMap();
@@ -1720,21 +1785,32 @@ public class CredUtils
     // NOTE: To be sure we know that the secret does not exist we need to check each key type
     //       By default keyType is sshkey which may not exist
     boolean secretNotFound = true;
+    // Attempt to read the secret, if not found (404) that is OK, but any other exception is an SK error.
     sMetaParms.setKeyType(KeyType.password);
     try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
+    catch (TapisClientException tce) { if (tce.getCode() != 404 ) log.error(tce.getMessage()); }
+    catch (Exception e) { log.error(e.getMessage()); }
+
     sMetaParms.setKeyType(KeyType.sshkey);
     try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
+    catch (TapisClientException tce) { if (tce.getCode() != 404 ) log.error(tce.getMessage()); }
+    catch (Exception e) { log.error(e.getMessage()); }
+
     sMetaParms.setKeyType(KeyType.accesskey);
     try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
+    catch (TapisClientException tce) { if (tce.getCode() != 404 ) log.error(tce.getMessage()); }
+    catch (Exception e) { log.error(e.getMessage()); }
+
     sMetaParms.setKeyType(KeyType.token);
     try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
+    catch (TapisClientException tce) { if (tce.getCode() != 404 ) log.error(tce.getMessage()); }
+    catch (Exception e) { log.error(e.getMessage()); }
+
     sMetaParms.setKeyType(KeyType.tmskey);
     try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
+    catch (TapisClientException tce) { if (tce.getCode() != 404 ) log.error(tce.getMessage()); }
+    catch (Exception e) { log.error(e.getMessage()); }
+
     if (secretNotFound) return 0;
 
     // Construct basic SK secret parameters and attempt to destroy each type of secret.
