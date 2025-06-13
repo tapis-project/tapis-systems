@@ -2086,6 +2086,7 @@ public class SystemsDaoImpl implements SystemsDao
             .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, credInfo.getHostLoginUser())
             .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, credInfo.getLoginUserMapping())
             .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, credInfo.hasCredentials())
+            .set(SYSTEMS_CRED_INFO.IS_STATIC, credInfo.isStatic())
             .set(SYSTEMS_CRED_INFO.HAS_PASSWORD, credInfo.hasPassword())
             .set(SYSTEMS_CRED_INFO.HAS_PKI_KEYS, credInfo.hasPkiKeys())
             .set(SYSTEMS_CRED_INFO.HAS_ACCESS_KEY, credInfo.hasAccessKey())
@@ -2402,6 +2403,7 @@ public class SystemsDaoImpl implements SystemsDao
                 .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, loginUserMapping)
                 .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, hostLoginUser) //TODO
                 .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, false) //TODO
+                .set(SYSTEMS_CRED_INFO.IS_STATIC, isStatic)
                 .set(SYSTEMS_CRED_INFO.HAS_PKI_KEYS, false) //TODO
                 .set(SYSTEMS_CRED_INFO.HAS_ACCESS_KEY, false) //TODO
                 .set(SYSTEMS_CRED_INFO.HAS_TOKEN, false) //TODO
