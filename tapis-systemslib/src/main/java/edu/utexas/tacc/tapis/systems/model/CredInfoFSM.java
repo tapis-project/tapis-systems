@@ -34,7 +34,10 @@ import static edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus.*;
  * ================================================================================================
  * TODO Transitions that can happen during run of maintenance thread. See MaintenanceTask.credInfoRunMaintenance
  * ================================================================================================
- * ???? -> ????
+ * FAILED         -> PENDING
+ * PENDING        -> IN_PROGRESS
+ * IN_PROGRESS    -> COMPLETED
+ * IN_PROGRESS    -> FAILED
  *
  * ------------------------------------------------------------------------------------------------
  * Normal flow until deleted

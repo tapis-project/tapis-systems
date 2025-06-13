@@ -117,10 +117,10 @@ public final class MaintenanceTask
       CredentialInfo lockedCredInfo = credUtils.getLockedInMemoryCredInfo(credInfo);
       // null means it got removed from DB before we got to it, so we must skip
       if (lockedCredInfo == null) continue;
+      // Make sure still in FAILED, if not then skip
+      if (!SyncStatus.FAILED.equals(lockedCredInfo.getSyncStatus())) { continue; }
       try
       {
-        // Make sure still in FAILED, if not then skip
-        if (!SyncStatus.FAILED.equals(lockedCredInfo.getSyncStatus())) { continue; }
         // Update status to PENDING
         credUtils.updateCredentialInfoStatus(rUser, lockedCredInfo, SyncStatus.PENDING);
       }
@@ -147,10 +147,10 @@ public final class MaintenanceTask
       CredentialInfo lockedCredInfo = credUtils.getLockedInMemoryCredInfo(credInfo);
       // null means it got removed from DB before we got to it, so we must skip
       if (lockedCredInfo == null) continue;
+      // Make sure still in PENDING, if not then skip
+      if (!SyncStatus.PENDING.equals(lockedCredInfo.getSyncStatus())) { continue; }
       try
       {
-        // Make sure still in PENDING, if not then skip
-        if (!SyncStatus.PENDING.equals(lockedCredInfo.getSyncStatus())) { continue; }
         // Update status to IN_PROGRESS
         credUtils.updateCredentialInfoStatus(rUser, lockedCredInfo, SyncStatus.IN_PROGRESS);
         try

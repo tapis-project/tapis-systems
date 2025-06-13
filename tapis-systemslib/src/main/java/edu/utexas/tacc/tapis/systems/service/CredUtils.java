@@ -815,14 +815,14 @@ public class CredUtils
     if (!credInfo.mutex.isLocked())
       throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser,
                                                           "updateCredentialInfo"));
-
     CredentialInfo dbCredInfo = dao.getCredInfo(credInfo);
     SyncStatus oldSyncStatus = dbCredInfo.getSyncStatus();
     SyncStatus newSyncStatus = credInfo.getSyncStatus();
 
-// TODO log some info about the update, especially if status is changing.
-//    String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, oldSyncStatus, newSyncStatus);
-//    log.trace(msg);
+    // Log info about the update
+    // TODO include identifying attributes: tenant, sys_Id, tapisUser, isStatic,
+    String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, oldSyncStatus, newSyncStatus);
+    log.trace(msg);
 
     // Validate transition from current state to new state
     CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
@@ -847,6 +847,7 @@ public class CredUtils
                                                           "updateCredentialInfoStatus"));
 
     SyncStatus oldSyncStatus = credInfo.getSyncStatus();
+    // TODO include identifying attributes: tenant, sys_Id, tapisUser, isStatic,
     String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, oldSyncStatus, newSyncStatus);
     log.trace(msg);
 
