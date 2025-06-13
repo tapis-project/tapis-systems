@@ -32,15 +32,16 @@ import static edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus.*;
  * FAILED         -> PENDING
  * ------------------------------------------------------------------------------------------------
  * ================================================================================================
- * Transitions that can happen during run of maintenance thread. See MaintenanceTask.credInfoRunMaintenance
+ * TODO Transitions that can happen during run of maintenance thread. See MaintenanceTask.credInfoRunMaintenance
  * ================================================================================================
  * ???? -> ????
  *
  * ------------------------------------------------------------------------------------------------
  * Normal flow until deleted
- *    Pending->InProgress    - start of an update attempt
+ *    Pending->InProgress    - start of an update attempt (at start-up, for example)
  *    InProgress->Completed  - successful update
- *    Completed->Pending     - ready for an update attempt
+ *    Completed->Pending     - ready for an update attempt TODO/TBD needed?
+ *    Completed->InProgress  - start of an updated attempt
  * Normal flow when deleted
  *    Completed->Deleted
  * Abnormal flows
@@ -80,18 +81,18 @@ public final class CredInfoFSM
   public static final String PendingToInProgress = String.format("%s-%s", PENDING, IN_PROGRESS);
   public static final String InProgressToCompleted = String.format("%s-%s", IN_PROGRESS, COMPLETED);
   public static final String InProgressToFailed = String.format("%s-%s", IN_PROGRESS, FAILED);
-  public static final String CompletedToPending = String.format("%s-%s", COMPLETED, PENDING);
+  public static final String CompletedToPending = String.format("%s-%s", COMPLETED, PENDING); // TODO/TBD needed?
+  public static final String CompletedToInProgress = String.format("%s-%s", COMPLETED, IN_PROGRESS);
   public static final String CompletedToDeleted = String.format("%s-%s", COMPLETED, DELETED);
   public static final String FailedToPending = String.format("%s-%s", FAILED, PENDING);
-  public static final String PendingToFailed = String.format("%s-%s", PENDING, FAILED);
-  public static final String FailedToDeleted = String.format("%s-%s", FAILED, DELETED);
   public static final String DeletedToPending = String.format("%s-%s", DELETED, PENDING);
   public static final String PendingToDeleted = String.format("%s-%s", PENDING, DELETED);
+  public static final String FailedToDeleted = String.format("%s-%s", FAILED, DELETED);
   public static final String DeletedToDeleted = String.format("%s-%s", DELETED, DELETED);
-  // TODO are there 2 missing from this list? check above
+  // public static final String PendingToFailed = String.format("%s-%s", PENDING, FAILED); // TODO/TBD needed?
   public static final Set<String> allowedEvents =
-        Set.of(PendingToInProgress, InProgressToCompleted, CompletedToPending, InProgressToFailed,
-               FailedToPending, DeletedToPending, PendingToFailed, PendingToDeleted, DeletedToDeleted);
+        Set.of(PendingToInProgress, InProgressToCompleted, InProgressToFailed, CompletedToPending, CompletedToInProgress,
+               CompletedToDeleted, FailedToPending, DeletedToPending, PendingToDeleted, FailedToDeleted, DeletedToDeleted);
 
   // Actions
   public static final Action<CredInfoSyncState> pendingToInProgressAction = new CredInfoSyncAction<>(IN_PROGRESS.name());

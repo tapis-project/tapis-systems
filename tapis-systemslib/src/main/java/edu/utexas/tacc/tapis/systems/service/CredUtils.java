@@ -301,7 +301,8 @@ public class CredUtils
     //   have been changed and reverting seems fraught with peril and not a good ROI.
     createCredential(rUser, retCred, system, targetUser, hostLoginUser, isStaticEffectiveUser, skipCheck, op);
 
-    // If dynamic and an alternate loginUser has been provided that is not the same as the Tapis user
+    // TODO CredInfo still needed? or already done in the call above?
+    //  If dynamic and an alternate loginUser has been provided that is not the same as the Tapis user
     //   then record the mapping
     if (!isStaticEffectiveUser && !StringUtils.isBlank(userLoginMapping))
     {
@@ -490,6 +491,8 @@ public class CredUtils
     // This is basically the equivalent of a selectForUpdate DB type operation.
     // Note that this also synchronizes SK operations, which is good. Before this, multiple concurrent SK operations
     // were possible.
+    // TODO/TBD Update status to PENDING. Method will also update syncStatus of in-memory credInfo.
+//    updateCredentialInfoStatus(rUser, credInfo, SyncStatus.PENDING);
     try
     {
       // Update status to IN_PROGRESS. Method will also update syncStatus of in-memory credInfo.
@@ -658,7 +661,7 @@ public class CredUtils
       {
         // This is the dynamic case, so targetUser must be a Tapis user.
         // See if the target Tapis user has a mapping to a host login user.
-        String mappedLoginUser = dao.getLoginUserMapping(oboTenant, systemId, targetUser);
+        String mappedLoginUser = dao.getLoginUserMapping(oboTenant, systemId, targetUser, isStaticEffectiveUser);
         // If so then the mapped value becomes loginUser, else loginUser=targetUser
         if (!StringUtils.isBlank(mappedLoginUser))
           loginUser = mappedLoginUser;
@@ -1350,7 +1353,7 @@ public class CredUtils
     {
       // Since this is a cred create operation, the host login user mapping might be in the DB or part of the incoming
       //   credential or both. The one in the credential has priority because it will be replacing the DB record
-      if (StringUtils.isBlank(loginUserMapping)) loginUserMapping = dao.getLoginUserMapping(sysTenant, sysId, targetUser);
+      if (StringUtils.isBlank(loginUserMapping)) loginUserMapping = dao.getLoginUserMapping(sysTenant, sysId, targetUser, isStatic);
       if (!StringUtils.isBlank(loginUserMapping)) hostLoginUser = loginUserMapping;
     }
     return hostLoginUser;

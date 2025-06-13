@@ -103,12 +103,12 @@ public interface SystemsDao
 
   void updateCredInfoStatus(CredentialInfo credInfo, CredentialInfo.SyncStatus newSyncStatus, LocalDateTime updated);
 
-  String getLoginUserMapping(String tenantId, String id, String tapisUser);
+  String getLoginUserMapping(String tenantId, String id, String tapisUser, boolean isStatic);
 
   void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser,
                                       String hostLoginUser, boolean isStatic) throws TapisException;
 
-  void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String id, String tapisUser) throws TapisException;
+  void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String id, String tapisUser, boolean isStatic) throws TapisException;
 
   int credInfoMarkInProgressAsFailed(ResourceRequestUser rUser, String failMsg);
 

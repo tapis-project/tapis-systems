@@ -2330,7 +2330,7 @@ public class SystemsDaoImpl implements SystemsDao
    * @return loginUser or null if no mapping
    */
   @Override
-  public String getLoginUserMapping(String tenantId, String id, String tapisUser)
+  public String getLoginUserMapping(String tenantId, String id, String tapisUser, boolean isStatic)
   {
     // Initialize result.
     String loginUserMapping = null;
@@ -2344,8 +2344,9 @@ public class SystemsDaoImpl implements SystemsDao
       DSLContext db = DSL.using(conn);
       // Run the sql
       loginUserMapping = db.selectFrom(SYSTEMS_CRED_INFO)
-              .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(id),SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser))
-              .fetchOne(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING);
+          .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(id),
+                 SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser), SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
+          .fetchOne(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING);
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -2453,13 +2454,12 @@ public class SystemsDaoImpl implements SystemsDao
    *          if still needed then need to update for adding isStatic to primary key
    */
   @Override
-  public void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser)
-          throws TapisException
+  public void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser, boolean isStatic)
   {
     // If anything missing throw an exception. These values make up the primary key
     if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
     {
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_DB_DEL_LOGINMAP_ERR", rUser, tenantId, sysId, tapisUser));
+      throw new TapisRuntimeException(LibUtils.getMsgAuth("SYSLIB_DB_DEL_LOGINMAP_ERR", rUser, tenantId, sysId, tapisUser));
     }
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -2468,8 +2468,9 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
       db.deleteFrom(SYSTEMS_CRED_INFO)
-              .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser))
-              .execute();
+           .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
+                  SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser), SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
+           .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }

@@ -375,10 +375,10 @@ public class SystemsDaoTest
     Assert.assertTrue(itemCreated, "Item not created, id: " + sysId);
     dao.createOrUpdateLoginUserMapping(tenantName, sysId, tapisUser, loginUserMapping1, owner1, isStaticTrue);
     System.out.println("Login map entry created");
-    String loginUser = dao.getLoginUserMapping(tenantName, sysId, tapisUser);
+    String loginUser = dao.getLoginUserMapping(tenantName, sysId, tapisUser, isStaticTrue);
     Assert.assertEquals(loginUser, loginUserMapping1);
-    dao.deleteLoginUserMapping(rOwner1, tenantName, sysId, tapisUser);
-    loginUser = dao.getLoginUserMapping(tenantName, sysId, tapisUser);
+    dao.deleteLoginUserMapping(rOwner1, tenantName, sysId, tapisUser, isStaticTrue);
+    loginUser = dao.getLoginUserMapping(tenantName, sysId, tapisUser, isStaticTrue);
     Assert.assertNull(loginUser);
   }
 
