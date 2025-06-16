@@ -13,9 +13,6 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.BadRequestException;
 import com.google.gson.JsonObject;
-import edu.utexas.tacc.tapis.security.client.gen.model.SkSecretVersionMetadata;
-import edu.utexas.tacc.tapis.shared.exceptions.TapisSecurityException;
-import edu.utexas.tacc.tapis.shared.exceptions.runtime.TapisRuntimeException;
 import okhttp3.*;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -30,6 +27,9 @@ import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.security.client.SKClient;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
 import edu.utexas.tacc.tapis.security.client.model.*;
+import edu.utexas.tacc.tapis.security.client.gen.model.SkSecretVersionMetadata;
+import edu.utexas.tacc.tapis.shared.exceptions.TapisSecurityException;
+import edu.utexas.tacc.tapis.shared.exceptions.runtime.TapisRuntimeException;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisSSHAuthException;
 import edu.utexas.tacc.tapis.shared.s3.S3Connection;
@@ -44,7 +44,6 @@ import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.*;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
-
 import static edu.utexas.tacc.tapis.systems.model.Credential.*;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.NOT_FOUND;
@@ -302,15 +301,6 @@ public class CredUtils
     //   have been changed and reverting seems fraught with peril and not a good ROI.
     createCredential(rUser, retCred, system, targetUser, hostLoginUser, isStaticEffectiveUser, skipCheck, op);
 
-    // TODO CredInfo still needed? or already done in the call above?
-    //  If dynamic and an alternate loginUser has been provided that is not the same as the Tapis user
-    //   then record the mapping
-    if (!isStaticEffectiveUser && !StringUtils.isBlank(userLoginMapping))
-    {
-      dao.createOrUpdateLoginUserMapping(oboTenant, systemId, targetUser, userLoginMapping, hostLoginUser,
-                                         isStaticEffectiveUser);
-    }
-
     // Construct Json string representing the update, with actual secrets masked out
     Credential maskedCredential = Credential.createMaskedCredential(retCred);
     // Get a complete and succinct description of the update.
@@ -337,11 +327,9 @@ public class CredUtils
    * @param targetUser - Target user for operation
    * @param authnMethod - (optional) check credentials for specified authn method instead of default authn method
    * @return Checked credential with validation result set
-   * @throws TapisException - for Tapis related exceptions
    */
   Credential checkCredentialForUser(ResourceRequestUser rUser, TSystem system, String targetUser,
                                     AuthnMethod authnMethod, SystemOperation op)
-          throws TapisException, IllegalStateException
   {
     String oboTenant = rUser.getOboTenantId();
     String systemId = system.getId();
@@ -365,12 +353,11 @@ public class CredUtils
     // If no credentials then we cannot check, treat it as an error
     if (cred == null)
     {
-      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op, systemId, system.getSystemType(),
+      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op.name(), systemId, system.getSystemType(),
               targetUser, authnMethod.name());
       log.info(msg);
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
-    //  TODO CredInfo record updates
     // ---------------- Verify credentials using defaultAuthnMethod --------------------
     // Determine hostLoginUser.
     String hostLoginUser;
@@ -385,7 +372,6 @@ public class CredUtils
       hostLoginUser = sysUtils.resolveEffectiveUserId(system, targetUser);
     }
     // Check credentials
-// TODO Should we check and create/update CredentialInfo record as part of this?
     return verifyCredentials(rUser, system, cred, hostLoginUser, authnMethod);
   }
 
@@ -395,10 +381,8 @@ public class CredUtils
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system Tapis system
    * @param targetUser - Target user for operation
-   * @throws TapisException - for Tapis related exceptions
    */
   int deleteCredentialForUser(ResourceRequestUser rUser, TSystem system, String targetUser, SystemOperation op)
-          throws TapisException
   {
     String systemId = system.getId();
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
@@ -406,18 +390,10 @@ public class CredUtils
     // Delete credential
     // If this throws an exception we do not try to rollback. Attempting to track which secrets
     //   have been changed and reverting seems fraught with peril and not a good ROI.
-    int changeCount;
-    try
-    {
-      // Remove SK records and CredentialInfo record
-      changeCount = deleteCredential(rUser, system, targetUser, isStaticEffectiveUser);
-    }
-    // If tapis client exception then log error and convert to TapisException
-    catch (TapisClientException tce)
-    {
-      log.error(tce.toString());
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
-    }
+
+    // Remove SK records and CredentialInfo record
+    int changeCount = deleteCredential(rUser, system, targetUser, isStaticEffectiveUser, op);
+
     // Get a complete and succinct description of the update.
     String changeDescription = LibUtils.getChangeDescriptionCredDelete(systemId, targetUser);
     // Create a record of the update
@@ -484,20 +460,21 @@ public class CredUtils
   {
     String oboUser = rUser.getOboUserId();
     String loginUserMapping = credential.getLoginUser();
-    // Use a synchronized method to make sure we have a DB record and in-memory object for the CredInfo record.
-    // If record does not already exist in memory or in DB then create it with status of PENDING
-    // The CredentialInfo record returned is already locked. This ensures we have exclusive access (BUT must unlock)
-    CredentialInfo credInfo = getLockedDBCredInfoRecord(rUser, system, oboUser, hostLoginUser, loginUserMapping, isStatic);
-    // Now we have a locked record so no other threads will attempt an update during this update
-    // This is basically the equivalent of a selectForUpdate DB type operation.
-    // Note that this also synchronizes SK operations, which is good. Before this, multiple concurrent SK operations
-    // were possible.
-    // TODO/TBD Update status to PENDING. Method will also update syncStatus of in-memory credInfo.
-//    updateCredentialInfoStatus(rUser, credInfo, SyncStatus.PENDING);
+    CredentialInfo credInfo = null;
     try
     {
+      // Use a synchronized method to make sure we have a DB record and in-memory object for the CredInfo record.
+      // If record does not already exist in memory or in DB then create it with status of PENDING
+      // The CredentialInfo record returned is already locked. This ensures we have exclusive access (BUT must unlock)
+      credInfo = getLockedDBCredInfoRecord(rUser, system, oboUser, hostLoginUser, loginUserMapping, isStatic);
+      // Now we have a locked record so no other threads will attempt an update during this update
+      // This is basically the equivalent of a selectForUpdate DB type operation.
+      // Note that this also synchronizes SK operations, which is good. Before this, multiple concurrent SK operations
+      // were possible.
+      // Update status to PENDING. Method will also update syncStatus of in-memory credInfo.
+      updateCredentialInfoStatus(rUser, credInfo, SyncStatus.PENDING, op.name());
       // Update status to IN_PROGRESS. Method will also update syncStatus of in-memory credInfo.
-      updateCredentialInfoStatus(rUser, credInfo, SyncStatus.IN_PROGRESS);
+      updateCredentialInfoStatus(rUser, credInfo, SyncStatus.IN_PROGRESS, op.name());
 
       // Write secrets to SK and read from SK to update the in-memory CredentialInfo record
       writeAndSyncCredentialInfoToSK(rUser, credential, credInfo, system, targetUser, isStatic);
@@ -514,7 +491,7 @@ public class CredUtils
         dao.addUpdateRecord(rUser, system.getId(), op, changeDescription, rawUpdateData);
       }
       // Update the credInfo record to COMPLETED. Also updates DB.
-      updateCredentialInfoToCompleted(rUser, credInfo);
+      updateCredentialInfoToCompleted(rUser, credInfo, op.name());
       // Log successful update
       String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_SYNC_OK", rUser, credInfo.getTenant(),
               credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.getLoginUserMapping(), credInfo.isStatic());
@@ -524,18 +501,18 @@ public class CredUtils
     {
       // Issue with SK. Not much we can do.
       // Log error, update the credInfo record to FAILED and throw a runtime exception.
-      String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_SYNC_FAIL", rUser, credInfo.getTenant(),
+      String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_SYNC_FAIL", rUser, op.name(), credInfo.getTenant(),
             credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.getLoginUserMapping(), credInfo.isStatic(),
             credInfo.getSyncFailCount(), tse.getMessage());
       log.error(msg);
       // Update the credInfo record to FAILED. Also updates DB.
-      updateCredentialInfoToFailed(rUser, credInfo, tse.getMessage());
+      updateCredentialInfoToFailed(rUser, credInfo, tse.getMessage(), op.name());
       throw new TapisRuntimeException(tse);
     }
     finally
     {
       // Unlock the record
-      credInfo.mutex.unlock();
+      if (credInfo != null) credInfo.mutex.unlock();
     }
   }
 
@@ -544,26 +521,32 @@ public class CredUtils
    * Remove CredentialInfo record and SK records.
    * No checks are done for incoming arguments and the system must exist
    */
-  int deleteCredential(ResourceRequestUser rUser, TSystem system, String targetUser, boolean isStatic)
-          throws TapisClientException
+  int deleteCredential(ResourceRequestUser rUser, TSystem system, String targetUser, boolean isStatic, SystemOperation op)
   {
     String oboTenant = rUser.getOboTenantId();
     String oboUser = rUser.getOboUserId();
     String systemId = system.getId();
     int changeCount;
-    // Use a synchronized method to make sure we have a DB record and in-memory object
-    // If not already in memory or in DB it is created with status of PENDING
-    // The CredentialInfo record returned is already locked. This ensures we have exclusive access
-    CredentialInfo credInfo = getLockedDBCredInfoRecord(rUser, system, oboTenant, systemId, oboUser, isStatic);
-
-    // Now we have a locked record so no other threads will attempt an update during this update
-    // This is basically the equivalent of a selectForUpdate DB type operation.
-    // Note that this also synchronizes SK operations, which is good. Before this, multiple concurrent SK operations
-    // were possible.
+    CredentialInfo credInfo = null;
     try
     {
-      // Update the status to DELETED. NOTE: Method will also update syncStatus of credInfo
-      updateCredentialInfoStatus(rUser, credInfo, SyncStatus.DELETED);
+      // Use a synchronized method to make sure we have a DB record and in-memory object
+      // If not already in memory or in DB it is created with status of PENDING
+      // The CredentialInfo record returned is already locked. This ensures we have exclusive access
+      credInfo = getLockedDBCredInfoRecord(rUser, system, oboTenant, systemId, oboUser, isStatic);
+
+      // Update the status to PENDING. NOTE: Method will also update syncStatus of credInfo
+      updateCredentialInfoStatus(rUser, credInfo, SyncStatus.PENDING, op.name());
+
+      // NOTE that we proceed even if credInfo was in DELETED state.
+      // Possibly there was a previous error and we want to try the removeSKSecrets again.
+
+      // Now we have a locked record so no other threads will attempt an update during this update
+      // This is basically the equivalent of a selectForUpdate DB type operation.
+      // Note that this also synchronizes SK operations, which is good. Before this, multiple concurrent SK operations
+      // were possible.
+      // Update the status to IN_PROGRESS. NOTE: Method will also update syncStatus of credInfo
+      updateCredentialInfoStatus(rUser, credInfo, SyncStatus.IN_PROGRESS, op.name());
 
       // Remove secrets from SK
       changeCount = removeSKSecrets(rUser, system, targetUser, isStatic);
@@ -572,11 +555,25 @@ public class CredUtils
       String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_DEL", rUser, credInfo.getTenant(), systemId,
                                        credInfo.getTapisUser(), credInfo.getLoginUserMapping(), credInfo.isStatic());
       log.debug(msg);
+      // Update the status to DELETED. NOTE: Method will also update syncStatus of credInfo
+      updateCredentialInfoStatus(rUser, credInfo, SyncStatus.DELETED, op.name());
+    }
+    catch (TapisSecurityException tse)
+    {
+      // Issue with SK. Not much we can do.
+      // Log error, update the credInfo record to FAILED and throw a runtime exception.
+      String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_SYNC_FAIL", rUser, op.name(), credInfo.getTenant(),
+            credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.getLoginUserMapping(), credInfo.isStatic(),
+            credInfo.getSyncFailCount(), tse.getMessage());
+      log.error(msg);
+      // Update the credInfo record to FAILED. Also updates DB.
+      updateCredentialInfoToFailed(rUser, credInfo, tse.getMessage(), op.name());
+      throw new TapisRuntimeException(tse);
     }
     finally
     {
       // Unlock the record
-      credInfo.mutex.unlock();
+      if (credInfo != null) credInfo.mutex.unlock();
     }
     return changeCount;
   }
@@ -588,7 +585,6 @@ public class CredUtils
    */
   Credential getCredential(ResourceRequestUser rUser, TSystem system, String targetUser,
                            AuthnMethod authnMethod, boolean isStaticEffectiveUser, String resourceTenant)
-          throws TapisException
   {
     String oboTenant = StringUtils.isBlank(resourceTenant) ? rUser.getOboTenantId() : resourceTenant;
     String oboUser = rUser.getOboUserId();
@@ -684,7 +680,7 @@ public class CredUtils
               dataMap.get(SK_KEY_TMS_FINGERPRINT),
               null); //dataMap.get(CERT) NOTE: get ssh certificate when supported
     }
-    catch (TapisClientException tce)
+    catch (TapisClientException | TapisException tce)
     {
       // If tapis client exception then log error but continue so null is returned.
       log.warn(tce.toString());
@@ -721,50 +717,6 @@ public class CredUtils
     c.setCertificate(cred.getCertificate());
     c.setLoginUser(cred.getLoginUser());
     return c;
-  }
-
-  /*-------------------------------------------------------------------------*/
-  /*                 Methods for SYSTEMS_CRED_INFO table                     */
-  /*-------------------------------------------------------------------------*/
-
-  /**
-   * Check the systems_cred_info table and update as needed
-   * NOTE: This method should only be called at startup when there is only a single thread running.
-   *  - Mark IN_PROGRESS records as FAILED
-   *  - Remove DELETED records
-   *  - Create PENDING records as needed for undeleted systems that have a static effectiveUserId
-   *  - Update FAILED records to PENDING
-   */
-    void credInfoInit(ResourceRequestUser rUser)
-  {
-    // Mark all IN_PROGRESS records as FAILED
-    String failMsg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED_BEGIN");
-    log.info(failMsg);
-    int numRecords = dao.credInfoMarkInProgressAsFailed(rUser, failMsg);
-    String msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED_END", numRecords);
-    log.info(msg);
-
-    // Remove any deleted records
-    // Any deleted records can be removed at start-up. No other threads might be in the process of changing the state.
-    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_REMOVE_DELETED_BEGIN");
-    log.info(msg);
-    numRecords = dao.credInfoRemoveDeletedRecords();
-    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_REMOVE_DELETED_END", numRecords);
-    log.info(msg);
-
-    // Create records as needed for undeleted systems that have a static effectiveUserId
-    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_STATIC_BEGIN");
-    log.info(msg);
-    numRecords = dao.credInfoInitStaticSystems();
-    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_STATIC_END", numRecords);
-    log.info(msg);
-
-    // Update FAILED records to PENDING
-    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FAILED_PENDING_BEGIN");
-    log.info(msg);
-    numRecords = dao.credInfoMarkFailedAsPending(rUser);
-    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FAILED_PENDING_END", numRecords);
-    log.info(msg);
   }
 
   /*
@@ -804,25 +756,110 @@ public class CredUtils
                                        tmsClientSecretMasked));
   }
 
+  /*-------------------------------------------------------------------------*/
+  /*                 Methods for SYSTEMS_CRED_INFO table                     */
+  /*-------------------------------------------------------------------------*/
+
+  /*
+   * Check the systems_cred_info table and update as needed
+   * NOTE: This method should only be called at startup when there is only a single thread running.
+   *  - Mark IN_PROGRESS records as FAILED
+   *  - Remove DELETED records
+   *  - Create PENDING records as needed for undeleted systems that have a static effectiveUserId
+   *  - Update FAILED records to PENDING
+   */
+    void credInfoInit(ResourceRequestUser rUser)
+  {
+    // Mark all IN_PROGRESS records as FAILED
+    String failMsg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_MARK_FAILED_BEGIN", rUser);
+    log.info(failMsg);
+    int numRecords = dao.credInfoMarkInProgressAsFailed(rUser, failMsg);
+    String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_MARK_FAILED_END", rUser, numRecords);
+    log.info(msg);
+
+    // Remove any deleted records
+    // Any deleted records can be removed at start-up. No other threads might be in the process of changing the state.
+    msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_REMOVE_DELETED_BEGIN", rUser);
+    log.info(msg);
+    numRecords = dao.credInfoRemoveDeletedRecords();
+    msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_REMOVE_DELETED_END", rUser, numRecords);
+    log.info(msg);
+
+    // Create records as needed for undeleted systems that have a static effectiveUserId
+    msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_STATIC_BEGIN", rUser);
+    log.info(msg);
+    numRecords = dao.credInfoInitStaticSystems();
+    msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_STATIC_END", rUser, numRecords);
+    log.info(msg);
+
+    // Update FAILED records to PENDING
+    msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_FAILED_PENDING_BEGIN", rUser);
+    log.info(msg);
+    numRecords = dao.credInfoMarkFailedAsPending(rUser);
+    msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_FAILED_PENDING_END", rUser, numRecords);
+    log.info(msg);
+  }
+
+  /*
+  */
+  /*
+   * Given a locked CredentialInfo record in the PENDING state, sync it with SK.
+   * If record not in PENDING state then return.
+   * After this call the record will be in the COMPLETED or FAILED state
+   *
+   * WARNING ***** CredInfo object MUST be locked before calling this method ****
+   */
+  public void syncPendingCredentialInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
+  {
+    String op = "syncPendingCredentialInfo";
+    // CredInfo must be locked
+    if (!credInfo.mutex.isLocked())
+      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser, op,
+            credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic()));
+    // Update status to IN_PROGRESS
+    updateCredentialInfoStatus(rUser, credInfo, SyncStatus.IN_PROGRESS, op);
+    try
+    {
+      // Sync records
+      readCredInfoFromSK(rUser, credInfo);
+      updateCredentialInfo(rUser, credInfo, op);
+      // Update status to COMPLETED
+      updateCredentialInfoStatus(rUser, credInfo, SyncStatus.COMPLETED, op);
+    }
+    catch (Exception e)
+    {
+      // Log error, update the credInfo record to FAILED.
+      String failMsg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_SYNC_FAIL", rUser, op, credInfo.getTenant(),
+            credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.getLoginUserMapping(), credInfo.isStatic(),
+            credInfo.getSyncFailCount(), e.getMessage());
+      log.error(failMsg);
+      // Update failure related attributes of the credInfo
+      credInfo.setSyncFailed(TapisUtils.getUTCTimeNow().toInstant(ZoneOffset.UTC));
+      credInfo.incrementSyncFailCount();
+      credInfo.setSyncFailMessage(e.getMessage());
+      credInfo.setSyncStatus(SyncStatus.FAILED);
+      updateCredentialInfo(rUser, credInfo, op);
+    }
+  }
+
   /**
    * Given the locked in-memory credInfo record update the DB credInfo record.
    * Check that transition from current status to new status is allowed.
    * WARNING ***** CredInfo object MUST be locked before calling this method ****
    */
-  public void updateCredentialInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
+  public void updateCredentialInfo(ResourceRequestUser rUser, CredentialInfo credInfo, String op)
   {
     // CredInfo must be locked
     if (!credInfo.mutex.isLocked())
-      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser,
-                                                          "updateCredentialInfo"));
+      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser, op,
+            credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic()));
     CredentialInfo dbCredInfo = dao.getCredInfo(credInfo);
     SyncStatus oldSyncStatus = dbCredInfo.getSyncStatus();
     SyncStatus newSyncStatus = credInfo.getSyncStatus();
 
     // Log info about the update
-    // TODO include identifying attributes: tenant, sys_Id, tapisUser, isStatic,
-    String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, oldSyncStatus, newSyncStatus);
-    log.trace(msg);
+    log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, credInfo.getTenant(), credInfo.getSystemId(),
+              credInfo.getTapisUser(), credInfo.isStatic(), oldSyncStatus, newSyncStatus, op));
 
     // Validate transition from current state to new state
     CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
@@ -833,23 +870,24 @@ public class CredUtils
     dao.updateCredInfoRecord(credInfo, updated);
   }
 
-  /**
+  /*
    * Update CredentialInfo status for in-memory and DB record
    * The given locked credInfo object is updated.
+   * If old and new status are the same then it is a NO-OP, simply return.
    * Check that transition from current status to new status is allowed.
    * WARNING ***** CredInfo object MUST be locked before calling this method ****
    */
-  public void updateCredentialInfoStatus(ResourceRequestUser rUser, CredentialInfo credInfo, SyncStatus newSyncStatus)
+  public void updateCredentialInfoStatus(ResourceRequestUser rUser, CredentialInfo credInfo, SyncStatus newSyncStatus,
+                                         String opName)
   {
     // CredInfo must be locked
     if (!credInfo.mutex.isLocked())
-      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser,
-                                                          "updateCredentialInfoStatus"));
-
+      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser, opName,
+            credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic()));
     SyncStatus oldSyncStatus = credInfo.getSyncStatus();
-    // TODO include identifying attributes: tenant, sys_Id, tapisUser, isStatic,
-    String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, oldSyncStatus, newSyncStatus);
-    log.trace(msg);
+    if (oldSyncStatus.equals(newSyncStatus)) return;
+
+    log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, oldSyncStatus, newSyncStatus));
 
     // Validate transition from current state to new state
     CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
@@ -861,17 +899,17 @@ public class CredUtils
     dao.updateCredInfoStatus(credInfo, newSyncStatus, updated);
   }
 
-  /**
+  /*
    * Update CredentialInfo status to FAILED for in-memory and DB record
    * Check that transition from current status to new status is allowed.
    * WARNING ***** CredInfo object MUST be locked before calling this method ****
    */
-  public void updateCredentialInfoStatusToFailed(ResourceRequestUser rUser, CredentialInfo credInfo)
+  public void updateCredentialInfoStatusToFailed(ResourceRequestUser rUser, CredentialInfo credInfo, String opName)
   {
     // CredInfo must be locked
     if (!credInfo.mutex.isLocked())
-      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser,
-                                                          "updateCredentialInfoStatusToFailed"));
+      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser, opName,
+            credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic()));
     SyncStatus oldSyncStatus = credInfo.getSyncStatus();
     SyncStatus newSyncStatus = SyncStatus.FAILED;
     String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_UPD_FAILED", rUser, oldSyncStatus);
@@ -1328,21 +1366,22 @@ public class CredUtils
   }
 
   /*
-   * Update CredentialInfo to COMPLETE for in-memory and DB record
+   * Update CredentialInfo to COMPLETED for in-memory and DB record
    * Check that transition from current status to COMPLETED is allowed.
    * WARNING ***** CredInfo object MUST be locked before calling this method ****
    */
-  private void updateCredentialInfoToCompleted(ResourceRequestUser rUser, CredentialInfo credInfo)
+  private void updateCredentialInfoToCompleted(ResourceRequestUser rUser, CredentialInfo credInfo, String opName)
   {
     // CredInfo must be locked
     if (!credInfo.mutex.isLocked())
-      throw new IllegalStateException(LibUtils.getMsg("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", "updateCredentialInfoToCompleted"));
+      throw new IllegalStateException(LibUtils.getMsg("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser, opName,
+            credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic()));
 
     SyncStatus newSyncStatus = SyncStatus.COMPLETED;
     // Validate transition from current state to new state
     CredInfoFSM.checkForAllowedTransition(rUser, credInfo.getSyncStatus(), newSyncStatus);
 
-    // Update CredInfo attributes
+    // Update CredInfo attributes, including reset of Failure info.
     credInfo.setSyncFailCount(0);
     credInfo.setSyncFailMessage("");
     credInfo.setSyncFailed(null);
@@ -1358,11 +1397,12 @@ public class CredUtils
    * Check that transition from current status to new status is allowed.
    * WARNING ***** CredInfo object MUST be locked before calling this method ****
    */
-  private void updateCredentialInfoToFailed(ResourceRequestUser rUser, CredentialInfo credInfo, String errorMsg)
+  private void updateCredentialInfoToFailed(ResourceRequestUser rUser, CredentialInfo credInfo, String errorMsg, String opName)
   {
     // CredInfo must be locked
     if (!credInfo.mutex.isLocked())
-      throw new IllegalStateException(LibUtils.getMsg("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", "updateCredentialInfoToFailed"));
+      throw new IllegalStateException(LibUtils.getMsg("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser, opName,
+            credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic()));
 
     SyncStatus newSyncStatus = SyncStatus.FAILED;
     // Validate transition from current state to new state
@@ -1710,9 +1750,10 @@ public class CredUtils
    * @param targetUser - User associated with the credential
    * @param isStatic - indicates if effectiveUserId is static or dynamic
    * @return 1 if secrets removed, 0 if no secrets removed
+   * @throws TapisSecurityException on SK error
    */
   private int removeSKSecrets(ResourceRequestUser rUser, TSystem system, String targetUser, boolean isStatic)
-          throws TapisClientException
+          throws TapisSecurityException
   {
     // Set some variables for convenience and clarity
     String oboUser = rUser.getOboUserId();
@@ -1722,55 +1763,55 @@ public class CredUtils
     // Determine targetUserPath for the path to the secret.
     String targetUserPath = getTargetUserSecretPath(targetUser, isStatic);
 
-    // Return 0 if credential does not exist
-    var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
-    // NOTE: For secrets of type "system" setUser value not used in the path, but SK requires that it be set.
-    sMetaParms.setTenant(oboTenant).setUser(oboUser);
-    sMetaParms.setSysId(systemId).setSysUser(targetUserPath);
-    // NOTE: To be sure we know that the secret does not exist we need to check each key type
-    //       By default keyType is sshkey which may not exist
-    boolean secretNotFound = true;
-    SkSecretVersionMetadata sksm = null;
-    // Attempt to read the secret, if not found (404) that is OK, but any other exception is an SK error.
-    sMetaParms.setKeyType(KeyType.password);
-    try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
-    catch (TapisClientException tce) { if (tce.getCode() != 404 ) log.error(tce.getMessage()); }
-    catch (Exception e) { log.error(e.getMessage()); }
+    // Surround all SK related code in a try block. Catch any SK errors and throw a TapisSecurityException
+    try
+    {
+      // Return 0 if credential does not exist
+      var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
+      // NOTE: For secrets of type "system" setUser value not used in the path, but SK requires that it be set.
+      sMetaParms.setTenant(oboTenant).setUser(oboUser);
+      sMetaParms.setSysId(systemId).setSysUser(targetUserPath);
+      // NOTE: To be sure we know that the secret does not exist we need to check each key type
+      //       By default keyType is sshkey which may not exist
+      boolean secretNotFound = true;
+      SkSecretVersionMetadata sksm = null;
+      // Attempt to read the secret, if not found (404) that is OK, but any other exception is an SK error.
+      sMetaParms.setKeyType(KeyType.password);
+      try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
+      catch (TapisClientException tce) { if (tce.getCode() != 404 ) throw tce; }
 
-    sMetaParms.setKeyType(KeyType.sshkey);
-    try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
-    catch (TapisClientException tce) { if (tce.getCode() != 404 ) log.error(tce.getMessage()); }
-    catch (Exception e) { log.error(e.getMessage()); }
+      sMetaParms.setKeyType(KeyType.sshkey);
+      try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
+      catch (TapisClientException tce) { if (tce.getCode() != 404 ) throw tce; }
 
-    sMetaParms.setKeyType(KeyType.accesskey);
-    try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
-    catch (TapisClientException tce) { if (tce.getCode() != 404 ) log.error(tce.getMessage()); }
-    catch (Exception e) { log.error(e.getMessage()); }
+      sMetaParms.setKeyType(KeyType.accesskey);
+      try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
+      catch (TapisClientException tce) { if (tce.getCode() != 404 ) throw tce; }
 
-    sMetaParms.setKeyType(KeyType.token);
-    try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
-    catch (TapisClientException tce) { if (tce.getCode() != 404 ) log.error(tce.getMessage()); }
-    catch (Exception e) { log.error(e.getMessage()); }
+      sMetaParms.setKeyType(KeyType.token);
+      try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
+      catch (TapisClientException tce) { if (tce.getCode() != 404 ) throw tce; }
 
-    sMetaParms.setKeyType(KeyType.tmskey);
-    try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
-    catch (TapisClientException tce) { if (tce.getCode() != 404 ) log.error(tce.getMessage()); }
-    catch (Exception e) { log.error(e.getMessage()); }
+      sMetaParms.setKeyType(KeyType.tmskey);
+      try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
+      catch (TapisClientException tce) { if (tce.getCode() != 404 ) throw tce; }
 
-    if (secretNotFound) return 0;
+      if (secretNotFound) return 0;
 
-    // Construct basic SK secret parameters and attempt to destroy each type of secret.
-    // If destroy attempt throws an exception then log a message and continue.
-    sMetaParms.setKeyType(KeyType.password);
-    try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.sshkey);
-    try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.accesskey);
-    try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.token);
-    try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.tmskey);
-    try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
+      // Construct basic SK secret parameters and attempt to destroy each type of secret.
+      // If destroy attempt throws an exception then log a message and continue.
+      sMetaParms.setKeyType(KeyType.password);
+      try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
+      sMetaParms.setKeyType(KeyType.sshkey);
+      try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
+      sMetaParms.setKeyType(KeyType.accesskey);
+      try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
+      sMetaParms.setKeyType(KeyType.token);
+      try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
+      sMetaParms.setKeyType(KeyType.tmskey);
+      try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
+    }
+    catch ( TapisException | TapisClientException te) { throw new TapisSecurityException(te); }
     return 1;
   }
 

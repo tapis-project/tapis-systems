@@ -23,6 +23,10 @@ import static edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus.*;
  * Transitions
  * When records are first created they start off in the PENDING state
  *
+ * *************************************************************
+ * <non-existent> PENDING IN_PROGRESS COMPLETED DELETED FAILED
+ * *************************************************************
+ *
  * ================================================================================================
  * Transitions that can happen during single-threaded startup. See CredUtils.credInfoInit()
  * ================================================================================================
@@ -32,25 +36,56 @@ import static edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus.*;
  * FAILED         -> PENDING
  * ------------------------------------------------------------------------------------------------
  * ================================================================================================
- * TODO Transitions that can happen during run of maintenance thread. See MaintenanceTask.credInfoRunMaintenance
+ * Transitions that can happen during run of maintenance thread. See MaintenanceTask.credInfoRunMaintenance
  * ================================================================================================
  * FAILED         -> PENDING
  * PENDING        -> IN_PROGRESS
  * IN_PROGRESS    -> COMPLETED
  * IN_PROGRESS    -> FAILED
  *
+ * ================================================================================================
+ * Transitions that can happen during create/update
+ * ================================================================================================
+ * <non-existent> -> PENDING
+ * COMPLETED      -> PENDING
+ * FAILED         -> PENDING
+ * DELETED        -> PENDING
+ * PENDING        -> IN_PROGRESS
+ * IN_PROGRESS    -> COMPLETED
+ * IN_PROGRESS    -> FAILED
+ *
+ * ================================================================================================
+ * TODO Transitions that can happen during check
+ * ================================================================================================
+ * TODO/TBD do not sync, so none?
+ *
+ * ================================================================================================
+ * Transitions that can happen during delete of credential
+ * ================================================================================================
+ * <non-existent> -> PENDING
+ * COMPLETED      -> PENDING
+ * FAILED         -> PENDING
+ * DELETED        -> PENDING
+ * PENDING        -> IN_PROGRESS
+ * IN_PROGRESS    -> DELETED
+ * IN_PROGRESS    -> FAILED
+ *
+ * ================================================================================================
+ * TODO/TBD Transitions that can happen during delete of system
+ * ================================================================================================
+ * <ANY>          -> <non existent>
+ *
  * ------------------------------------------------------------------------------------------------
  * Normal flow until deleted
  *    Pending->InProgress    - start of an update attempt (at start-up, for example)
  *    InProgress->Completed  - successful update
- *    Completed->Pending     - ready for an update attempt TODO/TBD needed?
+ *    Completed->Pending     - ready for an update attempt
  *    Completed->InProgress  - start of an updated attempt
  * Normal flow when deleted
  *    Completed->Deleted
  * Abnormal flows
  *    InProgress->Failed - Error during update
  *    Pending->Deleted   - deleted before update started
- *    Pending->Failed    - error during move from Pending to InProgress or Deleted. Possible? // TODO/TBD
  *    Failed->Pending    - ready for an update attempt
  *    Failed->Deleted    - deleted before becoming ready for an update attempt
  *    Deleted->Pending   - ready for an update attempt prior to clean up of deleted records
@@ -84,7 +119,7 @@ public final class CredInfoFSM
   public static final String PendingToInProgress = String.format("%s-%s", PENDING, IN_PROGRESS);
   public static final String InProgressToCompleted = String.format("%s-%s", IN_PROGRESS, COMPLETED);
   public static final String InProgressToFailed = String.format("%s-%s", IN_PROGRESS, FAILED);
-  public static final String CompletedToPending = String.format("%s-%s", COMPLETED, PENDING); // TODO/TBD needed?
+  public static final String CompletedToPending = String.format("%s-%s", COMPLETED, PENDING);
   public static final String CompletedToInProgress = String.format("%s-%s", COMPLETED, IN_PROGRESS);
   public static final String CompletedToDeleted = String.format("%s-%s", COMPLETED, DELETED);
   public static final String FailedToPending = String.format("%s-%s", FAILED, PENDING);
@@ -92,7 +127,6 @@ public final class CredInfoFSM
   public static final String PendingToDeleted = String.format("%s-%s", PENDING, DELETED);
   public static final String FailedToDeleted = String.format("%s-%s", FAILED, DELETED);
   public static final String DeletedToDeleted = String.format("%s-%s", DELETED, DELETED);
-  // public static final String PendingToFailed = String.format("%s-%s", PENDING, FAILED); // TODO/TBD needed?
   public static final Set<String> allowedEvents =
         Set.of(PendingToInProgress, InProgressToCompleted, InProgressToFailed, CompletedToPending, CompletedToInProgress,
                CompletedToDeleted, FailedToPending, DeletedToPending, PendingToDeleted, FailedToDeleted, DeletedToDeleted);
@@ -158,14 +192,12 @@ public final class CredInfoFSM
 
     // Abnormal flows
     //    InProgress->Failed - Error during update
-    //    Pending->Deleted   - deleted before update started
-    //    Pending->Failed    - error during move from Pending to InProgress or Deleted. Possible? // TODO/TBD
     //    Failed->Pending    - ready for an update attempt
     //    Failed->Deleted    - deleted before becoming ready for an update attempt
     //    Deleted->Pending   - ready for an update attempt prior to clean up of deleted records
     InProgressState.addTransition(InProgressToFailed, FailedState);
     PendingState.addTransition(PendingToInProgress, DeletedState);
-    PendingState.addTransition(PendingToInProgress, FailedState); // TODO/TBD
+    PendingState.addTransition(PendingToInProgress, FailedState);
     FailedState.addTransition(FailedToPending, PendingState);
     FailedState.addTransition(FailedToDeleted, DeletedState);
     DeletedState.addTransition(DeletedToPending, PendingState);

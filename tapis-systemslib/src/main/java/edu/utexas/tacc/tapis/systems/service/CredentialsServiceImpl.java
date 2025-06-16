@@ -164,7 +164,6 @@ public class CredentialsServiceImpl
    * as the login user to be used when accessing the host.
    * <p>
    * System must exist and not be deleted.
-   *  TODO/TBD - sync CredInfo record
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system

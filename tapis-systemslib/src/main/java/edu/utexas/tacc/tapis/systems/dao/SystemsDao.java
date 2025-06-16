@@ -87,15 +87,13 @@ public interface SystemsDao
 
   CredentialInfo getCredInfo(CredentialInfo credInfo);
 
-  List<CredentialInfo> getCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenantId, String systemId)
-        throws TapisException;
+  List<CredentialInfo> getCredInfoRecordsForSystem(String tenantId, String systemId);
 
-  void deleteCredInfo(ResourceRequestUser rUser, String tenantId, String systemId, String tapisUser, boolean isStatic)
-        throws TapisException;
+  void deleteCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic);
 
-  void deleteCredInfoRecord(ResourceRequestUser rUser, CredentialInfo credInfo) throws TapisException;
+  void deleteCredInfoRecord(CredentialInfo credInfo);
 
-  void deleteAllCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenant, String systemId) throws TapisException;
+  void deleteAllCredInfoRecordsForSystem(String tenant, String systemId);
 
   CredentialInfo createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo);
 
@@ -106,15 +104,15 @@ public interface SystemsDao
   String getLoginUserMapping(String tenantId, String id, String tapisUser, boolean isStatic);
 
   void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser,
-                                      String hostLoginUser, boolean isStatic) throws TapisException;
+                                      String hostLoginUser, boolean isStatic);
 
-  void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String id, String tapisUser, boolean isStatic) throws TapisException;
+  void deleteLoginUserMapping(String tenantId, String id, String tapisUser, boolean isStatic);
 
   int credInfoMarkInProgressAsFailed(ResourceRequestUser rUser, String failMsg);
 
   int credInfoMarkFailedAsPending(ResourceRequestUser rUser);
 
-  void credInfoMarkAsComplete(CredentialInfo credInfo) throws TapisException;
+  void credInfoMarkAsComplete(CredentialInfo credInfo);
 
   List<CredentialInfo> credInfoGetRecordsInStatus(CredentialInfo.SyncStatus status);
 

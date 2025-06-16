@@ -106,6 +106,7 @@ public final class MaintenanceTask
    */
   private void credInfoMarkFailedAsPending()
   {
+    String opName = "credInfoMarkFailedAsPending";
     // Find all FAILED records
     List<CredentialInfo> failedRecords = dao.credInfoGetRecordsInStatus(SyncStatus.FAILED);
     String msg = LibUtils.getMsg("SYSLIB_MAINT_CREDINFO_FAIL_COUNT", failedRecords.size());
@@ -122,7 +123,7 @@ public final class MaintenanceTask
       try
       {
         // Update status to PENDING
-        credUtils.updateCredentialInfoStatus(rUser, lockedCredInfo, SyncStatus.PENDING);
+        credUtils.updateCredentialInfoStatus(rUser, lockedCredInfo, SyncStatus.PENDING, opName);
       }
       finally
       {
@@ -136,10 +137,10 @@ public final class MaintenanceTask
    */
   private void credInfoSyncPendingRecords()
   {
+    String opName = "credInfoSyncPendingRecords";
     // Find all PENDING records
     List<CredentialInfo> pendingRecords = dao.credInfoGetRecordsInStatus(SyncStatus.PENDING);
-    String msg = LibUtils.getMsg("SYSLIB_MAINT_CREDINFO_PENDING_COUNT", pendingRecords.size());
-    log.info(msg);
+    log.info(LibUtils.getMsg("SYSLIB_MAINT_CREDINFO_PENDING_COUNT", pendingRecords.size()));
     // For each record sync it with SK
     for (CredentialInfo credInfo: pendingRecords)
     {
@@ -151,30 +152,8 @@ public final class MaintenanceTask
       if (!SyncStatus.PENDING.equals(lockedCredInfo.getSyncStatus())) { continue; }
       try
       {
-        // Update status to IN_PROGRESS
-        credUtils.updateCredentialInfoStatus(rUser, lockedCredInfo, SyncStatus.IN_PROGRESS);
-        try
-        {
-          // Sync records
-          credUtils.readCredInfoFromSK(rUser, lockedCredInfo);
-          credUtils.updateCredentialInfo(rUser, lockedCredInfo);
-          // Update status to COMPLETED
-          credUtils.updateCredentialInfoStatus(rUser, lockedCredInfo, SyncStatus.COMPLETED);
-        }
-        catch (Exception e)
-        {
-          // Log error, update the credInfo record to FAILED.
-          String failMsg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_SYNC_FAIL", rUser, credInfo.getTenant(),
-                credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.getLoginUserMapping(), credInfo.isStatic(),
-                credInfo.getSyncFailCount(), e.getMessage());
-          log.error(failMsg);
-          // Update failure related attributes of the credInfo
-          lockedCredInfo.setSyncFailed(TapisUtils.getUTCTimeNow().toInstant(ZoneOffset.UTC));
-          lockedCredInfo.incrementSyncFailCount();
-          lockedCredInfo.setSyncFailMessage(e.getMessage());
-          lockedCredInfo.setSyncStatus(SyncStatus.FAILED);
-          credUtils.updateCredentialInfo(rUser, lockedCredInfo);
-        }
+        // Sync record with SK. After this call the record will be in the COMPLETED or FAILED state.
+        credUtils.syncPendingCredentialInfo(rUser, lockedCredInfo);
       }
       finally
       {

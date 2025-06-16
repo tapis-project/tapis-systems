@@ -1756,6 +1756,8 @@ public class SystemsDaoImpl implements SystemsDao
       retCredInfo = getCredentialInfoFromRecord(record);
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
+      log.trace(LibUtils.getMsg("SYSLIB_CREDINFO_DB_CREATE", credInfo.getTapisUser(), credInfo.getSystemId(),
+            credInfo.getTapisUser(), credInfo.isStatic(), credInfo.getLoginUserMapping()));
     }
     catch (Exception e)
     {
@@ -1854,8 +1856,7 @@ public class SystemsDaoImpl implements SystemsDao
    * getCredentialInfoRecordsForSystem
    */
   @Override
-  public List<CredentialInfo> getCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenantId, String sysId)
-        throws TapisException
+  public List<CredentialInfo> getCredInfoRecordsForSystem(String tenantId, String sysId)
   {
     // The result list should always be non-null.
     List<CredentialInfo> retList = new ArrayList<>();
@@ -1898,13 +1899,12 @@ public class SystemsDaoImpl implements SystemsDao
    * Delete CredInfo record given tenant, systemId, tapis user and isStatic
    */
   @Override
-  public void deleteCredInfo(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser, boolean isStatic)
-          throws TapisException
+  public void deleteCredInfo(String tenantId, String sysId, String tapisUser, boolean isStatic)
   {
     // If anything missing throw an exception. These values make up the primary key
     if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
     {
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NULL_PK", rUser, tenantId, sysId, tapisUser));
+      throw new TapisRuntimeException(LibUtils.getMsg("SYSLIB_CREDINFO_NULL_PK", tenantId, sysId, tapisUser));
     }
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1935,8 +1935,7 @@ public class SystemsDaoImpl implements SystemsDao
    * Delete CredInfo record given CredInfo record
    */
   @Override
-  public void deleteCredInfoRecord(ResourceRequestUser rUser, CredentialInfo credInfo)
-        throws TapisException
+  public void deleteCredInfoRecord(CredentialInfo credInfo)
   {
     String tenantId = credInfo.getTenant();
     String sysId = credInfo.getSystemId();
@@ -1944,7 +1943,7 @@ public class SystemsDaoImpl implements SystemsDao
     // If anything missing throw an exception. These values make up the primary key
     if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
     {
-      throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NULL_PK", rUser, tenantId, sysId, tapisUser));
+      throw new TapisRuntimeException(LibUtils.getMsg("SYSLIB_CREDINFO_NULL_PK", tenantId, sysId, tapisUser));
     }
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1975,13 +1974,12 @@ public class SystemsDaoImpl implements SystemsDao
    * Delete all CredInfo records associated with a system
    */
   @Override
-  public void deleteAllCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenant, String systemId)
-        throws TapisException
+  public void deleteAllCredInfoRecordsForSystem(String tenant, String systemId)
   {
-    List<CredentialInfo> credInfoList = getCredInfoRecordsForSystem(rUser, tenant, systemId);
+    List<CredentialInfo> credInfoList = getCredInfoRecordsForSystem(tenant, systemId);
     for (CredentialInfo credInfo : credInfoList)
     {
-      deleteCredInfoRecord(rUser, credInfo);
+      deleteCredInfoRecord(credInfo);
     }
   }
 
@@ -2158,7 +2156,7 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException on error
    */
   @Override
-  public void credInfoMarkAsComplete(CredentialInfo credInfo) throws TapisException
+  public void credInfoMarkAsComplete(CredentialInfo credInfo)
   {
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -2194,7 +2192,6 @@ public class SystemsDaoImpl implements SystemsDao
 
   /**
    * In SYSTEMS_CRED_INFO table, fetch all PENDING records
-   * @throws TapisException on error
    */
   @Override
   public List<CredentialInfo> credInfoGetRecordsInStatus(SyncStatus status)
@@ -2392,7 +2389,6 @@ public class SystemsDaoImpl implements SystemsDao
       // If record not there insert it, else update it
       if (!recordExists)
       {
-        log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_INSERT_LOGINMAP", tenantId, systemId, tapisUser, loginUserMapping));
         int sysSeqId = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(systemId)).fetchOne(SYSTEMS.SEQ_ID);
         // TODO Pass in a CredInfo object and fill in CredInfo related fields.
         db.insertInto(SYSTEMS_CRED_INFO)
@@ -2416,7 +2412,6 @@ public class SystemsDaoImpl implements SystemsDao
       }
       else
       {
-        log.debug(LibUtils.getMsg("SYSLIB_CRED_DB_UPDATE_LOGINMAP", tenantId, systemId, tapisUser, loginUserMapping));
         db.update(SYSTEMS_CRED_INFO)
               .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, loginUserMapping)
               .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, hostLoginUser) //TODO
@@ -2456,12 +2451,12 @@ public class SystemsDaoImpl implements SystemsDao
    *          if still needed then need to update for adding isStatic to primary key
    */
   @Override
-  public void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String sysId, String tapisUser, boolean isStatic)
+  public void deleteLoginUserMapping(String tenantId, String sysId, String tapisUser, boolean isStatic)
   {
     // If anything missing throw an exception. These values make up the primary key
     if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
     {
-      throw new TapisRuntimeException(LibUtils.getMsgAuth("SYSLIB_DB_DEL_LOGINMAP_ERR", rUser, tenantId, sysId, tapisUser));
+      throw new TapisRuntimeException(LibUtils.getMsg("SYSLIB_CREDINFO_NULL_PK", tenantId, sysId, tapisUser));
     }
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;

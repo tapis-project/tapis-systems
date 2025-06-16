@@ -394,7 +394,7 @@ public class SystemsServiceImpl implements SystemsService
         {
           // Remove SK records and CredInfo record. Use sys fetched from DB if possible
           TSystem tmpSys = retSystem == null ? system : retSystem;
-          credUtils.deleteCredential(rUser, tmpSys, effUserId, isStaticEffectiveUser);
+          credUtils.deleteCredential(rUser, tmpSys, effUserId, isStaticEffectiveUser, op);
         }
         catch (Exception e)
         {
@@ -712,11 +712,8 @@ public class SystemsServiceImpl implements SystemsService
     }
     // Remove effectiveUser credentials associated with the system
     // Remove permissions associated with the system
-    removeSKArtifacts(rUser, system);
-
-    // Remove CredInfo records associated with the system.
-    // They will eventually be re-created if it is undeleted.
-    dao.deleteAllCredInfoRecordsForSystem(rUser, system.getTenant(), systemId);
+    // CredInfo record for a static effUser will move to the DELETED state
+    removeSKArtifacts(rUser, system, op);
 
     // Update deleted attribute
     return updateDeleted(rUser, systemId, op);
@@ -979,6 +976,7 @@ public class SystemsServiceImpl implements SystemsService
    *   - delete all CredInfo records for the system
    *   - remove system record from data store
    * NOTE: This is package-private. Only test code should ever use it.
+   * WARNING: This is not thread safe during operations on CredInfo table.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tenant - Tenant containing resources.
@@ -1002,12 +1000,12 @@ public class SystemsServiceImpl implements SystemsService
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
 
-    // Remove SK artifacts
-    removeSKArtifacts(rUser, system);
-
+    // Resolve effectiveUserId if necessary. This becomes the target user for perm and cred
+    String resolvedEffectiveUserId = sysUtils.resolveEffectiveUserId(system, rUser.getOboUserId());
+    // Revoke all permissions in SK
+    authUtils.revokeAllSKPermissions(rUser, system, resolvedEffectiveUserId);
     // Delete all CredInfo records associated with the system
-    dao.deleteAllCredInfoRecordsForSystem(rUser, tenant, systemId);
-
+    dao.deleteAllCredInfoRecordsForSystem(tenant, systemId);
     // Delete the system
     return dao.hardDeleteSystem(tenant, systemId);
   }
@@ -2203,8 +2201,9 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Remove SK artifacts associated with a System: user credentials, user permissions
    * No checks are done for incoming arguments and the system must exist
+   * CredInfo record for a static effUser will move to the DELETED state
    */
-  private void removeSKArtifacts(ResourceRequestUser rUser, TSystem system)
+  private void removeSKArtifacts(ResourceRequestUser rUser, TSystem system, SystemOperation op)
           throws TapisException, TapisClientException
   {
     String effectiveUserId = system.getEffectiveUserId();
@@ -2218,7 +2217,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!effectiveUserId.equals(APIUSERID_VAR)) {
       // Use private internal method instead of public API to skip auth and other checks not needed here.
       // Remove SK records and CredInfo record
-      credUtils.deleteCredential(rUser, system, resolvedEffectiveUserId, true);
+      credUtils.deleteCredential(rUser, system, resolvedEffectiveUserId, true, op);
     }
   }
 
