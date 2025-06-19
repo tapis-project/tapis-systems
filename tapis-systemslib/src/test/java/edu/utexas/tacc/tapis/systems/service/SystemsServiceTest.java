@@ -17,6 +17,7 @@ import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDaoImpl;
 import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.Credential;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.ModuleLoadSpec;
@@ -86,6 +87,7 @@ public class SystemsServiceTest
   private CredUtils credUtils;
   private SchedulerProfileServiceImpl svcSchedProfile;
   private CredentialsServiceImpl svcCred;
+  private SystemsDaoImpl dao;
   private ResourceRequestUser rOwner1, rOwner3, rOwner4, rOwner5, rOwner6,
           rTestUser0, rTestUser1, rTestUser2, rTestUser3, rTestUser4, rTestUser5,
           rParentChild1, rParentChild2, rParentChild3,
@@ -145,6 +147,7 @@ public class SystemsServiceTest
     svcImpl = locator.getService(SystemsServiceImpl.class);
     svcSchedProfile = locator.getService(SchedulerProfileServiceImpl.class);
     svcCred = locator.getService(CredentialsServiceImpl.class);
+    dao = new SystemsDaoImpl();
     svcImpl.initService(siteId, adminTenantName, RuntimeParameters.getInstance());
     CredUtils.initTmsConfiguration();
     credUtils = locator.getService(CredUtils.class);
@@ -256,7 +259,6 @@ public class SystemsServiceTest
         parentIds.add(parentSystem.getId());
       }
     }
-    SystemsDaoImpl dao = new SystemsDaoImpl();
 
     // Delete all child systems.
     for(String childUser : childUsers)
@@ -1516,6 +1518,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[10];
     String sysId = sys0.getId();
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR); // "${apiUserId}"
+    boolean isStatic = false;
     // Create the system
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     Credential cred3NoLoginUser = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
@@ -1535,7 +1538,18 @@ public class SystemsServiceTest
     // Make the separate calls required to store credentials for each user.
     // In this case for owner1, testUser3, testUser5
     // These should all go under the dynamic secret path in SK
+    // After each one is created we should have a CredInfo record, so check for that
     svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    // TODO move to method. Validate credInfo
+    // TODO validateCredInfo(String tenant, String sysId, String tapisUser, boolean isStatic, String loginUserMapping,
+    //                       String hostLoginUser, SyncStatus syncStatus);
+    // TODO primary key is tenant, sysId, tapisUser, isStatic. Other arguments are for validation.
+    CredentialInfo credInfo = dao.getCredInfo(tenantName, sysId, owner1, isStatic);
+    Assert.assertNotNull(credInfo, "credInfo should not be null.");
+    if (credInfo.getLoginUserMapping()==null) Assert.assertNull(credInfo.getLoginUserMapping(), "credInfo loginUserMapping should be null.");
+    else Assert.assertEquals(credInfo.getLoginUserMapping(), cred1NoLoginUser.getLoginUser());
+    Assert.assertEquals(credInfo.getHostLoginUser(), owner1);
+
     svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
 

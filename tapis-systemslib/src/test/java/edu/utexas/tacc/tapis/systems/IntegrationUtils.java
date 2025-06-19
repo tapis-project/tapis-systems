@@ -77,6 +77,7 @@ public final class IntegrationUtils
   public static final String impersonationIdNull = null;
   public static final String apiUser = "testApiUser";
   public static final boolean isStaticTrue = true;
+  public static final boolean isStaticFalse = false;
 
   // Properties for one of the Tapis v3 test VMs
   public static final String TAPIS_TEST_HOST_LOGIN_USER = testUser3;

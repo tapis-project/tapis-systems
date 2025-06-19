@@ -461,12 +461,14 @@ public class CredUtils
     String oboUser = rUser.getOboUserId();
     String loginUserMapping = credential.getLoginUser();
     CredentialInfo credInfo = null;
+    // If static then tapisUser is oboUser, if dynamic then tapisUser is targetUser
+    String tapisUser = isStatic ? oboUser : targetUser;
     try
     {
       // Use a synchronized method to make sure we have a DB record and in-memory object for the CredInfo record.
       // If record does not already exist in memory or in DB then create it with status of PENDING
       // The CredentialInfo record returned is already locked. This ensures we have exclusive access (BUT must unlock)
-      credInfo = getLockedDBCredInfoRecord(rUser, system, oboUser, hostLoginUser, loginUserMapping, isStatic);
+      credInfo = getLockedDBCredInfoRecord(rUser, system, tapisUser, isStatic, hostLoginUser, loginUserMapping);
       // Now we have a locked record so no other threads will attempt an update during this update
       // This is basically the equivalent of a selectForUpdate DB type operation.
       // Note that this also synchronizes SK operations, which is good. Before this, multiple concurrent SK operations
@@ -523,17 +525,21 @@ public class CredUtils
    */
   int deleteCredential(ResourceRequestUser rUser, TSystem system, String targetUser, boolean isStatic, SystemOperation op)
   {
-    String oboTenant = rUser.getOboTenantId();
     String oboUser = rUser.getOboUserId();
     String systemId = system.getId();
     int changeCount;
     CredentialInfo credInfo = null;
+    // If static then tapisUser is oboUser, if dynamic then tapisUser is targetUser
+    String tapisUser = isStatic ? oboUser : targetUser;
     try
     {
       // Use a synchronized method to make sure we have a DB record and in-memory object
       // If not already in memory or in DB it is created with status of PENDING
       // The CredentialInfo record returned is already locked. This ensures we have exclusive access
-      credInfo = getLockedDBCredInfoRecord(rUser, system, oboTenant, systemId, oboUser, isStatic);
+      // NOTE: Since the record is about to be deleted we pass in null for hostLoginUser and loginUserMapping.
+      //       They are only used when creating a new record in the DB. If one does get created by this call
+      //       at this point it will end up in the DELETED state. If an undelete happens record would get re-synced.
+      credInfo = getLockedDBCredInfoRecord(rUser, system, tapisUser, isStatic, null, null);
 
       // Update the status to PENDING. NOTE: Method will also update syncStatus of credInfo
       updateCredentialInfoStatus(rUser, credInfo, SyncStatus.PENDING, op.name());
@@ -847,11 +853,11 @@ public class CredUtils
    * Check that transition from current status to new status is allowed.
    * WARNING ***** CredInfo object MUST be locked before calling this method ****
    */
-  public void updateCredentialInfo(ResourceRequestUser rUser, CredentialInfo credInfo, String op)
+  public void updateCredentialInfo(ResourceRequestUser rUser, CredentialInfo credInfo, String opName)
   {
     // CredInfo must be locked
     if (!credInfo.mutex.isLocked())
-      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser, op,
+      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser, opName,
             credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic()));
     CredentialInfo dbCredInfo = dao.getCredInfo(credInfo);
     SyncStatus oldSyncStatus = dbCredInfo.getSyncStatus();
@@ -859,7 +865,7 @@ public class CredUtils
 
     // Log info about the update
     log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, credInfo.getTenant(), credInfo.getSystemId(),
-              credInfo.getTapisUser(), credInfo.isStatic(), oldSyncStatus, newSyncStatus, op));
+              credInfo.getTapisUser(), credInfo.isStatic(), oldSyncStatus, newSyncStatus, opName));
 
     // Validate transition from current state to new state
     CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
@@ -887,7 +893,8 @@ public class CredUtils
     SyncStatus oldSyncStatus = credInfo.getSyncStatus();
     if (oldSyncStatus.equals(newSyncStatus)) return;
 
-    log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, oldSyncStatus, newSyncStatus));
+    log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, credInfo.getTenant(), credInfo.getSystemId(),
+          credInfo.getTapisUser(), credInfo.isStatic(), oldSyncStatus, newSyncStatus, opName));
 
     // Validate transition from current state to new state
     CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
@@ -1709,13 +1716,13 @@ public class CredUtils
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param sys - Tapis system
    * @param tapisUser - Tapis user
-   * @param hostLoginUser - computed host login user TODO review
-   * @param loginUserMapping - user mapping from Credential TODO review
+   * @param hostLoginUser - computed host login user. In case we need to create record in DB.
+   * @param loginUserMapping - user mapping from Credential. In case we need to create record in DB.
    * @param isStatic - indicates if effectiveUserId is static or dynamic
    * @return the CredentialInfo record
    */
   private synchronized CredentialInfo getLockedDBCredInfoRecord(ResourceRequestUser rUser, TSystem sys, String tapisUser,
-                                                                String hostLoginUser, String loginUserMapping, boolean isStatic)
+                                                                boolean isStatic, String hostLoginUser, String loginUserMapping)
   {
     CredentialInfo credInfo;
     String key = String.format("%s:%s:%s:%s", sys.getTenant(), sys.getId(), tapisUser, isStatic);

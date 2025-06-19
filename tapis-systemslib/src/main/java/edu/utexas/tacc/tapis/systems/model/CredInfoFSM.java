@@ -118,6 +118,7 @@ public final class CredInfoFSM
   // Events
   public static final String PendingToInProgress = String.format("%s-%s", PENDING, IN_PROGRESS);
   public static final String InProgressToCompleted = String.format("%s-%s", IN_PROGRESS, COMPLETED);
+  public static final String InProgressToDeleted = String.format("%s-%s", IN_PROGRESS, DELETED);
   public static final String InProgressToFailed = String.format("%s-%s", IN_PROGRESS, FAILED);
   public static final String CompletedToPending = String.format("%s-%s", COMPLETED, PENDING);
   public static final String CompletedToInProgress = String.format("%s-%s", COMPLETED, IN_PROGRESS);
@@ -128,8 +129,9 @@ public final class CredInfoFSM
   public static final String FailedToDeleted = String.format("%s-%s", FAILED, DELETED);
   public static final String DeletedToDeleted = String.format("%s-%s", DELETED, DELETED);
   public static final Set<String> allowedEvents =
-        Set.of(PendingToInProgress, InProgressToCompleted, InProgressToFailed, CompletedToPending, CompletedToInProgress,
-               CompletedToDeleted, FailedToPending, DeletedToPending, PendingToDeleted, FailedToDeleted, DeletedToDeleted);
+        Set.of(PendingToInProgress, InProgressToCompleted, InProgressToDeleted, InProgressToFailed,
+               CompletedToPending, CompletedToInProgress, CompletedToDeleted, FailedToPending, DeletedToPending,
+               PendingToDeleted, FailedToDeleted, DeletedToDeleted);
 
   // Actions
   public static final Action<CredInfoSyncState> pendingToInProgressAction = new CredInfoSyncAction<>(IN_PROGRESS.name());

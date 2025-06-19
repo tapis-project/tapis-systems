@@ -6,6 +6,7 @@ import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.IntegrationUtils;
 import edu.utexas.tacc.tapis.systems.model.Capability;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
@@ -360,12 +361,13 @@ public class SystemsDaoTest
       Assert.assertNotNull(item.getCreated(), "Fetched created timestamp should not be null");
     }
   }
+
   // ******************************************************************
-  //   TapisUser to LoginUser mapping
+  //   CredInfo table
   // ******************************************************************
 
   @Test
-  public void testCreateGetDeleteLoginMapping() throws Exception
+  public void testCredInfo() throws Exception
   {
     // Create a new system - we need id as foreign key
     TSystem sys0 = systems[13];
@@ -373,13 +375,59 @@ public class SystemsDaoTest
     String tapisUser = owner1;
     boolean itemCreated = dao.createSystem(rOwner1, sys0, gson.toJson(sys0), rawDataEmptyJson);
     Assert.assertTrue(itemCreated, "Item not created, id: " + sysId);
-    dao.createOrUpdateLoginUserMapping(tenantName, sysId, tapisUser, loginUserMapping1, owner1, isStaticTrue);
-    System.out.println("Login map entry created");
-    String loginUser = dao.getLoginUserMapping(tenantName, sysId, tapisUser, isStaticTrue);
+    TSystem sys = dao.getSystem(tenantName, sysId);
+
+    // Create/fetch a couple of CredInfo records
+    String hostLoginUser = loginUserMapping1;
+    CredentialInfo credInfo1 = new CredentialInfo(sys.getSeqId(), tenantName, tapisUser, sysId, hostLoginUser,
+                                                  loginUserMapping1, isStaticFalse, CredentialInfo.SyncStatus.PENDING);
+    dao.createCredInfo(rOwner1, credInfo1);
+    CredentialInfo ci = dao.getCredInfo(tenantName, sysId, tapisUser, isStaticFalse);
+    Assert.assertNotNull(ci);
+    Assert.assertEquals(ci.getTapisUser(), tapisUser);
+    Assert.assertEquals(ci.getHostLoginUser(), hostLoginUser);
+    Assert.assertEquals(ci.getLoginUserMapping(), loginUserMapping1);
+    Assert.assertEquals(ci.isStatic(), isStaticFalse);
+    Assert.assertEquals(ci.getSyncStatus(), CredentialInfo.SyncStatus.PENDING);
+    String loginUser = dao.getLoginUserMapping(tenantName, sysId, tapisUser, isStaticFalse);
     Assert.assertEquals(loginUser, loginUserMapping1);
-    dao.deleteLoginUserMapping(tenantName, sysId, tapisUser, isStaticTrue);
-    loginUser = dao.getLoginUserMapping(tenantName, sysId, tapisUser, isStaticTrue);
-    Assert.assertNull(loginUser);
+    hostLoginUser = owner2;
+    CredentialInfo credInfo2 = new CredentialInfo(sys.getSeqId(), tenantName, tapisUser, sysId, hostLoginUser,
+                                                  null, isStaticTrue, CredentialInfo.SyncStatus.PENDING);
+    dao.createCredInfo(rOwner1, credInfo2);
+    ci = dao.getCredInfo(credInfo2);
+    Assert.assertNotNull(ci);
+    Assert.assertEquals(ci.getTapisUser(), tapisUser);
+    Assert.assertEquals(ci.getHostLoginUser(), hostLoginUser);
+    Assert.assertNull(ci.getLoginUserMapping());
+    Assert.assertEquals(ci.isStatic(), isStaticTrue);
+    Assert.assertEquals(ci.getSyncStatus(), CredentialInfo.SyncStatus.PENDING);
+
+    // Check total count
+    int totalCount = dao.getCredInfoTotalCount();
+    System.out.println("CredInfo total count: " + totalCount);
+    Assert.assertTrue((totalCount >= 2));
+
+    // Check listing and deletion
+    List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
+    Assert.assertNotNull(ciList);
+    Assert.assertEquals(ciList.size(), 2);
+    dao.deleteCredInfo(credInfo1.getTenant(), credInfo1.getSystemId(), credInfo1.getTapisUser(), credInfo1.isStatic());
+    ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
+    Assert.assertNotNull(ciList);
+    Assert.assertEquals(ciList.size(), 1);
+    dao.deleteCredInfoRecord(credInfo2);
+    ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
+    Assert.assertNotNull(ciList);
+    Assert.assertEquals(ciList.size(), 0);
+    dao.createCredInfo(rOwner1, credInfo2);
+    ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
+    Assert.assertNotNull(ciList);
+    Assert.assertEquals(ciList.size(), 1);
+    dao.deleteAllCredInfoRecordsForSystem(tenantName, sysId);
+    ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
+    Assert.assertNotNull(ciList);
+    Assert.assertEquals(ciList.size(), 0);
   }
 
   // ******************************************************************

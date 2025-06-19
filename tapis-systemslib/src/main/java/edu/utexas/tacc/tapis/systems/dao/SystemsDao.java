@@ -83,6 +83,8 @@ public interface SystemsDao
   /*                        CredentialInfo Table                            */
   /* ********************************************************************** */
 
+  int getCredInfoTotalCount();
+
   CredentialInfo getCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic);
 
   CredentialInfo getCredInfo(CredentialInfo credInfo);
@@ -102,11 +104,6 @@ public interface SystemsDao
   void updateCredInfoStatus(CredentialInfo credInfo, CredentialInfo.SyncStatus newSyncStatus, LocalDateTime updated);
 
   String getLoginUserMapping(String tenantId, String id, String tapisUser, boolean isStatic);
-
-  void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUser,
-                                      String hostLoginUser, boolean isStatic);
-
-  void deleteLoginUserMapping(String tenantId, String id, String tapisUser, boolean isStatic);
 
   int credInfoMarkInProgressAsFailed(ResourceRequestUser rUser, String failMsg);
 
