@@ -480,6 +480,11 @@ public class CredUtils
 
       // Write secrets to SK and read from SK to update the in-memory CredentialInfo record
       writeAndSyncCredentialInfoToSK(rUser, credential, credInfo, system, targetUser, isStatic);
+      // Now fill in attributes not in SK, i.e. loginUserMapping from incoming credential and
+      //   hostLoginUser as computed by caller
+      credInfo.setLoginUserMapping(loginUserMapping);
+      credInfo.setHostLoginUser(hostLoginUser);
+
       // If it is not a system create, then record the update
       if (!SystemOperation.create.equals(op))
       {
@@ -828,6 +833,9 @@ public class CredUtils
     {
       // Sync records
       readCredInfoFromSK(rUser, credInfo);
+      // NOTE: For the maintenance task, the values of hostLoginUser and loginUserMapping from the DB should be correct.
+      //       Unlike for the credCreate operation, there should be no need to sync those 2 attributes
+
       updateCredentialInfo(rUser, credInfo, op);
       // Update status to COMPLETED
       updateCredentialInfoStatus(rUser, credInfo, SyncStatus.COMPLETED, op);

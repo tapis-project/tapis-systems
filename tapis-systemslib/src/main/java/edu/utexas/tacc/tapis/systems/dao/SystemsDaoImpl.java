@@ -1757,13 +1757,15 @@ public class SystemsDaoImpl implements SystemsDao
       DSLContext db = DSL.using(conn);
       // Values to use for created, updated: timestamp
       LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
+      // hostLoginUser must not be null
+      String hostLoginUser = credInfo.getHostLoginUser() == null ? "" : credInfo.getHostLoginUser();
       // Create the record in the main table.
       SystemsCredInfoRecord record = db.insertInto(SYSTEMS_CRED_INFO)
               .set(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID, credInfo.getSystemSeqId())
               .set(SYSTEMS_CRED_INFO.TENANT, credInfo.getTenant())
               .set(SYSTEMS_CRED_INFO.SYSTEM_ID, credInfo.getSystemId())
               .set(SYSTEMS_CRED_INFO.TAPIS_USER, credInfo.getTapisUser())
-              .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, credInfo.getHostLoginUser())
+              .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, hostLoginUser)
               .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, credInfo.getLoginUserMapping())
               .set(SYSTEMS_CRED_INFO.CREATED, utcNow)
               .set(SYSTEMS_CRED_INFO.UPDATED, utcNow)
@@ -2046,6 +2048,8 @@ public class SystemsDaoImpl implements SystemsDao
     Instant syncFailedI = credInfo.getSyncFailed();
     LocalDateTime syncFailedLDT =
           syncFailedI == null ? null : LocalDateTime.ofInstant(credInfo.getSyncFailed(), ZoneOffset.UTC);
+    // hostLoginUser must not be null
+    String hostLoginUser = credInfo.getHostLoginUser() == null ? "" : credInfo.getHostLoginUser();
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
     try
@@ -2054,7 +2058,7 @@ public class SystemsDaoImpl implements SystemsDao
       DSLContext db = DSL.using(conn);
       // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
       db.update(SYSTEMS_CRED_INFO)
-            .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, credInfo.getHostLoginUser())
+            .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, hostLoginUser)
             .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, credInfo.getLoginUserMapping())
             .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, credInfo.hasCredentials())
             .set(SYSTEMS_CRED_INFO.IS_STATIC, credInfo.isStatic())

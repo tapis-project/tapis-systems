@@ -42,14 +42,15 @@ public class CredentialInfo
   // Mutex for locking record during an update
   // set fairness to true, meaning under contention, locks favor granting access to the longest-waiting thread.
   public final ReentrantLock mutex = new ReentrantLock(true);
-
+  // Attributes that are part of primary key can be final, they must be provided upon construction
   private final int systemSeqId; // Sequence id associated with the system id
   private final String tenant; // Name of tenant associated with the credential
   private final String systemId; // Name of the system associated with the credential
   private final String tapisUser; // Tapis user associated with the credential
-  private final String hostLoginUser; // Username used when connecting to host
-  private final String loginUserMapping; // For case of dynamic effectiveUserId, this is an optional mapping to host login user.
   private final boolean isStatic; // Indicates if record is for the static or dynamic effectiveUserId case.
+
+  private String hostLoginUser; // Username used when connecting to host
+  private String loginUserMapping; // For case of dynamic effectiveUserId, this is an optional mapping to host login user.
   private boolean hasCredentials; // Indicates if system has credentials registered for the current defaultAuthnMethod
   private boolean hasPassword; // Indicates if credentials for PASSWORD have been registered.
   private boolean hasPkiKeys; // Indicates if credentials for PKI_KEYS have been registered.
@@ -80,7 +81,7 @@ public class CredentialInfo
     tenant = tenant1;
     systemId = systemId1;
     tapisUser = tapisUser1;
-    hostLoginUser = hostLoginUser1;
+    hostLoginUser = hostLoginUser1 == null ? "" : hostLoginUser1;
     loginUserMapping = loginUserMapping1;
     isStatic = isStatic1;
     hasCredentials = hasCredentials1;
@@ -110,7 +111,7 @@ public class CredentialInfo
     tapisUser = tapisUser1;
     isStatic = isStatic1;
     loginUserMapping = loginUserMapping1;
-    hostLoginUser = hostLoginUser1;
+    hostLoginUser = hostLoginUser1 == null ? "" : hostLoginUser1;
     hasCredentials = false;
     hasPassword = false;
     hasPkiKeys = false;
@@ -177,9 +178,14 @@ public class CredentialInfo
   public String getTenant() { return tenant; }
   public String getSystemId() { return systemId; }
   public String getTapisUser() { return tapisUser; }
-  public String getHostLoginUser() { return hostLoginUser; }
-  public String getLoginUserMapping() { return loginUserMapping; }
   public boolean isStatic() { return isStatic; }
+
+  public String getHostLoginUser() { return hostLoginUser; }
+  public void setHostLoginUser(String s) { hostLoginUser = s; }
+
+  public String getLoginUserMapping() { return loginUserMapping; }
+  public void setLoginUserMapping(String s) { loginUserMapping = s; }
+
   public boolean hasCredentials() { return hasCredentials; }
   public void setHasCredentials(boolean b) { hasCredentials = b; }
 

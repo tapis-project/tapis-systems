@@ -1539,19 +1539,32 @@ public class SystemsServiceTest
     // In this case for owner1, testUser3, testUser5
     // These should all go under the dynamic secret path in SK
     // After each one is created we should have a CredInfo record, so check for that
+    // Cred 1
     svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
-    // TODO move to method. Validate credInfo
-    // TODO validateCredInfo(String tenant, String sysId, String tapisUser, boolean isStatic, String loginUserMapping,
-    //                       String hostLoginUser, SyncStatus syncStatus);
-    // TODO primary key is tenant, sysId, tapisUser, isStatic. Other arguments are for validation.
     CredentialInfo credInfo = dao.getCredInfo(tenantName, sysId, owner1, isStatic);
-    Assert.assertNotNull(credInfo, "credInfo should not be null.");
-    if (credInfo.getLoginUserMapping()==null) Assert.assertNull(credInfo.getLoginUserMapping(), "credInfo loginUserMapping should be null.");
-    else Assert.assertEquals(credInfo.getLoginUserMapping(), cred1NoLoginUser.getLoginUser());
-    Assert.assertEquals(credInfo.getHostLoginUser(), owner1);
-
+    IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, owner1, isStatic, cred1NoLoginUser.getLoginUser(),
+                                    owner1, CredentialInfo.SyncStatus.COMPLETED);
+    List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
+    Assert.assertNotNull(ciList);
+    Assert.assertEquals(ciList.size(), 1);
+    // Cred 2
     svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    credInfo = dao.getCredInfo(tenantName, sysId, testUser3, isStatic);
+    IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, testUser3, isStatic, cred3NoLoginUser.getLoginUser(),
+                                    testUser3, CredentialInfo.SyncStatus.COMPLETED);
+    ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
+    Assert.assertNotNull(ciList);
+    Assert.assertEquals(ciList.size(), 2);
+    // Cred 3
     svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    credInfo = dao.getCredInfo(tenantName, sysId, testUser5, isStatic);
+    IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, testUser5, isStatic, cred5A_NoLoginUser.getLoginUser(),
+                                    testUser5, CredentialInfo.SyncStatus.COMPLETED);
+    ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
+    Assert.assertNotNull(ciList);
+    Assert.assertEquals(ciList.size(), 3);
+    int ciTotalCount = dao.getCredInfoTotalCount();
+    Assert.assertTrue((ciTotalCount >= 3));
 
     // ------------------------
     // Test 1 - basic cred retrieve/delete for owner1, testuser3
@@ -1582,20 +1595,26 @@ public class SystemsServiceTest
     Assert.assertEquals(cred0.getAccessKey(), cred3NoLoginUser.getAccessKey());
     Assert.assertEquals(cred0.getAccessSecret(), cred3NoLoginUser.getAccessSecret());
 
-    // Delete credentials and verify they were destroyed
+    // Delete 2 credentials and verify they were destroyed
     int changeCount = svcCred.deleteUserCredential(rOwner1, sysId, owner1);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when removing credential for user: " + owner1);
     changeCount = svcCred.deleteUserCredential(rOwner1, sysId, testUser3);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when removing credential for user: " + testUser3);
-
     cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, owner1, AuthnMethod.PASSWORD);
     Assert.assertNull(cred0, "Credential not deleted. System name: " + sysId + " User name: " + owner1);
     cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PASSWORD);
     Assert.assertNull(cred0, "Credential not deleted. System name: " + sysId + " User name: " + testUser3);
-
     // Attempt to delete again, should return 0 for change count
     changeCount = svcCred.deleteUserCredential(rOwner1, sysId, testUser3);
     Assert.assertEquals(changeCount, 0, "Change count incorrect when removing a credential already removed.");
+
+    // Check for the 2 deleted credentials the CredInfo records are in deleted state
+    credInfo = dao.getCredInfo(tenantName, sysId, owner1, isStatic);
+    IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, owner1, isStatic, cred1NoLoginUser.getLoginUser(),
+                                    owner1, CredentialInfo.SyncStatus.DELETED);
+    credInfo = dao.getCredInfo(tenantName, sysId, testUser3, isStatic);
+    IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, testUser3, isStatic, cred3NoLoginUser.getLoginUser(),
+                                    testUser3, CredentialInfo.SyncStatus.DELETED);
 
     // Update cred to set just ACCESS_KEY and test
     // This should go under the dynamic secret path in SK
