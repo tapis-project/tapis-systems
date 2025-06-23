@@ -1,16 +1,11 @@
 package edu.utexas.tacc.tapis.systems.model;
 
-import java.util.List;
 import java.util.Set;
-import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.service.CredUtils;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.statefulj.fsm.model.Action;
-import org.statefulj.fsm.model.State;
-import org.statefulj.fsm.model.impl.StateImpl;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
 import static edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus.*;
 
@@ -20,20 +15,23 @@ import static edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus.*;
  * Main usefulness is in catching difficult to find bugs introduced by future code changes.
  * Also, this is a good place for documentation.
  *
+ * There is a fair bit of commented code that we might consider removing in the future.
+ * But if we do ever have need of an event driven FSM it would be a starting point.
+ *
  * Transitions
  * When records are first created they start off in the PENDING state
  *
- * *************************************************************
- * <non-existent> PENDING IN_PROGRESS COMPLETED DELETED FAILED
- * *************************************************************
+ * ********************************************************************
+ * States: <non-existent> PENDING IN_PROGRESS COMPLETED DELETED FAILED
+ * ********************************************************************
  *
  * ================================================================================================
  * Transitions that can happen during single-threaded startup. See CredUtils.credInfoInit()
  * ================================================================================================
  * IN_PROGRESS    -> FAILED
  * DELETED        -> <non-existent>
- * <non-existent> -> PENDING
  * FAILED         -> PENDING
+ * <non-existent> -> PENDING
  * ------------------------------------------------------------------------------------------------
  * ================================================================================================
  * Transitions that can happen during run of maintenance thread. See MaintenanceTask.credInfoRunMaintenance
@@ -48,27 +46,22 @@ import static edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus.*;
  * ================================================================================================
  * <non-existent> -> PENDING
  * COMPLETED      -> PENDING
- * FAILED         -> PENDING
- * DELETED        -> PENDING
  * PENDING        -> IN_PROGRESS
  * IN_PROGRESS    -> COMPLETED
+ * FAILED         -> PENDING
+ * DELETED        -> PENDING
  * IN_PROGRESS    -> FAILED
- *
- * ================================================================================================
- * TODO Transitions that can happen during check
- * ================================================================================================
- * TODO/TBD do not sync, so none?
  *
  * ================================================================================================
  * Transitions that can happen during delete of credential
  * ================================================================================================
- * <non-existent> -> PENDING
  * COMPLETED      -> PENDING
  * FAILED         -> PENDING
  * DELETED        -> PENDING
  * PENDING        -> IN_PROGRESS
  * IN_PROGRESS    -> DELETED
  * IN_PROGRESS    -> FAILED
+ * <non-existent> -> PENDING
  *
  * ================================================================================================
  * TODO/TBD Transitions that can happen during delete of system
@@ -106,14 +99,17 @@ public final class CredInfoFSM
   // Local logger.
   private static final Logger log = LoggerFactory.getLogger(CredUtils.class);
 
-  public static final State<CredInfoSyncState> PendingState = new StateImpl<>(PENDING.name());
-  public static final State<CredInfoSyncState> InProgressState = new StateImpl<>(IN_PROGRESS.name());
-  public static final State<CredInfoSyncState> FailedState = new StateImpl<>(SyncStatus.FAILED.name());
-  public static final State<CredInfoSyncState> DeletedState = new StateImpl<>(SyncStatus.DELETED.name());
-  public static final State<CredInfoSyncState> CompletedState = new StateImpl<>(SyncStatus.COMPLETED.name());
+  // File containing csv records that can be used to initialize data at application start
+  public static final String CREDINFO_INIT_TMP_CSV_FILE = "/tmp/tapis_sys_cred_info_init.csv";
+
+//  public static final State<CredInfoSyncState> PendingState = new StateImpl<>(PENDING.name());
+//  public static final State<CredInfoSyncState> InProgressState = new StateImpl<>(IN_PROGRESS.name());
+//  public static final State<CredInfoSyncState> FailedState = new StateImpl<>(SyncStatus.FAILED.name());
+//  public static final State<CredInfoSyncState> DeletedState = new StateImpl<>(SyncStatus.DELETED.name());
+//  public static final State<CredInfoSyncState> CompletedState = new StateImpl<>(SyncStatus.COMPLETED.name());
 
   // Static initializer for transitions
-  static { initializeTransitions(); }
+//  static { initializeTransitions(); }
 
   // Events
   public static final String PendingToInProgress = String.format("%s-%s", PENDING, IN_PROGRESS);
@@ -133,18 +129,18 @@ public final class CredInfoFSM
                CompletedToPending, CompletedToInProgress, CompletedToDeleted, FailedToPending, DeletedToPending,
                PendingToDeleted, FailedToDeleted, DeletedToDeleted);
 
-  // Actions
-  public static final Action<CredInfoSyncState> pendingToInProgressAction = new CredInfoSyncAction<>(IN_PROGRESS.name());
-  public static final Action<CredInfoSyncState> inProgressToCompletedAction = new CredInfoSyncAction<>(SyncStatus.COMPLETED.name());
-  public static final Action<CredInfoSyncState> inProgressToFailedAction = new CredInfoSyncAction<>(SyncStatus.FAILED.name());
-  public static final Action<CredInfoSyncState> deletedToPendingAction = new CredInfoSyncAction<>(PENDING.name());
-  public static final Action<CredInfoSyncState> completedToPendingAction = new CredInfoSyncAction<>(PENDING.name());
+  // Actions, e.g.
+//  public static final Action<CredInfoSyncState> pendingToInProgressAction = new CredInfoSyncAction<>(IN_PROGRESS.name());
+//  public static final Action<CredInfoSyncState> inProgressToCompletedAction = new CredInfoSyncAction<>(SyncStatus.COMPLETED.name());
+//  public static final Action<CredInfoSyncState> inProgressToFailedAction = new CredInfoSyncAction<>(SyncStatus.FAILED.name());
+//  public static final Action<CredInfoSyncState> deletedToPendingAction = new CredInfoSyncAction<>(PENDING.name());
+//  public static final Action<CredInfoSyncState> completedToPendingAction = new CredInfoSyncAction<>(PENDING.name());
 
   /* ********************************************************************** */
   /*                                 Fields                                 */
   /* ********************************************************************** */
   // List of all states
-  private static final List<State<CredInfoSyncState>> states = createStateList();
+//  private static final List<State<CredInfoSyncState>> states = createStateList();
 
   /* ********************************************************************** */
   /*                        Public methods                                  */
@@ -172,41 +168,41 @@ public final class CredInfoFSM
    * Create list of all possible states
    * @return unmodifiable list of all possible states
    */
-  private static List<State<CredInfoSyncState>> createStateList()
-  {
-    return List.of(PendingState, InProgressState, FailedState, DeletedState, CompletedState);
-  }
+//  private static List<State<CredInfoSyncState>> createStateList()
+//  {
+//    return List.of(PendingState, InProgressState, FailedState, DeletedState, CompletedState);
+//  }
 
-  private static void initializeTransitions()
-  {
-    // Transitions
-    // When records are first created they start off in the PENDING state
-    // Normal flow until deleted
-    //    Pending->InProgress    - start of an update attempt
-    //    InProgress->Completed  - successful update
-    //    Completed->Pending     - ready for an update attempt
-    PendingState.addTransition(PendingToInProgress, InProgressState);
-    InProgressState.addTransition(InProgressToCompleted, CompletedState);
-    CompletedState.addTransition(CompletedToPending, PendingState);
-
-    // Normal flow when deleted
-    CompletedState.addTransition(CompletedToDeleted, DeletedState);
-
-    // Abnormal flows
-    //    InProgress->Failed - Error during update
-    //    Failed->Pending    - ready for an update attempt
-    //    Failed->Deleted    - deleted before becoming ready for an update attempt
-    //    Deleted->Pending   - ready for an update attempt prior to clean up of deleted records
-    InProgressState.addTransition(InProgressToFailed, FailedState);
-    PendingState.addTransition(PendingToInProgress, DeletedState);
-    PendingState.addTransition(PendingToInProgress, FailedState);
-    FailedState.addTransition(FailedToPending, PendingState);
-    FailedState.addTransition(FailedToDeleted, DeletedState);
-    DeletedState.addTransition(DeletedToPending, PendingState);
-  }
+//  private static void initializeTransitions()
+//  {
+//    // Transitions
+//    // When records are first created they start off in the PENDING state
+//    // Normal flow until deleted
+//    //    Pending->InProgress    - start of an update attempt
+//    //    InProgress->Completed  - successful update
+//    //    Completed->Pending     - ready for an update attempt
+//    PendingState.addTransition(PendingToInProgress, InProgressState);
+//    InProgressState.addTransition(InProgressToCompleted, CompletedState);
+//    CompletedState.addTransition(CompletedToPending, PendingState);
+//
+//    // Normal flow when deleted
+//    CompletedState.addTransition(CompletedToDeleted, DeletedState);
+//
+//    // Abnormal flows
+//    //    InProgress->Failed - Error during update
+//    //    Failed->Pending    - ready for an update attempt
+//    //    Failed->Deleted    - deleted before becoming ready for an update attempt
+//    //    Deleted->Pending   - ready for an update attempt prior to clean up of deleted records
+//    InProgressState.addTransition(InProgressToFailed, FailedState);
+//    PendingState.addTransition(PendingToInProgress, DeletedState);
+//    PendingState.addTransition(PendingToInProgress, FailedState);
+//    FailedState.addTransition(FailedToPending, PendingState);
+//    FailedState.addTransition(FailedToDeleted, DeletedState);
+//    DeletedState.addTransition(DeletedToPending, PendingState);
+//  }
 
   /* ********************************************************************** */
   /*                               Accessors                                */
   /* ********************************************************************** */
-  public static List<State<CredInfoSyncState>> getStates() { return states; }
+//  public static List<State<CredInfoSyncState>> getStates() { return states; }
 }

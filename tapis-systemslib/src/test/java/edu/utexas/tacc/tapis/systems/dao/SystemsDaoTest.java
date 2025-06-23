@@ -379,7 +379,7 @@ public class SystemsDaoTest
 
     // Create/fetch a couple of CredInfo records
     String hostLoginUser = loginUserMapping1;
-    CredentialInfo credInfo1 = new CredentialInfo(sys.getSeqId(), tenantName, tapisUser, sysId, hostLoginUser,
+    CredentialInfo credInfo1 = new CredentialInfo(sys.getSeqId(), tenantName, sysId, tapisUser, hostLoginUser,
                                                   loginUserMapping1, isStaticFalse, CredentialInfo.SyncStatus.PENDING);
     dao.createCredInfo(rOwner1, credInfo1);
     CredentialInfo ci = dao.getCredInfo(tenantName, sysId, tapisUser, isStaticFalse);
@@ -392,7 +392,7 @@ public class SystemsDaoTest
     String loginUser = dao.getLoginUserMapping(tenantName, sysId, tapisUser, isStaticFalse);
     Assert.assertEquals(loginUser, loginUserMapping1);
     hostLoginUser = owner2;
-    CredentialInfo credInfo2 = new CredentialInfo(sys.getSeqId(), tenantName, tapisUser, sysId, hostLoginUser,
+    CredentialInfo credInfo2 = new CredentialInfo(sys.getSeqId(), tenantName, sysId, tapisUser, hostLoginUser,
                                                   null, isStaticTrue, CredentialInfo.SyncStatus.PENDING);
     dao.createCredInfo(rOwner1, credInfo2);
     ci = dao.getCredInfo(credInfo2);

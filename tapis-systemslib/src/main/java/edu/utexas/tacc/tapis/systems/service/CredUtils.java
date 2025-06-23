@@ -1,5 +1,9 @@
 package edu.utexas.tacc.tapis.systems.service;
 
+import java.io.BufferedReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,6 +17,8 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.BadRequestException;
 import com.google.gson.JsonObject;
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvValidationException;
 import okhttp3.*;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -44,6 +50,8 @@ import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.*;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+
+import static edu.utexas.tacc.tapis.systems.model.CredInfoFSM.CREDINFO_INIT_TMP_CSV_FILE;
 import static edu.utexas.tacc.tapis.systems.model.Credential.*;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.NOT_FOUND;
@@ -781,38 +789,132 @@ public class CredUtils
    */
     void credInfoInit(ResourceRequestUser rUser)
   {
+    int totalCount = dao.getCredInfoTotalCount();
+    // Log startup and current number of records
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_START", totalCount));
+
+    // Read list of records from a file and create in PENDING state.
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_BEGIN"));
+    int numRecords = credInfoInitFromFile(rUser);
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_END", numRecords));
+
     // Mark all IN_PROGRESS records as FAILED
-    String failMsg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_MARK_FAILED_BEGIN", rUser);
+    String failMsg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED_BEGIN");
     log.info(failMsg);
-    int numRecords = dao.credInfoMarkInProgressAsFailed(rUser, failMsg);
-    String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_MARK_FAILED_END", rUser, numRecords);
-    log.info(msg);
+    numRecords = dao.credInfoMarkInProgressAsFailed(rUser, failMsg);
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED_END", numRecords));
 
     // Remove any deleted records
     // Any deleted records can be removed at start-up. No other threads might be in the process of changing the state.
-    msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_REMOVE_DELETED_BEGIN", rUser);
-    log.info(msg);
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_REMOVE_DELETED_BEGIN"));
     numRecords = dao.credInfoRemoveDeletedRecords();
-    msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_REMOVE_DELETED_END", rUser, numRecords);
-    log.info(msg);
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_REMOVE_DELETED_END", numRecords));
 
     // Create records as needed for undeleted systems that have a static effectiveUserId
-    msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_STATIC_BEGIN", rUser);
-    log.info(msg);
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_STATIC_BEGIN"));
     numRecords = dao.credInfoInitStaticSystems();
-    msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_STATIC_END", rUser, numRecords);
-    log.info(msg);
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_STATIC_END", numRecords));
 
     // Update FAILED records to PENDING
-    msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_FAILED_PENDING_BEGIN", rUser);
-    log.info(msg);
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FAILED_PENDING_BEGIN"));
     numRecords = dao.credInfoMarkFailedAsPending(rUser);
-    msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_FAILED_PENDING_END", rUser, numRecords);
-    log.info(msg);
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FAILED_PENDING_END", numRecords));
+    totalCount = dao.getCredInfoTotalCount();
+
+    // Log end and current number of records
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_END", totalCount));
   }
 
   /*
-  */
+   * TODO: Read list of records from a file and create CredInfo records in PENDING state.
+   * Log errors but otherwise ignore them
+   * Look for records in file /tmp/tapis_sys_cred_info_init.csv
+   * Records must have this format:
+   *     tenant,sysId,tapisUser,isStatic, TBD: targetUser? or maybe hostLoginUser?
+   */
+  public int credInfoInitFromFile(ResourceRequestUser rUser)
+  {
+    int retCount = 0;
+    Path filePath = Path.of(CREDINFO_INIT_TMP_CSV_FILE);
+    // If no file then we are done
+    if (!Files.isRegularFile(filePath))
+    {
+      log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_NOFILE", filePath.toString()));
+      return retCount;
+    }
+    try (BufferedReader reader = Files.newBufferedReader(filePath))
+    {
+      CSVReader csvReader = new CSVReader(reader);
+      CredentialInfo credInfo;
+      do
+      {
+        credInfo = csvReadLineAndCreateRecord(rUser, csvReader);
+      }
+      while (credInfo != null);
+    }
+    catch (Exception e)
+    {
+      log.error(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_ERR", e.getMessage()));
+    }
+
+    // TODO Check for file, if not there or empty then log message and return.
+    // TODO Read CSV records from file. If incorrect format log message and continue.
+    return retCount;
+  }
+
+  /*
+   * Use openCSV library to read a line parse the fields
+   * Records must have this format:
+   *     tenant,sysId,targetUser,isStatic,authnMethod
+   */
+  CredentialInfo csvReadLineAndCreateRecord(ResourceRequestUser rUser, CSVReader reader)
+  {
+    String [] nextRecord;
+    CredentialInfo credInfo;
+    try
+    {
+      // Get and parse next line
+      nextRecord = reader.readNext();
+      // If last record processed then return
+      if (nextRecord == null) return null;
+
+      // Extract and validate attributes from the record
+      if (nextRecord.length != 5)
+      {
+        throw new Exception(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_LINE_PARSE_ERR", "Incorrect number of csv fields"));
+      }
+      String tenant = nextRecord[0].trim();
+      String sysId = nextRecord[1].trim();
+      String targetUser = nextRecord[2];
+      boolean isStatic = Boolean.parseBoolean(nextRecord[3].trim());
+      String authnMethod = nextRecord[4].trim(); // Not used, ignore
+      // Fetch the system, we will use the seqId and owner
+      TSystem sys = dao.getSystem(tenant, sysId); // For seqId, owner
+
+      // Compute tapisUser
+      // If the *effectiveUserId* for the system is dynamic then *targetUser* is interpreted as the tapisUser.
+      // If static we use system owner as the tapis user. That is who will most likely have registered the credential.
+      //     In practice, if it was not the owner and the tenant admin, for example, it should not matter since
+      //     anyone using the system will get the credential for the same user.
+      String tapisUser = targetUser;
+      if (isStatic) tapisUser = sys.getOwner();
+      // hostLoginUser and loginUserMapping will need to be synced up later, but that is okay since the
+      //   record is created in PENDING state.
+      String hostLoginUser = "";
+      String loginUserMapping = null;
+      // Create and store the credInfo record
+      credInfo = new CredentialInfo(sys.getSeqId(), tenant, sysId, tapisUser, hostLoginUser, loginUserMapping,
+                                    isStatic, SyncStatus.PENDING);
+      credInfo = dao.createCredInfo(rUser, credInfo);
+    }
+    catch (Exception e)
+    {
+      // On error log message but continue;
+      log.error(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_LINE_ERR", e.getMessage()));
+      credInfo = new CredentialInfo(-1, "", "", "", "", "", true, SyncStatus.FAILED);
+    }
+    return credInfo;
+  }
   /*
    * Given a locked CredentialInfo record in the PENDING state, sync it with SK.
    * If record not in PENDING state then return.
@@ -1747,7 +1849,7 @@ public class CredUtils
     // If no record in DB then create in-memory record and DB record
     if (credInfo == null)
     {
-      credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), tapisUser, sys.getId(), hostLoginUser,
+      credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, hostLoginUser,
                                     loginUserMapping, isStatic, SyncStatus.PENDING);
       credInfo = dao.createCredInfo(rUser, credInfo);
     }
