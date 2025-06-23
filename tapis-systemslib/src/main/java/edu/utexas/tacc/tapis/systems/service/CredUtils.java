@@ -11,9 +11,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.gson.JsonObject;
-import edu.utexas.tacc.tapis.shared.exceptions.TapisSecurityException;
-import edu.utexas.tacc.tapis.shared.exceptions.runtime.TapisRuntimeException;
-import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import okhttp3.*;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -27,9 +24,12 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.security.client.SKClient;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
+import edu.utexas.tacc.tapis.security.client.gen.model.SkSecretVersionMetadata;
 import edu.utexas.tacc.tapis.security.client.model.*;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
+import edu.utexas.tacc.tapis.shared.exceptions.TapisSecurityException;
 import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisSSHAuthException;
+import edu.utexas.tacc.tapis.shared.exceptions.runtime.TapisRuntimeException;
 import edu.utexas.tacc.tapis.shared.s3.S3Connection;
 import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
@@ -39,6 +39,7 @@ import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.Credential;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import edu.utexas.tacc.tapis.systems.model.SystemShare;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
@@ -406,7 +407,7 @@ public class CredUtils
       changeCount = deleteCredential(rUser, system, targetUser, isStaticEffectiveUser);
     }
     // If tapis client exception then log error and convert to TapisException
-    catch (TapisClientException tce)
+    catch (TapisSecurityException tce)
     {
       log.error(tce.toString());
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_CRED_SK_ERROR", rUser, systemId, op.name()), tce);
@@ -488,7 +489,7 @@ public class CredUtils
 // TODO CredInfo    // Use a synchronized method to make sure we have a DB record and in-memory object for the CredInfo record.
 // TODO CredInfo    // If record does not already exist in memory or in DB then create it with status of PENDING
 // TODO CredInfo    // The CredentialInfo record returned is already locked. This ensures we have exclusive access (BUT must unlock)
-// TODO CredInfo    CredentialInfo credInfo = getLockedDBCredInfoRecord(rUser, system, oboUser, hostLoginUser, loginUserMapping, isStatic);
+// TODO CredInfo    CredentialInfo credInfo = getLockedDBCredInfoRecord(rUser, system, oboUser, isStatic, hostLoginUser, loginUserMapping);
     // TODO
     CredentialInfo credInfo = new CredentialInfo(system.getSeqId(), system.getTenant(), oboUser, system.getId(),
                                       hostLoginUser, loginUserMapping, isStatic, CredentialInfo.SyncStatus.PENDING);
@@ -546,7 +547,7 @@ public class CredUtils
    * No checks are done for incoming arguments and the system must exist
    */
   int deleteCredential(ResourceRequestUser rUser, TSystem system, String targetUser, boolean isStatic)
-          throws TapisClientException
+          throws TapisSecurityException
   {
     String oboTenant = rUser.getOboTenantId();
     String oboUser = rUser.getOboUserId();
@@ -1467,10 +1468,12 @@ public class CredUtils
 //      // PASSWORD
 //      if (hasPassword == null)
 //      {
+//        // Attempt to read the secret, if not found (404) that is OK, but any other exception is an SK error.
 //        sReadParms.setKeyType(KeyType.password);
 //        skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);
 //        if (skSecret == null) hasPassword = false;
-//        else {
+//        else
+//        {
 //          dataMap = skSecret.getSecretMap();
 //          if (dataMap == null) hasPassword = false;
 //          else hasPassword = !StringUtils.isBlank(dataMap.get(SK_KEY_PASSWORD));
@@ -1588,7 +1591,7 @@ public class CredUtils
 //   * @return the CredentialInfo record
 //   */
 //  private synchronized CredentialInfo getLockedDBCredInfoRecord(ResourceRequestUser rUser, TSystem sys, String tapisUser,
-//                                                                String hostLoginUser, String loginUserMapping, boolean isStatic)
+//                                                                boolean isStatic, String hostLoginUser, String loginUserMapping)
 //  {
 //    CredentialInfo credInfo;
 //    String key = String.format("%s:%s:%s:%s", sys.getTenant(), sys.getId(), tapisUser, isStatic);
@@ -1624,9 +1627,10 @@ public class CredUtils
    * @param targetUser - User associated with the credential
    * @param isStatic - indicates if effectiveUserId is static or dynamic
    * @return 1 if secrets removed, 0 if no secrets removed
+   * @throws TapisSecurityException on SK error
    */
   private int removeSKSecrets(ResourceRequestUser rUser, TSystem system, String targetUser, boolean isStatic)
-          throws TapisClientException
+          throws TapisSecurityException
   {
     // Set some variables for convenience and clarity
     String oboUser = rUser.getOboUserId();
@@ -1636,48 +1640,55 @@ public class CredUtils
     // Determine targetUserPath for the path to the secret.
     String targetUserPath = getTargetUserSecretPath(targetUser, isStatic);
 
-    // Return 0 if credential does not exist
-    var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
-    // NOTE: For secrets of type "system" setUser value not used in the path, but SK requires that it be set.
-    sMetaParms.setTenant(oboTenant).setUser(oboUser);
-    sMetaParms.setSysId(systemId).setSysUser(targetUserPath);
-    // NOTE: To be sure we know that the secret does not exist we need to check each key type
-    //       By default keyType is sshkey which may not exist
-    boolean secretNotFound = true;
-    sMetaParms.setKeyType(KeyType.password);
-    try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.sshkey);
-    try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.accesskey);
-    try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.token);
-    try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.tmskey);
-    try { sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); secretNotFound = false; }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    if (secretNotFound) return 0;
+    // Surround all SK related code in a try block. Catch any SK errors and throw a TapisSecurityException
+    try
+    {
+      // Return 0 if credential does not exist
+      var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
+      // NOTE: For secrets of type "system" setUser value not used in the path, but SK requires that it be set.
+      sMetaParms.setTenant(oboTenant).setUser(oboUser);
+      sMetaParms.setSysId(systemId).setSysUser(targetUserPath);
+      // NOTE: To be sure we know that the secret does not exist we need to check each key type
+      //       By default keyType is sshkey which may not exist
+      boolean secretNotFound = true;
+      SkSecretVersionMetadata sksm = null;
+      // Attempt to read the secret, if not found (404) that is OK, but any other exception is an SK error.
+      sMetaParms.setKeyType(KeyType.password);
+      try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
+      catch (TapisClientException tce) { if (tce.getCode() != 404 ) throw tce; }
 
-    // Construct basic SK secret parameters and attempt to destroy each type of secret.
-    // If destroy attempt throws an exception then log a message and continue.
-    sMetaParms.setKeyType(KeyType.password);
-    try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.sshkey);
-    try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.accesskey);
-    try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.token);
-    try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
-    catch (Exception e) { log.trace(e.getMessage()); }
-    sMetaParms.setKeyType(KeyType.tmskey);
-    try { sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms); }
-    catch (Exception e) { log.trace(e.getMessage()); }
+      sMetaParms.setKeyType(KeyType.sshkey);
+      try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
+      catch (TapisClientException tce) { if (tce.getCode() != 404 ) throw tce; }
+
+      sMetaParms.setKeyType(KeyType.accesskey);
+      try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
+      catch (TapisClientException tce) { if (tce.getCode() != 404 ) throw tce; }
+
+      sMetaParms.setKeyType(KeyType.token);
+      try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
+      catch (TapisClientException tce) { if (tce.getCode() != 404 ) throw tce; }
+
+      sMetaParms.setKeyType(KeyType.tmskey);
+      try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
+      catch (TapisClientException tce) { if (tce.getCode() != 404 ) throw tce; }
+
+      if (secretNotFound) return 0;
+
+      // Construct basic SK secret parameters and attempt to destroy each type of secret.
+      // If destroy attempt throws an exception then log a message and continue.
+      sMetaParms.setKeyType(KeyType.password);
+      try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
+      sMetaParms.setKeyType(KeyType.sshkey);
+      try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
+      sMetaParms.setKeyType(KeyType.accesskey);
+      try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
+      sMetaParms.setKeyType(KeyType.token);
+      try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
+      sMetaParms.setKeyType(KeyType.tmskey);
+      try {sysUtils.getSKClient(rUser).destroySecretMeta(sMetaParms);} catch (Exception e) { log.trace(e.getMessage()); }
+    }
+    catch ( TapisException | TapisClientException te) { throw new TapisSecurityException(te); }
     return 1;
   }
 
