@@ -85,6 +85,7 @@ public class SystemsServiceImpl implements SystemsService
 
   // Named and typed null values to make it clear what is being passed in to a method
   private static final String nullOwner = null;
+  private static final AuthnMethod nullAuthnMethod = null;
   private static final String nullImpersonationId = null;
   private static final String nullSharedAppCtx = null;
   private static final String nullResourceTenant = null;
@@ -162,7 +163,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Check the systems_cred_info table and perform initial single-threaded synchronization steps.
     // IN_PROGRESS records moved to FAILED, DELETED records removed from data store
-    credUtils.credInfoInit(rUserSvc);
+    credUtils.initCredInfo(rUserSvc);
   }
 
   /**
@@ -366,7 +367,7 @@ public class SystemsServiceImpl implements SystemsService
       if (manageCredentials)
       {
         // Use internal method instead of public API to skip auth and other checks not needed here.
-        // This is createSystem, so isStatic is true so targetUser and hostLoginUser are the eff user id.
+        // This is createSystem, so isStatic is true so credTargetUser and hostLoginUser are the eff user id.
         credUtils.createCredential(rUser, cred, retSystem, effUserId, effUserId, isStaticEffectiveUser, skipCredCheck, op);
       }
     }
@@ -389,7 +390,7 @@ public class SystemsServiceImpl implements SystemsService
       if (manageCredentials)
       {
         // Use private internal method instead of public API to skip auth and other checks not needed here.
-        // Note that we only manageCredentials for the static case and for the static case targetUser=effectiveUserId
+        // Note that we only manageCredentials for the static case and for the static case credTargetUser=effectiveUserId
         try
         {
           // Remove SK records and CredInfo record. Use sys fetched from DB if possible
@@ -428,8 +429,7 @@ public class SystemsServiceImpl implements SystemsService
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException
   {
     String opName = "createChildSystem";
-    TSystem parentSystem = getSystem(rUser, parentId, null, false, false, nullImpersonationId,
-                               nullSharedAppCtx, nullResourceTenant, false);
+    TSystem parentSystem = getSystem(rUser, rUser.getOboTenantId(), parentId);
     if (parentSystem == null)
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CHILD_PARENT_NOT_FOUND", rUser, opName, parentId, childId);
@@ -674,12 +674,9 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Soft delete a system
-   *   - Remove effectiveUser credentials associated with the system.
-   *   - Remove permissions associated with the system.
-   *   - Remove CredInfo records associated with the system
-   *   - Update deleted to true for a system
+   *   - Update deleted to true for the system
    * @param rUser - ResourceRequestUser containing tenant, user and request info
-   * @param systemId - name of system
+   * @param systemId - name of system to delete
    * @return Number of items updated
    *
    * @throws TapisException - for Tapis related exceptions
@@ -710,12 +707,8 @@ public class SystemsServiceImpl implements SystemsService
       log.warn(msg);
       throw new IllegalStateException(msg);
     }
-    // Remove effectiveUser credentials associated with the system
-    // Remove permissions associated with the system
-    // CredInfo record for a static effUser will move to the DELETED state
-    removeSKArtifacts(rUser, system, op);
 
-    // Update deleted attribute
+    // Update deleted attribute for the system
     return updateDeleted(rUser, systemId, op);
   }
 
@@ -723,8 +716,8 @@ public class SystemsServiceImpl implements SystemsService
    * Undelete a system
    *  - Add permissions for owner
    *  - Update deleted to false for a system
-   *  TODO/TBD - re-create CredInfo record if system has static effectiveUserId? mark as PENDING? probably,
-   *                                  but how to sync/track?
+   *  - re-create CredInfo record if system has static effectiveUserId
+   *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @return Number of items updated
@@ -784,15 +777,36 @@ public class SystemsServiceImpl implements SystemsService
     // Give owner files service related permission for root directory
     sysUtils.getSKClient(rUser).grantUserPermission(oboTenant, owner, filesPermSpec);
 
-//    // TODO Create a PENDING record in the CredInfo table
-//    // TODO/TBD: Make sure no record exists??
-//    dao.createCredInfo(rUser, null);// TODO/TBD this one? or use addCredInfoRecordAndLock
-//    credUtils.addCredInfoRecordAndLock(); // TODO/TBD this one? make sure to check for valid transition?
-//                                          //            but this method is currently private, make public?
-//                                          //          or create another CredUtils method that calls addCredInfoRecordAndLock
-//                                          //             look at other cases where we are updating
-//
-    // Update deleted attribute
+    // If staticEffUserId then create a PENDING record in the CredInfo table
+    boolean isStaticEffectiveUser = !APIUSERID_VAR.equals(system.getEffectiveUserId());
+    if (isStaticEffectiveUser)
+    {
+      CredentialInfo credInfo = null;
+      // For static effUser the tapisUser is owner and hostLoginUser is effectiveUserId
+      String tapisUser = system.getOwner();
+      String hostLoginUser = system.getEffectiveUserId();
+      try
+      {
+        // Use a synchronized method to make sure we have a DB record and in-memory object for the CredInfo record.
+        // If record does not already exist in memory or in DB then create it with status of PENDING
+        // The CredentialInfo record returned is already locked. This ensures we have exclusive access (BUT must unlock)
+        credInfo = credUtils.getLockedDBCredInfoRecord(rUser, system, tapisUser, isStaticEffectiveUser, hostLoginUser, null);
+        // Now we have a locked record so no other threads will attempt an update during this update
+        // This is basically the equivalent of a selectForUpdate DB type operation.
+        // Note that this also synchronizes SK operations, which is good. Before this, multiple concurrent SK operations
+        // were possible.
+        // Update status to PENDING. Method will also update syncStatus of in-memory credInfo.
+        credUtils.updateCredentialInfoStatus(rUser, credInfo, CredentialInfo.SyncStatus.PENDING, op.name());
+      }
+      finally
+      {
+        // Unlock the record
+        if (credInfo != null) credInfo.mutex.unlock();
+      }
+
+    }
+
+    // Update deleted attribute for system
     return updateDeleted(rUser, systemId, op);
   }
 
@@ -971,12 +985,12 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Hard delete a system record given the system name.
-   *   - remove artifacts from the Security Kernel
-   *   - delete all CredInfo records for the system
+   * Hard delete a system given the system name.
+   *   - remove permissions associated with the system.
+   *   - remove shareInfo associated with the system.
+   *   - remove all CredInfo records and SK secrets associated with the system
    *   - remove system record from data store
    * NOTE: This is package-private. Only test code should ever use it.
-   * WARNING: This is not thread safe during operations on CredInfo table.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tenant - Tenant containing resources.
@@ -993,20 +1007,23 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(tenant) ||  StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
-    // If system does not exist then 0 changes
+    // If system does not exist then nothing to do, 0 changes
     TSystem system = dao.getSystem(tenant, systemId, true);
     if (system == null) return 0;
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
 
-    // Resolve effectiveUserId if necessary. This becomes the target user for perm and cred
+    // Resolve effectiveUserId
     String resolvedEffectiveUserId = sysUtils.resolveEffectiveUserId(system, rUser.getOboUserId());
-    // Revoke all permissions in SK
+    // Remove permissions associated with the system
     authUtils.revokeAllSKPermissions(rUser, system, resolvedEffectiveUserId);
-    // Delete all CredInfo records associated with the system
-    dao.deleteAllCredInfoRecordsForSystem(tenant, systemId);
-    // Delete the system
+    // Remove shareInfo associated with the system
+    authUtils.deleteAllShareInfo(rUser, system);
+    // Delete all Credentials associated with the system. Moves CredentialInfo records to DELETED state.
+    credUtils.deleteAllCredentialsForSystem(rUser, system, op);
+
+    // Delete the system from the DB
     return dao.hardDeleteSystem(tenant, systemId);
   }
 
@@ -1175,7 +1192,7 @@ public class SystemsServiceImpl implements SystemsService
       AuthnMethod tmpAccMethod = system.getDefaultAuthnMethod();
       // If authnMethod specified then use it instead of default authn method defined for the system.
       if (accMethod != null) tmpAccMethod = accMethod;
-      // Determine targetUser for fetching credential.
+      // Determine credTargetUser for fetching credential.
       //   If static use effectiveUserId, else use oboOrImpersonatedUser
       String credTargetUser;
       if (isStaticEffectiveUser)
@@ -1854,6 +1871,18 @@ public class SystemsServiceImpl implements SystemsService
   // ************************************************************************
 
   /*
+   * Basic getSystem with default options, share info and credentials are NOT fetched.
+   * NOTE: dynamic properties and effectiveUserId are resolved, so this call is not always appropriate within
+   *       service code.
+   */
+  private TSystem getSystem(ResourceRequestUser rUser, String tenant, String sysId)
+        throws TapisException, TapisClientException
+  {
+    String resourceTenant = (rUser.getOboTenantId().equals(tenant)) ? nullResourceTenant : tenant;
+    return getSystem(rUser, sysId, nullAuthnMethod, false, false, nullImpersonationId, nullSharedAppCtx, resourceTenant, false);
+  }
+
+  /*
    * Determine if a system is a child system
    */
   private static boolean isChildSystem(TSystem system)
@@ -1965,8 +1994,7 @@ public class SystemsServiceImpl implements SystemsService
     {
       try
       {
-        TSystem dtnSystem = getSystem(rUser, tSystem1.getDtnSystemId(), null, false, false,
-                         null, null, null, false);
+        TSystem dtnSystem = getSystem(rUser, rUser.getOboTenantId(), tSystem1.getDtnSystemId());
         LibUtils.validateDtnConfig(tSystem1, dtnSystem, errMessages);
       }
       catch (NotAuthorizedException e)
@@ -2196,29 +2224,6 @@ public class SystemsServiceImpl implements SystemsService
       }
     }
     return systemIDs;
-  }
-
-  /**
-   * Remove SK artifacts associated with a System: user credentials, user permissions
-   * No checks are done for incoming arguments and the system must exist
-   * CredInfo record for a static effUser will move to the DELETED state
-   */
-  private void removeSKArtifacts(ResourceRequestUser rUser, TSystem system, SystemOperation op)
-          throws TapisException, TapisClientException
-  {
-    String effectiveUserId = system.getEffectiveUserId();
-    // Resolve effectiveUserId if necessary. This becomes the target user for perm and cred
-    String resolvedEffectiveUserId = sysUtils.resolveEffectiveUserId(system, rUser.getOboUserId());
-
-    // Revoke all permissions in SK
-    authUtils.revokeAllSKPermissions(rUser, system, resolvedEffectiveUserId);
-
-    // Remove credentials associated with the system if system has a static effectiveUserId
-    if (!effectiveUserId.equals(APIUSERID_VAR)) {
-      // Use private internal method instead of public API to skip auth and other checks not needed here.
-      // Remove SK records and CredInfo record
-      credUtils.deleteCredential(rUser, system, resolvedEffectiveUserId, true, op);
-    }
   }
 
   /**

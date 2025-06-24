@@ -171,6 +171,15 @@ public class CredentialInfo
     return String.format("%s:%s:%s:%s", tenant, systemId, tapisUser, isStatic);
   }
 
+  /*
+   * Determine the target user based on the CredentialInfo attributes.
+   */
+  public String getCredTargetUser()
+  {
+    if (isStatic) return hostLoginUser;
+    else return tapisUser;
+  }
+
   /* ********************************************************************** */
   /*                               Accessors                                */
   /* ********************************************************************** */
