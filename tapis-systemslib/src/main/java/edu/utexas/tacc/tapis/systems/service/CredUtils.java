@@ -361,7 +361,7 @@ public class CredUtils
     // If no credentials then we cannot check, treat it as an error
     if (cred == null)
     {
-      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op, systemId, system.getSystemType(),
+      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op.name(), systemId, system.getSystemType(),
               targetUser, authnMethod.name());
       log.info(msg);
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
@@ -483,24 +483,12 @@ public class CredUtils
   void createCredential(ResourceRequestUser rUser, Credential credential, TSystem system, String targetUser,
                         String hostLoginUser, boolean isStatic, boolean skipCredCheck, SystemOperation op)
   {
-    String oboTenant = rUser.getOboTenantId();
     String oboUser = rUser.getOboUserId();
     String loginUserMapping = credential.getLoginUser();
-// TODO CredInfo    // Use a synchronized method to make sure we have a DB record and in-memory object for the CredInfo record.
-// TODO CredInfo    // If record does not already exist in memory or in DB then create it with status of PENDING
-// TODO CredInfo    // The CredentialInfo record returned is already locked. This ensures we have exclusive access (BUT must unlock)
-// TODO CredInfo    CredentialInfo credInfo = getLockedDBCredInfoRecord(rUser, system, oboUser, isStatic, hostLoginUser, loginUserMapping);
-    // TODO
     CredentialInfo credInfo = new CredentialInfo(system.getSeqId(), system.getTenant(), oboUser, system.getId(),
                                       hostLoginUser, loginUserMapping, isStatic, CredentialInfo.SyncStatus.PENDING);
-// TODO CredInfo    // Now we have a locked record so no other threads will attempt an update during this update
-// TODO CredInfo    // This is basically the equivalent of a selectForUpdate DB type operation.
-// TODO CredInfo    // Note that this also synchronizes SK operations, which is good. Before this, multiple concurrent SK operations
-// TODO CredInfo    // were possible.
     try
     {
-// TODO CredInfo      // Update status to IN_PROGRESS. Method will also update syncStatus of in-memory credInfo.
-// TODO CredInfo      updateCredentialInfoStatus(rUser, credInfo, SyncStatus.IN_PROGRESS);
 
       // Write secrets to SK and read from SK to update the in-memory CredentialInfo record
       writeAndSyncCredentialInfoToSK(rUser, credential, credInfo, system, targetUser, isStatic);
@@ -516,12 +504,7 @@ public class CredUtils
         String rawUpdateData = null;
         dao.addUpdateRecord(rUser, system.getId(), op, changeDescription, rawUpdateData);
       }
-// TODO CredInfo      // Update the credInfo record to COMPLETED. Also updates DB.
-// TODO CredInfo      updateCredentialInfoToCompleted(rUser, credInfo);
       // Log successful update
-// TODO CredInfo      String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_SYNC_OK", rUser, credInfo.getTenant(),
-// TODO CredInfo              credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.getLoginUserMapping(), credInfo.isStatic());
-// TODO CredInfo      log.debug(msg);
     }
     catch (TapisSecurityException tse)
     {
@@ -531,15 +514,9 @@ public class CredUtils
             credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.getLoginUserMapping(), credInfo.isStatic(),
             credInfo.getSyncFailCount(), tse.getMessage());
       log.error(msg);
-// TODO CredInfo      // Update the credInfo record to FAILED. Also updates DB.
-// TODO CredInfo      updateCredentialInfoToFailed(rUser, credInfo, tse.getMessage());
       throw new TapisRuntimeException(tse);
     }
-// TODO CredInfo    finally
-// TODO CredInfo    {
-// TODO CredInfo      // Unlock the record
-// TODO CredInfo      credInfo.mutex.unlock();
-    }
+  }
 
   /**
    * Delete a credential.
@@ -553,33 +530,7 @@ public class CredUtils
     String oboUser = rUser.getOboUserId();
     String systemId = system.getId();
     int changeCount;
-//TODO CredInfo    // Use a synchronized method to make sure we have a DB record and in-memory object
-//TODO CredInfo    // If not already in memory or in DB it is created with status of PENDING
-//TODO CredInfo    // The CredentialInfo record returned is already locked. This ensures we have exclusive access
-//TODO CredInfo    CredentialInfo credInfo = getLockedDBCredInfoRecord(rUser, system, oboTenant, systemId, oboUser, isStatic);
-//TODO CredInfo
-//TODO CredInfo    // Now we have a locked record so no other threads will attempt an update during this update
-//TODO CredInfo    // This is basically the equivalent of a selectForUpdate DB type operation.
-//TODO CredInfo    // Note that this also synchronizes SK operations, which is good. Before this, multiple concurrent SK operations
-//TODO CredInfo    // were possible.
-//TODO CredInfo    try
-//TODO CredInfo    {
-//TODO CredInfo      // Update the status to DELETED. NOTE: Method will also update syncStatus of credInfo
-//TODO CredInfo      updateCredentialInfoStatus(rUser, credInfo, SyncStatus.DELETED);
-//TODO CredInfo
-//TODO CredInfo      // Remove secrets from SK
       changeCount = removeSKSecrets(rUser, system, targetUser, isStatic);
-//TODO CredInfo
-//TODO CredInfo      // Log successful update
-//TODO CredInfo      String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_DEL", rUser, credInfo.getTenant(), systemId,
-//TODO CredInfo                                       credInfo.getTapisUser(), credInfo.getLoginUserMapping(), credInfo.isStatic());
-//TODO CredInfo      log.debug(msg);
-//TODO CredInfo    }
-//TODO CredInfo    finally
-//TODO CredInfo    {
-//TODO CredInfo      // Unlock the record
-//TODO CredInfo      credInfo.mutex.unlock();
-//TODO CredInfo    }
     return changeCount;
   }
 
@@ -725,51 +676,6 @@ public class CredUtils
     return c;
   }
 
-// TODO CredInfo
-//  /*-------------------------------------------------------------------------*/
-//  /*                 Methods for SYSTEMS_CRED_INFO table                     */
-//  /*-------------------------------------------------------------------------*/
-//
-//  /**
-//   * Check the systems_cred_info table and update as needed
-//   * NOTE: This method should only be called at startup when there is only a single thread running.
-//   *  - Mark IN_PROGRESS records as FAILED
-//   *  - Remove DELETED records
-//   *  - Create PENDING records as needed for undeleted systems that have a static effectiveUserId
-//   *  - Update FAILED records to PENDING
-//   */
-//    void credInfoInit(ResourceRequestUser rUser)
-//  {
-//    // Mark all IN_PROGRESS records as FAILED
-//    String failMsg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED_BEGIN");
-//    log.info(failMsg);
-//    int numRecords = dao.credInfoMarkInProgressAsFailed(rUser, failMsg);
-//    String msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED_END", numRecords);
-//    log.info(msg);
-//
-//    // Remove any deleted records
-//    // Any deleted records can be removed at start-up. No other threads might be in the process of changing the state.
-//    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_REMOVE_DELETED_BEGIN");
-//    log.info(msg);
-//    numRecords = dao.credInfoRemoveDeletedRecords();
-//    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_REMOVE_DELETED_END", numRecords);
-//    log.info(msg);
-//
-//    // Create records as needed for undeleted systems that have a static effectiveUserId
-//    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_STATIC_BEGIN");
-//    log.info(msg);
-//    numRecords = dao.credInfoInitStaticSystems();
-//    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_STATIC_END", numRecords);
-//    log.info(msg);
-//
-//    // Update FAILED records to PENDING
-//    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FAILED_PENDING_BEGIN");
-//    log.info(msg);
-//    numRecords = dao.credInfoMarkFailedAsPending(rUser);
-//    msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FAILED_PENDING_END", numRecords);
-//    log.info(msg);
-//  }
-
   /*
    * Check to see if TMS is configured. Set flag.
    */
@@ -807,193 +713,6 @@ public class CredUtils
                                        tmsClientSecretMasked));
   }
 
-// ??????????????????????????????????????
-//  /**
-//   * Given the locked in-memory credInfo record update the DB credInfo record.
-//   * Check that transition from current status to new status is allowed.
-//   * WARNING ***** CredInfo object MUST be locked before calling this method ****
-//   */
-//  public void updateCredentialInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
-//  {
-//    // CredInfo must be locked
-//    if (!credInfo.mutex.isLocked())
-//      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser,
-//                                                          "updateCredentialInfo"));
-//
-//    CredentialInfo dbCredInfo = dao.getCredInfo(credInfo);
-//    SyncStatus oldSyncStatus = dbCredInfo.getSyncStatus();
-//    SyncStatus newSyncStatus = credInfo.getSyncStatus();
-//
-//// TODO log some info about the update, especially if status is changing.
-////    String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, oldSyncStatus, newSyncStatus);
-////    log.trace(msg);
-//
-//    // Validate transition from current state to new state
-//    CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
-//    // Update CredInfo attributes
-//    LocalDateTime updated = TapisUtils.getUTCTimeNow();
-//    credInfo.setUpdated(updated.toInstant(ZoneOffset.UTC));
-//    // Persist the update
-//    dao.updateCredInfoRecord(credInfo, updated);
-//  }
-//
-//  /**
-//   * Update CredentialInfo status for in-memory and DB record
-//   * The given locked credInfo object is updated.
-//   * Check that transition from current status to new status is allowed.
-//   * WARNING ***** CredInfo object MUST be locked before calling this method ****
-//   */
-//  public void updateCredentialInfoStatus(ResourceRequestUser rUser, CredentialInfo credInfo, SyncStatus newSyncStatus)
-//  {
-//    // CredInfo must be locked
-//    if (!credInfo.mutex.isLocked())
-//      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser,
-//                                                          "updateCredentialInfoStatus"));
-//
-//    SyncStatus oldSyncStatus = credInfo.getSyncStatus();
-//    String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, oldSyncStatus, newSyncStatus);
-//    log.trace(msg);
-//
-//    // Validate transition from current state to new state
-//    CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
-//    // Update CredInfo attributes
-//    LocalDateTime updated = TapisUtils.getUTCTimeNow();
-//    credInfo.setUpdated(updated.toInstant(ZoneOffset.UTC));
-//    credInfo.setSyncStatus(newSyncStatus);
-//    // Persist the update
-//    dao.updateCredInfoStatus(credInfo, newSyncStatus, updated);
-//  }
-//
-//  /**
-//   * Update CredentialInfo status to FAILED for in-memory and DB record
-//   * Check that transition from current status to new status is allowed.
-//   * WARNING ***** CredInfo object MUST be locked before calling this method ****
-//   */
-//  public void updateCredentialInfoStatusToFailed(ResourceRequestUser rUser, CredentialInfo credInfo)
-//  {
-//    // CredInfo must be locked
-//    if (!credInfo.mutex.isLocked())
-//      throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CREDINFO_NOT_LOCKED_ERROR", rUser,
-//                                                          "updateCredentialInfoStatusToFailed"));
-//    SyncStatus oldSyncStatus = credInfo.getSyncStatus();
-//    SyncStatus newSyncStatus = SyncStatus.FAILED;
-//    String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_UPD_FAILED", rUser, oldSyncStatus);
-//    log.trace(msg);
-//
-//    // Validate transition from current state to new state
-//    CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
-//    // Update CredInfo attributes
-//    LocalDateTime updated = TapisUtils.getUTCTimeNow();
-//    Instant updatedInstant = updated.toInstant(ZoneOffset.UTC);
-//    credInfo.setUpdated(updatedInstant);
-//    credInfo.setSyncFailed(updatedInstant);
-//    credInfo.incrementSyncFailCount();
-//    credInfo.setSyncFailMessage("TODO"); // TODO
-//    credInfo.setSyncStatus(newSyncStatus);
-//
-//    // Persist the update
-//    dao.updateCredInfoRecord(credInfo, updated);
-//  }
-//
-//  /**
-//   * Given CredentialInfo record call SK to get latest data.
-//   * The given locked credInfo object is updated.
-//   * No exceptions are caught.
-//   *
-//   * @param rUser ResourceRequest user, for logging purposes
-//   * @param credInfo CredentialInfo object with current data from Systems server datastore
-//   * @throws TapisClientException - on SK error
-//   * @throws TapisException - on getSKClient error
-//   */
-//  public void readCredInfoFromSK(ResourceRequestUser rUser, CredentialInfo credInfo)
-//        throws TapisClientException, TapisException
-//  {
-//    boolean hasCredentials, hasPassword, hasPkiKeys, hasAccessKey, hasToken, hasTmsKeys;
-//    String tenant = credInfo.getTenant();
-//    String targetUser = credInfo.getTapisUser();
-//    String systemId = credInfo.getSystemId();
-//    boolean isStatic = credInfo.isStatic();
-//    TSystem.AuthnMethod defaultAuthnMethod= dao.getSystemDefaultAuthnMethod(tenant, systemId);
-//    // Construct basic SK secret parameters
-//    // Establish secret type ("system") and secret name ("S1")
-//    var sParms = new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
-//
-//    // Fill in systemId and targetUserPath for the path to the secret.
-//    String targetUserPath = CredUtils.getTargetUserSecretPath(targetUser, isStatic);
-//
-//    // Set tenant, system and user associated with the secret.
-//    // These values are used to build the vault path to the secret.
-//    sParms.setTenant(tenant).setSysId(systemId).setSysUser(targetUserPath);
-//
-//    // NOTE: For secrets of type "system" setUser value not used in the path, but SK requires that it be set.
-//    sParms.setUser(targetUser);
-//
-//    // PASSWORD
-//    sParms.setKeyType(KeyType.password);
-//    SkSecret skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-//    if (skSecret == null) hasPassword = false;
-//    else
-//    {
-//      var dataMap = skSecret.getSecretMap();
-//      if (dataMap == null) hasPassword = false;
-//      else hasPassword = !StringUtils.isBlank(dataMap.get(SK_KEY_PASSWORD));
-//    }
-//    // PKI_KEYS
-//    sParms.setKeyType(KeyType.sshkey);
-//    skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-//    if (skSecret == null) hasPkiKeys = false;
-//    else
-//    {
-//      var dataMap = skSecret.getSecretMap();
-//      if (dataMap == null) hasPkiKeys = false;
-//      else hasPkiKeys = !StringUtils.isBlank(dataMap.get(SK_KEY_PRIVATE_KEY));
-//    }
-//    // ACCESS_KEY
-//    sParms.setKeyType(KeyType.accesskey);
-//    skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-//    if (skSecret == null) hasAccessKey = false;
-//    else
-//    {
-//      var dataMap = skSecret.getSecretMap();
-//      if (dataMap == null) hasAccessKey = false;
-//      else hasAccessKey = !StringUtils.isBlank(dataMap.get(SK_KEY_ACCESS_KEY));
-//    }
-//    // TOKEN
-//    sParms.setKeyType(KeyType.token);
-//    skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-//    if (skSecret == null) hasToken = false;
-//    else
-//    {
-//      var dataMap = skSecret.getSecretMap();
-//      if (dataMap == null) hasToken = false;
-//      else hasToken = !StringUtils.isBlank(dataMap.get(SK_KEY_ACCESS_TOKEN));
-//    }
-//
-//      // TMS_KEYS
-//      sParms.setKeyType(KeyType.tmskey);
-//      skSecret = sysUtils.getSKClient(rUser).readSecret(sParms);
-//      if (skSecret == null) hasTmsKeys = false;
-//      else
-//      {
-//        var dataMap = skSecret.getSecretMap();
-//        if (dataMap == null) hasTmsKeys = false;
-//        else hasTmsKeys = !StringUtils.isBlank(dataMap.get(SK_KEY_TMS_PRIVATE_KEY));
-//      }
-//
-//    // Determine if credentials are registered for defaultAuthnMethod of the system
-//    hasCredentials = (TSystem.AuthnMethod.PASSWORD.equals(defaultAuthnMethod) && hasPassword) ||
-//          (TSystem.AuthnMethod.PKI_KEYS.equals(defaultAuthnMethod) && hasPkiKeys) ||
-//          (TSystem.AuthnMethod.ACCESS_KEY.equals(defaultAuthnMethod) && hasAccessKey) ||
-//          (TSystem.AuthnMethod.TOKEN.equals(defaultAuthnMethod) && hasToken);
-//    // Update the in-memory CredentialInfo object
-//    credInfo.setHasCredentials(hasCredentials);
-//    credInfo.setHasPassword(hasPassword);
-//    credInfo.setHasPkiKeys(hasPkiKeys);
-//    credInfo.setHasAccessKey(hasAccessKey);
-//    credInfo.setHasToken(hasToken);
-//    credInfo.setHasTmsKeys(hasTmsKeys);
-//  }
-// ??????????????????????????????????????
 
   /* **************************************************************************** */
   /*                                Private Methods                               */
@@ -1458,167 +1177,11 @@ public class CredUtils
       }
       // NOTE if necessary handle ssh certificate when supported
 
-      // TODO CredInfo
-//      // Determine CredentialInfo properties that are based on SK and not set above
-//      // For each case check to see if not set above. If not then read from SK and set it
-//      var sReadParms = new SKSecretReadParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
-//      sReadParms.setTenant(tenant).setSysId(systemId).setSysUser(targetUserPath);
-//      sReadParms.setUser(targetUser);
-//      SkSecret skSecret;
-//      // PASSWORD
-//      if (hasPassword == null)
-//      {
-//        // Attempt to read the secret, if not found (404) that is OK, but any other exception is an SK error.
-//        sReadParms.setKeyType(KeyType.password);
-//        skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);
-//        if (skSecret == null) hasPassword = false;
-//        else
-//        {
-//          dataMap = skSecret.getSecretMap();
-//          if (dataMap == null) hasPassword = false;
-//          else hasPassword = !StringUtils.isBlank(dataMap.get(SK_KEY_PASSWORD));
-//        }
-//      }
-//      // PKI_KEYS
-//      if (hasPkiKeys == null)
-//      {
-//        sReadParms.setKeyType(KeyType.sshkey);
-//        skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);
-//        if (skSecret == null) hasPkiKeys = false;
-//        else
-//        {
-//          dataMap = skSecret.getSecretMap();
-//          if (dataMap == null) hasPkiKeys = false;
-//          else hasPkiKeys = !StringUtils.isBlank(dataMap.get(SK_KEY_PRIVATE_KEY));
-//        }
-//      }
-//      // ACCESS_KEY
-//      if (hasAccessKey == null)
-//      {
-//        sReadParms.setKeyType(KeyType.accesskey);
-//        skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);
-//        if (skSecret == null) hasAccessKey = false;
-//        else
-//        {
-//          dataMap = skSecret.getSecretMap();
-//          if (dataMap == null) hasAccessKey = false;
-//          else hasAccessKey = !StringUtils.isBlank(dataMap.get(SK_KEY_ACCESS_KEY));
-//        }
-//      }
-//      // TOKEN
-//      if (hasToken == null)
-//      {
-//        sReadParms.setKeyType(KeyType.token);
-//        skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);
-//        if (skSecret == null) hasToken = false;
-//        else
-//        {
-//          dataMap = skSecret.getSecretMap();
-//          if (dataMap == null) hasToken = false;
-//          else hasToken = !StringUtils.isBlank(dataMap.get(SK_KEY_ACCESS_TOKEN));
-//        }
-//      }
-//      // TMS_KEYS
-//      if (hasTmsKeys == null)
-//      {
-//        sReadParms.setKeyType(KeyType.tmskey);
-//        skSecret = sysUtils.getSKClient(rUser).readSecret(sReadParms);
-//        if (skSecret == null) hasTmsKeys = false;
-//        else
-//        {
-//          dataMap = skSecret.getSecretMap();
-//          if (dataMap == null) hasTmsKeys = false;
-//          else hasTmsKeys = !StringUtils.isBlank(dataMap.get(SK_KEY_TMS_PRIVATE_KEY));
-//        }
-//      }
     }
     catch ( TapisException | TapisClientException te) { throw new TapisSecurityException(te); }
 
-    // TODO CredInfo
-//    // Determine if credentials are registered for defaultAuthnMethod of the system
-//    hasCredentials = (AuthnMethod.PASSWORD.equals(defaultAuthnMethod) && hasPassword) ||
-//            (AuthnMethod.PKI_KEYS.equals(defaultAuthnMethod) && hasPkiKeys) ||
-//            (AuthnMethod.ACCESS_KEY.equals(defaultAuthnMethod) && hasAccessKey) ||
-//            (AuthnMethod.TOKEN.equals(defaultAuthnMethod) && hasToken) ||
-//            (AuthnMethod.TMS_KEYS.equals(defaultAuthnMethod) && hasTmsKeys);
-//
-//    // Update the in-memory CredentialInfo object
-//    credInfo.setHasCredentials(hasCredentials);
-//    credInfo.setHasPassword(hasPassword);
-//    credInfo.setHasPkiKeys(hasPkiKeys);
-//    credInfo.setHasAccessKey(hasAccessKey);
-//    credInfo.setHasToken(hasToken);
-//    credInfo.setHasTmsKeys(hasTmsKeys);
   }
 
-// ?????????????????????????????????????????
-// TODO CredInfo
-//  /**
-//   * Method to get a locked CredInfo record from the global concurrent map.
-//   * If record not already in memory then add it to the global map.
-//   * Synchronizing this is a potential bottleneck, but we do not expect that much activity around updating credentials.
-//   * NOTE: **************************************************************************
-//   * NOTE: All callers must unlock the record when finished with it
-//   * NOTE: **************************************************************************
-//   * @param credInfoFromDB - CredentialInfo record as fetched from DB
-//   * @return the CredentialInfo record or null if no longer in DB
-//   */
-//  public synchronized CredentialInfo getLockedInMemoryCredInfo(CredentialInfo credInfoFromDB)
-//  {
-//    // Make sure it is still in the DB and refresh from DB
-//    CredentialInfo latestCredInfo = dao.getCredInfo(credInfoFromDB);
-//    if (latestCredInfo == null) return null;
-//    String key = credInfoFromDB.createMapKey();
-//    CredentialInfo credInfo = credInfoConcurrentMap.computeIfAbsent(key, s -> latestCredInfo);
-//    credInfo.mutex.lock();
-//    return credInfo;
-//  }
-//
-//  /**
-//   * Synchronized method to ensure a CredentialInfo record is present in the DB and in memory
-//   * To ensure calling thread has exclusive access, the CredentialInfo record is locked before being returned.
-//   *
-//   * Synchronizing this is a potential bottleneck, but we do not expect that much activity around updating credentials.
-//   * NOTE: **************************************************************************
-//   * NOTE: All callers must unlock the record when finished with it
-//   * NOTE: **************************************************************************
-//   * @param rUser - ResourceRequestUser containing tenant, user and request info
-//   * @param sys - Tapis system
-//   * @param tapisUser - Tapis user
-//   * @param hostLoginUser - computed host login user TODO review
-//   * @param loginUserMapping - user mapping from Credential TODO review
-//   * @param isStatic - indicates if effectiveUserId is static or dynamic
-//   * @return the CredentialInfo record
-//   */
-//  private synchronized CredentialInfo getLockedDBCredInfoRecord(ResourceRequestUser rUser, TSystem sys, String tapisUser,
-//                                                                boolean isStatic, String hostLoginUser, String loginUserMapping)
-//  {
-//    CredentialInfo credInfo;
-//    String key = String.format("%s:%s:%s:%s", sys.getTenant(), sys.getId(), tapisUser, isStatic);
-//    // Determine as fast as possible if we already have a record.
-//    if (credInfoConcurrentMap.containsKey(key))
-//    {
-//      // We already have it in memory, lock it and return
-//      credInfo = credInfoConcurrentMap.get(key);
-//      credInfo.mutex.lock();
-//      return credInfo;
-//    }
-//    // We do not already have an in-memory record. Look for record in DB.
-//    credInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStatic);
-//    // If no record in DB then create in-memory record and DB record
-//    if (credInfo == null)
-//    {
-//      credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), tapisUser, sys.getId(), hostLoginUser,
-//                                    loginUserMapping, isStatic, SyncStatus.PENDING);
-//      credInfo = dao.createCredInfo(rUser, credInfo);
-//    }
-//    // We fetched it from the DB or just created it, now add it to the in-memory map, lock it and return
-//    credInfoConcurrentMap.put(key, credInfo);
-//    // Lock the record so calling thread has exclusive access
-//    credInfo.mutex.lock();
-//    return credInfo;
-//  }
-// ?????????????????????????????????????????
 
   /**
    * Remove all secrets from SK for given user, tenant and system
