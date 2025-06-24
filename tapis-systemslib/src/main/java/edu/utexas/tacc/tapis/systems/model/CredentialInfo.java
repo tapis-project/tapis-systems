@@ -102,8 +102,8 @@ public class CredentialInfo
    * Constructor using only required attributes.
    * For initial state of the record.
    */
-  public CredentialInfo(int systemSeqId1, String tenant1, String tapisUser1, String systemId1, String hostLoginUser1,
-                        String loginUserMapping1, boolean isStatic1, SyncStatus syncStatus1)
+  public CredentialInfo(int systemSeqId1, String tenant1, String systemId1, String tapisUser1, boolean isStatic1,
+                        String hostLoginUser1, String loginUserMapping1, SyncStatus syncStatus1)
   {
     systemSeqId = systemSeqId1;
     tenant = tenant1;

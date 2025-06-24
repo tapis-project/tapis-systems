@@ -195,7 +195,6 @@ public class CredUtils
       }
       authnMethod = defaultAuthnMethod;
     }
-// TODO/TBD Should we check and create/update CredentialInfo record as part of this?
     return getCredential(rUser, system, targetUser, authnMethod, isStaticEffectiveUser, null);
   }
 
@@ -903,15 +902,15 @@ public class CredUtils
       String hostLoginUser = "";
       String loginUserMapping = null;
       // Create and store the credInfo record
-      credInfo = new CredentialInfo(sys.getSeqId(), tenant, sysId, tapisUser, hostLoginUser, loginUserMapping,
-                                    isStatic, SyncStatus.PENDING);
+      credInfo = new CredentialInfo(sys.getSeqId(), tenant, sysId, tapisUser, isStatic,
+                                    hostLoginUser, loginUserMapping, SyncStatus.PENDING);
       credInfo = dao.createCredInfo(rUser, credInfo);
     }
     catch (Exception e)
     {
       // On error log message but continue;
       log.error(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_LINE_ERR", e.getMessage()));
-      credInfo = new CredentialInfo(-1, "", "", "", "", "", true, SyncStatus.FAILED);
+      credInfo = new CredentialInfo(-1, "", "", "", true, "", "", SyncStatus.FAILED);
     }
     return credInfo;
   }
@@ -1849,8 +1848,8 @@ public class CredUtils
     // If no record in DB then create in-memory record and DB record
     if (credInfo == null)
     {
-      credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, hostLoginUser,
-                                    loginUserMapping, isStatic, SyncStatus.PENDING);
+      credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStatic,
+                                    hostLoginUser, loginUserMapping, SyncStatus.PENDING);
       credInfo = dao.createCredInfo(rUser, credInfo);
     }
     // We fetched it from the DB or just created it, now add it to the in-memory map, lock it and return
