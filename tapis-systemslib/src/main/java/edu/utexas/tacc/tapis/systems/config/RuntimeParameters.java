@@ -467,7 +467,7 @@ public final class RuntimeParameters implements EmailClientParameters
     parm = inputProperties.getProperty(EnvVar.TAPIS_SUPPORT_EMAIL.getEnvName());
     if (!StringUtils.isBlank(parm)) setSupportEmail(parm);
 
-    // Get the email server port.
+    // Get the maintenance task interval (in minutes).
     parm = inputProperties.getProperty(EnvVar2.TAPIS_SVC_MAINTENANCE_INTERVAL.getEnvName());
     if (StringUtils.isBlank(parm)) setSvcMaintenanceInterval(SystemsServiceImpl.DEFAULT_SVC_MAINT_INTERVAL);
     else

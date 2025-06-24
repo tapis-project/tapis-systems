@@ -226,29 +226,30 @@ public class SystemsServiceImpl implements SystemsService
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException
   {
     SystemOperation op = SystemOperation.create;
+    TSystem retSystem = null; // The system object to return at the end
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (system == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
     log.trace(LibUtils.getMsgAuth("SYSLIB_CREATE_TRACE", rUser, rawData));
 
     // Extract some attributes for convenience and clarity.
     // NOTE: do not do this here for effectiveUserId since it may be ${owner} and only get resolved below.
-    String tenant = system.getTenant();
-    String systemId = system.getId();
-    SystemType systemType = system.getSystemType();
+    String sysTenant = system.getTenant();
+    String sysId = system.getId();
+    SystemType sysType = system.getSystemType();
 
     // ---------------------------- Check inputs ------------------------------------
     // Required system attributes: tenant, id, type, host, defaultAuthnMethod
-    if (StringUtils.isBlank(tenant) || StringUtils.isBlank(systemId) || system.getSystemType() == null ||
+    if (StringUtils.isBlank(sysTenant) || StringUtils.isBlank(sysId) || system.getSystemType() == null ||
         StringUtils.isBlank(system.getHost()) || system.getDefaultAuthnMethod() == null ||
         StringUtils.isBlank(rawData))
     {
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ARG", rUser, systemId));
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ARG", rUser, sysId));
     }
 
     // Check if system already exists
-    if (dao.checkForSystem(tenant, systemId, true))
+    if (dao.checkForSystem(sysTenant, sysId, true))
     {
-      String msg = LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, systemId);
+      String msg = LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, sysId);
       log.warn(msg);
       throw new IllegalStateException(msg);
     }
@@ -283,16 +284,16 @@ public class SystemsServiceImpl implements SystemsService
     boolean manageCredentials = (cred != null && isStaticEffectiveUser);
 
     // ------------------------- Check authorization -------------------------
-    authUtils.checkAuthOwnerKnown(rUser, op, systemId, system.getOwner());
+    authUtils.checkAuthOwnerKnown(rUser, op, sysId, system.getOwner());
 
     // ---------------- Check for reserved names ------------------------
-    checkReservedIds(rUser, systemId);
+    checkReservedIds(rUser, sysId);
 
     // If credentials provided validate constraints and verify credentials
     if (cred != null)
     {
       // Skip check if not LINUX or S3
-      if (!SystemType.LINUX.equals(systemType) && !SystemType.S3.equals(systemType)) skipCredCheck = true;
+      if (!SystemType.LINUX.equals(sysType) && !SystemType.S3.equals(sysType)) skipCredCheck = true;
 
       // static effectiveUser case. Credential must not contain loginUser
       // NOTE: If effectiveUserId is dynamic then request has already been rejected above during
@@ -300,7 +301,7 @@ public class SystemsServiceImpl implements SystemsService
       //       But we include isStaticEffectiveUser here anyway in case that ever changes.
       if (isStaticEffectiveUser && !StringUtils.isBlank(cred.getLoginUser()))
       {
-        String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, systemId);
+        String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, sysId);
         log.warn(msg);
         throw new IllegalArgumentException(msg);
       }
@@ -327,7 +328,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // For LINUX and IRODS, normalize the rootDir.
-    if (SystemType.LINUX.equals(systemType) || SystemType.IRODS.equals(systemType))
+    if (SystemType.LINUX.equals(sysType) || SystemType.IRODS.equals(sysType))
     {
       String normalizedRootDir = PathUtils.getAbsolutePath("/", system.getRootDir()).toString();
       system.setRootDir(normalizedRootDir);
@@ -343,7 +344,7 @@ public class SystemsServiceImpl implements SystemsService
     // Use try/catch to roll back any writes in case of failure.
     boolean itemCreated = false;
     // Consider using a notification instead (jira cic-3071)
-    String filesPermSpec = "files:" + tenant + ":*:" + systemId;
+    String filesPermSpec = "files:" + sysTenant + ":*:" + sysId;
 
     // Get SK client now. If we cannot get this rollback not needed.
     // Note that we still need to call getSKClient each time because it refreshes the svc jwt as needed.
@@ -352,11 +353,13 @@ public class SystemsServiceImpl implements SystemsService
     {
       // ------------------- Make Dao call to persist the system -----------------------------------
       itemCreated = dao.createSystem(rUser, system, updateJsonStr, rawData);
+      // Now that it is in the DB, it will have a seq id and other attributes populated, so fetch it from db.
+      retSystem = dao.getSystem(sysTenant, sysId);
 
       // ------------------- Add permissions -----------------------------
       // Consider using a notification instead (jira cic-3071)
       // Give owner files service related permission for root directory
-      sysUtils.getSKClient(rUser).grantUserPermission(tenant, system.getOwner(), filesPermSpec);
+      sysUtils.getSKClient(rUser).grantUserPermission(sysTenant, retSystem.getOwner(), filesPermSpec);
 
       // ------------------- Store credentials -----------------------------------
       // Store credentials in Security Kernel if cred provided and effectiveUser is static
@@ -364,24 +367,24 @@ public class SystemsServiceImpl implements SystemsService
       {
         // Use internal method instead of public API to skip auth and other checks not needed here.
         // This is createSystem, so isStatic is true so targetUser and hostLoginUser are the eff user id.
-        credUtils.createCredential(rUser, cred, system, effUserId, effUserId, isStaticEffectiveUser, skipCredCheck, op);
+        credUtils.createCredential(rUser, cred, retSystem, effUserId, effUserId, isStaticEffectiveUser, skipCredCheck, op);
       }
     }
     catch (Exception e0)
     {
       // Something went wrong. Attempt to undo all changes and then re-throw the exception
       // Log error
-      String msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ROLLBACK", rUser, systemId, e0.getMessage());
+      String msg = LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ROLLBACK", rUser, sysId, e0.getMessage());
       log.error(msg);
 
       // Rollback
       // Remove system from DB
-      if (itemCreated) try {dao.hardDeleteSystem(tenant, systemId); }
-      catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "hardDelete", e.getMessage()));}
+      if (itemCreated) try {dao.hardDeleteSystem(sysTenant, sysId); }
+      catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, sysId, "hardDelete", e.getMessage()));}
       // Remove perms
       // Consider using a notification instead (jira cic-3071)
-      try { sysUtils.getSKClient(rUser).revokeUserPermission(tenant, system.getOwner(), filesPermSpec);  }
-      catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
+      try { sysUtils.getSKClient(rUser).revokeUserPermission(sysTenant, system.getOwner(), filesPermSpec);  }
+      catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, sysId, "revokePermF1", e.getMessage()));}
       // Remove creds
       if (manageCredentials)
       {
@@ -389,22 +392,23 @@ public class SystemsServiceImpl implements SystemsService
         // Note that we only manageCredentials for the static case and for the static case targetUser=effectiveUserId
         try
         {
-          // Remove SK records and TODO CredInfo record
-          credUtils.deleteCredential(rUser, system, effUserId, isStaticEffectiveUser);
+          // Remove SK records and CredInfo record. Use sys fetched from DB if possible
+          TSystem tmpSys = retSystem == null ? system : retSystem;
+          credUtils.deleteCredential(rUser, tmpSys, effUserId, isStaticEffectiveUser);
         }
         catch (Exception e)
         {
-          log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "deleteCred", e.getMessage()));
+          log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, sysId, "deleteCred", e.getMessage()));
         }
       }
       throw e0;
     }
-    // Update dynamically computed info.
-    SystemShare systemShare = authUtils.getSystemShareInfo(rUser, system.getTenant(), systemId);
-    system.setIsPublic(systemShare.isPublic());
-    system.setSharedWithUsers(systemShare.getUserList());
-    system.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
-    return system;
+    // Update dynamically computed info and return the fully populated TSystem
+    SystemShare systemShare = authUtils.getSystemShareInfo(rUser, sysTenant, sysId);
+    retSystem.setIsPublic(systemShare.isPublic());
+    retSystem.setSharedWithUsers(systemShare.getUserList());
+    retSystem.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
+    return retSystem;
   }
 
   /**
@@ -965,6 +969,7 @@ TODO CredInfo   *   - Remove CredInfo records associated with the system
 TODO CredInfo   *   - delete all CredInfo records for the system
    *   - remove system record from data store
    * NOTE: This is package-private. Only test code should ever use it.
+   * WARNING: This is not thread safe during operations on CredInfo table.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tenant - Tenant containing resources.
