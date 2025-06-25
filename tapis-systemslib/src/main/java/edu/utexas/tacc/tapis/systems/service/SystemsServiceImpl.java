@@ -159,7 +159,7 @@ public class SystemsServiceImpl implements SystemsService
     rUserSvc = new ResourceRequestUser(authUser);
 
     // Create the maintenanceTask runnable
-    maintenanceTask = new MaintenanceTask(rUserSvc);
+    maintenanceTask = new MaintenanceTask(rUserSvc, dao, credUtils);
 
     // Check the systems_cred_info table and perform initial single-threaded synchronization steps.
     // IN_PROGRESS records moved to FAILED, DELETED records removed from data store

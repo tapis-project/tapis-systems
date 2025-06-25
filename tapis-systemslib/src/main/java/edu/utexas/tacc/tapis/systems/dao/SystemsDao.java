@@ -57,9 +57,9 @@ public interface SystemsDao
 
   String getParent(String tenantId, String sysId);
 
-  TSystem getSystem(String tenantId, String id) throws TapisException;
+  TSystem getSystem(String tenantId, String id);
 
-  TSystem getSystem(String tenantId, String id, boolean includeDeleted) throws TapisException;
+  TSystem getSystem(String tenantId, String id, boolean includeDeleted);
 
   int getSystemsCount(ResourceRequestUser rUser, String oboUser, List<String> searchList, ASTNode searchAST,
                       List<OrderBy> orderByList, String startAfter, boolean includeDeleted, AuthListType listType,

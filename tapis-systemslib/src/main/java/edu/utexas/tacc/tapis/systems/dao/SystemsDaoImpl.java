@@ -1037,7 +1037,7 @@ public class SystemsDaoImpl implements SystemsDao
    * @throws TapisException - on error
    */
   @Override
-  public TSystem getSystem(String tenantId, String id) throws TapisException
+  public TSystem getSystem(String tenantId, String id)
   {
     return getSystem(tenantId, id, false);
   }
@@ -1046,11 +1046,9 @@ public class SystemsDaoImpl implements SystemsDao
    * getSystem
    * @param id - system name
    * @return System object if found, null if not found
-   * @throws TapisException - on error
    */
   @Override
   public TSystem getSystem(String tenantId, String id, boolean includeDeleted)
-          throws TapisException
   {
     // Initialize result.
     TSystem result = null;
@@ -2231,6 +2229,8 @@ public class SystemsDaoImpl implements SystemsDao
       // NOTE: For static users, tapis_user can be system owner. What about for dynamic users?
       //       Use null? No, because tapis_user is part of the primary key, so for dynamic effectiveUserId
       //       we cannot create CredInfo records as part of the maintenance task.
+      // NOTE: Since this is static effUser, hostLoginUser is the effUser.
+      //       This must be set so that the SK secrets can be read during the sync of the PENDING record.
       // Initialize timestamp to use for created and updated fields.
       LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
       // Insert the records based on the query result
@@ -2241,6 +2241,7 @@ public class SystemsDaoImpl implements SystemsDao
                 .set(SYSTEMS_CRED_INFO.TENANT, r.getTenant())
                 .set(SYSTEMS_CRED_INFO.SYSTEM_ID, r.getId())
                 .set(SYSTEMS_CRED_INFO.TAPIS_USER, r.getOwner())
+                .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, r.getEffectiveUserId())
                 .set(SYSTEMS_CRED_INFO.IS_STATIC, true)
                 .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.PENDING)
                 .set(SYSTEMS_CRED_INFO.SYNC_FAIL_COUNT, 0)

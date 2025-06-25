@@ -17,7 +17,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * Note that we do not make this class fully immutable because we need to keep the in-memory object in sync
  *   with the DB record
  */
-public class CredentialInfo
+public class CredentialInfo implements AutoCloseable
 {
   /* ********************************************************************** */
   /*                               Constants                                */
@@ -81,7 +81,7 @@ public class CredentialInfo
     tenant = tenant1;
     systemId = systemId1;
     tapisUser = tapisUser1;
-    hostLoginUser = hostLoginUser1 == null ? "" : hostLoginUser1;
+    hostLoginUser = hostLoginUser1;
     loginUserMapping = loginUserMapping1;
     isStatic = isStatic1;
     hasCredentials = hasCredentials1;
@@ -111,7 +111,7 @@ public class CredentialInfo
     tapisUser = tapisUser1;
     isStatic = isStatic1;
     loginUserMapping = loginUserMapping1;
-    hostLoginUser = hostLoginUser1 == null ? "" : hostLoginUser1;
+    hostLoginUser = hostLoginUser1;
     hasCredentials = false;
     hasPassword = false;
     hasPkiKeys = false;
@@ -166,7 +166,7 @@ public class CredentialInfo
   /*
    * Construct the key used for the global concurrent map
    */
-  public String createMapKey()
+  public String getMapKey()
   {
     return String.format("%s:%s:%s:%s", tenant, systemId, tapisUser, isStatic);
   }
@@ -179,6 +179,12 @@ public class CredentialInfo
     if (isStatic) return hostLoginUser;
     else return tapisUser;
   }
+
+  /*
+   * On close unlock the mutex
+   */
+  @Override
+  public void close() {mutex.unlock();}
 
   /* ********************************************************************** */
   /*                               Accessors                                */

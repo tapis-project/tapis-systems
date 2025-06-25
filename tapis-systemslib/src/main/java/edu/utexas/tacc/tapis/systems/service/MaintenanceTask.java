@@ -1,27 +1,13 @@
 package edu.utexas.tacc.tapis.systems.service;
 
-import javax.inject.Inject;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
-import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
-import edu.utexas.tacc.tapis.security.client.model.KeyType;
-import edu.utexas.tacc.tapis.security.client.model.SKSecretReadParms;
-import edu.utexas.tacc.tapis.security.client.model.SecretType;
-import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
-import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
-
-import static edu.utexas.tacc.tapis.systems.model.Credential.*;
 
 /*
  * Support maintenance tasks for the Systems service
@@ -39,15 +25,8 @@ public final class MaintenanceTask
   // *********************** Fields *****************************************
   // ************************************************************************
 
-  // Use HK2 to inject singletons
-  @Inject
-  private SystemsDao dao;
-  @Inject
-  private SysUtils sysUtils;
-  @Inject
-  private AuthUtils authUtils;
-  @Inject
-  private CredUtils credUtils;
+  private final SystemsDao dao;
+  private final CredUtils credUtils;
 
   // ResourceRequestUser associated with maintenance task. Should only be used for logging.
   private final ResourceRequestUser rUser;
@@ -56,9 +35,11 @@ public final class MaintenanceTask
   // *********************** Constructors ***********************************
   // ************************************************************************
 
-  public MaintenanceTask(ResourceRequestUser rUser1)
+  public MaintenanceTask(ResourceRequestUser rUser1, SystemsDao dao1, CredUtils credUtils1)
   {
     rUser = rUser1;
+    dao = dao1;
+    credUtils = credUtils1;
   }
 
   /* ********************************************************************** */
@@ -93,7 +74,7 @@ public final class MaintenanceTask
    *  - Mark all FAILED records as PENDING
    *  - For each PENDING record read info from SK and update the cred info table.
    */
-  private void credInfoRunMaintenance() throws TapisException
+  private void credInfoRunMaintenance()
   {
     // Mark all FAILED records as PENDING
     credInfoMarkFailedAsPending();
@@ -115,7 +96,7 @@ public final class MaintenanceTask
     for (CredentialInfo credInfo: failedRecords)
     {
       // Get the shared record in the locked state (WE MUST UNLOCK)
-      CredentialInfo lockedCredInfo = credUtils.getLockedInMemoryCredInfo(credInfo);
+      CredentialInfo lockedCredInfo = credUtils.getLockedDBCredInfoRecord(rUser, credInfo);
       // null means it got removed from DB before we got to it, so we must skip
       if (lockedCredInfo == null) continue;
       // Make sure still in FAILED, if not then skip
@@ -137,7 +118,6 @@ public final class MaintenanceTask
    */
   private void credInfoSyncPendingRecords()
   {
-    String opName = "credInfoSyncPendingRecords";
     // Find all PENDING records
     List<CredentialInfo> pendingRecords = dao.credInfoGetRecordsInStatus(SyncStatus.PENDING);
     log.info(LibUtils.getMsg("SYSLIB_MAINT_CREDINFO_PENDING_COUNT", pendingRecords.size()));
@@ -145,7 +125,7 @@ public final class MaintenanceTask
     for (CredentialInfo credInfo: pendingRecords)
     {
       // Get the shared record in the locked state (WE MUST UNLOCK)
-      CredentialInfo lockedCredInfo = credUtils.getLockedInMemoryCredInfo(credInfo);
+      CredentialInfo lockedCredInfo = credUtils.getLockedDBCredInfoRecord(rUser, credInfo);
       // null means it got removed from DB before we got to it, so we must skip
       if (lockedCredInfo == null) continue;
       // Make sure still in PENDING, if not then skip
