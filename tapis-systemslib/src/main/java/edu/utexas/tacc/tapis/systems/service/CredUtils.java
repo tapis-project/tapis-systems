@@ -847,10 +847,13 @@ public class CredUtils
     log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_END", totalCount, credInfoConcurrentMap.size()));
   }
 
-  /*TODO review
+  /*
    * Use openCSV library to read a line parse the fields
    * Records must have this format:
    *     tenant,sysId,targetUser,isStatic,authnMethod
+   * Strings are trimmed before being processed.
+   * TODO Make sure we don't overwrite any data for existing records. Otherwise might wipe out loginUserMapping values.
+   *      Maybe check and if record is already in DB then simple mark it as PENDING?
    */
   CredentialInfo csvReadLineAndCreateRecord(ResourceRequestUser rUser, CSVReader reader)
   {
@@ -870,7 +873,7 @@ public class CredUtils
       }
       String tenant = nextRecord[0].trim();
       String sysId = nextRecord[1].trim();
-      String credTargetUser = nextRecord[2];
+      String credTargetUser = nextRecord[2].trim();
       boolean isStatic = Boolean.parseBoolean(nextRecord[3].trim());
       String authnMethod = nextRecord[4].trim(); // Not used, ignore
       // Fetch the system, we will use the seqId and owner
