@@ -76,14 +76,20 @@ public final class MaintenanceTask
    */
   private void credInfoRunMaintenance()
   {
+    // Log number of records in DB and concurrentMap size
+    int totalCount = dao.getCredInfoTotalCount();
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_MAINT_BEGIN", totalCount, credUtils.credInfoCache.getSize()));
     // Mark all FAILED records as PENDING
     credInfoMarkFailedAsPending();
     // For each PENDING record read info from SK and update the cred info table.
-    credInfoSyncPendingRecords();
+    credUtils.syncPendingRecords(rUser);
+    // Log number of records in DB and concurrentMap size
+    totalCount = dao.getCredInfoTotalCount();
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_MAINT_END", totalCount, credUtils.credInfoCache.getSize()));
   }
 
-  /**
-   * Multithreaded update of all CredInfo FAILED records to PENDING
+  /*
+   * Thread safe update of all CredInfo FAILED records to PENDING
    */
   private void credInfoMarkFailedAsPending()
   {
@@ -105,35 +111,6 @@ public final class MaintenanceTask
       {
         // Update status to PENDING
         credUtils.updateCredentialInfoStatus(rUser, lockedCredInfo, SyncStatus.PENDING, opName);
-      }
-      finally
-      {
-        lockedCredInfo.mutex.unlock();
-      }
-    }
-  }
-
-  /**
-   * Multithreaded sync of all CredInfo PENDING records with SK
-   */
-  private void credInfoSyncPendingRecords()
-  {
-    // Find all PENDING records
-    List<CredentialInfo> pendingRecords = dao.credInfoGetRecordsInStatus(SyncStatus.PENDING);
-    log.info(LibUtils.getMsg("SYSLIB_MAINT_CREDINFO_PENDING_COUNT", pendingRecords.size()));
-    // For each record sync it with SK
-    for (CredentialInfo credInfo: pendingRecords)
-    {
-      // Get the shared record in the locked state (WE MUST UNLOCK)
-      CredentialInfo lockedCredInfo = credUtils.getLockedDBCredInfoRecord(rUser, credInfo);
-      // null means it got removed from DB before we got to it, so we must skip
-      if (lockedCredInfo == null) continue;
-      // Make sure still in PENDING, if not then skip
-      if (!SyncStatus.PENDING.equals(lockedCredInfo.getSyncStatus())) { continue; }
-      try
-      {
-        // Sync record with SK. After this call the record will be in the COMPLETED or FAILED state.
-        credUtils.syncPendingCredentialInfo(rUser, lockedCredInfo);
       }
       finally
       {

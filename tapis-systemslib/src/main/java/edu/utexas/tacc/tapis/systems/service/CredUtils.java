@@ -27,7 +27,6 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
-import edu.utexas.tacc.tapis.security.client.SKClient;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
 import edu.utexas.tacc.tapis.security.client.model.*;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecretVersionMetadata;
@@ -41,6 +40,7 @@ import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.shared.utils.PathUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
+import edu.utexas.tacc.tapis.systems.caches.CredInfoCache;
 import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
@@ -65,10 +65,6 @@ public class CredUtils
   // Local logger.
   private static final Logger log = LoggerFactory.getLogger(CredUtils.class);
 
-  // Connection timeouts for SKClient
-  private static final int SK_READ_TIMEOUT_MS = 20000;
-  private static final int SK_CONN_TIMEOUT_MS = 20000;
-
   // NotAuthorizedException requires a Challenge, although it serves no purpose here.
   private static final String NO_CHALLENGE = "NoChallenge";
   // String used to detect that credentials are the problem when creating an SSH connection
@@ -78,30 +74,6 @@ public class CredUtils
   public static final String TMS_GETPUBKEY_ENDPOINT = "v1/tms/pubkeys/creds/retrieve";
   public static final String TMS_KEY_TYPE_RSA = "rsa";
   public static final String TMS_KEY_TYPE_ED25519 = "ed25519";
-
-  // Permission constants
-  // Permspec format for systems is "system:<tenant>:<perm_list>:<system_id>"
-  public static final String PERM_SPEC_TEMPLATE = "system:%s:%s:%s";
-  private static final String PERM_SPEC_PREFIX = "system";
-  // Sets of individual permissions, for convenience
-  private static final Set<Permission> ALL_PERMS = new HashSet<>(Set.of(Permission.READ, Permission.MODIFY, Permission.EXECUTE));
-  private static final Set<Permission> READMODIFY_PERMS = new HashSet<>(Set.of(Permission.READ, Permission.MODIFY));
-  private static final Set<Permission> EXECUTE_PERMS = new HashSet<>(Set.of(Permission.EXECUTE));
-
-  // Sharing constants
-  private static final String OP_SHARE = "share";
-  private static final String OP_UNSHARE = "unShare";
-  private static final Set<String> PUBLIC_USER_SET = Collections.singleton(SKClient.PUBLIC_GRANTEE); // "~public"
-  private static final String SYS_SHR_TYPE = "system";
-
-  // Named and typed null values to make it clear what is being passed in to a method
-  private static final String nullOwner = null;
-  private static final String nullImpersonationId = null;
-  private static final String nullSharedAppCtx = null;
-  private static final String nullTargetUser = null;
-  private static final Set<Permission> nullPermSet = null;
-  private static final SystemShare nullSystemShare = null;
-  private static final Credential nullCredential = null;
 
   // ************************************************************************
   // *********************** Fields *****************************************
@@ -120,13 +92,16 @@ public class CredUtils
 
   // Use HK2 to inject singletons
   @Inject
+  CredInfoCache credInfoCache;
+  @Inject
   private SystemsDao dao;
   @Inject
   private SysUtils sysUtils;
 
-  // Global ConcurrentHashMap.newKeySet() used as in-memory records for CredentialInfo objects that
+  // TODO Use credInfoCache in place of concurrent map
+  // TODO Global ConcurrentHashMap.newKeySet() used as in-memory records for CredentialInfo objects that
   //   also serve as mutexes.
-  Map<String,CredentialInfo> credInfoConcurrentMap = new ConcurrentHashMap<>();
+//  Map<String,CredentialInfo> credInfoConcurrentMap = new ConcurrentHashMap<>();
 
   // Wrapper for TmsKeys info.
   public record TmsKeys(String privateKey, String publicKey, String fingerprint) {}
@@ -811,9 +786,9 @@ public class CredUtils
    */
   void initCredInfo(ResourceRequestUser rUser)
   {
+    // Log startup and number of records in DB
     int totalCount = dao.getCredInfoTotalCount();
-    // Log startup and current number of records
-    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_START", totalCount, credInfoConcurrentMap.size()));
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_BEGIN", totalCount));
 
     // Read list of records from a file and create in PENDING state.
     log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_BEGIN"));
@@ -841,22 +816,30 @@ public class CredUtils
     log.info(LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_FAILED_PENDING_BEGIN", rUser));
     numRecords = dao.credInfoMarkFailedAsPending(rUser);
     log.info(LibUtils.getMsgAuth("SYSLIB_CREDINFO_INIT_FAILED_PENDING_END", rUser, numRecords));
-    totalCount = dao.getCredInfoTotalCount();
 
-    // Log end and current number of records
-    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_END", totalCount, credInfoConcurrentMap.size()));
+    // TODO: Should we process all PENDING records here? a limited number, maybe?
+    //       otherwise it would not happen until first run of maint task, which by default is 60 minutes.
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_SYNC_PENDING_BEGIN"));
+    syncPendingRecords(rUser);
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_SYNC_PENDING_END", credInfoCache.getSize() /* TODO credInfoConcurrentMap.size()*/));
+
+    // Log end and current number of records in table
+    totalCount = dao.getCredInfoTotalCount();
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_END", totalCount));
   }
 
   /*
-   * Use openCSV library to read a line parse the fields
+   * Use openCSV library to read a line parse the fields.
+   * One record per line, a CredentialInfo object is created from the data.
+   * If a CredentialInfo object already exists in the DB then status is updated to PENDING,
+   * else a new CredentialInfo record is persisted to the DB.
    * Records must have this format:
    *     tenant,sysId,targetUser,isStatic,authnMethod
-   * Strings are trimmed before being processed.
-   * TODO Make sure we don't overwrite any data for existing records. Otherwise might wipe out loginUserMapping values.
-   *      Maybe check and if record is already in DB then simple mark it as PENDING?
+   * Strings are trimmed before being processed
    */
   CredentialInfo csvReadLineAndCreateRecord(ResourceRequestUser rUser, CSVReader reader)
   {
+    String opName = "csvReadLineAndCreateRecord";
     String [] nextRecord;
     CredentialInfo credInfo;
     try
@@ -904,10 +887,27 @@ public class CredUtils
         tapisUser = sys.getOwner();
         hostLoginUser = sys.getEffectiveUserId();
       }
-      // Create and store the credInfo record
-      credInfo = new CredentialInfo(sys.getSeqId(), tenant, sysId, tapisUser, isStatic,
-                                    hostLoginUser, loginUserMapping, SyncStatus.PENDING);
-      credInfo = dao.createCredInfo(rUser, credInfo);
+      // Create a credInfo record with status PENDING
+      credInfo = new CredentialInfo(sys.getSeqId(), tenant, sysId, tapisUser, isStatic, hostLoginUser,
+                                    loginUserMapping, SyncStatus.PENDING);
+      CredentialInfo credInfoDB = dao.getCredInfo(credInfo);
+      // If no record in DB then create one, otherwise update status to PENDING.
+      if (credInfoDB == null)
+      {
+        credInfo = dao.createCredInfo(rUser, credInfo);
+      }
+      else
+      {
+        try
+        {
+          credInfo = getLockedDBCredInfoRecord(rUser, credInfoDB);
+          updateCredentialInfoStatus(rUser, credInfo, SyncStatus.PENDING, opName);
+        }
+        finally
+        {
+          if (credInfo != null) credInfo.mutex.unlock();
+        }
+      }
     }
     catch (Exception e)
     {
@@ -1013,8 +1013,10 @@ public class CredUtils
     // Make sure it is still in the DB and refresh from DB
     CredentialInfo latestCredInfo = dao.getCredInfo(credInfoFromDB);
     if (latestCredInfo == null) return null;
-    String key = credInfoFromDB.getMapKey();
-    CredentialInfo credInfo = credInfoConcurrentMap.computeIfAbsent(key, s -> latestCredInfo);
+ //TODO/TBD   String key = credInfoFromDB.getMapKey();
+    CredentialInfo credInfo = credInfoCache.getCredentialInfo(credInfoFromDB.getTenant(), credInfoFromDB.getSystemId(),
+                                                              credInfoFromDB.getTapisUser(), credInfoFromDB.isStatic());
+                                                                     // TODO/TBD credInfoConcurrentMap.computeIfAbsent(key, s -> latestCredInfo);
     credInfo.mutex.lock();
     return credInfo;
   }
@@ -1057,6 +1059,35 @@ public class CredUtils
             credInfo.getTapisUser(), credInfo.isStatic(), credInfo.getSyncFailCount(), e.getMessage(), op);
       log.error(msg);
       updateCredentialInfo(rUser, credInfo, op);
+    }
+  }
+
+  /*
+   * Thread-safe sync of all CredInfo PENDING records with SK
+   */
+  void syncPendingRecords(ResourceRequestUser rUser)
+  {
+    // Find all PENDING records
+    List<CredentialInfo> pendingRecords = dao.credInfoGetRecordsInStatus(SyncStatus.PENDING);
+    log.info(LibUtils.getMsg("SYSLIB_MAINT_CREDINFO_PENDING_COUNT", pendingRecords.size()));
+    // For each record sync it with SK
+    for (CredentialInfo credInfo: pendingRecords)
+    {
+      // Get the shared record in the locked state (WE MUST UNLOCK)
+      CredentialInfo lockedCredInfo = getLockedDBCredInfoRecord(rUser, credInfo);
+      // null means it got removed from DB before we got to it, so we must skip
+      if (lockedCredInfo == null) continue;
+      // Make sure still in PENDING, if not then skip
+      if (!SyncStatus.PENDING.equals(lockedCredInfo.getSyncStatus())) { continue; }
+      try
+      {
+        // Sync record with SK. After this call the record will be in the COMPLETED or FAILED state.
+        syncPendingCredentialInfo(rUser, lockedCredInfo);
+      }
+      finally
+      {
+        lockedCredInfo.mutex.unlock();
+      }
     }
   }
 
@@ -1231,7 +1262,7 @@ public class CredUtils
   private Credential verifyConnection(ResourceRequestUser rUser, String op, TSystem tSystem1, AuthnMethod authnMethod,
                                       Credential cred, String hostLoginUser)
   {
-    log.info(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_START", rUser, tSystem1.getId(), tSystem1.getSystemType(),
+    log.info(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_BEGIN", rUser, tSystem1.getId(), tSystem1.getSystemType(),
              hostLoginUser, authnMethod));
     Credential retCred;
     String systemId = tSystem1.getId();
