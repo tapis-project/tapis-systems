@@ -790,7 +790,7 @@ public class SystemsServiceImpl implements SystemsService
         // Use a synchronized method to make sure we have a DB record and in-memory object for the CredInfo record.
         // If record does not already exist in memory or in DB then create it with status of PENDING
         // The CredentialInfo record returned is already locked. This ensures we have exclusive access (BUT must unlock)
-        credInfo = credUtils.getLockedDBCredInfoRecord(rUser, system, tapisUser, isStaticEffectiveUser, hostLoginUser, null);
+        credInfo = credUtils.getLockedDBCredInfoRecord(rUser, system, tapisUser, hostLoginUser, isStaticEffectiveUser, null);
         // Now we have a locked record so no other threads will attempt an update during this update
         // This is basically the equivalent of a selectForUpdate DB type operation.
         // Note that this also synchronizes SK operations, which is good. Before this, multiple concurrent SK operations

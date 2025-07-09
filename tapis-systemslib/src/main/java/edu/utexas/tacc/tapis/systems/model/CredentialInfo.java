@@ -47,9 +47,9 @@ public class CredentialInfo implements AutoCloseable
   private final String tenant; // Name of tenant associated with the credential
   private final String systemId; // Name of the system associated with the credential
   private final String tapisUser; // Tapis user associated with the credential
+  private final String hostLoginUser; // Username used when connecting to host
   private final boolean isStatic; // Indicates if record is for the static or dynamic effectiveUserId case.
 
-  private String hostLoginUser; // Username used when connecting to host
   private String loginUserMapping; // For case of dynamic effectiveUserId, this is an optional mapping to host login user.
   private boolean hasCredentials; // Indicates if system has credentials registered for the current defaultAuthnMethod
   private boolean hasPassword; // Indicates if credentials for PASSWORD have been registered.
@@ -102,16 +102,16 @@ public class CredentialInfo implements AutoCloseable
    * Constructor using only required attributes.
    * For initial state of the record.
    */
-  public CredentialInfo(int systemSeqId1, String tenant1, String systemId1, String tapisUser1, boolean isStatic1,
-                        String hostLoginUser1, String loginUserMapping1, SyncStatus syncStatus1)
+  public CredentialInfo(int systemSeqId1, String tenant1, String systemId1, String tapisUser1, String hostLoginUser1,
+                        boolean isStatic1, String loginUserMapping1, SyncStatus syncStatus1)
   {
     systemSeqId = systemSeqId1;
     tenant = tenant1;
     systemId = systemId1;
     tapisUser = tapisUser1;
+    hostLoginUser = hostLoginUser1;
     isStatic = isStatic1;
     loginUserMapping = loginUserMapping1;
-    hostLoginUser = hostLoginUser1;
     hasCredentials = false;
     hasPassword = false;
     hasPkiKeys = false;
@@ -148,7 +148,7 @@ public class CredentialInfo implements AutoCloseable
 //--  sync_failed TIMESTAMP WITHOUT TIME ZONE,
 //--  sync_fail_count INTEGER NOT NULL DEFAULT 0,
 //--  sync_fail_message TEXT,
-//--    PRIMARY KEY (tenant, system_id, tapis_user, is_static)
+//--    PRIMARY KEY (tenant, system_id, tapis_user, host_login_user, is_static)
 
 //  /**
 //   * Constructor for jOOQ with input parameter matching order of columns in DB
@@ -193,10 +193,8 @@ public class CredentialInfo implements AutoCloseable
   public String getTenant() { return tenant; }
   public String getSystemId() { return systemId; }
   public String getTapisUser() { return tapisUser; }
-  public boolean isStatic() { return isStatic; }
-
   public String getHostLoginUser() { return hostLoginUser; }
-  public void setHostLoginUser(String s) { hostLoginUser = s; }
+  public boolean isStatic() { return isStatic; }
 
   public String getLoginUserMapping() { return loginUserMapping; }
   public void setLoginUserMapping(String s) { loginUserMapping = s; }

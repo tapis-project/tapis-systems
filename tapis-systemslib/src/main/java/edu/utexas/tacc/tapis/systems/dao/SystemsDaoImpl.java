@@ -1755,15 +1755,13 @@ public class SystemsDaoImpl implements SystemsDao
       DSLContext db = DSL.using(conn);
       // Values to use for created, updated: timestamp
       LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
-      // hostLoginUser must not be null
-      String hostLoginUser = credInfo.getHostLoginUser() == null ? "" : credInfo.getHostLoginUser();
       // Create the record in the main table.
       SystemsCredInfoRecord record = db.insertInto(SYSTEMS_CRED_INFO)
               .set(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID, credInfo.getSystemSeqId())
               .set(SYSTEMS_CRED_INFO.TENANT, credInfo.getTenant())
               .set(SYSTEMS_CRED_INFO.SYSTEM_ID, credInfo.getSystemId())
               .set(SYSTEMS_CRED_INFO.TAPIS_USER, credInfo.getTapisUser())
-              .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, hostLoginUser)
+              .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, credInfo.getHostLoginUser())
               .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, credInfo.getLoginUserMapping())
               .set(SYSTEMS_CRED_INFO.CREATED, utcNow)
               .set(SYSTEMS_CRED_INFO.UPDATED, utcNow)
@@ -1789,7 +1787,7 @@ public class SystemsDaoImpl implements SystemsDao
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
       log.trace(LibUtils.getMsg("SYSLIB_CREDINFO_DB_CREATE", credInfo.getTenant(), credInfo.getSystemId(),
-            credInfo.getTapisUser(), credInfo.isStatic(), credInfo.getLoginUserMapping()));
+            credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(), credInfo.getLoginUserMapping()));
     }
     catch (Exception e)
     {
@@ -1809,7 +1807,7 @@ public class SystemsDaoImpl implements SystemsDao
    * getCredentialInfo given attributes of primary key
    */
   @Override
-  public CredentialInfo getCredInfo(String tenantId, String sysId, String tapisUser, boolean isStatic)
+  public CredentialInfo getCredInfo(String tenantId, String sysId, String tapisUser, String hostLoginUser, boolean isStatic)
   {
     // Initialize result.
     CredentialInfo credInfo = null;
@@ -1822,7 +1820,8 @@ public class SystemsDaoImpl implements SystemsDao
       DSLContext db = DSL.using(conn);
       SystemsCredInfoRecord r = db.selectFrom(SYSTEMS_CRED_INFO)
               .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
-                     SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic)).fetchOne();
+                     SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(hostLoginUser),
+                     SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic)).fetchOne();
       if (r == null) return null;
       else credInfo = getCredentialInfoFromRecord(r);
 
@@ -1848,7 +1847,8 @@ public class SystemsDaoImpl implements SystemsDao
   @Override
   public CredentialInfo getCredInfo(CredentialInfo credInfo)
   {
-    return getCredInfo(credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic());
+    return getCredInfo(credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(),
+                       credInfo.getHostLoginUser(), credInfo.isStatic());
   }
 
   /**
@@ -1898,12 +1898,12 @@ public class SystemsDaoImpl implements SystemsDao
    * Delete CredInfo record given tenant, systemId, tapis user and isStatic
    */
   @Override
-  public void deleteCredInfo(String tenantId, String sysId, String tapisUser, boolean isStatic)
+  public void deleteCredInfo(String tenantId, String sysId, String tapisUser, String hostLoginUser, boolean isStatic)
   {
     // If anything missing throw an exception. These values make up the primary key
-    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
+    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser) || StringUtils.isBlank(hostLoginUser))
     {
-      throw new TapisRuntimeException(LibUtils.getMsg("SYSLIB_CREDINFO_NULL_PK", tenantId, sysId, tapisUser));
+      throw new TapisRuntimeException(LibUtils.getMsg("SYSLIB_CREDINFO_NULL_PK", tenantId, sysId, tapisUser, hostLoginUser));
     }
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1913,7 +1913,8 @@ public class SystemsDaoImpl implements SystemsDao
       DSLContext db = DSL.using(conn);
       db.deleteFrom(SYSTEMS_CRED_INFO)
               .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
-                      SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
+                      SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(hostLoginUser),
+                      SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
               .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -1940,7 +1941,8 @@ public class SystemsDaoImpl implements SystemsDao
     {
       throw new TapisRuntimeException(LibUtils.getMsg("SYSLIB_CREDINFO_NULL"));
     }
-    deleteCredInfo(credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic());
+    deleteCredInfo(credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.getHostLoginUser(),
+                   credInfo.isStatic());
   }
 
   /**
@@ -2046,17 +2048,15 @@ public class SystemsDaoImpl implements SystemsDao
     Instant syncFailedI = credInfo.getSyncFailed();
     LocalDateTime syncFailedLDT =
           syncFailedI == null ? null : LocalDateTime.ofInstant(credInfo.getSyncFailed(), ZoneOffset.UTC);
-    // hostLoginUser must not be null
-    String hostLoginUser = credInfo.getHostLoginUser() == null ? "" : credInfo.getHostLoginUser();
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
     try
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
+      // NOTE: Primary key is (tenant, systemId, tapisUser, hostLoginUser, isStatic)
       db.update(SYSTEMS_CRED_INFO)
-            .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, hostLoginUser)
+            .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, credInfo.getHostLoginUser())
             .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, credInfo.getLoginUserMapping())
             .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, credInfo.hasCredentials())
             .set(SYSTEMS_CRED_INFO.IS_STATIC, credInfo.isStatic())
@@ -2073,6 +2073,7 @@ public class SystemsDaoImpl implements SystemsDao
             .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                   SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
                   SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
+                  SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(credInfo.getHostLoginUser()),
                   SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
             .execute();
       // Close out and commit
@@ -2102,13 +2103,14 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
+      // NOTE: Primary key is (tenant, systemId, tapisUser, hostLoginUser, isStatic)
       db.update(SYSTEMS_CRED_INFO)
             .set(SYSTEMS_CRED_INFO.SYNC_STATUS, newSyncStatus)
             .set(SYSTEMS_CRED_INFO.UPDATED, updated)
             .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                   SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
                   SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
+                  SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(credInfo.getHostLoginUser()),
                   SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
             .execute();
       // Close out and commit
@@ -2139,13 +2141,14 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
+      // NOTE: Primary key is (tenant, systemId, tapisUser, hostLoginUser, isStatic)
       db.update(SYSTEMS_CRED_INFO)
             .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.COMPLETED)
             .set(SYSTEMS_CRED_INFO.UPDATED, TapisUtils.getUTCTimeNow())
             .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                     SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
                     SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
+                    SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(credInfo.getHostLoginUser()),
                     SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
             .execute();
 
