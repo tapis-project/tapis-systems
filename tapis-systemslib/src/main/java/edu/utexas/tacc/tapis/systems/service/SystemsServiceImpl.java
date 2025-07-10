@@ -162,7 +162,11 @@ public class SystemsServiceImpl implements SystemsService
     maintenanceTask = new MaintenanceTask(rUserSvc, dao, credUtils);
 
     // Check the systems_cred_info table and perform initial single-threaded synchronization steps.
-    // IN_PROGRESS records moved to FAILED, DELETED records removed from data store
+    // - (optional) read data from file and create PENDING CredInfo records.
+    // - Mark IN_PROGRESS as FAILED
+    // - Create PENDING records as needed for undeleted systems that have static effectiveUserId
+    // - Mark FAILED as PENDING
+    // - Process PENDING
     credUtils.initCredInfo(rUserSvc);
   }
 
@@ -368,7 +372,7 @@ public class SystemsServiceImpl implements SystemsService
       {
         // Use internal method instead of public API to skip auth and other checks not needed here.
         // This is createSystem, so isStatic is true so credTargetUser and hostLoginUser are the eff user id.
-        credUtils.createCredential(rUser, cred, retSystem, effUserId, effUserId, isStaticEffectiveUser, skipCredCheck, op);
+        credUtils.createCredential(rUser, cred, retSystem, effUserId, isStaticEffectiveUser, effUserId, skipCredCheck, op);
       }
     }
     catch (Exception e0)
@@ -727,7 +731,8 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public int undeleteSystem(ResourceRequestUser rUser, String systemId)
-          throws TapisException, IllegalArgumentException, TapisClientException {
+          throws TapisException, IllegalArgumentException, TapisClientException
+  {
     SystemOperation op = SystemOperation.undelete;
     // ---------------------------- Check inputs ------------------------------------
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -781,31 +786,14 @@ public class SystemsServiceImpl implements SystemsService
     boolean isStaticEffectiveUser = !APIUSERID_VAR.equals(system.getEffectiveUserId());
     if (isStaticEffectiveUser)
     {
-      CredentialInfo credInfo = null;
-      // For static effUser the tapisUser is owner and hostLoginUser is effectiveUserId
+      // Static. Use owner for tapisUser. hostLoginUser is always the static effUserId.
       String tapisUser = system.getOwner();
       String hostLoginUser = system.getEffectiveUserId();
-      try
-      {
-        // Use a synchronized method to make sure we have a DB record and in-memory object for the CredInfo record.
-        // If record does not already exist in memory or in DB then create it with status of PENDING
-        // The CredentialInfo record returned is already locked. This ensures we have exclusive access (BUT must unlock)
-        credInfo = credUtils.getLockedDBCredInfoRecord(rUser, system, tapisUser, hostLoginUser, isStaticEffectiveUser, null);
-        // Now we have a locked record so no other threads will attempt an update during this update
-        // This is basically the equivalent of a selectForUpdate DB type operation.
-        // Note that this also synchronizes SK operations, which is good. Before this, multiple concurrent SK operations
-        // were possible.
-        // Update status to PENDING. Method will also update syncStatus of in-memory credInfo.
-        credUtils.updateCredentialInfoStatus(rUser, credInfo, CredentialInfo.SyncStatus.PENDING, op.name());
-      }
-      finally
-      {
-        // Unlock the record
-        if (credInfo != null) credInfo.mutex.unlock();
-      }
-
+      CredentialInfo credInfo = credUtils.createPendingCredInfoRecord(rUser, system, tapisUser, isStaticEffectiveUser,
+                                                                      hostLoginUser, op.name());
+      // Sync up the CredInfo record with SK
+      credUtils.syncPendingCredInfo(rUser, credInfo);
     }
-
     // Update deleted attribute for system
     return updateDeleted(rUser, systemId, op);
   }

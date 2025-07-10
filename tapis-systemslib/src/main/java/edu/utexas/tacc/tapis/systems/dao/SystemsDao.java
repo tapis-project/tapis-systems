@@ -85,13 +85,13 @@ public interface SystemsDao
 
   int getCredInfoTotalCount();
 
-  CredentialInfo getCredInfo(String tenantId, String systemId, String tapisUser, String hostLoginUser, boolean isStatic);
+  CredentialInfo getCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic);
 
   CredentialInfo getCredInfo(CredentialInfo credInfo);
 
   List<CredentialInfo> getCredInfoRecordsForSystem(String tenantId, String systemId);
 
-  void deleteCredInfo(String tenantId, String systemId, String tapisUser, String hostLoginUser, boolean isStatic);
+  void deleteCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic);
 
   void deleteCredInfoRecord(CredentialInfo credInfo);
 
@@ -105,17 +105,15 @@ public interface SystemsDao
 
   String getLoginUserMapping(String tenantId, String id, String tapisUser, boolean isStatic);
 
-  int credInfoMarkInProgressAsFailed(ResourceRequestUser rUser, String failMsg);
+  int credInfoMarkAllInProgressAsFailed(ResourceRequestUser rUser, String failMsg);
 
-  int credInfoMarkFailedAsPending(ResourceRequestUser rUser);
+  int credInfoMarkAllFailedAsPending(ResourceRequestUser rUser);
 
   void credInfoMarkAsComplete(CredentialInfo credInfo);
 
   List<CredentialInfo> credInfoGetRecordsInStatus(CredentialInfo.SyncStatus status);
 
-  int credInfoInitStaticSystems();
-
-  int credInfoRemoveDeletedRecords();
+  int credInfoCreatePendingForStaticSystems();
 
   /* ********************************************************************** */
   /*                             Scheduler Profiles                         */

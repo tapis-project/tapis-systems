@@ -76,16 +76,16 @@ public final class MaintenanceTask
    */
   private void credInfoRunMaintenance()
   {
-    // Log number of records in DB and concurrentMap size
+    // Log start
     int totalCount = dao.getCredInfoTotalCount();
-    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_MAINT_BEGIN", totalCount, credUtils.credInfoCache.getSize()));
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_MAINT_BEGIN", totalCount));
     // Mark all FAILED records as PENDING
     credInfoMarkFailedAsPending();
     // For each PENDING record read info from SK and update the cred info table.
-    credUtils.syncPendingRecords(rUser);
-    // Log number of records in DB and concurrentMap size
+    credUtils.syncPendingCredInfoRecords(rUser);
+    // Log end
     totalCount = dao.getCredInfoTotalCount();
-    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_MAINT_END", totalCount, credUtils.credInfoCache.getSize()));
+    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_MAINT_END", totalCount));
   }
 
   /*
@@ -107,15 +107,15 @@ public final class MaintenanceTask
       if (lockedCredInfo == null) continue;
       // Make sure still in FAILED, if not then skip
       if (!SyncStatus.FAILED.equals(lockedCredInfo.getSyncStatus())) { continue; }
-      try
-      {
+//      try
+//      {
         // Update status to PENDING
-        credUtils.updateCredentialInfoStatus(rUser, lockedCredInfo, SyncStatus.PENDING, opName);
-      }
-      finally
-      {
-        lockedCredInfo.mutex.unlock();
-      }
+        credUtils.updateCredInfoStatus(rUser, lockedCredInfo, SyncStatus.PENDING, opName);
+// TODO remove      }
+//      finally
+//      {
+//        lockedCredInfo.mutex.unlock();
+//      }
     }
   }
 }

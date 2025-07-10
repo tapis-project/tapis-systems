@@ -2,7 +2,6 @@ package edu.utexas.tacc.tapis.systems.model;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
-import java.util.concurrent.locks.ReentrantLock;
 
 /*
  * Class representing metadata for credentials stored in the Security Kernel.
@@ -17,7 +16,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * Note that we do not make this class fully immutable because we need to keep the in-memory object in sync
  *   with the DB record
  */
-public class CredentialInfo implements AutoCloseable
+public class CredentialInfo
 {
   /* ********************************************************************** */
   /*                               Constants                                */
@@ -31,17 +30,13 @@ public class CredentialInfo implements AutoCloseable
   //--      PENDING - Record requires synchronization (Initial state)
   //--      IN_PROGRESS - Systems service is in the process of synchronizing the record
   //--      FAILED - Synchronization failed.
-  //--      DELETED - Record marked as deleted, but not yet removed from DB. Could potentially get re-created.
   //--      COMPLETED - Synchronization completed successfully.
-  public enum SyncStatus {PENDING, IN_PROGRESS, FAILED, DELETED, COMPLETED}
+  public enum SyncStatus {PENDING, IN_PROGRESS, FAILED, COMPLETED}
 
   /* ********************************************************************** */
   /*                                 Fields                                 */
   /* ********************************************************************** */
 
-  // Mutex for locking record during an update
-  // set fairness to true, meaning under contention, locks favor granting access to the longest-waiting thread.
-  public final ReentrantLock mutex = new ReentrantLock(true);
   // Attributes that are part of primary key can be final, they must be provided upon construction
   private final int systemSeqId; // Sequence id associated with the system id
   private final String tenant; // Name of tenant associated with the credential
@@ -102,8 +97,8 @@ public class CredentialInfo implements AutoCloseable
    * Constructor using only required attributes.
    * For initial state of the record.
    */
-  public CredentialInfo(int systemSeqId1, String tenant1, String systemId1, String tapisUser1, String hostLoginUser1,
-                        boolean isStatic1, String loginUserMapping1, SyncStatus syncStatus1)
+  public CredentialInfo(int systemSeqId1, String tenant1, String systemId1, String tapisUser1, boolean isStatic1,
+                        String hostLoginUser1, String loginUserMapping1, SyncStatus syncStatus1)
   {
     systemSeqId = systemSeqId1;
     tenant = tenant1;
@@ -180,12 +175,6 @@ public class CredentialInfo implements AutoCloseable
     else return tapisUser;
   }
 
-  /*
-   * On close unlock the mutex
-   */
-  @Override
-  public void close() {mutex.unlock();}
-
   /* ********************************************************************** */
   /*                               Accessors                                */
   /* ********************************************************************** */
@@ -226,14 +215,14 @@ public class CredentialInfo implements AutoCloseable
   public String getSyncFailMessage() { return syncFailMessage; }
   public void setSyncFailMessage(String s) { syncFailMessage = s; }
 
-  @Schema(type = "string")
+//TODO needed?  @Schema(type = "string")
   public Instant getSyncFailed() { return syncFailed; }
   public void setSyncFailed(Instant t) { syncFailed = t; }
 
-  @Schema(type = "string")
+//TODO needed?   @Schema(type = "string")
   public Instant getCreated() { return created; }
 
-  @Schema(type = "string")
+//TODO needed?   @Schema(type = "string")
   public Instant getUpdated() { return updated; }
   public void setUpdated(Instant t) { updated = t; }
 }

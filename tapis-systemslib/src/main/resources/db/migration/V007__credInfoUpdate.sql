@@ -16,7 +16,7 @@
 -- Rename column login_user to login_user_mapping to better describe meaning.
 -- Remove the NOT NULL constraint on the login_user_mapping column since now we will have records even if there
 --    is no mapping.
--- Change primary key from (tenant, system_id, tapis_user) to (tenant, system_id, tapis_user, host_login_user, is_static)
+-- Change primary key from (tenant, system_id, tapis_user) to (tenant, system_id, tapis_user, is_static)
 --    since that is what makes a record unique
 --
 -- Add new columns:
@@ -61,7 +61,7 @@
 --    sync_fail_message TEXT,
 --    created    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
 --    updated    TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
---    PRIMARY KEY (tenant, system_id, tapis_user, host_login_user, is_static)
+--    PRIMARY KEY (tenant, system_id, tapis_user, is_static)
 --);
 --
 -- Rename table
@@ -97,7 +97,7 @@ ALTER TABLE systems_cred_info ADD COLUMN IF NOT EXISTS sync_fail_message TEXT;
 -- Drop existing primary key
 ALTER TABLE systems_cred_info DROP CONSTRAINT systems_login_user_pkey;
 -- Create new primary key
-ALTER TABLE systems_cred_info ADD primary key (tenant, system_id, tapis_user, host_login_user, is_static);
+ALTER TABLE systems_cred_info ADD primary key (tenant, system_id, tapis_user, is_static);
 
 -- Since all existing entries are dynamic with a login user mapping, the host_login_user is the login_user_mapping.
 -- The WHERE clause ensures we are idempotent and do not attempt to set a NOT NULL column to null.

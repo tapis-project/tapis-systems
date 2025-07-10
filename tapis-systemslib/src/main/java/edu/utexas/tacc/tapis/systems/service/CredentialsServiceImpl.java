@@ -27,7 +27,6 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
  * Service level methods for System credentials.
  *   Uses Dao layer and other service library classes to perform all top level service operations.
  * Annotate as an hk2 Service so that default scope for Dependency Injection is singleton
- * TODO manage CredInfo records
  */
 @Service
 public class CredentialsServiceImpl
@@ -218,7 +217,6 @@ public class CredentialsServiceImpl
    * <p>
    * The result includes the attribute *authnMethod* indicating the authentication method associated with
    * the returned credentials.
-   *  TODO/TBD - sync CredInfo record
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
@@ -373,7 +371,8 @@ public class CredentialsServiceImpl
     // For Globus type system credentials both the target user and host login user are set to userName.
     // When connecting to Globus there is no username directly set. Username is used when storing the credentials in SK.
     boolean skipCheck = true; // We never check when generating globus tokens
-    credUtils.createCredential(rUser, credential, system, credTargetUser, credTargetUser, isStaticEffectiveUser, skipCheck, op);
+    String hostLoginUser = credTargetUser;
+    credUtils.createCredential(rUser, credential, system, credTargetUser, isStaticEffectiveUser, hostLoginUser, skipCheck, op);
   }
 
   // ************************************************************************

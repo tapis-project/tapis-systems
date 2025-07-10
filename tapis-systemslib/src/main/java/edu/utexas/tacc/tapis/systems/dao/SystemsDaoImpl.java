@@ -1807,7 +1807,7 @@ public class SystemsDaoImpl implements SystemsDao
    * getCredentialInfo given attributes of primary key
    */
   @Override
-  public CredentialInfo getCredInfo(String tenantId, String sysId, String tapisUser, String hostLoginUser, boolean isStatic)
+  public CredentialInfo getCredInfo(String tenantId, String sysId, String tapisUser, boolean isStatic)
   {
     // Initialize result.
     CredentialInfo credInfo = null;
@@ -1820,8 +1820,7 @@ public class SystemsDaoImpl implements SystemsDao
       DSLContext db = DSL.using(conn);
       SystemsCredInfoRecord r = db.selectFrom(SYSTEMS_CRED_INFO)
               .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
-                     SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(hostLoginUser),
-                     SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic)).fetchOne();
+                     SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser), SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic)).fetchOne();
       if (r == null) return null;
       else credInfo = getCredentialInfoFromRecord(r);
 
@@ -1847,8 +1846,7 @@ public class SystemsDaoImpl implements SystemsDao
   @Override
   public CredentialInfo getCredInfo(CredentialInfo credInfo)
   {
-    return getCredInfo(credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(),
-                       credInfo.getHostLoginUser(), credInfo.isStatic());
+    return getCredInfo(credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic());
   }
 
   /**
@@ -1898,12 +1896,12 @@ public class SystemsDaoImpl implements SystemsDao
    * Delete CredInfo record given tenant, systemId, tapis user and isStatic
    */
   @Override
-  public void deleteCredInfo(String tenantId, String sysId, String tapisUser, String hostLoginUser, boolean isStatic)
+  public void deleteCredInfo(String tenantId, String sysId, String tapisUser, boolean isStatic)
   {
     // If anything missing throw an exception. These values make up the primary key
-    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser) || StringUtils.isBlank(hostLoginUser))
+    if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
     {
-      throw new TapisRuntimeException(LibUtils.getMsg("SYSLIB_CREDINFO_NULL_PK", tenantId, sysId, tapisUser, hostLoginUser));
+      throw new TapisRuntimeException(LibUtils.getMsg("SYSLIB_CREDINFO_NULL_PK", tenantId, sysId, tapisUser));
     }
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
@@ -1913,8 +1911,7 @@ public class SystemsDaoImpl implements SystemsDao
       DSLContext db = DSL.using(conn);
       db.deleteFrom(SYSTEMS_CRED_INFO)
               .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
-                      SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser),SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(hostLoginUser),
-                      SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
+                      SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser), SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
               .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -1941,8 +1938,7 @@ public class SystemsDaoImpl implements SystemsDao
     {
       throw new TapisRuntimeException(LibUtils.getMsg("SYSLIB_CREDINFO_NULL"));
     }
-    deleteCredInfo(credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.getHostLoginUser(),
-                   credInfo.isStatic());
+    deleteCredInfo(credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic());
   }
 
   /**
@@ -1962,10 +1958,9 @@ public class SystemsDaoImpl implements SystemsDao
    * In SYSTEMS_CRED_INFO table, Update all IN_PROGRESS cred info records to FAILED state
    */
   @Override
-  public int credInfoMarkInProgressAsFailed(ResourceRequestUser rUser, String failMsg)
+  public int credInfoMarkAllInProgressAsFailed(ResourceRequestUser rUser, String failMsg)
   {
     // First check that transition is valid. If not valid then throw runtime exception
-//    transition = "NoSuchTransition"; // TODO temp, for testing
     CredInfoFSM.checkForAllowedTransition(rUser, SyncStatus.IN_PROGRESS, SyncStatus.FAILED);
     int numRecords = 0;
     // Values to use for update: timestamp, fail message
@@ -2004,7 +1999,7 @@ public class SystemsDaoImpl implements SystemsDao
    * In SYSTEMS_CRED_INFO table, Mark all FAILED records as PENDING
    */
   @Override
-  public int credInfoMarkFailedAsPending(ResourceRequestUser rUser)
+  public int credInfoMarkAllFailedAsPending(ResourceRequestUser rUser)
   {
     // First check that transition is valid. If not valid then throw runtime exception
     CredInfoFSM.checkForAllowedTransition(rUser, SyncStatus.FAILED, SyncStatus.PENDING);
@@ -2073,7 +2068,6 @@ public class SystemsDaoImpl implements SystemsDao
             .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                   SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
                   SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
-                  SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(credInfo.getHostLoginUser()),
                   SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
             .execute();
       // Close out and commit
@@ -2103,14 +2097,13 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      // NOTE: Primary key is (tenant, systemId, tapisUser, hostLoginUser, isStatic)
+      // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
       db.update(SYSTEMS_CRED_INFO)
             .set(SYSTEMS_CRED_INFO.SYNC_STATUS, newSyncStatus)
             .set(SYSTEMS_CRED_INFO.UPDATED, updated)
             .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                   SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
                   SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
-                  SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(credInfo.getHostLoginUser()),
                   SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
             .execute();
       // Close out and commit
@@ -2141,14 +2134,13 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      // NOTE: Primary key is (tenant, systemId, tapisUser, hostLoginUser, isStatic)
+      // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
       db.update(SYSTEMS_CRED_INFO)
             .set(SYSTEMS_CRED_INFO.SYNC_STATUS, SyncStatus.COMPLETED)
             .set(SYSTEMS_CRED_INFO.UPDATED, TapisUtils.getUTCTimeNow())
             .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                     SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
                     SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
-                    SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(credInfo.getHostLoginUser()),
                     SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
             .execute();
 
@@ -2208,7 +2200,7 @@ public class SystemsDaoImpl implements SystemsDao
    * Records are created in the PENDING state
    */
   @Override
-  public int credInfoInitStaticSystems()
+  public int credInfoCreatePendingForStaticSystems()
   {
     int numRecords = 0;
     // ------------------------- Call SQL ----------------------------
@@ -2270,46 +2262,15 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   /**
-   * In SYSTEMS_CRED_INFO table, remove all records marked as DELETED
-   */
-  @Override
-  public int credInfoRemoveDeletedRecords()
-  {
-    int numRecords = 0;
-    // ------------------------- Call SQL ----------------------------
-    Connection conn = null;
-    try
-    {
-      conn = getConnection();
-      DSLContext db = DSL.using(conn);
-      numRecords = db.deleteFrom(SYSTEMS_CRED_INFO)
-              .where(SYSTEMS_CRED_INFO.SYNC_STATUS.eq(SyncStatus.DELETED)).execute();
-      // Close out and commit
-      LibUtils.closeAndCommitDB(conn, null, null);
-    }
-    catch (Exception e)
-    {
-      // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_DELETE_FAILURE", "SYSTEMS_CRED_INFO");
-    }
-    finally
-    {
-      // Always return the connection back to the connection pool.
-      LibUtils.finalCloseDB(conn);
-    }
-    return numRecords;
-  }
-
-  /** TODO Update for CredInfo changes
    * getLoginUser
    * Given a System Id and a tapisUser get the mapping to the loginUser if the map table has an entry.
    * If there is no mapping return null
-   * @param id - system name
+   * @param sysId - system name
    * @param tapisUser - Tapis username
    * @return loginUser or null if no mapping
    */
   @Override
-  public String getLoginUserMapping(String tenantId, String id, String tapisUser, boolean isStatic)
+  public String getLoginUserMapping(String tenantId, String sysId, String tapisUser, boolean isStatic)
   {
     // Initialize result.
     String loginUserMapping = null;
@@ -2323,7 +2284,7 @@ public class SystemsDaoImpl implements SystemsDao
       DSLContext db = DSL.using(conn);
       // Run the sql
       loginUserMapping = db.selectFrom(SYSTEMS_CRED_INFO)
-          .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(id),
+          .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
                  SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser), SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
           .fetchOne(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING);
       // Close out and commit
@@ -2332,7 +2293,7 @@ public class SystemsDaoImpl implements SystemsDao
     catch (Exception e)
     {
       // Rollback transaction and throw an exception
-      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "System_login_user_mapping", tenantId, id, e.getMessage());
+      LibUtils.rollbackDB(conn, e,"DB_SELECT_NAME_ERROR", "System_login_user_mapping", tenantId, sysId, e.getMessage());
     }
     finally
     {
