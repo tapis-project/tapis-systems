@@ -3375,7 +3375,7 @@ public class SystemsDaoImpl implements SystemsDao
     LocalDateTime syncFailedLDT = r.getSyncFailed();
     Instant syncFailedI = syncFailedLDT == null ? null : syncFailedLDT.toInstant(ZoneOffset.UTC);
     return new CredentialInfo(r.getSystemSeqId(), r.getTenant(), r.getSystemId(), r.getTapisUser(),
-            r.getHostLoginUser(), r.getLoginUserMapping(), r.getIsStatic(), r.getHasCredentials(), r.getHasPassword(),
+            r.getIsStatic(), r.getHostLoginUser(), r.getLoginUserMapping(), r.getHasCredentials(), r.getHasPassword(),
             r.getHasPkiKeys(), r.getHasAccessKey(), r.getHasToken(), r.getHasTmsKeys(), r.getSyncStatus(),
             r.getSyncFailCount(), r.getSyncFailMessage(), syncFailedI,
             r.getCreated().toInstant(ZoneOffset.UTC), r.getUpdated().toInstant(ZoneOffset.UTC));

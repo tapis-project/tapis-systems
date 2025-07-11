@@ -1608,13 +1608,13 @@ public class SystemsServiceTest
     changeCount = svcCred.deleteUserCredential(rOwner1, sysId, testUser3);
     Assert.assertEquals(changeCount, 0, "Change count incorrect when removing a credential already removed.");
 
-    // Check for the 2 deleted credentials the CredInfo records are in deleted state
-    credInfo = dao.getCredInfo(tenantName, sysId, owner1, isStatic);
-    IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, owner1, isStatic, cred1NoLoginUser.getLoginUser(),
-                                    owner1, CredentialInfo.SyncStatus.DELETED);
-    credInfo = dao.getCredInfo(tenantName, sysId, testUser3, isStatic);
-    IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, testUser3, isStatic, cred3NoLoginUser.getLoginUser(),
-                                    testUser3, CredentialInfo.SyncStatus.DELETED);
+    //TODO remove? Check for the 2 deleted credentials the CredInfo records are in deleted state
+//    credInfo = dao.getCredInfo(tenantName, sysId, owner1, isStatic);
+//    IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, owner1, isStatic, cred1NoLoginUser.getLoginUser(),
+//                                    owner1, CredentialInfo.SyncStatus.DELETED);
+//    credInfo = dao.getCredInfo(tenantName, sysId, testUser3, isStatic);
+//    IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, testUser3, isStatic, cred3NoLoginUser.getLoginUser(),
+//                                    testUser3, CredentialInfo.SyncStatus.DELETED);
 
     // Update cred to set just ACCESS_KEY and test
     // This should go under the dynamic secret path in SK

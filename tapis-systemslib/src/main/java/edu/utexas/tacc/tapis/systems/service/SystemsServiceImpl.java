@@ -718,9 +718,8 @@ public class SystemsServiceImpl implements SystemsService
 
   /**
    * Undelete a system
-   *  - Add permissions for owner
-   *  - Update deleted to false for a system
-   *  - re-create CredInfo record if system has static effectiveUserId
+   *  - Add file permissions for owner
+   *  - Update deleted to false for the system
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
@@ -782,18 +781,6 @@ public class SystemsServiceImpl implements SystemsService
     // Give owner files service related permission for root directory
     sysUtils.getSKClient(rUser).grantUserPermission(oboTenant, owner, filesPermSpec);
 
-    // If staticEffUserId then create a PENDING record in the CredInfo table
-    boolean isStaticEffectiveUser = !APIUSERID_VAR.equals(system.getEffectiveUserId());
-    if (isStaticEffectiveUser)
-    {
-      // Static. Use owner for tapisUser. hostLoginUser is always the static effUserId.
-      String tapisUser = system.getOwner();
-      String hostLoginUser = system.getEffectiveUserId();
-      CredentialInfo credInfo = credUtils.createPendingCredInfoRecord(rUser, system, tapisUser, isStaticEffectiveUser,
-                                                                      hostLoginUser, op.name());
-      // Sync up the CredInfo record with SK
-      credUtils.syncPendingCredInfo(rUser, credInfo);
-    }
     // Update deleted attribute for system
     return updateDeleted(rUser, systemId, op);
   }

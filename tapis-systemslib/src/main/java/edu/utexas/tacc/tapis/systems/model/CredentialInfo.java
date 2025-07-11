@@ -42,10 +42,10 @@ public class CredentialInfo
   private final String tenant; // Name of tenant associated with the credential
   private final String systemId; // Name of the system associated with the credential
   private final String tapisUser; // Tapis user associated with the credential
-  private final String hostLoginUser; // Username used when connecting to host
   private final boolean isStatic; // Indicates if record is for the static or dynamic effectiveUserId case.
 
-  private String loginUserMapping; // For case of dynamic effectiveUserId, this is an optional mapping to host login user.
+  private final String hostLoginUser; // Username used when connecting to host
+  private final String loginUserMapping; // For case of dynamic effectiveUserId, this is an optional mapping to host login user.
   private boolean hasCredentials; // Indicates if system has credentials registered for the current defaultAuthnMethod
   private boolean hasPassword; // Indicates if credentials for PASSWORD have been registered.
   private boolean hasPkiKeys; // Indicates if credentials for PKI_KEYS have been registered.
@@ -66,8 +66,8 @@ public class CredentialInfo
   /**
    * Simple constructor to populate all attributes
    */
-  public CredentialInfo(int systemSeqId1, String tenant1, String systemId1, String tapisUser1, String hostLoginUser1,
-                        String loginUserMapping1, boolean isStatic1, boolean hasCredentials1, boolean hasPassword1,
+  public CredentialInfo(int systemSeqId1, String tenant1, String systemId1, String tapisUser1, boolean isStatic1,
+                        String hostLoginUser1, String loginUserMapping1, boolean hasCredentials1, boolean hasPassword1,
                         boolean hasPkiKeys1, boolean hasAccessKey1, boolean hasToken1, boolean hasTmsKeys1,
                         SyncStatus syncStatus1, int syncFailCount1, String syncFailMessage1, Instant syncFailed1,
                         Instant created1, Instant updated1)
@@ -76,9 +76,9 @@ public class CredentialInfo
     tenant = tenant1;
     systemId = systemId1;
     tapisUser = tapisUser1;
+    isStatic = isStatic1;
     hostLoginUser = hostLoginUser1;
     loginUserMapping = loginUserMapping1;
-    isStatic = isStatic1;
     hasCredentials = hasCredentials1;
     hasPassword = hasPassword1;
     hasPkiKeys = hasPkiKeys1;
@@ -104,8 +104,8 @@ public class CredentialInfo
     tenant = tenant1;
     systemId = systemId1;
     tapisUser = tapisUser1;
-    hostLoginUser = hostLoginUser1;
     isStatic = isStatic1;
+    hostLoginUser = hostLoginUser1;
     loginUserMapping = loginUserMapping1;
     hasCredentials = false;
     hasPassword = false;
@@ -182,11 +182,11 @@ public class CredentialInfo
   public String getTenant() { return tenant; }
   public String getSystemId() { return systemId; }
   public String getTapisUser() { return tapisUser; }
-  public String getHostLoginUser() { return hostLoginUser; }
   public boolean isStatic() { return isStatic; }
 
+  public String getHostLoginUser() { return hostLoginUser; }
+
   public String getLoginUserMapping() { return loginUserMapping; }
-  public void setLoginUserMapping(String s) { loginUserMapping = s; }
 
   public boolean hasCredentials() { return hasCredentials; }
   public void setHasCredentials(boolean b) { hasCredentials = b; }
