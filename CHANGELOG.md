@@ -10,6 +10,17 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.9.1 - 2025-07-15
+
+Bug fix.
+
+### New features:
+- None
+
+### Bug fixes:
+- Fix issue with creation of system with credentials. Error reported even when system created and credentials registered successfully.
+
+---------------------------------------------------------------------------
 ## 1.9.0 - 2025-06-24
 
 Incremental improvements. Re-purpose existing table as first step to support credential metadata tracking.
