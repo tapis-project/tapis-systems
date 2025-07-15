@@ -241,12 +241,12 @@ public class SystemsServiceImpl implements SystemsService
     String sysTenant = system.getTenant();
     String sysId = system.getId();
     SystemType sysType = system.getSystemType();
+    AuthnMethod authnMethod = system.getDefaultAuthnMethod();
 
     // ---------------------------- Check inputs ------------------------------------
     // Required system attributes: tenant, id, type, host, defaultAuthnMethod
     if (StringUtils.isBlank(sysTenant) || StringUtils.isBlank(sysId) || system.getSystemType() == null ||
-        StringUtils.isBlank(system.getHost()) || system.getDefaultAuthnMethod() == null ||
-        StringUtils.isBlank(rawData))
+        StringUtils.isBlank(system.getHost()) || authnMethod == null || StringUtils.isBlank(rawData))
     {
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ARG", rUser, sysId));
     }
@@ -295,6 +295,7 @@ public class SystemsServiceImpl implements SystemsService
     checkReservedIds(rUser, sysId);
 
     // If credentials provided validate constraints and verify credentials
+    Credential verifiedCred = null;
     if (cred != null)
     {
       // Skip check if not LINUX or S3
@@ -316,10 +317,10 @@ public class SystemsServiceImpl implements SystemsService
       {
         // During create, we only verify for static effectiveUser and system default authnMethod, so we pass in the
         //   effectiveUser from request as hostLoginUser and the authnMethod from the system.
-        Credential c = credUtils.verifyCredentials(rUser, system, cred, effUserId, system.getDefaultAuthnMethod());
-        system.setAuthnCredential(c);
+        verifiedCred = credUtils.verifyCredentials(rUser, system, cred, effUserId, authnMethod);
+        system.setAuthnCredential(verifiedCred);
         // If credential validation failed we do not create the system. Return now.
-        if (Boolean.FALSE.equals(c.getValidationResult())) return system;
+        if (Boolean.FALSE.equals(verifiedCred.getValidationResult())) return system;
       }
     }
 
@@ -408,6 +409,9 @@ public class SystemsServiceImpl implements SystemsService
       }
       throw e0;
     }
+    // Update the credential with the credential that (optionally) was verified.
+    // So caller will know if validation succeeded.
+    retSystem.setAuthnCredential(verifiedCred);
     // Update dynamically computed info and return the fully populated TSystem
     SystemShare systemShare = authUtils.getSystemShareInfo(rUser, sysTenant, sysId);
     retSystem.setIsPublic(systemShare.isPublic());
