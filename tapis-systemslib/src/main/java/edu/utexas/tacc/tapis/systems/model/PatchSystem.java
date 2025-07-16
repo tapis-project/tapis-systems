@@ -50,7 +50,7 @@ public final class PatchSystem
   // *********************** Constructors ***********************************
   // ************************************************************************
 
-  /**
+  /*
    * Constructor setting all final attributes.
    */
   public PatchSystem(String description1, String host1, String effectiveUserId1,
@@ -89,6 +89,39 @@ public final class PatchSystem
     notes = notes1;
     importRefId = importRefId1;
     allowChildren = allowChildren1;
+  }
+
+  /*
+   * Convenience constructor setting all final attributes based on given TSystem
+   */
+  public PatchSystem(TSystem p)
+  {
+    description = p.getDescription();
+    host = p.getHost();
+    effectiveUserId = p.getEffectiveUserId();
+    defaultAuthnMethod = p.getDefaultAuthnMethod();
+    port = p.getPort();
+    useProxy = p.isUseProxy();
+    proxyHost = p.getProxyHost();
+    proxyPort = p.getProxyPort();
+    dtnSystemId = p.getDtnSystemId();
+    canRunBatch = p.getCanRunBatch();
+    enableCmdPrefix = p.isEnableCmdPrefix();
+    mpiCmd = p.getMpiCmd();
+    jobRuntimes = (p.getJobRuntimes() == null) ? null : new ArrayList<>(p.getJobRuntimes());
+    jobWorkingDir = p.getJobWorkingDir();
+    jobEnvVariables = (p.getJobEnvVariables() == null) ? null : new ArrayList<>(p.getJobEnvVariables());
+    jobMaxJobs = p.getJobMaxJobs();
+    jobMaxJobsPerUser = p.getJobMaxJobsPerUser();
+    batchScheduler = p.getBatchScheduler();
+    batchLogicalQueues = (p.getBatchLogicalQueues() == null) ? null : new ArrayList<>(p.getBatchLogicalQueues());
+    batchDefaultLogicalQueue = p.getBatchDefaultLogicalQueue();
+    batchSchedulerProfile = p.getBatchSchedulerProfile();
+    jobCapabilities = (p.getJobCapabilities() == null) ? null : new ArrayList<>(p.getJobCapabilities());
+    tags = (p.getTags() == null) ? null : p.getTags().clone();
+    notes = p.getNotes();
+    importRefId = p.getImportRefId();
+    allowChildren = p.isAllowChildren();
   }
 
   // ************************************************************************

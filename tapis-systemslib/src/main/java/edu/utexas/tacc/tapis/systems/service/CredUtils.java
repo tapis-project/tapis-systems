@@ -518,8 +518,12 @@ public class CredUtils
       }
       else
       {
-        // Already exists, update status to PENDING.
-        credInfo = updateCredInfoStatus(rUser, credInfoDB, SyncStatus.PENDING, op.name());
+        // Already exists, set status to PENDING and update record.
+        credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStatic, hostLoginUser,
+                                      loginUserMapping, SyncStatus.PENDING);
+        updateCredInfoStatus(rUser, credInfoDB, SyncStatus.PENDING, op.name());
+        // Must update entire record, not just status. Otherwise, could lose updated loginUserMapping info.
+        credInfo = updateCredInfo(rUser, credInfo, op.name());
       }
 
       // 2. Update status to IN_PROGRESS.
@@ -809,7 +813,22 @@ public class CredUtils
   }
 
   /*
-   * Update CredentialInfo status
+   * Update CredentialInfo record
+   * The provided credInfo object is updated and returned.
+   * Record always updated, even if it would be a NO-OP.
+   */
+  CredentialInfo updateCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo, String opName)
+  {
+    // Update CredInfo attributes
+    LocalDateTime updated = TapisUtils.getUTCTimeNow();
+    credInfo.setUpdated(updated.toInstant(ZoneOffset.UTC));
+    // Persist the update
+    dao.updateCredInfoRecord(credInfo, updated);
+    return credInfo;
+  }
+
+  /*
+   * Update CredentialInfo status. Always use this for updating status so status transition is validated.
    * The provided credInfo object is updated and returned.
    * If old and new status are the same then it is a NO-OP, simply return.
    * Check that transition from current status to new status is allowed.
