@@ -1753,7 +1753,7 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      // Values to use for created, updated: timestamp
+      // Timestamp to use for created, updated
       LocalDateTime utcNow = TapisUtils.getUTCTimeNow();
       // Create the record in the main table.
       SystemsCredInfoRecord record = db.insertInto(SYSTEMS_CRED_INFO)
@@ -2033,12 +2033,14 @@ public class SystemsDaoImpl implements SystemsDao
     return numRecords;
   }
 
-  /**
+  /*
    * Update a record in the SYSTEMS_CRED_INFO table based on the provided CredInfo object
+   * If null passed in for updated then use TapisUtils.getUTCTimeNow();
    */
   @Override
   public void updateCredInfoRecord(CredentialInfo credInfo, LocalDateTime updated)
   {
+    if (updated == null) updated = TapisUtils.getUTCTimeNow();
     // SyncFailed timestamp might be null
     Instant syncFailedI = credInfo.getSyncFailed();
     LocalDateTime syncFailedLDT =
@@ -2085,12 +2087,13 @@ public class SystemsDaoImpl implements SystemsDao
     }
   }
 
-  /**
+  /*
    * In SYSTEMS_CRED_INFO table, updated status for given record
    */
   @Override
   public void updateCredInfoStatus(CredentialInfo credInfo, SyncStatus newSyncStatus, LocalDateTime updated)
   {
+    if (updated == null) updated = TapisUtils.getUTCTimeNow();
     // ------------------------- Call SQL ----------------------------
     Connection conn = null;
     try

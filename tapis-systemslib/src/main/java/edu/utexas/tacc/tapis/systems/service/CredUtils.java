@@ -3,6 +3,7 @@ package edu.utexas.tacc.tapis.systems.service;
 import java.io.BufferedReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.*;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -42,6 +43,7 @@ import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
+import edu.utexas.tacc.tapis.systems.migrate.CredInfoInitJob;
 import edu.utexas.tacc.tapis.systems.model.*;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
@@ -104,6 +106,90 @@ public class CredUtils
   /* **************************************************************************** */
   /*                                Public Methods                                */
   /* **************************************************************************** */
+
+  /*
+   * Given attributes read directly from Vault, create or update a CredInfo record.
+   * Final status will be COMPLETED.
+   *
+   * From the vault attributes we have some of the primary key values for table: tenant, sysId, isStatic
+   * We also have values for the credential metadata, (has_credentials, has_pki_keys, etc.).
+   *
+   * But we still need to figure out values for tapisUser, hostLoginUser and loginUserMapping
+   * tapisUser is fairly straightforward, see below. For others:
+   *
+   * Two cases:
+   *    a. CredInfo in the DB:
+   *         loginUserMapping : from DB, might be null
+   *         hostLoginUser : if isStatic=true use effectiveUserId from system
+   *                         if isStatic=false and loginUserMapping!=null, use loginUserMapping from the DB
+   *                         if isStatic=false and loginUserMapping=null, use credTargetUser from the record
+   *    b. CredInfo not in DB:
+   *         loginUserMapping : not available, use null
+   *         hostLoginUser : if isStatic=true use effectiveUserId from system
+   *                         if isStatic=false use credTargetUser from the record
+   */
+  public CredentialInfo initCredInfoRecordFromVaultMetadata(ResourceRequestUser rUser, String tenant, String sysId,
+                                                            boolean isStatic, CredInfoInitJob.SecretMetaInfo sm)
+  {
+    String opName = "createCredInfoRecordFromVaultMetadata";
+    CredentialInfo credInfo;
+    String credTargetUser = sm.targetUser();
+    boolean hasCredentials = (sm.hasPassword() || sm.hasPkiKeys() || sm.hasAccessKey() || sm.hasToken() || sm.hasTmsKeys());
+    // Fetch the system, we will use the seqId and owner
+    TSystem sys = dao.getSystem(tenant, sysId); // For seqId, owner
+    int sysSeqId = sys.getSeqId();
+
+    // Compute tapisUser, hostLoginUser and loginUserMapping
+    String tapisUser, hostLoginUser, loginUserMapping;
+    // tapisUser.
+    // For dynamic always credTargetUser.
+    // For static use system owner, that is who will most likely have registered the credential.
+    //   In practice, if it was not the owner, but instead it was a tenant admin, for example, it should not matter
+    //   since anyone using the system will get the credential for the static effUserId.
+    if (!isStatic) tapisUser = credTargetUser; else tapisUser = sys.getOwner();
+
+    // We are mutating a CredInfo record so synchronize around the class
+    synchronized (CredUtils.class)
+    {
+      CredentialInfo credInfoDB = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStatic);
+      if (credInfoDB != null)
+      {
+        // Record is already in the DB, set status to PENDING and then IN_PROGRESS.
+        credInfo = updateCredInfoStatus(rUser, credInfoDB, SyncStatus.PENDING, opName);
+        credInfo = updateCredInfoStatus(rUser, credInfoDB, SyncStatus.IN_PROGRESS, opName);
+        // Compute loginUserMapping and hostLoginUser.
+        loginUserMapping = credInfoDB.getLoginUserMapping();
+        if (isStatic) hostLoginUser = sys.getEffectiveUserId();
+        else hostLoginUser = (loginUserMapping != null) ? loginUserMapping : credTargetUser;
+        // We now have all attributes, use them to create a CredInfo record in memory
+        credInfo = new CredentialInfo(sysSeqId, tenant, sysId, tapisUser, isStatic, hostLoginUser, loginUserMapping,
+                          hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
+                          sm.hasTmsKeys(), SyncStatus.PENDING, credInfoDB.getSyncFailCount(), credInfoDB.getSyncFailMessage(),
+                          credInfoDB.getSyncFailed(), credInfoDB.getCreated(), credInfoDB.getCreated());
+        dao.updateCredInfoRecord(credInfo, null);
+      }
+      else
+      {
+        // No record in DB, create one with status of IN_PROGRESS
+        // Compute loginUserMapping and hostLoginUser.
+        loginUserMapping = null;
+        hostLoginUser = (isStatic) ? sys.getEffectiveUserId() : credTargetUser;
+        int syncFailCount = 0;
+        String syncFailMsg = null;
+        Instant syncFailTimestamp = null;
+        Instant utcNow = TapisUtils.getUTCTimeNow().toInstant(ZoneOffset.UTC);
+        // We now have all attributes, use them to create a CredInfo record in memory
+        credInfo = new CredentialInfo(sysSeqId, tenant, sysId, tapisUser, isStatic, hostLoginUser, loginUserMapping,
+                                 hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
+                                 sm.hasTmsKeys(), SyncStatus.IN_PROGRESS, syncFailCount, syncFailMsg, syncFailTimestamp,
+                                 utcNow, utcNow);
+        credInfo = dao.createCredInfo(rUser, credInfo);
+      }
+      // Update record to COMPLETED
+      credInfo = updateCredInfoStatus(rUser, credInfo, SyncStatus.COMPLETED, opName);
+    }
+    return credInfo;
+  }
 
   /* **************************************************************************** */
   /*                                Package-Private Methods                       */
@@ -522,8 +608,9 @@ public class CredUtils
         credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStatic, hostLoginUser,
                                       loginUserMapping, SyncStatus.PENDING);
         updateCredInfoStatus(rUser, credInfoDB, SyncStatus.PENDING, op.name());
-        // Must update entire record, not just status. Otherwise, could lose updated loginUserMapping info.
-        credInfo = updateCredInfo(rUser, credInfo, op.name());
+        // Must update entire record, not just status. Otherwise, could lose updated loginUserMapping info passed in
+        //   as part of Credential.
+        dao.updateCredInfoRecord(credInfo, null);
       }
 
       // 2. Update status to IN_PROGRESS.
@@ -770,7 +857,6 @@ public class CredUtils
   /*
    * Check the CredInfo records and update as needed
    * NOTE: This method should only be called at startup when there is only a single thread running.
-   *  - Read list of records from a file and create in PENDING state.
    *  - Mark IN_PROGRESS records as FAILED
    *  - Create PENDING records as needed for undeleted systems that have a static effectiveUserId
    *  - Update FAILED records to PENDING
@@ -781,15 +867,10 @@ public class CredUtils
     int totalCount = dao.getCredInfoTotalCount();
     log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_BEGIN", totalCount));
 
-    // Read list of records from a file and create in PENDING state.
-    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_BEGIN"));
-    int numRecords = credInfoInitFromFile(rUser);
-    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_END", numRecords));
-
     // Mark all IN_PROGRESS records as FAILED
     String failMsg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED_BEGIN");
     log.info(failMsg);
-    numRecords = dao.credInfoMarkAllInProgressAsFailed(rUser, failMsg);
+    int numRecords = dao.credInfoMarkAllInProgressAsFailed(rUser, failMsg);
     log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_MARK_FAILED_END", numRecords));
 
     // Create records as needed for undeleted systems that have a static effectiveUserId
@@ -813,24 +894,12 @@ public class CredUtils
   }
 
   /*
-   * Update CredentialInfo record
-   * The provided credInfo object is updated and returned.
-   * Record always updated, even if it would be a NO-OP.
-   */
-  CredentialInfo updateCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo, String opName)
-  {
-    // Update CredInfo attributes
-    LocalDateTime updated = TapisUtils.getUTCTimeNow();
-    credInfo.setUpdated(updated.toInstant(ZoneOffset.UTC));
-    // Persist the update
-    dao.updateCredInfoRecord(credInfo, updated);
-    return credInfo;
-  }
-
-  /*
    * Update CredentialInfo status. Always use this for updating status so status transition is validated.
-   * The provided credInfo object is updated and returned.
    * If old and new status are the same then it is a NO-OP, simply return.
+   *
+   * The provided credInfo object is updated and returned.
+   *
+   * Other syncStatus and updated timestamp, other attributes are not changed.
    * Check that transition from current status to new status is allowed.
    */
   CredentialInfo updateCredInfoStatus(ResourceRequestUser rUser, CredentialInfo credInfo, SyncStatus newSyncStatus, String opName)
@@ -1247,6 +1316,13 @@ public class CredUtils
   }
 
   /*
+   * NOTE: Original plan used this during service startup. Instead, now it is handled by the standalone utility
+   * CredInfoInitJob.java
+   * Originally called from initCredInfo() using:
+   *    // Read list of records from a file and create in PENDING state.
+   *    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_BEGIN"));
+   *    int numRecords = credInfoInitFromFile(rUser);
+   *    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_END", numRecords));
    * Read list of records from a file and create/update CredInfo records in PENDING state.
    * Log errors but otherwise ignore them.
    * Look for records in file /tmp/tapis_sys_cred_info_init.csv
