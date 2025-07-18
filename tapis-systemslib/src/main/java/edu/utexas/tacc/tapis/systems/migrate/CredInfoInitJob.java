@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import com.google.gson.JsonObject;
+import edu.utexas.tacc.tapis.systems.service.AuthUtils;
+import edu.utexas.tacc.tapis.systems.service.SysUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.glassfish.hk2.api.ServiceLocator;
@@ -55,6 +57,8 @@ import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
  * The program should be started up in the same manner as the Systems service api application.
  * Typically, it is run only once, although significant effort should be made to ensure that each
  * incarnation of this job is idempotent since it may have to be run more than once if there are issues.
+ *
+ * Please see docker image build script release/docker_build_credinfoinitjob.sh and other related files in release dir.
  *
  * *************** WARNING ***************
  *  The Systems service api must be shut down before running this job to avoid the possibility of data
@@ -223,6 +227,7 @@ public class CredInfoInitJob
    */
   private void setUp() throws Exception
   {
+    System.out.println("Starting setup");
     // Setup for HK2 dependency injection
     ServiceLocator locator = ServiceLocatorUtilities.createAndPopulateServiceLocator();
     ServiceLocatorUtilities.bind(locator, new AbstractBinder()
@@ -233,16 +238,19 @@ public class CredInfoInitJob
         bind(SystemsServiceImpl.class).to(SystemsService.class);
         bind(SystemsServiceImpl.class).to(SystemsServiceImpl.class);
         bind(SystemsDaoImpl.class).to(SystemsDao.class);
+        bind(SystemsDaoImpl.class).to(SystemsDaoImpl.class);
+        bind(SysUtils.class).to(SysUtils.class);
+        bind(AuthUtils.class).to(AuthUtils.class);
         bind(CredUtils.class).to(CredUtils.class);
         bindFactory(ServiceContextFactory.class).to(ServiceContext.class);
         bindFactory(ServiceClientsFactory.class).to(ServiceClients.class);
       }
     });
     locator.inject(this);
-
     RuntimeParameters runParms = RuntimeParameters.getInstance();
     // Initialize TenantManager and services
     String url = runParms.getTenantsSvcURL();
+    System.out.println("Getting tenants");
     TenantManager.getInstance(url).getTenants();
 
     String siteId = runParms.getSiteId();
@@ -250,6 +258,8 @@ public class CredInfoInitJob
     String svcTenant = runParms.getServiceAdminTenant();
     siteAdminTenantId = TenantManager.getInstance(url).getSiteAdminTenantId(siteId);
     // Initialize services
+    System.out.println("Init dao and svc classes");
+    SystemsDaoImpl dao = new SystemsDaoImpl();
     SystemsServiceImpl svcImpl = locator.getService(SystemsServiceImpl.class);
     svcImpl.initService(siteId, siteAdminTenantId, RuntimeParameters.getInstance());
     credUtils = new CredUtils();

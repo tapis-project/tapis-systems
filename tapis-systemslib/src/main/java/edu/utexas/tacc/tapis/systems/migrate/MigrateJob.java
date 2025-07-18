@@ -56,6 +56,8 @@ import static edu.utexas.tacc.tapis.systems.service.AuthUtils.PERM_SPEC_TEMPLATE
  *
  * This program will need to be updated for migration to a specific version of the Systems service.
  *
+ * Please see docker image build script release/docker_build_migratejob.sh and other related files in release dir.
+ *
  * By default, it is a dry run, no permanent changes are made.
  * To apply changes use option --apply or set env variable TAPIS_MIGRATE_JOB_APPLY to "apply_changes"
  * The use of an env var is supported (RuntimeParameters.java) because this appears to be the easiest way to pass
