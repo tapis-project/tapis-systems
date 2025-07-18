@@ -155,8 +155,8 @@ public class CredUtils
       if (credInfoDB != null)
       {
         // Record is already in the DB, set status to PENDING and then IN_PROGRESS.
-        credInfo = updateCredInfoStatus(rUser, credInfoDB, SyncStatus.PENDING, opName);
-        credInfo = updateCredInfoStatus(rUser, credInfoDB, SyncStatus.IN_PROGRESS, opName);
+        updateCredInfoStatus(rUser, credInfoDB, SyncStatus.PENDING, opName);
+        updateCredInfoStatus(rUser, credInfoDB, SyncStatus.IN_PROGRESS, opName);
         // Compute loginUserMapping and hostLoginUser.
         loginUserMapping = credInfoDB.getLoginUserMapping();
         if (isStatic) hostLoginUser = sys.getEffectiveUserId();
@@ -535,7 +535,7 @@ public class CredUtils
   Credential verifyCredentials(ResourceRequestUser rUser, TSystem tSystem1, Credential cred, String hostLoginUser,
                                AuthnMethod authnMethod)
   {
-    String op = "verifyCredentials";
+    String opName = "verifyCredentials";
     // We must have the system and credentials to check.
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (tSystem1 == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
@@ -561,7 +561,7 @@ public class CredUtils
               cred.getAccessToken(), cred.getRefreshToken(), cred.getTmsPrivateKey(), cred.getTmsPublicKey(),
               cred.getTmsFingerprint(), cred.getCertificate(), Boolean.FALSE, msg);
     }
-    return verifyConnection(rUser, op, tSystem1, authnMethod, cred, hostLoginUser);
+    return verifyConnection(rUser, opName, tSystem1, authnMethod, cred, hostLoginUser);
   }
 
   /*
@@ -630,7 +630,7 @@ public class CredUtils
                                          tse.getMessage(), op.name());
         log.error(msg);
         // Update the credInfo record to FAILED.
-        updateCredInfoToFailed(rUser, credInfo, tse.getMessage(), op.name());
+        updateCredInfoToFailed(rUser, credInfo, tse.getMessage());
         throw new TapisRuntimeException(tse);
       }
 
@@ -699,7 +699,7 @@ public class CredUtils
                                          syncFailCount, tse.getMessage(), op.name());
         log.error(msg);
         // If credInfo record exists update it to FAILED.
-        if (credInfoDB != null) { updateCredInfoToFailed(rUser, credInfoDB, tse.getMessage(), op.name()); }
+        if (credInfoDB != null) { updateCredInfoToFailed(rUser, credInfoDB, tse.getMessage()); }
         throw new TapisRuntimeException(tse);
       }
     }
@@ -923,30 +923,30 @@ public class CredUtils
 
   /*
    * Given a CredentialInfo record in the PENDING state, sync it with SK.
-   * If record does not exist or is not in PENDING state then return.
-   * After this call the record will be in the COMPLETED or FAILED state
+   * If record does not exist or is not in PENDING state that is OK, simply return.
+   * If record exists and still in PENDING, after this update it will be in COMPLETED or FAILED state.
+   *
+   * NOTE: This happens during service startup and at regular intervals when maintenance task runs.
    */
   void syncPendingCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo)
   {
-    String op = "syncPendingCredInfo";
+    String opName = "syncPendingCredInfo";
+    // We are mutating a CredInfo record so synchronize around the class
     synchronized (CredUtils.class)
     {
       // If record does not exist or is not in PENDING state that is OK, simply return.
       CredentialInfo credInfoDB = dao.getCredInfo(credInfo);
       if (credInfoDB == null || !SyncStatus.PENDING.equals(credInfoDB.getSyncStatus())) return;
       // Update status to IN_PROGRESS
-      credInfo = updateCredInfoStatus(rUser, credInfo, SyncStatus.IN_PROGRESS, op);
+      credInfo = updateCredInfoStatus(rUser, credInfo, SyncStatus.IN_PROGRESS, opName);
       try
       {
-        // Sync records
-        readCredInfoFromSK(rUser, credInfo);
-        // TODO review this note
-        // NOTE: For the maintenance task, the values of hostLoginUser and loginUserMapping from the DB should be correct.
-        //       Unlike for the credential create operation, there should be no need to sync those 2 attributes
-        // TODO/TBD: still true for maint task? And what about call from app init startup?
-
+        // Sync records. Attributes updated: hasCredentials, hasPassword, hasPkiKeys, hasAccessKey, hasToken, hasTmsKeys
+        credInfo = readCredInfoFromSK(rUser, credInfo);
+        // NOTE: For service startup and the maintenance task, the values of hostLoginUser and loginUserMapping from the
+        //       DB should be correct. Unlike for cred create, there should be no need to sync those 2 attributes.
         // Update CredInfo record, including reset of failed attributes and setting status to COMPLETED
-        credInfo = updateCredInfoToCompleted(rUser, credInfo);
+        updateCredInfoToCompleted(rUser, credInfo);
       }
       catch (Exception e)
       {
@@ -958,10 +958,10 @@ public class CredUtils
         // Log error, update the credInfo record to FAILED.
         String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_SYNC_FAIL", rUser, credInfo.getTenant(), credInfo.getSystemId(),
               credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(),
-              credInfo.getSyncFailCount() + 1, e.getMessage(), op);
+              credInfo.getSyncFailCount() + 1, e.getMessage(), opName);
         log.error(msg);
         // Update the credInfo record to FAILED.
-        updateCredInfoToFailed(rUser, credInfo, e.getMessage(), op);
+        updateCredInfoToFailed(rUser, credInfo, e.getMessage());
       }
     }
   }
@@ -981,6 +981,30 @@ public class CredUtils
     }
   }
 
+  /*
+   * Update of all CredInfo FAILED records to PENDING
+   */
+  void credInfoMarkFailedAsPending(ResourceRequestUser rUser)
+  {
+    String opName = "credInfoMarkFailedAsPending";
+    // Find all FAILED records
+    List<CredentialInfo> failedRecords = dao.credInfoGetRecordsInStatus(SyncStatus.FAILED);
+    String msg = LibUtils.getMsg("SYSLIB_MAINT_CREDINFO_FAIL_COUNT", failedRecords.size());
+    log.info(msg);
+    // For each record update the status
+    for (CredentialInfo credInfo: failedRecords)
+    {
+      // We are mutating a CredInfo record so synchronize around the class
+      synchronized (CredUtils.class)
+      {
+        // If record does not exist or is not in FAILED state that is OK, simply return.
+        CredentialInfo credInfoDB = dao.getCredInfo(credInfo);
+        if (credInfoDB == null || !SyncStatus.FAILED.equals(credInfoDB.getSyncStatus())) continue;
+        // Update status to FAILED
+        updateCredInfoStatus(rUser, credInfo, SyncStatus.IN_PROGRESS, opName);
+      }
+    }
+  }
   /* **************************************************************************** */
   /*                                Private Methods                               */
   /* **************************************************************************** */
@@ -1149,8 +1173,8 @@ public class CredUtils
    * Verify connection based on authentication method
    * NOTE that credential returned even if invalid. Caller must check Credential.getValidationResult()
    */
-  private Credential verifyConnection(ResourceRequestUser rUser, String op, TSystem tSystem1, AuthnMethod authnMethod,
-                                      Credential cred, String hostLoginUser)
+  private Credential verifyConnection(ResourceRequestUser rUser, String opName, TSystem tSystem1,
+                                      AuthnMethod authnMethod, Credential cred, String hostLoginUser)
   {
     log.info(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_BEGIN", rUser, tSystem1.getId(), tSystem1.getSystemType(),
              hostLoginUser, authnMethod));
@@ -1186,7 +1210,7 @@ public class CredUtils
             (doingTms && (StringUtils.isBlank(cred.getTmsPrivateKey()) || StringUtils.isBlank(cred.getTmsPublicKey()))))
     {
       // We do not have the credentials we need
-      msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, op, systemId, systemType, hostLoginUser, authnMethod);
+      msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, opName, systemId, systemType, hostLoginUser, authnMethod);
       retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
               cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(),
               cred.getRefreshToken(), cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(),
@@ -1532,7 +1556,7 @@ public class CredUtils
    * Update CredentialInfo to FAILED
    * Check that transition from current status to new status is allowed.
    */
-  private CredentialInfo updateCredInfoToFailed(ResourceRequestUser rUser, CredentialInfo credInfo, String errorMsg, String opName)
+  private CredentialInfo updateCredInfoToFailed(ResourceRequestUser rUser, CredentialInfo credInfo, String errorMsg)
   {
     SyncStatus newSyncStatus = SyncStatus.FAILED;
     // Validate transition from current state to new state
@@ -1552,6 +1576,7 @@ public class CredUtils
   /**
    * Given CredentialInfo record call SK to get latest data.
    * The given credInfo object is updated and returned.
+   * Attributes updated: hasCredentials, hasPassword, hasPkiKeys, hasAccessKey, hasToken, hasTmsKeys
    * No exceptions are caught.
    *
    * @param rUser ResourceRequest user, for logging purposes
@@ -1559,7 +1584,7 @@ public class CredUtils
    * @throws TapisClientException - on SK error
    * @throws TapisException - on getSKClient error
    */
-  private void readCredInfoFromSK(ResourceRequestUser rUser, CredentialInfo credInfo)
+  private CredentialInfo readCredInfoFromSK(ResourceRequestUser rUser, CredentialInfo credInfo)
         throws TapisClientException, TapisException
   {
     boolean hasCredentials, hasPassword, hasPkiKeys, hasAccessKey, hasToken, hasTmsKeys;
@@ -1648,6 +1673,7 @@ public class CredUtils
     credInfo.setHasAccessKey(hasAccessKey);
     credInfo.setHasToken(hasToken);
     credInfo.setHasTmsKeys(hasTmsKeys);
+    return credInfo;
   }
 
   /**

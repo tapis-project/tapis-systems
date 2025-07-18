@@ -80,48 +80,11 @@ public final class MaintenanceTask
     int totalCount = dao.getCredInfoTotalCount();
     log.info(LibUtils.getMsg("SYSLIB_CREDINFO_MAINT_BEGIN", totalCount));
     // Mark all FAILED records as PENDING
-    credInfoMarkFailedAsPending();
+    credUtils.credInfoMarkFailedAsPending(rUser);
     // For each PENDING record read info from SK and update the cred info table.
     credUtils.syncPendingCredInfoRecords(rUser);
     // Log end
     totalCount = dao.getCredInfoTotalCount();
     log.info(LibUtils.getMsg("SYSLIB_CREDINFO_MAINT_END", totalCount));
-  }
-
-  /*
-   * Thread safe update of all CredInfo FAILED records to PENDING
-   */
-  private void credInfoMarkFailedAsPending()
-  {
-//    String opName = "credInfoMarkFailedAsPending";
-//    // Find all FAILED records
-//    List<CredentialInfo> failedRecords = dao.credInfoGetRecordsInStatus(SyncStatus.FAILED);
-//    String msg = LibUtils.getMsg("SYSLIB_MAINT_CREDINFO_FAIL_COUNT", failedRecords.size());
-//    log.info(msg);
-//    // For each record update the status
-//    for (CredentialInfo credInfo: failedRecords)
-//    {
-//      // Get the shared record in the locked state (WE MUST UNLOCK)
-//// TODO
-//// TODO
-//// TODO
-////TODO      CredentialInfo lockedCredInfo = credUtils.getLockedDBCredInfoRecord(rUser, credInfo);
-//// TODO
-//// TODO
-//// TODO
-//      // null means it got removed from DB before we got to it, so we must skip
-//      if (lockedCredInfo == null) continue;
-//      // Make sure still in FAILED, if not then skip
-//      if (!SyncStatus.FAILED.equals(lockedCredInfo.getSyncStatus())) { continue; }
-////      try
-////      {
-//        // Update status to PENDING
-//        credUtils.updateCredInfoStatus(rUser, lockedCredInfo, SyncStatus.PENDING, opName);
-//// TODO remove      }
-////      finally
-////      {
-////        lockedCredInfo.mutex.unlock();
-////      }
-//    }
   }
 }
