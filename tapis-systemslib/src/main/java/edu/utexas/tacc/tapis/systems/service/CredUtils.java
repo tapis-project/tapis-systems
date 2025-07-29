@@ -215,6 +215,8 @@ public class CredUtils
    * System must also have a dynamic effectiveUserId and loginUser mapping is not allowed.
    * This is for security reasons. Without these restrictions anyone could create a TMS-enabled system and login
    *   to the TMS-enabled as someone other than their Tapis user id.
+   * <p>
+   * If createTmsKeys is false and defaultAuthnMethod for system is TMS then it is an error.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system - Tapis system
@@ -247,6 +249,12 @@ public class CredUtils
     // Secrets get stored on different paths based on this
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
+    // If createTmsKeys is false and defaultAuthnMethod for system is TMS then it is an error.
+    if (!createTmsKeys && AuthnMethod.TMS_KEYS.equals(system.getDefaultAuthnMethod()))
+    {
+      msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_BAD_ARG", rUser, systemId);
+      throw new BadRequestException(msg);
+    }
     // If TMS keys requested check that system allows for it, create the keys and add the keys to the Credential
     // Note that we must create the keys in the TMS server before verifying the credentials.
     if (createTmsKeys)

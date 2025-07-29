@@ -1887,6 +1887,21 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
+    // Attempt to register credentials but use createTmsKeys=false. Should fail with error SYSLIB_CRED_TMS_KEYS_BAD_ARG.
+    pass = false;
+    try
+    {
+      svcCred.createUserCredential(rOwner1, sysId, testUser2, cred1NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+      Assert.fail("System checkUserCredential call should throw exception when createTmsKeys is FALSE and system uses TMS.");
+    }
+    catch (Exception e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_CRED_TMS_KEYS_BAD_ARG"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    pass = false;
   }
 
   // Test creating, reading and deleting user credentials for a system
