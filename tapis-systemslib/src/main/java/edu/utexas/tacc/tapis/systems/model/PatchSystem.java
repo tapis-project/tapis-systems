@@ -92,7 +92,7 @@ public final class PatchSystem
   }
 
   /*
-   * Convenience constructor setting all final attributes based on given TSystem
+   * Convenience constructor setting all final attributes based on given TSystem. Used by tests.
    */
   public PatchSystem(TSystem p)
   {

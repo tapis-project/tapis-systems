@@ -162,7 +162,6 @@ public class SystemsServiceImpl implements SystemsService
     maintenanceTask = new MaintenanceTask(rUserSvc, dao, credUtils);
 
     // Check the systems_cred_info table and perform initial single-threaded synchronization steps.
-    // - (optional) read data from file and create PENDING CredInfo records.
     // - Mark IN_PROGRESS as FAILED
     // - Create PENDING records as needed for undeleted systems that have static effectiveUserId
     // - Mark FAILED as PENDING
@@ -399,7 +398,7 @@ public class SystemsServiceImpl implements SystemsService
         try
         {
           // Remove SK records and CredInfo record. Use sys fetched from DB if possible
-          TSystem tmpSys = retSystem == null ? system : retSystem;
+          TSystem tmpSys = (retSystem == null) ? system : retSystem;
           credUtils.deleteCredential(rUser, tmpSys, effUserId, isStaticEffectiveUser, op);
         }
         catch (Exception e)

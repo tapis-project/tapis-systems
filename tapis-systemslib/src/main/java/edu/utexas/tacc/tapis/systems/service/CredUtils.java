@@ -307,6 +307,8 @@ public class CredUtils
    *    - NOT have a loginUser mapping
    * This is for security reasons. Without these restrictions anyone could create a TMS-enabled system and login
    *   to the TMS-enabled as someone other than their Tapis user id.
+   * <p>
+   * If createTmsKeys is false and defaultAuthnMethod for system is TMS then it is an error.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system - Tapis system
@@ -339,6 +341,12 @@ public class CredUtils
     // Secrets get stored on different paths based on this
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
+    // If createTmsKeys is false and defaultAuthnMethod for system is TMS then it is an error.
+    if (!createTmsKeys && AuthnMethod.TMS_KEYS.equals(system.getDefaultAuthnMethod()))
+    {
+      msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_BAD_ARG", rUser, systemId);
+      throw new BadRequestException(msg);
+    }
     // If TMS keys requested check that system allows for it, create the keys and add the keys to the Credential
     // Note that we must create the keys in the TMS server before verifying the credentials.
     if (createTmsKeys)
@@ -894,7 +902,8 @@ public class CredUtils
   }
 
   /*
-   * Update CredentialInfo status. Always use this for updating status so status transition is validated.
+   * Update CredentialInfo status. Use this for most updates of status so status transition is validated.
+   * NOTE Other methods that update status and check transition: updateCredInfoToCompleted, updateCredInfoToFailed
    * If old and new status are the same then it is a NO-OP, simply return.
    *
    * The provided credInfo object is updated and returned.
@@ -923,6 +932,8 @@ public class CredUtils
 
   /*
    * Given a CredentialInfo record in the PENDING state, sync it with SK.
+   * Note that this is run during startup (single-threaded) and during maintenance (multithreaded).
+   *
    * If record does not exist or is not in PENDING state that is OK, simply return.
    * If record exists and still in PENDING, after this update it will be in COMPLETED or FAILED state.
    *
@@ -937,15 +948,20 @@ public class CredUtils
       // If record does not exist or is not in PENDING state that is OK, simply return.
       CredentialInfo credInfoDB = dao.getCredInfo(credInfo);
       if (credInfoDB == null || !SyncStatus.PENDING.equals(credInfoDB.getSyncStatus())) return;
+
       // Update status to IN_PROGRESS
       credInfo = updateCredInfoStatus(rUser, credInfo, SyncStatus.IN_PROGRESS, opName);
+
+      // Do the hard work, sync the record with SK
       try
       {
         // Sync records. Attributes updated: hasCredentials, hasPassword, hasPkiKeys, hasAccessKey, hasToken, hasTmsKeys
+        // This method does not update the CredInfo table, just the credInfo in-memory object.
         credInfo = readCredInfoFromSK(rUser, credInfo);
         // NOTE: For service startup and the maintenance task, the values of hostLoginUser and loginUserMapping from the
         //       DB should be correct. Unlike for cred create, there should be no need to sync those 2 attributes.
-        // Update CredInfo record, including reset of failed attributes and setting status to COMPLETED
+
+        // Update CredInfo record in table, including reset of failed attributes and setting status to COMPLETED
         updateCredInfoToCompleted(rUser, credInfo);
       }
       catch (Exception e)
@@ -967,7 +983,8 @@ public class CredUtils
   }
 
   /*
-   * Sync of all CredInfo PENDING records with SK
+   * Sync of all CredInfo PENDING records with SK.
+   * Note that this is run during startup (single-threaded) and during maintenance (multithreaded).
    */
   void syncPendingCredInfoRecords(ResourceRequestUser rUser)
   {

@@ -191,7 +191,7 @@ public class CredInfoInitJob
     info("Checking status of Vault");
     checkVaultStatus();
     List<String> tenants = getAllTenants();
-    info("Number of tenants found in vault: " + tenants.size());
+    info("Tenants count based on vault records: " + tenants.size());
 
     // Iterate over tenants
     for (String tenant: tenants)
@@ -199,14 +199,14 @@ public class CredInfoInitJob
       debug("Processing tenant: " + tenant);
       // Figure out systems to process
       List<String> systems = getAllSystemsForTenant(tenant);
-      debug(" ******** Systems Count: " + systems.size() + " ********");
+      debug(" ******** Systems count based on vault records: " + systems.size() + " ********");
       // Iterate over systems
       for (String system : systems)
       {
         debug(String.format("Found system. Tenant: %s System: %s", tenant, system));
         // Get all users under system
         List<String> users = getUsers(tenant, system);
-        debug("******** Users Count: " + users.size() + " ********");
+        debug("******** Users count based on vault records: " + users.size() + " ********");
         // Iterate over users
         for(String user :users)
         {
@@ -588,6 +588,8 @@ public class CredInfoInitJob
     {
       isStatic = true;
       userName = SPLIT_PLUS_PATTERN.split(userField, 2)[1];
+      trace(String.format("Found static record. Tenant: %s System: %s User field: %s Username: %s",
+            tenant, system, userField, userName));
     }
     else if (Strings.CI.startsWith(userField,"dynamic+"))
     {
@@ -599,6 +601,8 @@ public class CredInfoInitJob
     else
     {
       // It is a legacy record. Ignore it.
+      trace(String.format("Found legacy record. Tenant: %s System: %s User field: %s Username: %s",
+            tenant, system, userField, userField));
       return;
     }
     debug(String.format("Found record. Tenant: %s System: %s TargetUsername: %s isStatic: %b",

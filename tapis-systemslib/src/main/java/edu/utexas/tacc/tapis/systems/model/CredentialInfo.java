@@ -143,7 +143,7 @@ public class CredentialInfo
 //--  sync_failed TIMESTAMP WITHOUT TIME ZONE,
 //--  sync_fail_count INTEGER NOT NULL DEFAULT 0,
 //--  sync_fail_message TEXT,
-//--    PRIMARY KEY (tenant, system_id, tapis_user, host_login_user, is_static)
+//--    PRIMARY KEY (tenant, system_id, tapis_user, is_static)
 
 //  /**
 //   * Constructor for jOOQ with input parameter matching order of columns in DB
@@ -215,14 +215,11 @@ public class CredentialInfo
   public String getSyncFailMessage() { return syncFailMessage; }
   public void setSyncFailMessage(String s) { syncFailMessage = s; }
 
-//TODO needed?  @Schema(type = "string")
   public Instant getSyncFailed() { return syncFailed; }
   public void setSyncFailed(Instant t) { syncFailed = t; }
 
-//TODO needed?   @Schema(type = "string")
   public Instant getCreated() { return created; }
 
-//TODO needed?   @Schema(type = "string")
   public Instant getUpdated() { return updated; }
   public void setUpdated(Instant t) { updated = t; }
 }
