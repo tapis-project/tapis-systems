@@ -2,6 +2,7 @@
 
 Files:
   README_credinfoinitjob - this file
+  docker_build_credinfoinitjob.sh - script to build docker image from Dockerfile_cred_info_init_job
   credinfoinitjob-dryrun.yml - k8s file for dry-run of CredInfoInit job
   credinfoinitjob-dryrun.sh  - script to launch k8s dry-run job
   credinfoinitjob-apply.yml - k8s file for run of CredInfoInit job with changes applied
@@ -50,10 +51,15 @@ NOTES:
 
 ## Running the job
 
+Run the script docker_build_credinfoinitjob.sh to create the docker image. Push image to docker hub.
+Copy sh and yml files to k8s host.
 Update the settings in credinfoinitjob-dryrun.yml. In particular the JOB_PARMS settings will need to updated
 to have the correct Vault url and token.
 
-To make a dry-run of the job use credinfoinitjob-dryrun.sh
+To make a dry-run of the job use credinfoinitjob-dryrun.sh, e.g.
+   kubectl delete -f credinfoinitjob-dryrun.yml
+   ./credinfoinitjob-dryrun.sh
+   kubectl logs job/systems-credinfoinitjob-dryrun > ./credinfo_job.log
 
 Check the logs to make sure all went all.
 

@@ -10,6 +10,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import com.google.gson.JsonObject;
+import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
+import edu.utexas.tacc.tapis.security.client.gen.model.SkSecretVersionMetadata;
+import edu.utexas.tacc.tapis.security.client.model.KeyType;
+import edu.utexas.tacc.tapis.security.client.model.SKSecretMetaParms;
+import edu.utexas.tacc.tapis.security.client.model.SecretType;
+import edu.utexas.tacc.tapis.shared.exceptions.TapisSecurityException;
 import org.apache.commons.lang3.Strings;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.ServiceLocatorUtilities;
@@ -39,6 +45,8 @@ import edu.utexas.tacc.tapis.systems.service.ServiceContextFactory;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
 import edu.utexas.tacc.tapis.systems.service.SysUtils;
+
+import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
 
 /*
  * CredInfoInitJob used to initialize the CredInfo table based on the records in Vault and SK.
@@ -185,6 +193,7 @@ public class CredInfoInitJob
   {
     int totalSystemsProcessed = 0;
     int totalUsersProcessed = 0;
+    int totalLegacyRecords = 0;
     System.out.printf("%s START Initialize CredentialInfo records paths%n", msgPrefix);
     // Check status of Vault.
     info("Checking status of Vault");
@@ -206,18 +215,24 @@ public class CredInfoInitJob
         // Get all users under system
         List<String> users = getUsers(tenant, system);
         debug("******** Users count based on vault records: " + users.size() + " ********");
+        boolean isLegacy;
         // Iterate over users
         for(String user :users)
         {
+          isLegacy = !Strings.CI.startsWith(user,"static+") && !Strings.CI.startsWith(user,"dynamic+");
+          info(String.format("Processing record. Tenant: %s System: %s User field: %s isLegacy: %b",
+                             tenant, system, user, isLegacy));
           initCredInfoRecord(tenant, system, user);
+          if (isLegacy) totalLegacyRecords++;
         }
         totalUsersProcessed += users.size();
       }
       totalSystemsProcessed += systems.size();
     }
-    info("******** Total Tenants Processed: " + tenants.size() + " ********");
-    info("******** Total Systems Processed: " + totalSystemsProcessed + " ********");
-    info("******** Total Users Processed  : " + totalUsersProcessed + " ********");
+    info("******** Total Tenants processed: " + tenants.size() + " ********");
+    info("******** Total Systems processed: " + totalSystemsProcessed + " ********");
+    info("******** Total Users processed  : " + totalUsersProcessed + " ********");
+    info("******** Total Legacy user records processed  : " + totalLegacyRecords + " ********");
     System.out.printf("%s END Initialize CredentialInfo records paths%n", msgPrefix);
   }
 
@@ -390,6 +405,12 @@ public class CredInfoInitJob
     // Parse the response to get the keys
     users = getKeysFromResponse(resp);
     debug("Number of users: " + users.size());
+    var jsonObj = TapisGsonUtils.getGson().fromJson(resp.body(), JsonObject.class);
+    if (jsonObj == null) errorExit("Unable to create Json object from response.");
+    // NOTE: Somehow (at least in DEV) we end up with a few paths that end in static/ or dynamic/
+    //   So they look like legacy records, but apparently there are no secrets in those paths because the paths
+    //   remain after the step to remove the legacy record.
+    //    error("************************************ RESPONSE USERS: " + jsonObj.toString());
     return users;
   }
 
@@ -599,9 +620,36 @@ public class CredInfoInitJob
     }
     else
     {
-      // It is a legacy record. Ignore it.
-      trace(String.format("Found legacy record. Tenant: %s System: %s User field: %s Username: %s",
-            tenant, system, userField, userField));
+      // It is a legacy record. Remove it.
+      if (isApply && _parms.rmLegacy)
+      {
+        info(String.format("Removing legacy record. Tenant: %s System: %s User field: %s", tenant, system, userField));
+        // Remove SK records
+        // Determine targetUserPath for the path to the secret. For legacy record it is just the username.
+        String targetUserPath = userField;
+
+        // Surround all SK related code in a try block. Catch any SK errors and throw a TapisSecurityException
+        try
+        {
+          var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
+          // NOTE: For secrets of type "system" setUser value not used in the path, but SK requires that it be set.
+          sMetaParms.setTenant(tenant).setUser(userField);
+          sMetaParms.setSysId(system).setSysUser(targetUserPath);
+
+          // Construct basic SK secret parameters and attempt to destroy each type of secret.
+          // If destroy attempt throws an exception then log a message and continue.
+          sMetaParms.setKeyType(KeyType.password);
+          try {getSKClient().destroySecretMeta(sMetaParms);} catch (Exception e) { error("Error rm password: " + e.getMessage()); }
+          sMetaParms.setKeyType(KeyType.sshkey);
+          try {getSKClient().destroySecretMeta(sMetaParms);} catch (Exception e) { error("Error rm sshkey: " + e.getMessage()); }
+          sMetaParms.setKeyType(KeyType.accesskey);
+          try {getSKClient().destroySecretMeta(sMetaParms);} catch (Exception e) { error("Error rm accesskey: " + e.getMessage()); }
+          sMetaParms.setKeyType(KeyType.token);
+          try {getSKClient().destroySecretMeta(sMetaParms);} catch (Exception e) { error("Error rm token: " + e.getMessage()); }
+          sMetaParms.setKeyType(KeyType.tmskey);
+          try {getSKClient().destroySecretMeta(sMetaParms);} catch (Exception e) { error("Error rm tmskey: " + e.getMessage()); }
+        } catch (TapisClientException tce) {error("Error rm tmskey: " + tce.getMessage()); throw new TapisSecurityException(tce);}
+      }
       return;
     }
     debug(String.format("Found record. Tenant: %s System: %s TargetUsername: %s isStatic: %b",

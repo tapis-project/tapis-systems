@@ -39,6 +39,9 @@ public class CredInfoInitJobParameters
   @Option(name = "--apply", usage = "Make permanent changes. By default it is a dry run.")
   public boolean isApply = false;
 
+  @Option(name = "--rm_legacy", usage = "Remove legacy records from SK/Vault.")
+  public boolean rmLegacy = false;
+
   @Option(name = "-help", aliases = {"--help", "-h", "-?"}, usage = "display help information")
   public boolean help;
 
