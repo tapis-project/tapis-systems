@@ -18,6 +18,7 @@ import com.google.gson.JsonObject;
 import com.opencsv.CSVReader;
 import okhttp3.*;
 import org.apache.commons.lang3.EnumUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -221,7 +222,7 @@ public class CredUtils
       }
       else tmsClientSecretMasked = SECRETS_MASK;
     }
-    if (tmsEnabled && !StringUtils.startsWith(tmsServerUrl, "http"))
+    if (tmsEnabled && !Strings.CI.startsWith(tmsServerUrl, "http"))
     {
       System.out.println(LibUtils.getMsg("SYSLIB_INIT_TMS_URL_ERR", tmsServerUrl));
       tmsEnabled = false;

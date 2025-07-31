@@ -10,9 +10,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import com.google.gson.JsonObject;
-import edu.utexas.tacc.tapis.systems.service.AuthUtils;
-import edu.utexas.tacc.tapis.systems.service.SysUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.ServiceLocatorUtilities;
@@ -35,11 +32,13 @@ import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDaoImpl;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
+import edu.utexas.tacc.tapis.systems.service.AuthUtils;
 import edu.utexas.tacc.tapis.systems.service.CredUtils;
 import edu.utexas.tacc.tapis.systems.service.ServiceClientsFactory;
 import edu.utexas.tacc.tapis.systems.service.ServiceContextFactory;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
+import edu.utexas.tacc.tapis.systems.service.SysUtils;
 
 /*
  * CredInfoInitJob used to initialize the CredInfo table based on the records in Vault and SK.
@@ -81,21 +80,21 @@ public class CredInfoInitJob
   // Tracing.
   private static final Logger _log = LoggerFactory.getLogger(CredInfoInitJob.class);
 
-  // Base URL path for walking tree to find Tapis meta records.
+  // ----- Constants related to paths in Vault -----
+  // Base URL path for walking tree to find Tapis meta records in Vault.
   private static final String VAULT_BASE_URL_META = "v1/secret/metadata";
-  // Base URL path for walking tree to find Tapis data records.
+  // Base URL path for walking tree to find Tapis data records in Vault.
   private static final String VAULT_BASE_URL_DATA = "v1/secret/data";
-  // Root of the tapis secrets subtree.
+  // Root of the tapis secrets subtree in Vault.
   private static final String TAPIS_ROOT = "tapis";
-  // Path element for tenants.
+  // Path element for tenants in Vault.
   private static final String TENANT_ROOT = String.format("%s/tenant", TAPIS_ROOT);
-  // Path element for systems.
+  // Path element for systems in Vault.
   private static final String SYSTEM_ELEMENT = "system";
-  // Path element for systems secret suffix.
+  // Path element for systems secret suffix in Vault.
   private static final String SYSTEM_SECRET_SUFFIX = "S1";
-  // Path element for users.
+  // Path element for users in Vault.
   private static final String USER_ELEMENT = "user";
-
   // Delimiter for user field is +
   private static final Pattern SPLIT_PLUS_PATTERN = Pattern.compile("\\+");
 
@@ -126,7 +125,7 @@ public class CredInfoInitJob
   /* ********************************************************************** */
   /*                              Constructors                              */
   /* ********************************************************************** */
-  public CredInfoInitJob(CredInfoInitJobParameters parms) throws Exception
+  public CredInfoInitJob(CredInfoInitJobParameters parms)
   {
     // Parameters cannot be null.
     if (parms == null) {
@@ -161,7 +160,7 @@ public class CredInfoInitJob
 
   /**
    * Perform the migration
-   * @throws TapisException on error
+   * @throws Exception on error
    */
   public void run() throws Exception
   {
@@ -474,7 +473,7 @@ public class CredInfoInitJob
     // Create the list of keys
     for (int i = 0; i < keys.size(); i++)
     {
-      String keyStr = StringUtils.removeEnd(keys.get(i).getAsString(), "/");
+      String keyStr = Strings.CS.removeEnd(keys.get(i).getAsString(), "/");
       keysAsString.add(keyStr);
     }
     return keysAsString;

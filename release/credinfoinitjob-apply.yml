@@ -37,3 +37,5 @@ spec:
               secretKeyRef:
                 name: tapis-systems-secrets
                 key: service-password
+          - name: JOB_PARMS
+            value: "-v -vtok tok -vurl http://vault:8200"
