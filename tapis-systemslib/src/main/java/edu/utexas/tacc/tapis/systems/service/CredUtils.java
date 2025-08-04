@@ -152,9 +152,14 @@ public class CredUtils
     // We are mutating a CredInfo record so synchronize around the class
     synchronized (CredUtils.class)
     {
+      String msg;
       CredentialInfo credInfoDB = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStatic);
       if (credInfoDB != null)
       {
+        msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_VAULT", credInfoDB.getTenant(), credInfoDB.getSystemId(),
+                              credInfoDB.getTapisUser(), credInfoDB.getHostLoginUser(), credInfoDB.isStatic(),
+                              credInfoDB.getLoginUserMapping(), opName);
+        log.warn(String.format("%s IN-DB", msg));
         // Record is already in the DB, set status to PENDING and then IN_PROGRESS.
         updateCredInfoStatus(rUser, credInfoDB, SyncStatus.PENDING, opName);
         updateCredInfoStatus(rUser, credInfoDB, SyncStatus.IN_PROGRESS, opName);
@@ -163,10 +168,12 @@ public class CredUtils
         if (isStatic) hostLoginUser = sys.getEffectiveUserId();
         else hostLoginUser = (loginUserMapping != null) ? loginUserMapping : credTargetUser;
         // We now have all attributes, use them to create a CredInfo record in memory
-        credInfo = new CredentialInfo(sysSeqId, tenant, sysId, tapisUser, isStatic, hostLoginUser, loginUserMapping,
-                          hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
-                          sm.hasTmsKeys(), SyncStatus.PENDING, credInfoDB.getSyncFailCount(), credInfoDB.getSyncFailMessage(),
-                          credInfoDB.getSyncFailed(), credInfoDB.getCreated(), credInfoDB.getCreated());
+        credInfo = new CredentialInfo(sysSeqId, credInfoDB.getTenant(), credInfoDB.getSystemId(),
+                                      tapisUser, isStatic, hostLoginUser, loginUserMapping,
+                                      hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
+                                      sm.hasTmsKeys(), credInfoDB.getSyncStatus(), credInfoDB.getSyncFailCount(),
+                                      credInfoDB.getSyncFailMessage(), credInfoDB.getSyncFailed(),
+                                      credInfoDB.getCreated(), credInfoDB.getCreated());
         dao.updateCredInfoRecord(credInfo, null);
       }
       else
@@ -184,10 +191,14 @@ public class CredUtils
                                  hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
                                  sm.hasTmsKeys(), SyncStatus.IN_PROGRESS, syncFailCount, syncFailMsg, syncFailTimestamp,
                                  utcNow, utcNow);
+        msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_VAULT", credInfo.getTenant(), credInfo.getSystemId(),
+                              credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(),
+                              credInfo.getLoginUserMapping(), opName);
+        log.warn(String.format("%s NOT-IN-DB", msg));
         credInfo = dao.createCredInfo(rUser, credInfo);
       }
       // Update record to COMPLETED
-      credInfo = updateCredInfoStatus(rUser, credInfo, SyncStatus.COMPLETED, opName);
+      updateCredInfoToCompleted(rUser, credInfo);
     }
     return credInfo;
   }

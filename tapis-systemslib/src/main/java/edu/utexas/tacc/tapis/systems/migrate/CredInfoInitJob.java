@@ -223,7 +223,13 @@ public class CredInfoInitJob
           info(String.format("Processing record. Tenant: %s System: %s User field: %s isLegacy: %b",
                              tenant, system, user, isLegacy));
           initCredInfoRecord(tenant, system, user);
-          if (isLegacy) totalLegacyRecords++;
+          if (isLegacy)
+          {
+            String fullPath = String.format("%s/%s/%s/%s/%s/%s/%s/%s",
+                    _parms.vurl,VAULT_BASE_URL_META,TENANT_ROOT,tenant,SYSTEM_ELEMENT,system,USER_ELEMENT,user);
+            info("Legacy record vault path: " + fullPath);
+            totalLegacyRecords++;
+          }
         }
         totalUsersProcessed += users.size();
       }
@@ -273,10 +279,11 @@ public class CredInfoInitJob
     siteAdminTenantId = TenantManager.getInstance(url).getSiteAdminTenantId(siteId);
     // Initialize services
     System.out.println("Init dao and svc classes");
-    SystemsDaoImpl dao = new SystemsDaoImpl();
+    SystemsDao dao = locator.getService(SystemsDaoImpl.class);
+    if (dao.checkDB() != null) throw new Exception("DB CHECK FAILED");
     SystemsServiceImpl svcImpl = locator.getService(SystemsServiceImpl.class);
     svcImpl.initService(siteId, siteAdminTenantId, RuntimeParameters.getInstance());
-    credUtils = new CredUtils();
+    credUtils = locator.getService(CredUtils.class);
     serviceClients = ServiceClients.getInstance();
     envApply = runParms.isMigrateJobApply();
     var authUser = new AuthenticatedUser(svcName, svcTenant, TapisThreadContext.AccountType.service.name(), null,
