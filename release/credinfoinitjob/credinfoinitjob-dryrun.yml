@@ -8,7 +8,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: systems-credinfoinitjob-dryrun
-        image: tapis/systems-credinfoinitjob:test
+        image: tapis/systems-credinfoinitjob:dev
         imagePullPolicy: Always
         env:
           - name: TAPIS_DB_JDBC_URL

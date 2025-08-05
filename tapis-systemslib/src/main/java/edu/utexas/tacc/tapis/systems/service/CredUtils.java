@@ -112,6 +112,12 @@ public class CredUtils
    * Given attributes read directly from Vault, create or update a CredInfo record.
    * Final status will be COMPLETED.
    *
+   * NOTE/WARNING
+   *   It is possible for the vault record to have isStatic=true even though the system is defined with
+   *   effectiveUserId=${apiUserId}. This means the credential was created when isStatic=true and then
+   *   the system definition was updated to have effectiveUserId=${apiUserId}. So we must detect this
+   *   and set hostLoginUser to the static user registered at the time of credential creation.
+   *
    * From the vault attributes we have some of the primary key values for table: tenant, sysId, isStatic
    * We also have values for the credential metadata, (has_credentials, has_pki_keys, etc.).
    *
@@ -163,8 +169,20 @@ public class CredUtils
         updateCredInfoStatus(rUser, credInfoDB, SyncStatus.IN_PROGRESS, opName);
         // Compute loginUserMapping and hostLoginUser.
         loginUserMapping = credInfoDB.getLoginUserMapping();
-        if (isStatic) hostLoginUser = sys.getEffectiveUserId();
-        else hostLoginUser = (loginUserMapping != null) ? loginUserMapping : credTargetUser;
+
+        // Determine hostLoginUser
+        if (isStatic && APIUSERID_VAR.equals(sys.getEffectiveUserId()))
+        {
+          // Exceptional case. Vault record is static but system has effectiveUserId = ${apiUserId} This means that
+          //   although the system is currently dynamic we still need to use credTargetUser as the host login user.
+          hostLoginUser = credTargetUser;
+        }
+        else
+        {
+          // Normal case. If static use system effUsr else use loginUserMapping or credTargetUser
+          if (isStatic) hostLoginUser = sys.getEffectiveUserId();
+          else hostLoginUser = (loginUserMapping != null) ? loginUserMapping : credTargetUser;
+        }
         // We now have all attributes, use them to create a CredInfo record in memory
         credInfo = new CredentialInfo(sysSeqId, credInfoDB.getTenant(), credInfoDB.getSystemId(),
                                       tapisUser, isStatic, hostLoginUser, loginUserMapping,
@@ -179,7 +197,18 @@ public class CredUtils
         // No record in DB, create one with status of IN_PROGRESS
         // Compute loginUserMapping and hostLoginUser.
         loginUserMapping = null;
-        hostLoginUser = (isStatic) ? sys.getEffectiveUserId() : credTargetUser;
+        // Determine hostLoginUser
+        if (isStatic && APIUSERID_VAR.equals(sys.getEffectiveUserId()))
+        {
+          // Exceptional case. Vault record is static but system has effectiveUserId = ${apiUserId}. This means that
+          //   although the system is currently dynamic we still need to use credTargetUser as the host login user.
+          hostLoginUser = credTargetUser;
+        }
+        else
+        {
+          // Normal case. If static use system effUsr else use credTargetUser
+          hostLoginUser = (isStatic) ? sys.getEffectiveUserId() : credTargetUser;
+        }
         int syncFailCount = 0;
         String syncFailMsg = null;
         Instant syncFailTimestamp = null;

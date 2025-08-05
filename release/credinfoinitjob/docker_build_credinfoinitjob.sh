@@ -10,6 +10,7 @@ USAGE="Usage: $PrgName [ -push ]"
 
 SVC_NAME="systems-credinfoinitjob"
 REPO="tapis"
+ENV="dev"
 
 BUILD_DIR=../../tapis-systemsapi/target
 
@@ -51,6 +52,7 @@ GIT_BRANCH_LBL=$(awk '{print $1}' classes/git.info)
 GIT_COMMIT_LBL=$(awk '{print $2}' classes/git.info)
 TAG_UNIQ="${REPO}/${SVC_NAME}:${VER}-$(date +%Y%m%d%H%M)-${GIT_COMMIT_LBL}"
 TAG_VER="${REPO}/${SVC_NAME}:${VER}"
+TAG_ENV="${REPO}/${SVC_NAME}:${ENV}"
 
 # If branch name is UNKNOWN or empty as might be the case in a jenkins job then
 #   set it to GIT_BRANCH. Jenkins jobs should have this set in the env.
@@ -70,6 +72,7 @@ docker build -f Dockerfile_credinfoinitjob \
 # Create other tags
 echo "Creating image for local testing user tag: $TAG_VER"
 docker tag "$TAG_UNIQ" "$TAG_VER"
+docker tag "$TAG_UNIQ" "$TAG_ENV"
 
 # Push to remote repo
 if [ "x$1" = "x-push" ]; then
@@ -77,5 +80,6 @@ if [ "x$1" = "x-push" ]; then
   # NOTE: Use current login. Jenkins job does login
   docker push "$TAG_UNIQ"
   docker push "$TAG_VER"
+  docker push "$TAG_ENV"
 fi
 cd "$RUN_DIR"
