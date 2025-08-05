@@ -16,6 +16,7 @@ import edu.utexas.tacc.tapis.security.client.model.KeyType;
 import edu.utexas.tacc.tapis.security.client.model.SKSecretMetaParms;
 import edu.utexas.tacc.tapis.security.client.model.SecretType;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisSecurityException;
+import edu.utexas.tacc.tapis.systems.model.TSystem;
 import org.apache.commons.lang3.Strings;
 import org.glassfish.hk2.api.ServiceLocator;
 import org.glassfish.hk2.utilities.ServiceLocatorUtilities;
@@ -52,7 +53,7 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NA
  * CredInfoInitJob used to initialize the CredInfo table based on the records in Vault and SK.
  *
  * This implementation is for initializing entries in the table systems_cred_info based on information in
- * the SK vault. The table systems_cred_info was introduced in version 1.9.0. Through version TODO/TBD 1.9.1?
+ * the SK vault. The table systems_cred_info was introduced in version 1.9.0. Through version 1.9.1
  * the table systems_cred_info was not used yet to track all credential metadata. It was used in the same way
  * as the previous incarnation of the table when it was named systems_login_user.
  *
@@ -129,6 +130,7 @@ public class CredInfoInitJob
   private String msgPrefix;
   private String siteAdminTenantId;
   private static ResourceRequestUser rUserSvc;
+  SystemsDao dao;
 
   /* ********************************************************************** */
   /*                              Constructors                              */
@@ -279,7 +281,7 @@ public class CredInfoInitJob
     siteAdminTenantId = TenantManager.getInstance(url).getSiteAdminTenantId(siteId);
     // Initialize services
     System.out.println("Init dao and svc classes");
-    SystemsDao dao = locator.getService(SystemsDaoImpl.class);
+    dao = locator.getService(SystemsDaoImpl.class);
     if (dao.checkDB() != null) throw new Exception("DB CHECK FAILED");
     SystemsServiceImpl svcImpl = locator.getService(SystemsServiceImpl.class);
     svcImpl.initService(siteId, siteAdminTenantId, RuntimeParameters.getInstance());
@@ -634,7 +636,6 @@ public class CredInfoInitJob
         // Remove SK records
         // Determine targetUserPath for the path to the secret. For legacy record it is just the username.
         String targetUserPath = userField;
-
         // Surround all SK related code in a try block. Catch any SK errors and throw a TapisSecurityException
         try
         {
@@ -667,7 +668,39 @@ public class CredInfoInitJob
     // We have a record, sync with SK
     if (isApply)
     {
-      CredentialInfo ci = credUtils.initCredInfoRecordFromVaultMetadata(rUserSvc, tenant, system, isStatic, secretMetadata);
+      // Fetch the system, we will use the seqId and owner
+      TSystem sys = dao.getSystem(tenant, system); // For seqId, owner
+      if (sys == null)
+      {
+        // System is missing or deleted. Remove record.
+        info(String.format("System is missing or deleted. Remove record. Tenant: %s System: %s User field: %s", tenant, system, userField));
+        // Remove SK records
+        // Determine targetUserPath for the path to the secret. For legacy record it is just the username.
+        String targetUserPath = userField;
+        // Surround all SK related code in a try block. Catch any SK errors and throw a TapisSecurityException
+        try
+        {
+          var sMetaParms = new SKSecretMetaParms(SecretType.System).setSecretName(TOP_LEVEL_SECRET_NAME);
+          // NOTE: For secrets of type "system" setUser value not used in the path, but SK requires that it be set.
+          sMetaParms.setTenant(tenant).setUser(userField);
+          sMetaParms.setSysId(system).setSysUser(targetUserPath);
+
+          // Construct basic SK secret parameters and attempt to destroy each type of secret.
+          // If destroy attempt throws an exception then log a message and continue.
+          sMetaParms.setKeyType(KeyType.password);
+          try {getSKClient().destroySecretMeta(sMetaParms);} catch (Exception e) { error("Error rm password: " + e.getMessage()); }
+          sMetaParms.setKeyType(KeyType.sshkey);
+          try {getSKClient().destroySecretMeta(sMetaParms);} catch (Exception e) { error("Error rm sshkey: " + e.getMessage()); }
+          sMetaParms.setKeyType(KeyType.accesskey);
+          try {getSKClient().destroySecretMeta(sMetaParms);} catch (Exception e) { error("Error rm accesskey: " + e.getMessage()); }
+          sMetaParms.setKeyType(KeyType.token);
+          try {getSKClient().destroySecretMeta(sMetaParms);} catch (Exception e) { error("Error rm token: " + e.getMessage()); }
+          sMetaParms.setKeyType(KeyType.tmskey);
+          try {getSKClient().destroySecretMeta(sMetaParms);} catch (Exception e) { error("Error rm tmskey: " + e.getMessage()); }
+        } catch (TapisClientException tce) {error("Error rm tmskey: " + tce.getMessage()); throw new TapisSecurityException(tce);}
+        return;
+      }
+      CredentialInfo ci = credUtils.initCredInfoRecordFromVaultMetadata(rUserSvc, tenant, sys, isStatic, secretMetadata);
       var fmt = "Wrote CredentialInfo. tenant: %s sysId: %s tapisUser: %s isStatic: %b, loginUserMapping: %s " +
                 "hostLoginUser: %s hasCredentials: %b hasPassword: %b hasPkiKeys: %b hasAccessKey: %b hasToken %b hasTmsKeys: %b";
       trace(String.format(fmt, ci.getTenant(), ci.getSystemId(), ci.getTapisUser(), ci.isStatic(), ci.getLoginUserMapping(), ci.getHostLoginUser(),

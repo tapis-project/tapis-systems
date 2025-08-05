@@ -8,10 +8,10 @@ PrgName=$(basename "$0")
 
 USAGE="Usage: $PrgName [ -push ]"
 
-SVC_NAME="systems-cred-info-init-job"
+SVC_NAME="systems-credinfoinitjob"
 REPO="tapis"
 
-BUILD_DIR=../tapis-systemsapi/target
+BUILD_DIR=../../tapis-systemsapi/target
 
 # Check number of arguments and 1st arg if present
 if [ $# -gt 1 ]; then
@@ -30,7 +30,7 @@ cd "$PRG_RELPATH"/. || exit
 export PRG_PATH=$(pwd)
 
 # Build the jar file
-cd ..
+cd ../..
 mvn clean install
 cd $PRG_PATH
 
@@ -41,7 +41,7 @@ if [ ! -d "$BUILD_DIR" ]; then
 fi
 
 # Copy Dockerfile to build dir
-cp Dockerfile_cred_info_init_job $BUILD_DIR
+cp Dockerfile_credinfoinitjob $BUILD_DIR
 
 # Move to the build directory
 cd $BUILD_DIR || exit
@@ -63,7 +63,7 @@ echo "Building local image using primary tag: $TAG_UNIQ"
 echo "  VER=        ${VER}"
 echo "  GIT_BRANCH_LBL= ${GIT_BRANCH_LBL}"
 echo "  GIT_COMMIT_LBL= ${GIT_COMMIT_LBL}"
-docker build -f Dockerfile_cred_info_init_job \
+docker build -f Dockerfile_credinfoinitjob \
    --label VER="${VER}" --label GIT_COMMIT="${GIT_COMMIT_LBL}" --label GIT_BRANCH="${GIT_BRANCH_LBL}" \
     -t "${TAG_UNIQ}" .
 

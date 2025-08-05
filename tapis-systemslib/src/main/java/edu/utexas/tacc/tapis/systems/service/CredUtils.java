@@ -129,15 +129,13 @@ public class CredUtils
    *         hostLoginUser : if isStatic=true use effectiveUserId from system
    *                         if isStatic=false use credTargetUser from the record
    */
-  public CredentialInfo initCredInfoRecordFromVaultMetadata(ResourceRequestUser rUser, String tenant, String sysId,
+  public CredentialInfo initCredInfoRecordFromVaultMetadata(ResourceRequestUser rUser, String tenant, TSystem sys,
                                                             boolean isStatic, CredInfoInitJob.SecretMetaInfo sm)
   {
     String opName = "createCredInfoRecordFromVaultMetadata";
     CredentialInfo credInfo;
     String credTargetUser = sm.targetUser();
     boolean hasCredentials = (sm.hasPassword() || sm.hasPkiKeys() || sm.hasAccessKey() || sm.hasToken() || sm.hasTmsKeys());
-    // Fetch the system, we will use the seqId and owner
-    TSystem sys = dao.getSystem(tenant, sysId); // For seqId, owner
     int sysSeqId = sys.getSeqId();
 
     // Compute tapisUser, hostLoginUser and loginUserMapping
@@ -187,7 +185,7 @@ public class CredUtils
         Instant syncFailTimestamp = null;
         Instant utcNow = TapisUtils.getUTCTimeNow().toInstant(ZoneOffset.UTC);
         // We now have all attributes, use them to create a CredInfo record in memory
-        credInfo = new CredentialInfo(sysSeqId, tenant, sysId, tapisUser, isStatic, hostLoginUser, loginUserMapping,
+        credInfo = new CredentialInfo(sysSeqId, tenant, sys.getId(), tapisUser, isStatic, hostLoginUser, loginUserMapping,
                                  hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
                                  sm.hasTmsKeys(), SyncStatus.IN_PROGRESS, syncFailCount, syncFailMsg, syncFailTimestamp,
                                  utcNow, utcNow);

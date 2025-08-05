@@ -8,7 +8,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: systems-credinfoinitjob-apply
-        image: tapis/systems-cred-info-init-job:dev
+        image: tapis/systems-credinfoinitjob:dev
         imagePullPolicy: Always
         env:
           - name: TAPIS_MIGRATE_JOB_APPLY

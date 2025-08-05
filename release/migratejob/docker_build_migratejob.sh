@@ -12,7 +12,7 @@ USAGE="Usage: $PrgName [ -push ]"
 SVC_NAME="systems-migratejob"
 REPO="tapis"
 
-BUILD_DIR=../tapis-systemsapi/target
+BUILD_DIR=../../tapis-systemsapi/target
 
 # Check number of arguments and 1st arg if present
 if [ $# -gt 1 ]; then

@@ -2,7 +2,7 @@
 
 Files:
   README_credinfoinitjob - this file
-  docker_build_credinfoinitjob.sh - script to build docker image from Dockerfile_cred_info_init_job
+  docker_build_credinfoinitjob.sh - script to build docker image from Dockerfile_credinfoinitjob
   credinfoinitjob-dryrun.yml - k8s file for dry-run of CredInfoInit job
   credinfoinitjob-dryrun.sh  - script to launch k8s dry-run job
   credinfoinitjob-apply.yml - k8s file for run of CredInfoInit job with changes applied
@@ -41,7 +41,7 @@ Following env variables must be set:
   JOB_PARMS
 Following services from a running tapis3 are required: tenants, tokens, security-kernel
 
-TODO Version 1.9.?
+Version 1.9.2
 ===============
 This job initializes the credential metadata records based on entries in SK vault.
 Records in systems_cred_info are created/updated as needed.
