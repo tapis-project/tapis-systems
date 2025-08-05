@@ -1,0 +1,80 @@
+#!/bin/sh
+# Special build and optionally push docker image for Systems service for specific branch
+# This is the script run in Jenkins as part of job TapisJava->3_ManualBuildDeploy->systems-branch
+# Branch name to use for tag must be passed in as first argument
+# Existing docker login is used for push
+# No unique docker image tag is created
+#
+
+PrgName=$(basename "$0")
+
+USAGE="Usage: $PrgName <branch_name> [ -push ]"
+
+SVC_NAME="systems"
+REPO="tapis"
+BRANCH_NAME="$1"
+
+BUILD_DIR=../tapis-systemsapi/target
+ENV=$1
+
+# Check number of arguments
+if [ $# -lt 1 -o $# -gt 2 ]; then
+  echo "$USAGE"
+  exit 1
+fi
+
+# Check second arg
+if [ $# -eq 2 -a "x$2" != "x-push" ]; then
+  echo "$USAGE"
+  exit 1
+fi
+
+# Determine absolute path to location from which we are running
+#  and change to that directory.
+export RUN_DIR=$(pwd)
+export PRG_RELPATH=$(dirname "$0")
+cd "$PRG_RELPATH"/. || exit
+export PRG_PATH=$(pwd)
+
+# Make sure service has been built
+if [ ! -d "$BUILD_DIR" ]; then
+  echo "Build directory missing. Please build. Directory: $BUILD_DIR"
+  exit 1
+fi
+
+# Copy Dockerfile to build dir
+cp Dockerfile $BUILD_DIR
+# Copy logback configuration file to build dir
+cp logback.xml $BUILD_DIR
+
+# Move to the build directory
+cd $BUILD_DIR || exit
+
+# Set variables used for build
+VER=$(cat classes/tapis.version)
+GIT_BRANCH_LBL=$(awk '{print $1}' classes/git.info)
+GIT_COMMIT_LBL=$(awk '{print $2}' classes/git.info)
+TAG_BRANCH="${REPO}/${SVC_NAME}:${BRANCH_NAME}"
+
+# If branch name is UNKNOWN or empty as might be the case in a jenkins job then
+#   set it to GIT_BRANCH. Jenkins jobs should have this set in the env.
+if [ -z "$GIT_BRANCH_LBL" -o "x$GIT_BRANCH_LBL" = "xUNKNOWN" ]; then
+  GIT_BRANCH_LBL=$(echo "$GIT_BRANCH" | awk -F"/" '{print $2}')
+fi
+
+# Build image from Dockerfile
+echo "Building local image using tag: $TAG_BRANCH"
+echo "  BRANCH_NAME=    ${BRANCH_NAME}"
+echo "  GIT_BRANCH_LBL= ${GIT_BRANCH_LBL}"
+echo "  GIT_COMMIT_LBL= ${GIT_COMMIT_LBL}"
+docker build -f Dockerfile \
+   --label VER="${VER}" --label GIT_COMMIT="${GIT_COMMIT_LBL}" --label GIT_BRANCH="${GIT_BRANCH_LBL}" \
+    -t "${TAG_BRANCH}" .
+
+# Push to remote repo
+if [ "x$2" = "x-push" ]; then
+  echo "Pushing images to docker hub."
+  # NOTE: Use current login. Jenkins job does login
+  docker push "$TAG_BRANCH"
+fi
+cd "$RUN_DIR"
