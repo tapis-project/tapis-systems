@@ -608,7 +608,7 @@ public class CredInfoInitJob
    */
   private void initCredInfoRecord(String tenant, String system, String userField) throws Exception
   {
-    trace(String.format("SyncCredInfoRecord. Tenant: %s system: %s user: %s.", tenant, system, userField));
+    trace(String.format("initCredInfoRecord. Tenant: %s system: %s user: %s.", tenant, system, userField));
     boolean isStatic;
     String userName;
 
@@ -700,9 +700,12 @@ public class CredInfoInitJob
         } catch (TapisClientException tce) {error("Error rm tmskey: " + tce.getMessage()); throw new TapisSecurityException(tce);}
         return;
       }
+
+      String fmt = "Write CredentialInfo. tenant: %s sysId: %s tapisUser: %s isStatic: %b";
+      trace(String.format(fmt, secretMetadata.tenantId, secretMetadata.systemId, secretMetadata.targetUser, secretMetadata.isStatic));
       CredentialInfo ci = credUtils.initCredInfoRecordFromVaultMetadata(rUserSvc, tenant, sys, isStatic, secretMetadata);
-      var fmt = "Wrote CredentialInfo. tenant: %s sysId: %s tapisUser: %s isStatic: %b, loginUserMapping: %s " +
-                "hostLoginUser: %s hasCredentials: %b hasPassword: %b hasPkiKeys: %b hasAccessKey: %b hasToken %b hasTmsKeys: %b";
+      fmt = "Wrote CredentialInfo. tenant: %s sysId: %s tapisUser: %s isStatic: %b, loginUserMapping: %s " +
+            "hostLoginUser: %s hasCredentials: %b hasPassword: %b hasPkiKeys: %b hasAccessKey: %b hasToken %b hasTmsKeys: %b";
       trace(String.format(fmt, ci.getTenant(), ci.getSystemId(), ci.getTapisUser(), ci.isStatic(), ci.getLoginUserMapping(), ci.getHostLoginUser(),
                                ci.hasCredentials(), ci.hasPassword(), ci.hasPkiKeys(), ci.hasAccessKey(), ci.hasToken(),
                                ci.hasTmsKeys()));

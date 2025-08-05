@@ -1563,9 +1563,14 @@ public class CredUtils
    */
   private CredentialInfo updateCredInfoToCompleted(ResourceRequestUser rUser, CredentialInfo credInfo)
   {
+    String opName = "updateCredInfoToCompleted";
+    SyncStatus oldSyncStatus = credInfo.getSyncStatus();
     SyncStatus newSyncStatus = SyncStatus.COMPLETED;
+    log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, credInfo.getTenant(), credInfo.getSystemId(),
+              credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(), oldSyncStatus, newSyncStatus, opName));
+
     // Validate transition from current state to new state
-    CredInfoFSM.checkForAllowedTransition(rUser, credInfo.getSyncStatus(), newSyncStatus);
+    CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
 
     // Update CredInfo attributes, including reset of Failure info.
     credInfo.setSyncFailCount(0);
@@ -1585,9 +1590,13 @@ public class CredUtils
    */
   private CredentialInfo updateCredInfoToFailed(ResourceRequestUser rUser, CredentialInfo credInfo, String errorMsg)
   {
+    String opName = "updateCredInfoToFailed";
+    SyncStatus oldSyncStatus = credInfo.getSyncStatus();
     SyncStatus newSyncStatus = SyncStatus.FAILED;
+    log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, credInfo.getTenant(), credInfo.getSystemId(),
+          credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(), oldSyncStatus, newSyncStatus, opName));
     // Validate transition from current state to new state
-    CredInfoFSM.checkForAllowedTransition(rUser, credInfo.getSyncStatus(), newSyncStatus);
+    CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
     // Update CredInfo attributes
     LocalDateTime updated = TapisUtils.getUTCTimeNow();
     credInfo.setSyncFailed(updated.toInstant(ZoneOffset.UTC));
