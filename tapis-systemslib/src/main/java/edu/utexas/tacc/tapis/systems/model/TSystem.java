@@ -7,10 +7,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
-
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.swagger.v3.oas.annotations.media.Schema;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.StringUtils;
 
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
@@ -812,7 +812,7 @@ public final class TSystem
         {
           errMessages.add(LibUtils.getMsg("SYSLIB_ENV_VAR_REQUIRED_SET", kv.getKey(), kv.getValue()));
         }
-        if (StringUtils.startsWith(kv.getKey(), RESERVED_PREFIX))
+        if (Strings.CS.startsWith(kv.getKey(), RESERVED_PREFIX))
         {
           errMessages.add(LibUtils.getMsg("SYSLIB_ENV_VAR_INVALID_PREFIX", kv.getKey(), kv.getValue()));
         }

@@ -1,24 +1,30 @@
 #!/bin/sh
-# Build and optionally push docker image for Systems service migrate job
-# This is the job run in Jenkins as an optional part of job TapisJava->3_ManualBuildDeploy->systems
+# Special build and optionally push docker image for Systems service for specific branch
+# This is the script run in Jenkins as part of job TapisJava->3_ManualBuildDeploy->systems-branch
+# Branch name to use for tag must be passed in as first argument
 # Existing docker login is used for push
-# Docker image is created with a unique tag: tapis/<SVC_NAME>-<VER>-<COMMIT>-<YYYYmmddHHMM>
-#   - other tags are created and updated as appropriate
+# No unique docker image tag is created
 #
+
 PrgName=$(basename "$0")
 
-USAGE="Usage: $PrgName [ -push ]"
+USAGE="Usage: $PrgName <branch_name> [ -push ]"
 
-SVC_NAME="systems-migratejob"
+SVC_NAME="systems"
 REPO="tapis"
+BRANCH_NAME="$1"
 
 BUILD_DIR=../tapis-systemsapi/target
+ENV=$1
 
-# Check number of arguments and 1st arg if present
-if [ $# -gt 1 ]; then
+# Check number of arguments
+if [ $# -lt 1 -o $# -gt 2 ]; then
   echo "$USAGE"
   exit 1
-elif [ $# -eq 1 ] && [ "x$1" != "x-push" ]; then
+fi
+
+# Check second arg
+if [ $# -eq 2 -a "x$2" != "x-push" ]; then
   echo "$USAGE"
   exit 1
 fi
@@ -37,16 +43,18 @@ if [ ! -d "$BUILD_DIR" ]; then
 fi
 
 # Copy Dockerfile to build dir
-cp Dockerfile_migratejob $BUILD_DIR
+cp Dockerfile $BUILD_DIR
+# Copy logback configuration file to build dir
+cp logback.xml $BUILD_DIR
 
 # Move to the build directory
 cd $BUILD_DIR || exit
+
 # Set variables used for build
 VER=$(cat classes/tapis.version)
 GIT_BRANCH_LBL=$(awk '{print $1}' classes/git.info)
 GIT_COMMIT_LBL=$(awk '{print $2}' classes/git.info)
-TAG_UNIQ="${REPO}/${SVC_NAME}:${VER}-$(date +%Y%m%d%H%M)-${GIT_COMMIT_LBL}"
-TAG_VER="${REPO}/${SVC_NAME}:${VER}"
+TAG_BRANCH="${REPO}/${SVC_NAME}:${BRANCH_NAME}"
 
 # If branch name is UNKNOWN or empty as might be the case in a jenkins job then
 #   set it to GIT_BRANCH. Jenkins jobs should have this set in the env.
@@ -55,23 +63,18 @@ if [ -z "$GIT_BRANCH_LBL" -o "x$GIT_BRANCH_LBL" = "xUNKNOWN" ]; then
 fi
 
 # Build image from Dockerfile
-echo "Building local image using primary tag: $TAG_UNIQ"
-echo "  VER=        ${VER}"
+echo "Building local image using tag: $TAG_BRANCH"
+echo "  BRANCH_NAME=    ${BRANCH_NAME}"
 echo "  GIT_BRANCH_LBL= ${GIT_BRANCH_LBL}"
 echo "  GIT_COMMIT_LBL= ${GIT_COMMIT_LBL}"
-docker build -f Dockerfile_migratejob \
+docker build -f Dockerfile \
    --label VER="${VER}" --label GIT_COMMIT="${GIT_COMMIT_LBL}" --label GIT_BRANCH="${GIT_BRANCH_LBL}" \
-    -t "${TAG_UNIQ}" .
-
-# Create other tags
-echo "Creating image for local testing user tag: $TAG_VER"
-docker tag "$TAG_UNIQ" "$TAG_VER"
+    -t "${TAG_BRANCH}" .
 
 # Push to remote repo
-if [ "x$1" = "x-push" ]; then
+if [ "x$2" = "x-push" ]; then
   echo "Pushing images to docker hub."
   # NOTE: Use current login. Jenkins job does login
-  docker push "$TAG_UNIQ"
-  docker push "$TAG_VER"
+  docker push "$TAG_BRANCH"
 fi
 cd "$RUN_DIR"

@@ -19,6 +19,7 @@ import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.Credential;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
@@ -77,6 +78,7 @@ public final class IntegrationUtils
   public static final String impersonationIdNull = null;
   public static final String apiUser = "testApiUser";
   public static final boolean isStaticTrue = true;
+  public static final boolean isStaticFalse = false;
 
   // Properties for one of the Tapis v3 test VMs
   public static final String TAPIS_TEST_HOST_LOGIN_USER = testUser3;
@@ -624,4 +626,18 @@ public final class IntegrationUtils
   // Wrapper for request info used when fetching a public key from TMS
   public record TmsGetPubKeyRequest(String user, String user_uid, String host, String public_key_fingerprint,
                                     String key_type) {}
+
+  // Validate CredInfo record
+  public static void verifyCredInfo(CredentialInfo ci, String tenant, String sysId, String tapisUser, boolean isStatic,
+                                    String userLoginMapping, String hostLoginUser, CredentialInfo.SyncStatus syncStatus)
+  {
+    Assert.assertNotNull(ci, "credInfo should not be null.");
+    Assert.assertEquals(ci.getTenant(), tenant);
+    Assert.assertEquals(ci.getSystemId(), sysId);
+    Assert.assertEquals(ci.getTapisUser(), tapisUser);
+    Assert.assertEquals(ci.isStatic(), isStatic);
+    Assert.assertEquals(ci.getLoginUserMapping(), userLoginMapping);
+    Assert.assertEquals(ci.getHostLoginUser(), hostLoginUser);
+    Assert.assertEquals(ci.getSyncStatus(), syncStatus);
+  }
 }

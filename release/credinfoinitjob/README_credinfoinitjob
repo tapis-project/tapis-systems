@@ -1,0 +1,68 @@
+# Tapis Systems CredInfoInit Job
+
+Files:
+  README_credinfoinitjob - this file
+  docker_build_credinfoinitjob.sh - script to build docker image from Dockerfile_credinfoinitjob
+  credinfoinitjob-dryrun.yml - k8s file for dry-run of CredInfoInit job
+  credinfoinitjob-dryrun.sh  - script to launch k8s dry-run job
+  credinfoinitjob-apply.yml - k8s file for run of CredInfoInit job with changes applied
+  credinfoinitjob-apply.sh  - script to launch k8s CredInfoInit job with changes applied
+  systems-config.yml - snapshot of service config file from DEV environment. Used in scripts.
+
+NOTE: These files are being kept in the tapis-systems repo for now so they are backed up
+      and version controlled. In future they possibly should go into tapis-deployer repo.
+
+This directory contains kubernetes deployment files and other files for running an on-demand job
+to perform java based non-DB migration steps for the Tapis Systems service.
+ 
+Process and files are based on tapis-kube/skadmin
+
+There is no burnup/burndown since it will be a k8s job only run on-demand.
+
+The job starts up in the same manner as the Systems service api application.
+Typically it is run only once, although significant effort should be made to
+ensure that each incarnation of this job is idempotent since it may have to
+be run more than once if there are issues.
+
+ * *************** WARNING ***************
+ *  The Systems service api must be shut down before running this job to avoid the possibility of data
+ *  corruption. The job output (the logs) should be checked to confirm there were no errors.
+ * *************** WARNING ***************
+
+The job output (the logs) should be checked to confirm there were no errors.
+
+Following env variables must be set:
+  TAPIS_SITE_ID
+  TAPIS_SERVICE_PASSWORD
+  TAPIS_TENANT_SVC_BASEURL
+  TAPIS_DB_JDBC_URL
+  TAPIS_DB_USER
+  TAPIS_DB_PASSWORD
+  JOB_PARMS
+Following services from a running tapis3 are required: tenants, tokens, security-kernel
+
+Version 1.9.2
+===============
+This job initializes the credential metadata records based on entries in SK vault.
+Records in systems_cred_info are created/updated as needed.
+
+NOTES:
+* It is necessary to shut down the service when running this job.
+
+## Running the job
+
+Run the script docker_build_credinfoinitjob.sh to create the docker image. Push image to docker hub.
+Copy sh and yml files to k8s host.
+Update the settings in credinfoinitjob-dryrun.yml. In particular the JOB_PARMS settings will need to updated
+to have the correct Vault url and token.
+
+To make a dry-run of the job use credinfoinitjob-dryrun.sh, e.g.
+   kubectl delete -f credinfoinitjob-dryrun.yml
+   ./credinfoinitjob-dryrun.sh
+   kubectl logs job/systems-credinfoinitjob-dryrun > ./credinfo_job.log
+
+Check the logs to make sure all went all.
+
+If you need to re-run the job delete the current job first using kubectl delete -f credinfoinitjob-dryrun.yml
+
+To run and apply changes update credinfoinitjob-apply.yml and use credinfoinitjob-apply.sh

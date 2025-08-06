@@ -10,6 +10,17 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.9.2 - 2025-??-??
+
+Bug fix.
+
+### New features:
+- None
+
+### Bug fixes:
+- When registering credentials for a TMS systems check that createTmsKeys flag is set to true. Better error message.
+
+---------------------------------------------------------------------------
 ## 1.9.1 - 2025-07-15
 
 Bug fix.

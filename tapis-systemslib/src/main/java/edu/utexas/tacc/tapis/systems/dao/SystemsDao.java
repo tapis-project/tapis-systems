@@ -7,6 +7,7 @@ import edu.utexas.tacc.tapis.search.parser.ASTNode;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
 import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
 import edu.utexas.tacc.tapis.systems.model.TSystem;
@@ -56,9 +57,9 @@ public interface SystemsDao
 
   String getParent(String tenantId, String sysId);
 
-  TSystem getSystem(String tenantId, String id) throws TapisException;
+  TSystem getSystem(String tenantId, String id);
 
-  TSystem getSystem(String tenantId, String id, boolean includeDeleted) throws TapisException;
+  TSystem getSystem(String tenantId, String id, boolean includeDeleted);
 
   int getSystemsCount(ResourceRequestUser rUser, String oboUser, List<String> searchList, ASTNode searchAST,
                       List<OrderBy> orderByList, String startAfter, boolean includeDeleted, AuthListType listType,
@@ -82,48 +83,37 @@ public interface SystemsDao
   /*                        CredentialInfo Table                            */
   /* ********************************************************************** */
 
-/* TODO CredInfo
+  int getCredInfoTotalCount();
+
   CredentialInfo getCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic);
 
   CredentialInfo getCredInfo(CredentialInfo credInfo);
 
-  List<CredentialInfo> getCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenantId, String systemId)
-        throws TapisException;
+  List<CredentialInfo> getCredInfoRecordsForSystem(String tenantId, String systemId);
 
-  void deleteCredInfo(ResourceRequestUser rUser, String tenantId, String systemId, String tapisUser, boolean isStatic)
-        throws TapisException;
+  void deleteCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic);
 
-  void deleteCredInfoRecord(ResourceRequestUser rUser, CredentialInfo credInfo) throws TapisException;
+  void deleteCredInfoRecord(CredentialInfo credInfo);
 
-  void deleteAllCredInfoRecordsForSystem(ResourceRequestUser rUser, String tenant, String systemId) throws TapisException;
+  void deleteAllCredInfoRecordsForSystem(String tenant, String systemId);
 
   CredentialInfo createCredInfo(ResourceRequestUser rUser, CredentialInfo credInfo);
 
   void updateCredInfoRecord(CredentialInfo credInfo, LocalDateTime updated);
 
   void updateCredInfoStatus(CredentialInfo credInfo, CredentialInfo.SyncStatus newSyncStatus, LocalDateTime updated);
-*/
 
-  String getLoginUserMapping(String tenantId, String id, String tapisUser);
+  String getLoginUserMapping(String tenantId, String id, String tapisUser, boolean isStatic);
 
-  void createOrUpdateLoginUserMapping(String tenantId, String id, String tapisUser, String loginUserMapping,
-                                      String hostLoginUser, boolean isStatic) throws TapisException;
+  int credInfoMarkAllInProgressAsFailed(ResourceRequestUser rUser, String failMsg);
 
-  void deleteLoginUserMapping(ResourceRequestUser rUser, String tenantId, String id, String tapisUser) throws TapisException;
+  int credInfoMarkAllFailedAsPending(ResourceRequestUser rUser);
 
-/*
-  int credInfoMarkInProgressAsFailed(ResourceRequestUser rUser, String failMsg);
-
-  int credInfoMarkFailedAsPending(ResourceRequestUser rUser);
-
-  void credInfoMarkAsComplete(CredentialInfo credInfo) throws TapisException;
+  void credInfoMarkAsComplete(CredentialInfo credInfo);
 
   List<CredentialInfo> credInfoGetRecordsInStatus(CredentialInfo.SyncStatus status);
 
-  int credInfoInitStaticSystems();
-
-  int credInfoRemoveDeletedRecords();
-*/
+  int credInfoCreatePendingForStaticSystems();
 
   /* ********************************************************************** */
   /*                             Scheduler Profiles                         */

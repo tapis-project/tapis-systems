@@ -17,6 +17,7 @@ import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDaoImpl;
 import edu.utexas.tacc.tapis.systems.model.Capability;
 import edu.utexas.tacc.tapis.systems.model.Credential;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import edu.utexas.tacc.tapis.systems.model.JobRuntime;
 import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
 import edu.utexas.tacc.tapis.systems.model.ModuleLoadSpec;
@@ -86,6 +87,7 @@ public class SystemsServiceTest
   private CredUtils credUtils;
   private SchedulerProfileServiceImpl svcSchedProfile;
   private CredentialsServiceImpl svcCred;
+  private SystemsDaoImpl dao;
   private ResourceRequestUser rOwner1, rOwner3, rOwner4, rOwner5, rOwner6,
           rTestUser0, rTestUser1, rTestUser2, rTestUser3, rTestUser4, rTestUser5,
           rParentChild1, rParentChild2, rParentChild3,
@@ -145,6 +147,7 @@ public class SystemsServiceTest
     svcImpl = locator.getService(SystemsServiceImpl.class);
     svcSchedProfile = locator.getService(SchedulerProfileServiceImpl.class);
     svcCred = locator.getService(CredentialsServiceImpl.class);
+    dao = new SystemsDaoImpl();
     svcImpl.initService(siteId, adminTenantName, RuntimeParameters.getInstance());
     CredUtils.initTmsConfiguration();
     credUtils = locator.getService(CredUtils.class);
@@ -256,7 +259,6 @@ public class SystemsServiceTest
         parentIds.add(parentSystem.getId());
       }
     }
-    SystemsDaoImpl dao = new SystemsDaoImpl();
 
     // Delete all child systems.
     for(String childUser : childUsers)
@@ -308,20 +310,12 @@ public class SystemsServiceTest
   public void testCredCheckLinux() throws Exception
   {
     TSystem sys0 = systems[34];
-    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
-    sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
-    sys0.setHost(TAPIS_TEST_HOST_IP);
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
-    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false,
-                      null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-    Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
-    System.out.println("Found item: " + sys0.getId());
-
     String targetUser = owner1;
+    String sysId = sys0.getId();
     // Get username and password from environment
-    String loginUser = System.getenv(TAPIS_TEST_USERNAME_ENV_VAR);
+    String loginUserMapping = System.getenv(TAPIS_TEST_USERNAME_ENV_VAR);
     String testTapisUserP = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
-    if (StringUtils.isBlank(loginUser))
+    if (StringUtils.isBlank(loginUserMapping))
     {
       Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_USERNAME_ENV_VAR);
     }
@@ -329,25 +323,39 @@ public class SystemsServiceTest
     {
       Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_PASSWORD_ENV_VAR);
     }
-    Credential credFake = new Credential(AuthnMethod.PASSWORD, loginUser, "fakePassword", null, null, null, null, null, null, null, null, null, null);
+    Credential credFake = new Credential(AuthnMethod.PASSWORD, loginUserMapping, "fakePassword", null, null, null, null, null, null, null, null, null, null);
+    Credential credGoodPasswd = new Credential(null, null, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
+    Credential credGoodWithLoginMapping = new Credential(null, loginUserMapping, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
 
-    // Cleanup any previous credentials
-    svcCred.deleteUserCredential(rOwner1, sys0.getId(), targetUser);
+    // Create the system with a static effectiveUserId so we can test creating a system with credentials.
+    sys0.setEffectiveUserId(loginUserMapping);
+    sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
+    sys0.setHost(TAPIS_TEST_HOST_IP);
+    sys0.setAuthnCredential(credGoodPasswd);
+    svc.createSystem(rOwner1, sys0, skipCredCheckFalse, rawDataEmptyJson);
+    TSystem tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    Assert.assertNotNull(tmpSys, "Failed to create item: " + sysId);
+    System.out.println("Found item: " + sysId);
+
+    // Cleanup any previous credentials for targetUser = owner1
+    svcCred.deleteUserCredential(rOwner1, sysId, owner1);
+
+    // Update the system to have a dynamic effectiveUserId and use PKI_KEYS. Use PATCH
+    tmpSys.setEffectiveUserId(TSystem.APIUSERID_VAR);
+    PatchSystem patchSystem = new PatchSystem(tmpSys);
+    svc.patchSystem(rOwner1, sysId, patchSystem, rawDataEmptyJson);
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
 
     // Test create with invalid credentials
-    Credential checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credFake, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
+    Credential checkedCred = svcCred.createUserCredential(rOwner1, sysId, targetUser, credFake, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
 
-    // Using valid credentials should succeed.
-    Credential credGood = new Credential(null, loginUser, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
-    sys0.setAuthnCredential(credGood);
-
-    // Test create and check with valid credentials
-    checkedCred = svcCred.createUserCredential(rOwner1, sys0.getId(), targetUser, credGood, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
+    // Test createCred and check with valid credentials
+    checkedCred = svcCred.createUserCredential(rOwner1, sysId, targetUser, credGoodWithLoginMapping, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
-    checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), targetUser, null);
+    checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, null);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
-    checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PASSWORD);
+    checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, AuthnMethod.PASSWORD);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
 
     // Negative tests
@@ -355,7 +363,7 @@ public class SystemsServiceTest
     boolean pass = false;
     try
     {
-      checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), targetUser, AuthnMethod.PKI_KEYS);
+      checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, AuthnMethod.PKI_KEYS);
       Assert.fail("System checkUserCredential call should have thrown an exception when credentials do not exist");
     }
     catch (Exception e)
@@ -370,7 +378,7 @@ public class SystemsServiceTest
     pass = false;
     try
     {
-      checkedCred = svcCred.checkUserCredential(rOwner1, sys0.getId(), "testuser_99999999_no_such_user", null);
+      checkedCred = svcCred.checkUserCredential(rOwner1, sysId, "testuser_99999999_no_such_user", null);
       Assert.fail("System checkUserCredential call should have thrown an exception when user and credentials do not exist");
     }
     catch (Exception e)
@@ -1516,6 +1524,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[10];
     String sysId = sys0.getId();
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR); // "${apiUserId}"
+    boolean isStatic = false;
     // Create the system
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     Credential cred3NoLoginUser = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
@@ -1535,9 +1544,33 @@ public class SystemsServiceTest
     // Make the separate calls required to store credentials for each user.
     // In this case for owner1, testUser3, testUser5
     // These should all go under the dynamic secret path in SK
+    // After each one is created we should have a CredInfo record, so check for that
+    // Cred 1
     svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    CredentialInfo credInfo = dao.getCredInfo(tenantName, sysId, owner1, isStatic);
+    IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, owner1, isStatic, cred1NoLoginUser.getLoginUser(),
+                                    owner1, CredentialInfo.SyncStatus.COMPLETED);
+    List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
+    Assert.assertNotNull(ciList);
+    Assert.assertEquals(ciList.size(), 1);
+    // Cred 2
     svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    credInfo = dao.getCredInfo(tenantName, sysId, testUser3, isStatic);
+    IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, testUser3, isStatic, cred3NoLoginUser.getLoginUser(),
+                                    testUser3, CredentialInfo.SyncStatus.COMPLETED);
+    ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
+    Assert.assertNotNull(ciList);
+    Assert.assertEquals(ciList.size(), 2);
+    // Cred 3
     svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    credInfo = dao.getCredInfo(tenantName, sysId, testUser5, isStatic);
+    IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, testUser5, isStatic, cred5A_NoLoginUser.getLoginUser(),
+                                    testUser5, CredentialInfo.SyncStatus.COMPLETED);
+    ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
+    Assert.assertNotNull(ciList);
+    Assert.assertEquals(ciList.size(), 3);
+    int ciTotalCount = dao.getCredInfoTotalCount();
+    Assert.assertTrue((ciTotalCount >= 3));
 
     // ------------------------
     // Test 1 - basic cred retrieve/delete for owner1, testuser3
@@ -1568,20 +1601,24 @@ public class SystemsServiceTest
     Assert.assertEquals(cred0.getAccessKey(), cred3NoLoginUser.getAccessKey());
     Assert.assertEquals(cred0.getAccessSecret(), cred3NoLoginUser.getAccessSecret());
 
-    // Delete credentials and verify they were destroyed
+    // Delete 2 credentials and verify they were destroyed
     int changeCount = svcCred.deleteUserCredential(rOwner1, sysId, owner1);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when removing credential for user: " + owner1);
     changeCount = svcCred.deleteUserCredential(rOwner1, sysId, testUser3);
     Assert.assertEquals(changeCount, 1, "Change count incorrect when removing credential for user: " + testUser3);
-
     cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, owner1, AuthnMethod.PASSWORD);
     Assert.assertNull(cred0, "Credential not deleted. System name: " + sysId + " User name: " + owner1);
     cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser3, AuthnMethod.PASSWORD);
     Assert.assertNull(cred0, "Credential not deleted. System name: " + sysId + " User name: " + testUser3);
-
     // Attempt to delete again, should return 0 for change count
     changeCount = svcCred.deleteUserCredential(rOwner1, sysId, testUser3);
     Assert.assertEquals(changeCount, 0, "Change count incorrect when removing a credential already removed.");
+
+    // Verify CredInfo records are also gone.
+    credInfo = dao.getCredInfo(tenantName, sysId, owner1, isStatic);
+    Assert.assertNull(credInfo, "CredentialInfo not deleted. System name: " + sysId + " User name: " + owner1);
+    credInfo = dao.getCredInfo(tenantName, sysId, testUser3, isStatic);
+    Assert.assertNull(credInfo, "CredentialInfo not deleted. System name: " + sysId + " User name: " + testUser3);
 
     // Update cred to set just ACCESS_KEY and test
     // This should go under the dynamic secret path in SK
@@ -1887,6 +1924,21 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
+    // Attempt to register credentials but use createTmsKeys=false. Should fail with error SYSLIB_CRED_TMS_KEYS_BAD_ARG.
+    pass = false;
+    try
+    {
+      svcCred.createUserCredential(rOwner1, sysId, testUser2, cred1NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+      Assert.fail("System checkUserCredential call should throw exception when createTmsKeys is FALSE and system uses TMS.");
+    }
+    catch (Exception e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_CRED_TMS_KEYS_BAD_ARG"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    pass = false;
   }
 
   // Test creating, reading and deleting user credentials for a system

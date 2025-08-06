@@ -27,7 +27,6 @@ import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
  * Service level methods for System credentials.
  *   Uses Dao layer and other service library classes to perform all top level service operations.
  * Annotate as an hk2 Service so that default scope for Dependency Injection is singleton
- * TODO manage CredInfo records
  */
 @Service
 public class CredentialsServiceImpl
@@ -89,7 +88,7 @@ public class CredentialsServiceImpl
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param targetUser - Target user for operation
+   * @param credTargetUser - Target user for operation
    * @param cred - Credentials to be stored
    * @param createTmsKeys - Indicates if TMS keys should be created and stored
    * @param skipCredCheck - Indicates if cred check should happen (for LINUX, S3)
@@ -97,7 +96,7 @@ public class CredentialsServiceImpl
    * @return null if skipping credCheck, else checked credential with validation result set
    * @throws TapisException - for Tapis related exceptions
    */
-  public Credential createUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, Credential cred,
+  public Credential createUserCredential(ResourceRequestUser rUser, String systemId, String credTargetUser, Credential cred,
                                          boolean createTmsKeys, boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, IllegalStateException
   {
@@ -105,7 +104,7 @@ public class CredentialsServiceImpl
 
     // Check inputs. If anything null or empty throw an exception
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser) || cred == null)
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(credTargetUser) || cred == null)
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     // We will need some info from the system, so fetch it now.
@@ -119,26 +118,26 @@ public class CredentialsServiceImpl
     }
 
     // ------------------------- Check authorization -------------------------
-    authUtils.checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
+    authUtils.checkAuth(rUser, op, systemId, nullOwner, credTargetUser, nullPermSet);
 
     // Use utility method to do most of the work
-    return credUtils.createCredentialForUser(rUser, system, targetUser, cred, createTmsKeys, skipCredCheck, rawData);
+    return credUtils.createCredentialForUser(rUser, system, credTargetUser, cred, createTmsKeys, skipCredCheck, rawData);
   }
 
   /**
    * Delete credential for given system and user
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param targetUser - Target user for operation
+   * @param credTargetUser - Target user for operation
    * @throws TapisException - for Tapis related exceptions
    */
-  public int deleteUserCredential(ResourceRequestUser rUser, String systemId, String targetUser)
+  public int deleteUserCredential(ResourceRequestUser rUser, String systemId, String credTargetUser)
           throws TapisException, TapisClientException
   {
     TSystem.SystemOperation op = TSystem.SystemOperation.removeCred;
     // Check inputs. If anything null or empty throw an exception
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(credTargetUser))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
@@ -146,10 +145,10 @@ public class CredentialsServiceImpl
     if (system == null) return 0;
 
     // ------------------------- Check authorization -------------------------
-    authUtils.checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
+    authUtils.checkAuth(rUser, op, systemId, nullOwner, credTargetUser, nullPermSet);
 
-    // Use utility method to remove SK records and TODO: CredInfo record
-    return credUtils.deleteCredentialForUser(rUser, system, targetUser, op);
+    // Use utility method to remove SK records and CredInfo record
+    return credUtils.deleteCredentialForUser(rUser, system, credTargetUser, op);
   }
 
   /**
@@ -164,22 +163,21 @@ public class CredentialsServiceImpl
    * as the login user to be used when accessing the host.
    * <p>
    * System must exist and not be deleted.
-   *  TODO/TBD - sync CredInfo record
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param targetUser - Target user for operation
+   * @param credTargetUser - Target user for operation
    * @param authnMethod - (optional) check credentials for specified authn method instead of default authn method
    * @return Checked credential with validation result set
    * @throws TapisException - for Tapis related exceptions
    */
-  public Credential checkUserCredential(ResourceRequestUser rUser, String systemId, String targetUser, TSystem.AuthnMethod authnMethod)
+  public Credential checkUserCredential(ResourceRequestUser rUser, String systemId, String credTargetUser, TSystem.AuthnMethod authnMethod)
           throws TapisException, TapisClientException, IllegalStateException
   {
     TSystem.SystemOperation op = TSystem.SystemOperation.checkCred;
     // Check inputs. If anything null or empty throw an exception
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(credTargetUser))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     // We will need some info from the system, so fetch it now.
@@ -193,10 +191,10 @@ public class CredentialsServiceImpl
     }
 
     // ------------------------- Check authorization -------------------------
-    authUtils.checkAuth(rUser, op, systemId, nullOwner, targetUser, nullPermSet);
+    authUtils.checkAuth(rUser, op, systemId, nullOwner, credTargetUser, nullPermSet);
 
     // Use utility method to do most of the work
-    return credUtils.checkCredentialForUser(rUser, system, targetUser, authnMethod, op);
+    return credUtils.checkCredentialForUser(rUser, system, credTargetUser, authnMethod, op);
   }
 
   /**
@@ -219,22 +217,21 @@ public class CredentialsServiceImpl
    * <p>
    * The result includes the attribute *authnMethod* indicating the authentication method associated with
    * the returned credentials.
-   *  TODO/TBD - sync CredInfo record
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param targetUser - Target user for operation. May be Tapis user or host user
+   * @param credTargetUser - Target user for operation. May be Tapis user or host user
    * @param authnMethod - (optional) return credentials for specified authn method instead of default authn method
    * @return populated instance or null if not found.
    * @throws TapisException - for Tapis related exceptions
    */
-  public Credential getUserCredential(ResourceRequestUser rUser, String systemId, String targetUser,
+  public Credential getUserCredential(ResourceRequestUser rUser, String systemId, String credTargetUser,
                                       TSystem.AuthnMethod authnMethod)
           throws TapisException, TapisClientException
   {
     TSystem.SystemOperation op = TSystem.SystemOperation.getCred;
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(targetUser))
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(credTargetUser))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     // We will need some info from the system, so fetch it.
@@ -246,7 +243,7 @@ public class CredentialsServiceImpl
     authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
 
     // Use utility method to do most of the work
-    return credUtils.getCredentialForUser(rUser, system, targetUser, authnMethod);
+    return credUtils.getCredentialForUser(rUser, system, credTargetUser, authnMethod);
   }
 
   // ------------------------------------------------------------------------
@@ -313,12 +310,12 @@ public class CredentialsServiceImpl
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - Id of system
-   * @param userName - Target user for operation
+   * @param credTargetUser - Target user for operation
    * @param authCode - Globus Native App Authorization Code
    * @param sessionId - Id tracking the oauth2 flow started with the call to getGlobusAuthInfo
    * @throws TapisException - for Tapis related exceptions
    */
-  public void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String userName,
+  public void generateAndSaveGlobusTokens(ResourceRequestUser rUser, String systemId, String credTargetUser,
                                           String authCode, String sessionId)
           throws NotFoundException, TapisException, TapisClientException
   {
@@ -327,9 +324,9 @@ public class CredentialsServiceImpl
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_SYS", rUser, systemId));
 
-    if (StringUtils.isBlank(userName) || StringUtils.isBlank(authCode) || StringUtils.isBlank(sessionId))
+    if (StringUtils.isBlank(credTargetUser) || StringUtils.isBlank(authCode) || StringUtils.isBlank(sessionId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NULL_INPUT_TOKENS", rUser,
-              userName, authCode, sessionId));
+              credTargetUser, authCode, sessionId));
 
     // We will need info from system, so fetch it now
     // If system does not exist or has been deleted then throw an exception
@@ -355,7 +352,7 @@ public class CredentialsServiceImpl
       throw new TapisException(LibUtils.getMsgAuth("SYSLIB_GLOBUS_NOCLIENT", rUser, op.name()));
 
     // ------------------------- Check service level authorization -------------------------
-    authUtils.checkAuth(rUser, op, systemId, system.getOwner(), userName, null);
+    authUtils.checkAuth(rUser, op, systemId, system.getOwner(), credTargetUser, null);
 
     // Call Tapis GlobuxProxy service to get tokens
     GlobusProxyClient globusClient = sysUtils.getGlobusProxyClient(rUser);
@@ -374,7 +371,8 @@ public class CredentialsServiceImpl
     // For Globus type system credentials both the target user and host login user are set to userName.
     // When connecting to Globus there is no username directly set. Username is used when storing the credentials in SK.
     boolean skipCheck = true; // We never check when generating globus tokens
-    credUtils.createCredential(rUser, credential, system, userName, userName, isStaticEffectiveUser, skipCheck, op);
+    String hostLoginUser = credTargetUser;
+    credUtils.createCredential(rUser, credential, system, credTargetUser, isStaticEffectiveUser, hostLoginUser, skipCheck, op);
   }
 
   // ************************************************************************

@@ -461,7 +461,7 @@ public class AuthUtils
     Set<String> userList;
     if (!isPublic) {
       // if is not public update userList must have items
-      if (systemShare == null || systemShare.getUserList() ==null || systemShare.getUserList().isEmpty())
+      if (systemShare == null || systemShare.getUserList() == null || systemShare.getUserList().isEmpty())
         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_USER_LIST", rUser));
       userList = systemShare.getUserList();
     } else {
@@ -469,7 +469,7 @@ public class AuthUtils
     }
 
     // We will need info from system, so fetch it now
-    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
+    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, true);
     // We need owner to check auth and if system not there cannot find owner.
     if (system == null)
     {
@@ -521,7 +521,23 @@ public class AuthUtils
     }
   }
 
-  /**
+  /*
+   * Remove all share info associated with a system.
+   * No checks are done for incoming arguments and the system must exist
+   */
+  void deleteAllShareInfo(ResourceRequestUser rUser, TSystem system) throws TapisException, TapisClientException
+  {
+    String sysId = system.getId();
+    updateUserShares(rUser, OP_UNSHARE, sysId, null, true);
+    var systemShare = getSystemShareInfo(rUser, system.getTenant(), sysId);
+    // If any shareInfo to remove do so now.
+    if (systemShare != null && systemShare.getUserList() != null && !systemShare.getUserList().isEmpty())
+    {
+      updateUserShares(rUser, OP_UNSHARE, sysId, systemShare, false);
+    }
+  }
+
+  /*
    * Remove SK artifacts associated with a System: user credentials, user permissions
    * No checks are done for incoming arguments and the system must exist
    */
