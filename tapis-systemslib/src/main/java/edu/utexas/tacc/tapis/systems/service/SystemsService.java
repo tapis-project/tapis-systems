@@ -81,7 +81,7 @@ public interface SystemsService
         throws TapisException, TapisClientException;
 
   TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod authnMethod, boolean requireExecPerm,
-                    boolean getCreds, String impersonationId, String sharedAppCtxGrantor, String resourceTenant,
+                    boolean returnCreds, String impersonationId, String sharedAppCtxGrantor, String resourceTenant,
                     boolean fetchShareInfo)
           throws TapisException, TapisClientException;
 

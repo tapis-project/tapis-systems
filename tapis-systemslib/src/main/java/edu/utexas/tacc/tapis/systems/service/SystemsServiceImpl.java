@@ -1075,18 +1075,19 @@ public class SystemsServiceImpl implements SystemsService
    * Retrieve specified system.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - Name of the system
-   * @param accMethod - (optional) return credentials for specified authn method instead of default authn method
+   * @param authnMethod - (optional) return credentials for specified authn method instead of default authn method
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
-   * @param getCreds - flag indicating if credentials for effectiveUserId should be included
+   * @param returnCreds - flag indicating if credentials for effectiveUserId should be included
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @param sharedAppCtxGrantor - Share grantor for the case of a shared application context.
    * @param resourceTenant - use provided tenant instead of oboTenant when fetching resource
+   * @param fetchShareInfo - indicates if share info should be included in result
    * @return populated instance of a TSystem or null if not found or user not authorized.
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod accMethod, boolean requireExecPerm,
-                           boolean getCreds, String impersonationId, String sharedAppCtxGrantor,
+  public TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod authnMethod, boolean requireExecPerm,
+                           boolean returnCreds, String impersonationId, String sharedAppCtxGrantor,
                            String resourceTenant, boolean fetchShareInfo)
           throws TapisException, TapisClientException
   {
@@ -1142,7 +1143,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // If caller asks for credentials, explicitly check auth now
     // That way we can call private getCredential and not have overhead of getUserCredential().
-    if (getCreds) authUtils.checkAuth(rUser, SystemOperation.getCred, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
+    if (returnCreds) authUtils.checkAuth(rUser, SystemOperation.getCred, systemId, owner, nullTargetUser, nullPermSet, impersonationId, sharedAppCtxGrantor);
 
     // If flag is set to also require EXECUTE perm then make explicit auth call to make sure user has exec perm
     if (requireExecPerm)
@@ -1165,11 +1166,11 @@ public class SystemsServiceImpl implements SystemsService
     // If effUsr is static then secrets stored using the "static" path in SK and static string used to build the path.
     // If effUsr is dynamic then secrets stored using the "dynamic" path in SK and a Tapis user
     //    (oboUser or impersonationId) used to build the path.
-    if (getCreds)
+    if (returnCreds)
     {
-      AuthnMethod tmpAccMethod = system.getDefaultAuthnMethod();
+      AuthnMethod tmpAuthnMethod = system.getDefaultAuthnMethod();
       // If authnMethod specified then use it instead of default authn method defined for the system.
-      if (accMethod != null) tmpAccMethod = accMethod;
+      if (authnMethod != null) tmpAuthnMethod = authnMethod;
       // Determine credTargetUser for fetching credential.
       //   If static use effectiveUserId, else use oboOrImpersonatedUser
       String credTargetUser;
@@ -1178,7 +1179,7 @@ public class SystemsServiceImpl implements SystemsService
       else
         credTargetUser = oboOrImpersonatedUser;
       // Use internal method instead of public API to skip auth and other checks not needed here.
-      Credential cred = credUtils.getCredential(rUser, system, credTargetUser, tmpAccMethod, isStaticEffectiveUser,
+      Credential cred = credUtils.getCredential(rUser, system, credTargetUser, tmpAuthnMethod, isStaticEffectiveUser,
                                                 resourceTenant);
       system.setAuthnCredential(cred);
     }
@@ -1284,6 +1285,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param fetchShareInfo - indicates if share info should be included in result
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
@@ -1358,6 +1360,25 @@ public class SystemsServiceImpl implements SystemsService
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
     {
+// TODO/REVIEW always set hasCredentials by checking table systems_cred_info
+// TODO/REVIEW      // Fetch credentials if we need to compute the dynamic attribute hasCredentials.
+// TODO/REVIEW      // NOTE: Having a separate method for checkHasCredentials would not help much. We still need the call to SK.
+// TODO/REVIEW      if (checkHasCredentials)
+// TODO/REVIEW      {
+// TODO/REVIEW        // Determine targetUser for fetching/checking credential.
+// TODO/REVIEW        // If static use effectiveUserId, else use oboOrImpersonatedUser
+// TODO/REVIEW        boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+// TODO/REVIEW        String credTargetUser;
+// TODO/REVIEW        if (isStaticEffectiveUser)
+// TODO/REVIEW          credTargetUser = system.getEffectiveUserId();
+// TODO/REVIEW        else
+// TODO/REVIEW          credTargetUser = oboOrImpersonatedUser;
+// TODO/REVIEW        // Use private internal method instead of public API to skip auth and other checks not needed here.
+// TODO/REVIEW        Credential cred = getCredential(rUser, system, credTargetUser, system.getDefaultAuthnMethod(), isStaticEffectiveUser,
+// TODO/REVIEW                                        system.getTenant());
+// TODO/REVIEW        system.setHasCredentials(cred != null);
+// TODO/REVIEW      }
+
       // Fetch share info only if requested by caller
       if (fetchShareInfo)
       {
@@ -1382,6 +1403,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param fetchShareInfo - indicates if share info should be included in result
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
    */
@@ -1448,6 +1470,24 @@ public class SystemsServiceImpl implements SystemsService
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem system : systems)
     {
+// TODO/REVIEW      boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+// TODO/REVIEW      // Fetch credentials if we need to compute the dynamic attribute hasCredentials.
+// TODO/REVIEW      // NOTE: Having a separate method for checkHasCredentials would not help much. We still need the call to SK.
+// TODO/REVIEW      if (checkHasCredentials)
+// TODO/REVIEW      {
+// TODO/REVIEW        // Determine targetUser for fetching/checking credential.
+// TODO/REVIEW        // If static use effectiveUserId, else use oboUser
+// TODO/REVIEW        String credTargetUser;
+// TODO/REVIEW        if (isStaticEffectiveUser)
+// TODO/REVIEW          credTargetUser = system.getEffectiveUserId();
+// TODO/REVIEW        else
+// TODO/REVIEW          credTargetUser = rUser.getOboUserId();
+// TODO/REVIEW        // Use private internal method instead of public API to skip auth and other checks not needed here.
+// TODO/REVIEW        Credential cred = getCredential(rUser, system, credTargetUser, system.getDefaultAuthnMethod(), isStaticEffectiveUser,
+// TODO/REVIEW                system.getTenant());
+// TODO/REVIEW        system.setHasCredentials(cred != null);
+// TODO/REVIEW      }
+
       // Fetch share info only if requested by caller
       if (fetchShareInfo)
       {
@@ -1455,6 +1495,9 @@ public class SystemsServiceImpl implements SystemsService
         system.setIsPublic(systemShare.isPublic());
         system.setSharedWithUsers(systemShare.getUserList());
       }
+// TODO/REVIEW      system.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
+// TODO/REVIEW      system.setEffectiveUserId(resolveEffectiveUserId(system, rUser.getOboUserId()));
+
       system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
       system.setEffectiveUserId(sysUtils.resolveEffectiveUserId(system, rUser.getOboUserId()));
     }
@@ -2140,6 +2183,7 @@ public class SystemsServiceImpl implements SystemsService
     tapisSystem.setDtnSystemId(s.getDtnSystemId());
     tapisSystem.setIsPublic(s.isPublic());
     if (s.getSharedWithUsers() != null) tapisSystem.setSharedWithUsers(new ArrayList<>(s.getSharedWithUsers()));
+    tapisSystem.setHasCredentials(s.hasCredentials());
     tapisSystem.setCanExec(s.getCanExec());
 //    tapisSystem.setJobRuntimes(s.getJobRuntimes());
     tapisSystem.setJobWorkingDir(s.getJobWorkingDir());

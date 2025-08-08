@@ -60,11 +60,6 @@ import static edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus.*;
  * IN_PROGRESS    -> FAILED
  * <non-existent> -> PENDING
  *
- * ================================================================================================
- * TODO/TBD Transitions that can happen during delete of system
- * ================================================================================================
- * <ANY>          -> <non existent>
- *
  * ------------------------------------------------------------------------------------------------
  * Normal flow until deleted
  *    Pending->InProgress    - start of an update attempt (at start-up, for example)
@@ -75,11 +70,7 @@ import static edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus.*;
  *    Completed->Deleted
  * Abnormal flows
  *    InProgress->Failed - Error during update
- *TODO    Pending->Deleted   - deleted before update started
  *    Failed->Pending    - ready for an update attempt
- *TODO    Failed->Deleted    - deleted before becoming ready for an update attempt
- *    Deleted->Pending   - ready for an update attempt prior to clean up of deleted records
- *    Deleted->Deleted   - cred delete prior to clean up of deleted records
  *
  * Based on StatefulJ FSM library.
  * This class is non-instantiable.
@@ -110,22 +101,13 @@ public final class CredInfoFSM
   // Events
   public static final String PendingToInProgress = String.format("%s-%s", PENDING, IN_PROGRESS);
   public static final String InProgressToCompleted = String.format("%s-%s", IN_PROGRESS, COMPLETED);
-//TODO remove  public static final String InProgressToDeleted = String.format("%s-%s", IN_PROGRESS, DELETED);
   public static final String InProgressToFailed = String.format("%s-%s", IN_PROGRESS, FAILED);
   public static final String CompletedToPending = String.format("%s-%s", COMPLETED, PENDING);
   public static final String CompletedToInProgress = String.format("%s-%s", COMPLETED, IN_PROGRESS);
-  //TODO remove  public static final String CompletedToDeleted = String.format("%s-%s", COMPLETED, DELETED);
   public static final String FailedToPending = String.format("%s-%s", FAILED, PENDING);
-  //TODO remove  public static final String DeletedToPending = String.format("%s-%s", DELETED, PENDING);
-//TODO remove  public static final String PendingToDeleted = String.format("%s-%s", PENDING, DELETED);
-//TODO remove  public static final String FailedToDeleted = String.format("%s-%s", FAILED, DELETED);
-//TODO remove  public static final String DeletedToDeleted = String.format("%s-%s", DELETED, DELETED);
   public static final Set<String> allowedEvents =
         Set.of(PendingToInProgress, InProgressToCompleted, InProgressToFailed, CompletedToPending,
                CompletedToInProgress, FailedToPending);
-//TODO remove        Set.of(PendingToInProgress, InProgressToCompleted, InProgressToDeleted, InProgressToFailed,
-//               CompletedToPending, CompletedToInProgress, CompletedToDeleted, FailedToPending, DeletedToPending,
-//               PendingToDeleted, FailedToDeleted, DeletedToDeleted);
 
   // Actions, e.g.
 //  public static final Action<CredInfoSyncState> pendingToInProgressAction = new CredInfoSyncAction<>(IN_PROGRESS.name());
@@ -161,7 +143,7 @@ public final class CredInfoFSM
   /*                       Private methods                                  */
   /* ********************************************************************** */
 
-  /**
+  /*
    * Create list of all possible states
    * @return unmodifiable list of all possible states
    */
@@ -182,21 +164,6 @@ public final class CredInfoFSM
 //    InProgressState.addTransition(InProgressToCompleted, CompletedState);
 //    CompletedState.addTransition(CompletedToPending, PendingState);
 //
-//TODO remove?    // Normal flow when deleted
-//TODO remove?    CompletedState.addTransition(CompletedToDeleted, DeletedState);
-//
-//    // Abnormal flows
-//    //    InProgress->Failed - Error during update
-//    //    Failed->Pending    - ready for an update attempt
-//TODO remove?    //    Failed->Deleted    - deleted before becoming ready for an update attempt
-//TODO remove?    //    Deleted->Pending   - ready for an update attempt prior to clean up of deleted records
-//    InProgressState.addTransition(InProgressToFailed, FailedState);
-//TODO remove?    PendingState.addTransition(PendingToInProgress, DeletedState);
-//    PendingState.addTransition(PendingToInProgress, FailedState);
-//    FailedState.addTransition(FailedToPending, PendingState);
-//TODO remove?    FailedState.addTransition(FailedToDeleted, DeletedState);
-//TODO remove?    DeletedState.addTransition(DeletedToPending, PendingState);
-//  }
 
   /* ********************************************************************** */
   /*                               Accessors                                */

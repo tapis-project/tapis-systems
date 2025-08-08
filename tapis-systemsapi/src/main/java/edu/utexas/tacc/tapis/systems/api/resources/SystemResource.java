@@ -822,9 +822,11 @@ public class SystemResource {
    * @param systemId - name of the system
    * @param authnMethodStr - authn method to use instead of default
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
+   * @param returnCreds - Fetch credentials and include them in the result
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
    *                          resolving effectiveUserId
    * @param sharedAppCtx - Share grantor for the case of a shared application context.
+   * @param resourceTenant - Use specified tenant instead of tenant in securityContext
    * @param securityContext - user identity
    * @return Response with system object as the result
    */
@@ -835,7 +837,7 @@ public class SystemResource {
   public Response getSystem(@PathParam("systemId") String systemId,
                             @QueryParam("authnMethod") @DefaultValue("") String authnMethodStr,
                             @QueryParam("requireExecPerm") @DefaultValue("false") boolean requireExecPerm,
-                            @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
+                            @QueryParam("returnCredentials") @DefaultValue("false") boolean returnCreds,
                             @QueryParam("impersonationId") String impersonationId,
                             @QueryParam("sharedAppCtx") String sharedAppCtx,
                             @QueryParam("resourceTenant") String resourceTenant,
@@ -855,12 +857,12 @@ public class SystemResource {
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
                                                    "systemId="+systemId, "authnMethod="+authnMethodStr,
                                                    "requireExecPerm="+requireExecPerm,
-                                                   "returnCredentials="+getCreds,
+                                                   "returnCredentials="+returnCreds,
                                                    "impersonationId="+impersonationId,
                                                    "resourceTenant="+resourceTenant,
                                                    "sharedAppCtx="+sharedAppCtx);
 
-    // Check that authnMethodStr is valid if is passed in
+    // Check that authnMethodStr is valid if it is passed in
     AuthnMethod authnMethod = null;
     try { if (!StringUtils.isBlank(authnMethodStr)) authnMethod =  AuthnMethod.valueOf(authnMethodStr); }
     catch (IllegalArgumentException e)
@@ -880,7 +882,7 @@ public class SystemResource {
     TSystem tSystem;
     try
     {
-      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId,
+      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, returnCreds, impersonationId,
                                   sharedAppCtx, resourceTenant, fetchShareInfo);
     }
     // Pass through not found or not auth to let exception mapper handle it.

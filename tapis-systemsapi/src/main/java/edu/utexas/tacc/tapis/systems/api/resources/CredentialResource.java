@@ -212,7 +212,7 @@ public class CredentialResource
 
 
     // Build the credential. Pass in null for authnMethod and all tms attributes
-    // This makes a convenient wrapper for passing in request data to the service.
+    // This makes a convenient wrapper for passing in request data to the service layer code.
     AuthnMethod nullAuthnMethod = null;
     Credential credential = new Credential(nullAuthnMethod, req.loginUser, req.password, req.privateKey, req.publicKey,
                                            req.accessKey, req.accessSecret, req.accessToken, req.refreshToken,

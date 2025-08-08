@@ -1506,6 +1506,7 @@ public class SystemsServiceTest
   }
 
   // Test creating, reading and deleting user credentials for a system
+  // Also test support for dynamic attribute hasCredentials
   // Initial system is dynamic, effectiveUserId = ${apiUserId}
   //   - Test 1 - create and get cred as owner1, testuser3
   //             - create and get should always use Tapis user (owner1, testuser3) in method arguments
@@ -1527,6 +1528,15 @@ public class SystemsServiceTest
     boolean isStatic = false;
     // Create the system
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+/*
+// TODO/TBD REVIEW - from branch has-credentials.
+    //TODO/TBD REVIEW hasCredentials, from branch has-credentials
+    // Clean up credentials. These do not get reemoved when deleting the system
+    svc.deleteUserCredential(rOwner1, sysId, owner1);
+    svc.deleteUserCredential(rOwner1, sysId, testUser3);
+    svc.deleteUserCredential(rOwner1, sysId, testUser5);
+//TODO/TBD REVIEW hasCredentials, from branch has-credentials
+*/
     Credential cred3NoLoginUser = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
             "fakeAccessKey3", "fakeAccessSecret3", "fakeAccessToken3", "fakeRefreshToken3",
             "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert3");
@@ -1536,10 +1546,65 @@ public class SystemsServiceTest
     Credential cred5NoLoginLinuxUser = new Credential(null, null, "fakePassword5LinuxUser", null, null, null, null, null, null, null, null, null, null);
     Credential cred5NoLoginStatic = new Credential(null, null, "fakePassword5Static", null, null, null, null, null, null, null, null, null, null);
     Credential cred5B_LoginUser = new Credential(null, testUser5LinuxUser, "fakePassword5b", null, null, null, null, null, null, null, null, null, null);
-
+/*
+// TODO/TBD REVIEW - from branch has-credentials.
+//   ????????????????
+// ------------------------------------------------------
+    // Test hasCredentials - no credentials yet, so should be false whether we ask for it or not
+    //        and whether we getCreds or not
+    // ------------------------------------------------------
+    TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull,
+          resourceTenantNull, fetchShareInfoFalse, checkHasCredentialsTrue);
+    Assert.assertFalse(tmpSys.hasCredentials(), "hasCredentials should be false");
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PKI_KEYS, false, getCredsTrue, null, sharedCtxNull,
+          resourceTenantNull, fetchShareInfoFalse, checkHasCredentialsTrue);
+    Assert.assertFalse(tmpSys.hasCredentials(), "hasCredentials should be false");
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsFalse, null, sharedCtxNull,
+          resourceTenantNull, fetchShareInfoFalse, checkHasCredentialsTrue);
+    Assert.assertFalse(tmpSys.hasCredentials(), "hasCredentials should be false");
+//TODO/TBD REVIEW ??????????????????
+*/
     // We will be updating credentials for testUser3, 5 so allow them READ access to system.
     svc.grantUserPermissions(rOwner1, sysId, testUser3, testPermsREAD, rawDataEmptyJson);
     svc.grantUserPermissions(rOwner1, sysId, testUser5, testPermsREAD, rawDataEmptyJson);
+/* TODO/TBD REVIEW - from branch has-credentials.
+  ????????????????
+// ------------------------------------------------------
+    // Test that hasCredential attribute is set as expected
+    // ------------------------------------------------------
+    // For owner1 all credentials filled in, should be true
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull,
+                           resourceTenantNull, fetchShareInfoFalse, checkHasCredentialsTrue);
+    Assert.assertTrue(tmpSys.hasCredentials(), "hasCredentials should be true");
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PKI_KEYS, false, getCredsTrue, null, sharedCtxNull,
+                           resourceTenantNull, fetchShareInfoFalse, checkHasCredentialsTrue);
+    Assert.assertTrue(tmpSys.hasCredentials(), "hasCredentials should be true");
+    // For owner1 all credentials filled in, should still be true if not asking for it but we are asking for credentials
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PKI_KEYS, false, getCredsTrue, null, sharedCtxNull,
+                           resourceTenantNull, fetchShareInfoFalse, checkHasCredentialsFalse);
+    Assert.assertTrue(tmpSys.hasCredentials(), "hasCredentials should be true");
+    // For owner1 all credentials filled in, should be false if not asking for either hasCredentials or credentials
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PKI_KEYS, false, getCredsFalse, null, sharedCtxNull,
+            resourceTenantNull, fetchShareInfoFalse, checkHasCredentialsFalse);
+    Assert.assertFalse(tmpSys.hasCredentials(), "hasCredentials should be false");
+    // For testuser5 only password set, so should be true for password and false for pki_keys
+    //   - check that it works when asking for creds and not asking for creds
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, testUser5, sharedCtxNull,
+                           resourceTenantNull, fetchShareInfoFalse, checkHasCredentialsTrue);
+    Assert.assertTrue(tmpSys.hasCredentials(), "hasCredentials should be true");
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsFalse, testUser5, sharedCtxNull,
+                           resourceTenantNull, fetchShareInfoFalse, checkHasCredentialsTrue);
+    Assert.assertTrue(tmpSys.hasCredentials(), "hasCredentials should be true");
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PKI_KEYS, false, getCredsTrue, testUser5, sharedCtxNull,
+                           resourceTenantNull, fetchShareInfoFalse, checkHasCredentialsTrue);
+    Assert.assertFalse(tmpSys.hasCredentials(), "hasCredentials should be false");
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PKI_KEYS, false, getCredsFalse, testUser5, sharedCtxNull,
+                           resourceTenantNull, fetchShareInfoFalse, checkHasCredentialsTrue);
+    Assert.assertFalse(tmpSys.hasCredentials(), "hasCredentials should be false");
+  TODO/TBD REVIEW - from branch has-credentials.
+    ????????????????
+// TODO/TBD REVIEW - from branch has-credentials.
+ */
 
     // Make the separate calls required to store credentials for each user.
     // In this case for owner1, testUser3, testUser5

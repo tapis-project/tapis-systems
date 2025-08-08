@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import edu.utexas.tacc.tapis.systems.service.CredUtils;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.StringUtils;
@@ -90,6 +91,7 @@ public final class TSystem
   public static final String DTN_SYSTEM_ID_FIELD = "dtnSystemId";
   public static final String IS_PUBLIC_FIELD = "isPublic";
   public static final String IS_DYNAMIC_EFFECTIVE_USER = "isDynamicEffectiveUser";
+  public static final String HAS_CREDENTIALS_FIELD = "hasCredentials";
   public static final String CAN_EXEC_FIELD = "canExec";
   public static final String CAN_RUN_BATCH_FIELD = "canRunBatch";
   public static final String ENABLE_CMD_PREFIX_FIELD = "enableCmdPrefix";
@@ -139,6 +141,7 @@ public final class TSystem
   public static final boolean DEFAULT_CAN_RUN_BATCH = false;
   public static final boolean DEFAULT_IS_PUBLIC = false;
   public static final boolean DEFAULT_IS_DYNAMIC_EFFECTIVE_USER = false;
+  public static final boolean DEFAULT_HAS_CREDENTIALS = false;
   public static final boolean DEFAULT_ENABLE_CMD_PREFIX = false;
   public static final boolean DEFAULT_CHILD_ENABLED = true;
 
@@ -206,8 +209,10 @@ public final class TSystem
   // *********************** Fields *****************************************
   // ************************************************************************
 
+  // Dynamically computed fields populated when fetching systems
   private boolean isPublic = DEFAULT_IS_PUBLIC;
   private boolean isDynamicEffectiveUser = DEFAULT_IS_DYNAMIC_EFFECTIVE_USER;
+  private boolean hasCredentials = DEFAULT_HAS_CREDENTIALS;
   private Set<String> sharedWithUsers;
 
   // NOTE: In order to use jersey's SelectableEntityFilteringFeature fields cannot be final.
@@ -322,6 +327,7 @@ public final class TSystem
     deleted = t.isDeleted();
     isPublic = t.isPublic();
     isDynamicEffectiveUser = t.isDynamicEffectiveUser();
+    hasCredentials = t.hasCredentials();
     // Strip whitespace as appropriate for string attributes.
     stripWhitespace();
   }
@@ -460,6 +466,7 @@ public final class TSystem
     importRefId = t.getImportRefId();
     isPublic = t.isPublic();
     isDynamicEffectiveUser = t.isDynamicEffectiveUser();
+    hasCredentials = t.hasCredentials();
     allowChildren = t.isAllowChildren();
     parentId = LibUtils.stripStr(t.getParentId());
     // Strip whitespace as appropriate for string attributes.
@@ -1118,6 +1125,8 @@ public final class TSystem
   public void setIsPublic(boolean b) { isPublic = b;  }
   public boolean isDynamicEffectiveUser() { return isDynamicEffectiveUser; }
   public void setIsDynamicEffectiveUser(boolean b) { isDynamicEffectiveUser = b;  }
+  public boolean hasCredentials() { return hasCredentials; }
+  public void setHasCredentials(boolean b) { hasCredentials = b; }
   public void setSharedWithUsers(Set<String> s) { sharedWithUsers = (s == null) ? null : new HashSet<>(s); }
   public Set<String> getSharedWithUsers() { return (sharedWithUsers == null) ? null : new HashSet<>(sharedWithUsers); }
   public String getParentId() {
