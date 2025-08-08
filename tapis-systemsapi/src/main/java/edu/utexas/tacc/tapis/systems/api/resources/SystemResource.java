@@ -911,6 +911,8 @@ public class SystemResource {
    * @param securityContext - user identity
    * @param showDeleted - flag indicating resources marked as deleted should be included.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+  using Boolean (vs boolean) it still comes in a false even if not included in the request
+   * @param hasCredentials - flag indicating if filtering should be done based on registered credentials.
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
    *                          resolving effectiveUserId
    * @return - list of systems accessible by requester and matching search conditions.
@@ -921,6 +923,7 @@ public class SystemResource {
   public Response getSystems(@Context SecurityContext securityContext,
                              @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
                              @QueryParam("listType") @DefaultValue("OWNED") String listType,
+                             @QueryParam("hasCredentials") Boolean hasCredentials, // NOTE: Do not use @Default so this will default to null
                              @QueryParam("impersonationId") String impersonationId) throws TapisClientException
   {
     String opName = "getSystems";
@@ -935,7 +938,9 @@ public class SystemResource {
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+                                                   "showDeleted="+showDeleted,
                                                    "listType="+listType,
+                                                   "hasCredentials="+hasCredentials,
                                                    "impersonationId="+impersonationId);
 
     // ThreadContext designed to never return null for SearchParameters
@@ -945,7 +950,7 @@ public class SystemResource {
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, impersonationId);
+      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, hasCredentials, impersonationId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1013,7 +1018,7 @@ public class SystemResource {
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, null);
+      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, null, null);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1106,7 +1111,7 @@ public class SystemResource {
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, showDeleted, listType, null);
+      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, showDeleted, listType, null, null);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1517,7 +1522,8 @@ public class SystemResource {
    *  One of srchParms.searchList or sqlSearchStr must be non-null
    */
   private Response getSearchResponse(ResourceRequestUser rUser, String sqlSearchStr, SearchParameters srchParms,
-                                     boolean showDeleted, String listType, String impersonationId)
+                                     boolean showDeleted, String listType, Boolean hasCredentials,
+                                     String impersonationId)
           throws TapisException, TapisClientException
   {
     RespAbstract resp1;
@@ -1544,7 +1550,7 @@ public class SystemResource {
     // Call service method to fetch systems
     if (StringUtils.isBlank(sqlSearchStr))
       systems = service.getSystems(rUser, searchList, limit, orderByList, skip, startAfter, showDeleted,
-                                   listType, fetchShareInfo, impersonationId);
+                                   listType, hasCredentials, fetchShareInfo, impersonationId);
     else
       systems = service.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit, orderByList, skip, startAfter,
                                                     showDeleted, listType, fetchShareInfo);

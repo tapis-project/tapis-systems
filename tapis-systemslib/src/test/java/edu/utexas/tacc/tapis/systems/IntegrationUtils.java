@@ -76,6 +76,7 @@ public final class IntegrationUtils
   public static final String testUser5LinuxUser = "testuser5LinuxUser";
   public static final String impersonationIdTestUser9 = "testuser9";
   public static final String impersonationIdNull = null;
+  public static final Boolean hasCredentialsNull = null;
   public static final String apiUser = "testApiUser";
   public static final boolean isStaticTrue = true;
   public static final boolean isStaticFalse = false;

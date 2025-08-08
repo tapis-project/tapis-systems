@@ -1285,6 +1285,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param hasCredentials - whether to filter by hasCredentials = true, fals or null
    * @param fetchShareInfo - indicates if share info should be included in result
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @return List of TSystem objects
@@ -1293,7 +1294,7 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, int limit,
                                   List<OrderBy> orderByList, int skip, String startAfter, boolean includeDeleted,
-                                  String listType, boolean fetchShareInfo, String impersonationId)
+                                  String listType, Boolean hasCredentials, boolean fetchShareInfo, String impersonationId)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
@@ -1414,8 +1415,11 @@ public class SystemsServiceImpl implements SystemsService
           throws TapisException, TapisClientException
   {
     // If search string is empty delegate to getSystems()
+    // TODO/TBD support hasCredentials now? or later?
+    Boolean hasCredentialsTmp=null;
     if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip, startAfter,
-                                                             includeDeleted, listType, fetchShareInfo, nullImpersonationId);
+                                                             includeDeleted, listType, hasCredentialsTmp,
+                                                             fetchShareInfo, nullImpersonationId);
 
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
