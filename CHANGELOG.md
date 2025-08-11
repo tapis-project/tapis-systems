@@ -10,12 +10,12 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.9.2 - 2025-??-??
+## 1.9.2 - 2025-08-11
 
-Bug fix.
+Bug fix and enhancement.
 
 ### New features:
-- None
+- Add description field to LogicalQueue.
 
 ### Bug fixes:
 - When registering credentials for a TMS systems check that createTmsKeys flag is set to true. Better error message.
