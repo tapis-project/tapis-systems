@@ -9,7 +9,6 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import edu.utexas.tacc.tapis.systems.service.CredUtils;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.StringUtils;
@@ -18,6 +17,8 @@ import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.utils.PathSanitizer;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+import edu.utexas.tacc.tapis.systems.service.CredUtils;
+
 import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.KeyValueInputMode.FIXED;
 import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.KeyValueInputMode.REQUIRED;
 import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.RESERVED_PREFIX;

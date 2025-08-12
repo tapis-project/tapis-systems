@@ -1285,7 +1285,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
-   * @param hasCredentials - whether to filter by hasCredentials = true, fals or null
+   * @param filterByHasCredentials - whether to filter by hasCredentials = true, false or null
    * @param fetchShareInfo - indicates if share info should be included in result
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth, resolving effectiveUserId
    * @return List of TSystem objects
@@ -1294,7 +1294,8 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, int limit,
                                   List<OrderBy> orderByList, int skip, String startAfter, boolean includeDeleted,
-                                  String listType, Boolean hasCredentials, boolean fetchShareInfo, String impersonationId)
+                                  String listType, Boolean filterByHasCredentials, boolean fetchShareInfo,
+                                  String impersonationId)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
@@ -1356,41 +1357,59 @@ public class SystemsServiceImpl implements SystemsService
 
     // Get all allowed systems matching the search conditions
     List<TSystem> systems = dao.getSystems(rUser, oboOrImpersonatedUser, verifiedSearchList,
-                                      null,  limit, orderByList, skip, startAfter,
+                                           null,  limit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
+
+    // If we filter on hasCredentials, start a new list to return.
+    List<TSystem> retSystems = (filterByHasCredentials == null) ? systems : new ArrayList<>();
     // Update dynamically computed info and resolve effUser as needed.
-    for (TSystem system : systems)
+    for (TSystem sys : systems)
     {
-// TODO/REVIEW always set hasCredentials by checking table systems_cred_info
-// TODO/REVIEW      // Fetch credentials if we need to compute the dynamic attribute hasCredentials.
-// TODO/REVIEW      // NOTE: Having a separate method for checkHasCredentials would not help much. We still need the call to SK.
-// TODO/REVIEW      if (checkHasCredentials)
-// TODO/REVIEW      {
-// TODO/REVIEW        // Determine targetUser for fetching/checking credential.
-// TODO/REVIEW        // If static use effectiveUserId, else use oboOrImpersonatedUser
-// TODO/REVIEW        boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
-// TODO/REVIEW        String credTargetUser;
-// TODO/REVIEW        if (isStaticEffectiveUser)
-// TODO/REVIEW          credTargetUser = system.getEffectiveUserId();
-// TODO/REVIEW        else
-// TODO/REVIEW          credTargetUser = oboOrImpersonatedUser;
-// TODO/REVIEW        // Use private internal method instead of public API to skip auth and other checks not needed here.
-// TODO/REVIEW        Credential cred = getCredential(rUser, system, credTargetUser, system.getDefaultAuthnMethod(), isStaticEffectiveUser,
-// TODO/REVIEW                                        system.getTenant());
-// TODO/REVIEW        system.setHasCredentials(cred != null);
-// TODO/REVIEW      }
+      // NOTE: We could determine hasCredentials and fill in CredentialInfo more efficiently via
+      //       using SQL to join with table systems_cred_info, but building the SQL query is already very complex
+      //       and we have to fetch share info anyway, so for now brute force it.
+      // Determine hasCredentials
+      // TODO/TBD/REVIEW Add full credentialInfo attribute to TSystem and fill it in here.
+      //   At the moment, all we need is hasCredentials, but for now look up complete record.
+      // Determine tapisUser for looking up CredentialInfo
+      // If static use effectiveUserId, else use oboOrImpersonatedUser
+// TODO/REVIEW
+      boolean isStaticEffectiveUser = !sys.getEffectiveUserId().equals(APIUSERID_VAR);
+      String credTargetUser = (isStaticEffectiveUser) ? sys.getEffectiveUserId(): oboOrImpersonatedUser;
+      String tapisUser = isStaticEffectiveUser ? rUser.getOboUserId() : credTargetUser;
+      CredentialInfo credInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffectiveUser);
+      // If no CredInfo record, log an error and set to false
+      // This should never happen if CredInfo table is properly maintained.
+      if (credInfo == null)
+      {
+        String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_RECORD_MISSING", rUser, sys.getTenant(), sys.getId(),
+                                         tapisUser, isStaticEffectiveUser);
+        log.error(msg);
+        sys.setHasCredentials(false);
+      }
+      else
+      {
+        sys.setHasCredentials(credInfo.hasCredentials());
+      }
+
+      // If filtering by hasCredentials and not including then simply continue now to skip the record.
+      if (filterByHasCredentials != null && !filterByHasCredentials.equals(sys.hasCredentials())) continue;
 
       // Fetch share info only if requested by caller
       if (fetchShareInfo)
       {
-        SystemShare systemShare = authUtils.getSystemShareInfo(rUser, system.getTenant(), system.getId());
-        system.setIsPublic(systemShare.isPublic());
-        system.setSharedWithUsers(systemShare.getUserList());
+        SystemShare systemShare = authUtils.getSystemShareInfo(rUser, sys.getTenant(), sys.getId());
+        sys.setIsPublic(systemShare.isPublic());
+        sys.setSharedWithUsers(systemShare.getUserList());
       }
-      system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
-      system.setEffectiveUserId(sysUtils.resolveEffectiveUserId(system, oboOrImpersonatedUser));
+      sys.setIsDynamicEffectiveUser(sys.getEffectiveUserId().equals(APIUSERID_VAR));
+      sys.setEffectiveUserId(sysUtils.resolveEffectiveUserId(sys, oboOrImpersonatedUser));
+      // If filtering by hasCredentials then it is a match so add it to the newly created list.
+      if (filterByHasCredentials != null) retSystems.add(sys);
     }
-    return systems;
+    // The return list will be either the full list returned by the dao call or new list containing only
+    //   records filtered by hasCredentials.
+    return retSystems;
   }
 
   /**
@@ -1416,9 +1435,9 @@ public class SystemsServiceImpl implements SystemsService
   {
     // If search string is empty delegate to getSystems()
     // TODO/TBD support hasCredentials now? or later?
-    Boolean hasCredentialsTmp=null;
+    Boolean filterByHasCredentialsTmp=null;
     if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip, startAfter,
-                                                             includeDeleted, listType, hasCredentialsTmp,
+                                                             includeDeleted, listType, filterByHasCredentialsTmp,
                                                              fetchShareInfo, nullImpersonationId);
 
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -2120,7 +2139,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // We will need to make an ssh connection to the host.
     // Easiest way to do that is to use TapisRunCommand, which requires a client base TapisSystem object.
-    TapisSystem tapisSystem = createTapisSystemFromTSystem(system);
+    TapisSystem tapisSystem = createClientTapisSystemFromTSystem(system);
     // Run the command on the host system.
     String cmd = String.format("echo $%s", varName);
     msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_RESOLVE_CMD", rUser, systemId, system.getHost(), cmd);
@@ -2164,7 +2183,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param s - a TSystem
    * @return client-based TapisSystem built from a TSystem
    */
-  private static TapisSystem createTapisSystemFromTSystem(TSystem s)
+  private static TapisSystem createClientTapisSystemFromTSystem(TSystem s)
   {
     Credential cred = s.getAuthnCredential();
     TapisSystem tapisSystem = new TapisSystem();

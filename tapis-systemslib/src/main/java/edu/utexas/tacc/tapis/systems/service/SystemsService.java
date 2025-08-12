@@ -90,8 +90,8 @@ public interface SystemsService
           throws TapisException, TapisClientException;
 
   List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, int limit, List<OrderBy> orderByList,
-                           int skip, String startAfter, boolean includeDeleted, String listType, Boolean hasCredentials,
-                           boolean fetchShareInfo, String impersonationId)
+                           int skip, String startAfter, boolean includeDeleted, String listType,
+                           Boolean filterByHasCredentials, boolean fetchShareInfo, String impersonationId)
           throws TapisException, TapisClientException;
 
   List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser, String searchStr, int limit,
