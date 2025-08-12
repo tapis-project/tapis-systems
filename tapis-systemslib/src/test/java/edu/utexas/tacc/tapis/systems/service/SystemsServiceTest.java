@@ -1125,7 +1125,7 @@ public class SystemsServiceTest
   //     batchLogicalQueues must not be empty
   //     batchLogicalDefaultQueue must be set
   //     batchLogicalDefaultQueue must be in the list of queues
-  //     If batchLogicalQueues has more then one item then batchDefaultLogicalQueue must be set
+  //     If batchLogicalQueues has more than one item then batchDefaultLogicalQueue must be set
   //     batchDefaultLogicalQueue must be in the list of logical queues.
   // - If type is OBJECT_STORE then bucketName must be set, isExec must be false.
   // - If systemType is LINUX then rootDir is required.

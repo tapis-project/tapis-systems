@@ -232,12 +232,12 @@ public final class IntegrationUtils
   public static final List<JobRuntime> jobRuntimesNull= null;
 
   // Logical Queues
-  public static final LogicalQueue queueA1 = new LogicalQueue("lqA1","hqA1", 1, 1, 0, 1, 0, 1, 0, 1, 0, 1);
-  public static final LogicalQueue queueB1 = new LogicalQueue("lqB1","hqB1", 2, 2, 0, 2, 0, 2, 0, 2, 0, 2);
-  public static final LogicalQueue queueC1 = new LogicalQueue("lqC1","hqC1", 3, 3, 0, 3, 0, 3, 0, 3, 0, 3);
+  public static final LogicalQueue queueA1 = new LogicalQueue("lqA1","hqA1", "this is q a1", 1, 1, 0, 1, 0, 1, 0, 1, 0, 1);
+  public static final LogicalQueue queueB1 = new LogicalQueue("lqB1","hqB1", "this is q b1", 2, 2, 0, 2, 0, 2, 0, 2, 0, 2);
+  public static final LogicalQueue queueC1 = new LogicalQueue("lqC1","hqC1", "this is q c1", 3, 3, 0, 3, 0, 3, 0, 3, 0, 3);
   public static final List<LogicalQueue> logicalQueueList1 = new ArrayList<>(List.of(queueA1, queueB1, queueC1));
-  public static final LogicalQueue queueA2 = new LogicalQueue("lqA2","hqA2", 10, 10, 0, 10, 0, 10, 0, 10, 0, 10);
-  public static final LogicalQueue queueB2 = new LogicalQueue("lqB2","hqB1", 20, 20, 0, 20, 0, 20, 0, 20, 0, 20);
+  public static final LogicalQueue queueA2 = new LogicalQueue("lqA2","hqA2", "this is q a2", 10, 10, 0, 10, 0, 10, 0, 10, 0, 10);
+  public static final LogicalQueue queueB2 = new LogicalQueue("lqB2","hqB1", "this is q b2", 20, 20, 0, 20, 0, 20, 0, 20, 0, 20);
   public static final List<LogicalQueue> logicalQueueList2 = new ArrayList<>(List.of(queueA2, queueB2));
   public static final List<LogicalQueue> logicalQueueListNull = null;
 

@@ -39,6 +39,7 @@ public final class LogicalQueue
   private static final Logger _log = LoggerFactory.getLogger(LogicalQueue.class);
 
   private final String name;   // Name for the logical queue
+  private final String description;
   private final String hpcQueueName;   // Name for the associated HPC queue
   private final int maxJobs;
   private final int maxJobsPerUser;
@@ -54,11 +55,12 @@ public final class LogicalQueue
   /* ********************************************************************** */
   /*                           Constructors                                 */
   /* ********************************************************************** */
-  public LogicalQueue(String name1, String hpcQueueName1, int maxJobs1, int maxJobsPerUser1,
+  public LogicalQueue(String name1, String description1, String hpcQueueName1, int maxJobs1, int maxJobsPerUser1,
                       int minNodeCount1, int maxNodeCount1, int minCoresPerNode1, int maxCoresPerNode1,
                       int minMemoryMB1, int maxMemoryMB1, int minMinutes1, int maxMinutes1)
   {
     name = LibUtils.stripStr(name1);
+    description = description1;
     hpcQueueName = LibUtils.stripStr(hpcQueueName1);
     maxJobs = maxJobs1 < 0 ? Integer.MAX_VALUE : maxJobs1;
     maxJobsPerUser = maxJobsPerUser1 < 0 ? Integer.MAX_VALUE : maxJobsPerUser1;
@@ -76,6 +78,7 @@ public final class LogicalQueue
   /*                               Accessors                                */
   /* ********************************************************************** */
   public String getName() { return name; }
+  public String getDescription() { return description; }
   public String getHpcQueueName() { return hpcQueueName; }
   public int getMaxJobs() { return maxJobs < 0 ? Integer.MAX_VALUE : maxJobs; }
   public int getMaxJobsPerUser() { return maxJobsPerUser < 0 ? Integer.MAX_VALUE : maxJobsPerUser; }
@@ -98,7 +101,8 @@ public final class LogicalQueue
     // Note: no need to check for o==null since instanceof will handle that case
     if (!(o instanceof LogicalQueue)) return false;
     var that = (LogicalQueue) o;
-    return (Objects.equals(this.name, that.name) && Objects.equals(this.hpcQueueName, that.hpcQueueName) &&
+    return (Objects.equals(this.name, that.name) && Objects.equals(this.description, that.description) &&
+            Objects.equals(this.hpcQueueName, that.hpcQueueName) &&
             this.maxJobs==that.maxJobs && this.maxJobsPerUser==that.maxJobsPerUser &&
             this.minNodeCount==that.minNodeCount && this.maxNodeCount==that.maxNodeCount &&
             this.minCoresPerNode==that.minCoresPerNode && this.maxCoresPerNode==that.maxCoresPerNode &&
@@ -110,6 +114,7 @@ public final class LogicalQueue
   public int hashCode()
   {
     int retVal = (name == null ? 1 : name.hashCode());
+    retVal = 31 * retVal + (description == null ? 0 : description.hashCode());
     retVal = 31 * retVal + (hpcQueueName == null ? 0 : hpcQueueName.hashCode());
     retVal = 31 * retVal + Integer.hashCode(maxJobs);
     retVal = 31 * retVal + Integer.hashCode(maxJobsPerUser);

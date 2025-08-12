@@ -644,6 +644,10 @@ public final class TSystem
    * Check for attribute strings that exceed limits
    *   id, description, owner, effectiveUserId, bucketName, rootDir
    *   dtnSystemId, jobWorkingDir
+   * NOTE: The jsonschema defined in tapis-systemsapi/src/main/java/resource/edu/utexas/tacc/tapis/systems/api
+   *    provides a check when request come in through the api layer, so technically these are unnecessary.
+   *    But if we replace or supplement the api layer these (and others) would be needed limit the size of fields
+   *    stored in the DB.
    */
   private void checkAttrStringLengths(List<String> errMessages)
   {
@@ -888,6 +892,7 @@ public final class TSystem
     for (var q : batchLogicalQueues)
     {
       checkForControlChars(errMessages, q.getName(), BATCH_LOGICAL_QUEUES_FIELD, NAME_FIELD);
+      checkForControlChars(errMessages, q.getDescription(), BATCH_LOGICAL_QUEUES_FIELD, DESCRIPTION_FIELD);
       checkForControlChars(errMessages, q.getHpcQueueName(), BATCH_LOGICAL_QUEUES_FIELD, HPCQ_NAME_FIELD);
     }
   }
