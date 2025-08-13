@@ -245,25 +245,36 @@ public class CredUtils
     tmsTenant = runtimeParms.getTmsTenant();
     tmsClientId = runtimeParms.getTmsClientId();
     tmsClientSecret = runtimeParms.getTmsClientSecret();
+    if (tmsClientSecret!=null) tmsClientSecret = tmsClientSecret.trim();
+    // If enabled, do some validation of config
+    if (tmsEnabled)
+    {
+      // Check that URL at least has a chance of working
+      if (!Strings.CI.startsWith(tmsServerUrl, "http"))
+      {
+        System.out.println(LibUtils.getMsg("SYSLIB_INIT_TMS_URL_ERR", tmsServerUrl));
+        tmsEnabled = false;
+      }
+      // Check that secret is configured
+      if (StringUtils.isBlank(tmsClientSecret))
+      {
+        System.out.println(LibUtils.getMsg("SYSLIB_INIT_TMS_NO_SECRET_ERR"));
+        tmsEnabled = false;
+      }
+    }
     // String to log for secret, if it is set log the first and last 3 characters of the string
     String tmsClientSecretMasked = "";
     if (!StringUtils.isBlank(tmsClientSecret))
     {
-      // Secret is set. Trim whitespace
-      String trimmedSecret = tmsClientSecret.trim();
-      int secretLen = trimmedSecret.length();
+      // Secret is set.
+      int secretLen = tmsClientSecret.length();
       // Make sure we have enough characters so we mask at least a few characters
       if (secretLen > 10)
       {
         tmsClientSecretMasked =
-              String.format("%s***%s", trimmedSecret.substring(0, 3), trimmedSecret.substring(secretLen - 3));
+              String.format("%s***%s", tmsClientSecret.substring(0, 3), tmsClientSecret.substring(secretLen - 3));
       }
       else tmsClientSecretMasked = SECRETS_MASK;
-    }
-    if (tmsEnabled && !Strings.CI.startsWith(tmsServerUrl, "http"))
-    {
-      System.out.println(LibUtils.getMsg("SYSLIB_INIT_TMS_URL_ERR", tmsServerUrl));
-      tmsEnabled = false;
     }
     tmsServerReqUrl = String.format("%s/%s", tmsServerUrl, TMS_CREATEKEYS_ENDPOINT);
     // Log final result
