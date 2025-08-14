@@ -1360,53 +1360,10 @@ public class SystemsServiceImpl implements SystemsService
                                            null,  limit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
 
-    // If we filter on hasCredentials, start a new list to return.
-    List<TSystem> retSystems = (filterByHasCredentials == null) ? systems : new ArrayList<>();
-    // Update dynamically computed info and resolve effUser as needed.
-    for (TSystem sys : systems)
-    {
-      // NOTE: We could determine hasCredentials and fill in CredentialInfo more efficiently via
-      //       using SQL to join with table systems_cred_info, but building the SQL query is already very complex
-      //       and we have to fetch share info anyway, so for now brute force it.
-      // Determine hasCredentials
-      // TODO/TBD/REVIEW Add full credentialInfo attribute to TSystem and fill it in here.
-      //   At the moment, all we need is hasCredentials, but for now look up complete record.
-      // Determine tapisUser for looking up CredentialInfo
-      // If static use effectiveUserId, else use oboOrImpersonatedUser
-// TODO/REVIEW
-      boolean isStaticEffectiveUser = !sys.getEffectiveUserId().equals(APIUSERID_VAR);
-      String credTargetUser = (isStaticEffectiveUser) ? sys.getEffectiveUserId(): oboOrImpersonatedUser;
-      String tapisUser = isStaticEffectiveUser ? rUser.getOboUserId() : credTargetUser;
-      CredentialInfo credInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffectiveUser);
-      // If no CredInfo record, log an error and set to false
-      // This should never happen if CredInfo table is properly maintained.
-      if (credInfo == null)
-      {
-        String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_RECORD_MISSING", rUser, sys.getTenant(), sys.getId(),
-                                         tapisUser, isStaticEffectiveUser);
-        log.error(msg);
-        sys.setHasCredentials(false);
-      }
-      else
-      {
-        sys.setHasCredentials(credInfo.hasCredentials());
-      }
-
-      // If filtering by hasCredentials and not including then simply continue now to skip the record.
-      if (filterByHasCredentials != null && !filterByHasCredentials.equals(sys.hasCredentials())) continue;
-
-      // Fetch share info only if requested by caller
-      if (fetchShareInfo)
-      {
-        SystemShare systemShare = authUtils.getSystemShareInfo(rUser, sys.getTenant(), sys.getId());
-        sys.setIsPublic(systemShare.isPublic());
-        sys.setSharedWithUsers(systemShare.getUserList());
-      }
-      sys.setIsDynamicEffectiveUser(sys.getEffectiveUserId().equals(APIUSERID_VAR));
-      sys.setEffectiveUserId(sysUtils.resolveEffectiveUserId(sys, oboOrImpersonatedUser));
-      // If filtering by hasCredentials then it is a match so add it to the newly created list.
-      if (filterByHasCredentials != null) retSystems.add(sys);
-    }
+    // TODO Refactor final hasCredentials filtering and setting of dynamic attrs into a method so it can
+    //      be used here in getSystems and also in getSystemsUsingSqlSearchStr
+    // Do final filtering and setting of any dynamic attributes
+    List<TSystem> retSystems = getSystemsFinal(rUser, systems, fetchShareInfo, filterByHasCredentials, oboOrImpersonatedUser);
     // The return list will be either the full list returned by the dao call or new list containing only
     //   records filtered by hasCredentials.
     return retSystems;
@@ -1423,6 +1380,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param startAfter - where to start when sorting, e.g. limit=10&orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param filterByHasCredentials - whether to filter by hasCredentials = true, false or null
    * @param fetchShareInfo - indicates if share info should be included in result
    * @return List of TSystem objects
    * @throws TapisException - for Tapis related exceptions
@@ -1430,7 +1388,8 @@ public class SystemsServiceImpl implements SystemsService
   @Override
   public List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser, String sqlSearchStr, int limit,
                                                    List<OrderBy> orderByList, int skip, String startAfter,
-                                                   boolean includeDeleted, String listType, boolean fetchShareInfo)
+                                                   boolean includeDeleted, String listType,
+                                                   Boolean filterByHasCredentials, boolean fetchShareInfo)
           throws TapisException, TapisClientException
   {
     // If search string is empty delegate to getSystems()
@@ -1913,6 +1872,63 @@ public class SystemsServiceImpl implements SystemsService
   // ************************************************************************
   // **************************  Private Methods  ***************************
   // ************************************************************************
+
+  /*
+   * Do final filtering and setting of any dynamic attributes
+   */
+  private List<TSystem> getSystemsFinal(ResourceRequestUser rUser, List<TSystem> systems, boolean fetchShareInfo,
+                                        Boolean filterByHasCredentials, String oboOrImpersonatedUser)
+        throws TapisException, TapisClientException
+  {
+    // If we filter on hasCredentials, start a new list to return.
+    List<TSystem> retSystems = (filterByHasCredentials == null) ? systems : new ArrayList<>();
+    // Update dynamically computed info and resolve effUser as needed.
+    for (TSystem sys : systems)
+    {
+      // NOTE: We could determine hasCredentials and fill in CredentialInfo more efficiently via
+      //       using SQL to join with table systems_cred_info, but building the SQL query is already very complex
+      //       and we have to fetch share info anyway, so for now brute force it.
+      // Determine hasCredentials
+      // TODO/TBD/REVIEW Add full credentialInfo attribute to TSystem and fill it in here.
+      //   At the moment, all we need is hasCredentials, but for now look up complete record.
+      // Determine tapisUser for looking up CredentialInfo
+      // If static use effectiveUserId, else use oboOrImpersonatedUser
+// TODO/REVIEW
+      boolean isStaticEffectiveUser = !sys.getEffectiveUserId().equals(APIUSERID_VAR);
+      String credTargetUser = (isStaticEffectiveUser) ? sys.getEffectiveUserId(): oboOrImpersonatedUser;
+      String tapisUser = isStaticEffectiveUser ? rUser.getOboUserId() : credTargetUser;
+      CredentialInfo credInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffectiveUser);
+      // If no CredInfo record, log an error and set to false
+      // This should never happen if CredInfo table is properly maintained.
+      if (credInfo == null)
+      {
+        String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_RECORD_MISSING", rUser, sys.getTenant(), sys.getId(),
+              tapisUser, isStaticEffectiveUser);
+        log.error(msg);
+        sys.setHasCredentials(false);
+      }
+      else
+      {
+        sys.setHasCredentials(credInfo.hasCredentials());
+      }
+
+      // If filtering by hasCredentials and not including then simply continue now to skip the record.
+      if (filterByHasCredentials != null && !filterByHasCredentials.equals(sys.hasCredentials())) continue;
+
+      // Fetch share info only if requested by caller
+      if (fetchShareInfo)
+      {
+        SystemShare systemShare = authUtils.getSystemShareInfo(rUser, sys.getTenant(), sys.getId());
+        sys.setIsPublic(systemShare.isPublic());
+        sys.setSharedWithUsers(systemShare.getUserList());
+      }
+      sys.setIsDynamicEffectiveUser(sys.getEffectiveUserId().equals(APIUSERID_VAR));
+      sys.setEffectiveUserId(sysUtils.resolveEffectiveUserId(sys, oboOrImpersonatedUser));
+      // If filtering by hasCredentials then it is a match so add it to the newly created list.
+      if (filterByHasCredentials != null) retSystems.add(sys);
+    }
+    return retSystems;
+  }
 
   /*
    * Basic getSystem with default options, share info and credentials are NOT fetched.

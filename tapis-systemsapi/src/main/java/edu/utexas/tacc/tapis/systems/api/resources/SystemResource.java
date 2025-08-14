@@ -969,6 +969,7 @@ public class SystemResource {
    * @param securityContext - user identity
    * @param showDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param filterByHasCredentials - flag indicating if filtering should be done based on registered credentials.
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @GET
@@ -977,7 +978,8 @@ public class SystemResource {
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsQueryParameters(@Context SecurityContext securityContext,
                                                @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
-                                               @QueryParam("listType") @DefaultValue("OWNED") String listType)
+                                               @QueryParam("listType") @DefaultValue("OWNED") String listType,
+                                               @QueryParam("hasCredentials") Boolean filterByHasCredentials) // NOTE: Do not use @Default so this will default to null
           throws TapisClientException
   {
     String opName = "searchSystemsGet";
@@ -992,7 +994,7 @@ public class SystemResource {
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "listType="+listType);
+                                                   "listType="+listType, "hasCredentials="+filterByHasCredentials);
 
     // Create search list based on query parameters
     // Note that some validation is done for each condition but the back end will handle translating LIKE wildcard
@@ -1017,7 +1019,7 @@ public class SystemResource {
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, null, null);
+      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, filterByHasCredentials, null);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1041,6 +1043,7 @@ public class SystemResource {
    * @param securityContext - user identity
    * @param showDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param filterByHasCredentials - flag indicating if filtering should be done based on registered credentials.
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @POST
@@ -1050,7 +1053,8 @@ public class SystemResource {
   public Response searchSystemsRequestBody(InputStream payloadStream,
                                            @Context SecurityContext securityContext,
                                            @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
-                                           @QueryParam("listType") @DefaultValue("OWNED") String listType)
+                                           @QueryParam("listType") @DefaultValue("OWNED") String listType,
+                                           @QueryParam("hasCredentials") Boolean filterByHasCredentials) // NOTE: Do not use @Default so this will default to null
           throws TapisClientException
   {
     String opName = "searchSystemsPost";
@@ -1065,7 +1069,7 @@ public class SystemResource {
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "listType="+listType);
+                                                   "listType="+listType, "hasCredentials="+filterByHasCredentials);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -1110,7 +1114,7 @@ public class SystemResource {
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, showDeleted, listType, null, null);
+      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, showDeleted, listType, filterByHasCredentials, null);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1552,7 +1556,7 @@ public class SystemResource {
                                    listType, filterByHasCredentials, fetchShareInfo, impersonationId);
     else
       systems = service.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit, orderByList, skip, startAfter,
-                                                    showDeleted, listType, fetchShareInfo);
+                                                    showDeleted, listType, filterByHasCredentials, fetchShareInfo);
     if (systems == null) systems = Collections.emptyList();
     itemCountStr = String.format(SYS_CNT_STR, systems.size());
     if (computeTotal && limit <= 0) totalCount = systems.size();

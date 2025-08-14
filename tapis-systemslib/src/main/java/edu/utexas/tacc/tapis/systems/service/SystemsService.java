@@ -95,8 +95,9 @@ public interface SystemsService
           throws TapisException, TapisClientException;
 
   List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser, String searchStr, int limit,
-                                        List<OrderBy> orderByList, int skip, String startAfter,
-                                        boolean includeDeleted, String listType, boolean fetchShareInfo)
+                                            List<OrderBy> orderByList, int skip, String startAfter,
+                                            boolean includeDeleted, String listType, Boolean filterByHasCredentials,
+                                            boolean fetchShareInfo)
           throws TapisException, TapisClientException;
 
   List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr, boolean fetchShareInfo)
