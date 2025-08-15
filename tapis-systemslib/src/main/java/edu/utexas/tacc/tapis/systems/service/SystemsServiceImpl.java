@@ -282,20 +282,19 @@ public class SystemsServiceImpl implements SystemsService
     // ---------------- Check constraints on TSystem attributes ------------------------
     validateTSystem(rUser, system, true);
 
-    // Set flag indicating if we will deal with credentials.
-    // We only do that when credentials provided and effectiveUser is static
-    Credential cred = system.getAuthnCredential();
-    boolean manageCredentials = (cred != null && isStaticEffectiveUser);
-
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerKnown(rUser, op, sysId, system.getOwner());
 
     // ---------------- Check for reserved names ------------------------
     checkReservedIds(rUser, sysId);
 
+    // Set flag indicating if we will deal with credentials.
+    // We only do that when credentials provided and effectiveUser is static
+    Credential cred = system.getAuthnCredential();
+    boolean manageCredentials = (cred != null && isStaticEffectiveUser);
     // If credentials provided validate constraints and verify credentials
-    Credential verifiedCred = null;
-    if (cred != null)
+    Credential verifiedCred = cred;
+    if (manageCredentials)
     {
       // Skip check if not LINUX or S3
       if (!SystemType.LINUX.equals(sysType) && !SystemType.S3.equals(sysType)) skipCredCheck = true;
@@ -312,7 +311,7 @@ public class SystemsServiceImpl implements SystemsService
       }
 
       // ---------------- Verify credentials if not skipped
-      if (!skipCredCheck && manageCredentials)
+      if (!skipCredCheck)
       {
         // During create, we only verify for static effectiveUser and system default authnMethod, so we pass in the
         //   effectiveUser from request as hostLoginUser and the authnMethod from the system.
@@ -408,14 +407,23 @@ public class SystemsServiceImpl implements SystemsService
       }
       throw e0;
     }
+
     // Update the credential with the credential that (optionally) was verified.
     // So caller will know if validation succeeded.
     retSystem.setAuthnCredential(verifiedCred);
+
+    // Determine hasCredentials
+    boolean hasCredentials = false;
+    CredentialInfo credInfo = null;
+    if (cred != null) credInfo = getCredInfo(rUser, retSystem, rUser.getOboUserId(), isStaticEffectiveUser);
+    if (credInfo != null) hasCredentials = credInfo.hasCredentials();
+
     // Update dynamically computed info and return the fully populated TSystem
     SystemShare systemShare = authUtils.getSystemShareInfo(rUser, sysTenant, sysId);
     retSystem.setIsPublic(systemShare.isPublic());
     retSystem.setSharedWithUsers(systemShare.getUserList());
     retSystem.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
+    retSystem.setHasCredentials(hasCredentials);
     return retSystem;
   }
 
@@ -552,6 +560,12 @@ public class SystemsServiceImpl implements SystemsService
     // No distributed transactions so no distributed rollback needed
     // ------------------- Make Dao call to persist the system -----------------------------------
     dao.patchSystem(rUser, systemId, patchedTSystem, updateJsonStr, rawData);
+    // Update credInfo record if necessary, i.e. if defaultAuthnMethod has changed.
+    if (patchSystem.getDefaultAuthnMethod() != null &&
+          !origTSystem.getDefaultAuthnMethod().equals(patchSystem.getDefaultAuthnMethod()))
+    {
+      credUtils.updateCredInfoHasCredentials(rUser, patchedTSystem);
+    }
   }
 
   /**
@@ -581,23 +595,23 @@ public class SystemsServiceImpl implements SystemsService
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (putSystem == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
     // Extract some attributes for convenience and clarity
-    String oboTenant = rUser.getOboTenantId();
-    String systemId = putSystem.getId();
+    String sysTenant = putSystem.getTenant();
+    String sysId = putSystem.getId();
 
     // ---------------------------- Check inputs ------------------------------------
-    if (StringUtils.isBlank(oboTenant) || StringUtils.isBlank(systemId) || StringUtils.isBlank(rawData))
+    if (StringUtils.isBlank(sysTenant) || StringUtils.isBlank(sysId) || StringUtils.isBlank(rawData))
     {
-      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ARG", rUser, systemId));
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_CREATE_ERROR_ARG", rUser, sysId));
     }
 
     // System must already exist and not be deleted
-    checkForSysWithThrow(rUser, oboTenant, systemId, false);
+    checkForSysWithThrow(rUser, sysTenant, sysId, false);
 
     // Fill in defaults
     putSystem.setDefaults();
 
     // Retrieve the system being updated and create fully populated TSystem with updated attributes
-    TSystem origTSystem = dao.getSystem(oboTenant, systemId);
+    TSystem origTSystem = dao.getSystem(sysTenant, sysId);
 
     // Set flag indicating if effectiveUserId is static
     String effectiveUserId = origTSystem.getEffectiveUserId();
@@ -608,15 +622,16 @@ public class SystemsServiceImpl implements SystemsService
 
     // Error if the system we are replacing had a parentId (i.e. - PUT not allowed for a child system) or if
     // the incoming request has a parentId set (i.e. trying to change the system to a child system)
-    if(!StringUtils.isBlank(origTSystem.getParentId())) {
-      String msg = LibUtils.getMsgAuth("SYSLIB_CHILD_PUT_NOT_ALLOWED", rUser, systemId);
+    if (!StringUtils.isBlank(origTSystem.getParentId()))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_CHILD_PUT_NOT_ALLOWED", rUser, sysId);
       throw new IllegalArgumentException(msg);
     }
 
     TSystem updatedTSystem = createUpdatedTSystem(origTSystem, putSystem);
 
     // ------------------------- Check authorization -------------------------
-    authUtils.checkAuthOwnerKnown(rUser, op, systemId, origTSystem.getOwner());
+    authUtils.checkAuthOwnerKnown(rUser, op, sysId, origTSystem.getOwner());
 
     // ---------------- Check constraints on TSystem attributes ------------------------
     validateTSystem(rUser, updatedTSystem, false);
@@ -639,8 +654,16 @@ public class SystemsServiceImpl implements SystemsService
     // ------------------- Make Dao call to update the system -----------------------------------
     dao.putSystem(rUser, updatedTSystem, updateJsonStr, rawData);
 
+    // Update credInfo record if necessary, i.e. if defaultAuthnMethod has changed.
+    if (!origTSystem.getDefaultAuthnMethod().equals(putSystem.getDefaultAuthnMethod()))
+    {
+      credUtils.updateCredInfoHasCredentials(rUser, putSystem);
+      CredentialInfo credInfo = getCredInfo(rUser, putSystem, rUser.getOboUserId(), isStaticEffectiveUser);
+      if (credInfo != null) putSystem.setHasCredentials(credInfo.hasCredentials());
+    }
+
     // Update dynamically computed info.
-    SystemShare systemShare = authUtils.getSystemShareInfo(rUser, putSystem.getTenant(), systemId);
+    SystemShare systemShare = authUtils.getSystemShareInfo(rUser, sysTenant, sysId);
     putSystem.setIsPublic(systemShare.isPublic());
     putSystem.setSharedWithUsers(systemShare.getUserList());
     putSystem.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
@@ -1192,7 +1215,9 @@ public class SystemsServiceImpl implements SystemsService
       system.setIsPublic(systemShare.isPublic());
       system.setSharedWithUsers(systemShare.getUserList());
     }
+    // Update isDynamic and hasCredentials
     system.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
+    system = setHasCredentials(rUser, system, oboOrImpersonatedUser, isStaticEffectiveUser);
     return system;
   }
 
@@ -1360,12 +1385,10 @@ public class SystemsServiceImpl implements SystemsService
                                            null,  limit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
 
-    // TODO Refactor final hasCredentials filtering and setting of dynamic attrs into a method so it can
-    //      be used here in getSystems and also in getSystemsUsingSqlSearchStr
     // Do final filtering and setting of any dynamic attributes
-    List<TSystem> retSystems = getSystemsFinal(rUser, systems, fetchShareInfo, filterByHasCredentials, oboOrImpersonatedUser);
     // The return list will be either the full list returned by the dao call or new list containing only
     //   records filtered by hasCredentials.
+    List<TSystem> retSystems = getSystemsFinal(rUser, systems, fetchShareInfo, filterByHasCredentials, oboOrImpersonatedUser);
     return retSystems;
   }
 
@@ -1392,8 +1415,8 @@ public class SystemsServiceImpl implements SystemsService
                                                    Boolean filterByHasCredentials, boolean fetchShareInfo)
           throws TapisException, TapisClientException
   {
+    String oboUser = rUser.getOboUserId();
     // If search string is empty delegate to getSystems()
-    // TODO/TBD support hasCredentials now? or later?
     Boolean filterByHasCredentialsTmp=null;
     if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip, startAfter,
                                                              includeDeleted, listType, filterByHasCredentialsTmp,
@@ -1439,51 +1462,21 @@ public class SystemsServiceImpl implements SystemsService
 
     // If needed, get IDs for items for which requester has READ or MODIFY permission
     Set<String> viewableIDs = new HashSet<>();
-    if (allItems) viewableIDs = getViewableSystemIDs(rUser, rUser.getOboUserId());
+    if (allItems) viewableIDs = getViewableSystemIDs(rUser, oboUser);
 
     // If needed, get IDs for items shared with the requester or only shared publicly.
     Set<String> sharedIDs = new HashSet<>();
-    if (allItems) sharedIDs = authUtils.getSharedSystemIDs(rUser, rUser.getOboUserId(), false);
-    else if (publicOnly) sharedIDs = authUtils.getSharedSystemIDs(rUser, rUser.getOboUserId(), true);
+    if (allItems) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboUser, false);
+    else if (publicOnly) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboUser, true);
 
     // Get all allowed systems matching the search conditions
-    List<TSystem> systems = dao.getSystems(rUser, rUser.getOboUserId(), null, searchAST, limit, orderByList,
+    List<TSystem> systems = dao.getSystems(rUser, oboUser, null, searchAST, limit, orderByList,
                                            skip, startAfter, includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
-    // Update dynamically computed info and resolve effUser as needed.
-    for (TSystem system : systems)
-    {
-// TODO/REVIEW      boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
-// TODO/REVIEW      // Fetch credentials if we need to compute the dynamic attribute hasCredentials.
-// TODO/REVIEW      // NOTE: Having a separate method for checkHasCredentials would not help much. We still need the call to SK.
-// TODO/REVIEW      if (checkHasCredentials)
-// TODO/REVIEW      {
-// TODO/REVIEW        // Determine targetUser for fetching/checking credential.
-// TODO/REVIEW        // If static use effectiveUserId, else use oboUser
-// TODO/REVIEW        String credTargetUser;
-// TODO/REVIEW        if (isStaticEffectiveUser)
-// TODO/REVIEW          credTargetUser = system.getEffectiveUserId();
-// TODO/REVIEW        else
-// TODO/REVIEW          credTargetUser = rUser.getOboUserId();
-// TODO/REVIEW        // Use private internal method instead of public API to skip auth and other checks not needed here.
-// TODO/REVIEW        Credential cred = getCredential(rUser, system, credTargetUser, system.getDefaultAuthnMethod(), isStaticEffectiveUser,
-// TODO/REVIEW                system.getTenant());
-// TODO/REVIEW        system.setHasCredentials(cred != null);
-// TODO/REVIEW      }
-
-      // Fetch share info only if requested by caller
-      if (fetchShareInfo)
-      {
-        SystemShare systemShare = authUtils.getSystemShareInfo(rUser, system.getTenant(), system.getId());
-        system.setIsPublic(systemShare.isPublic());
-        system.setSharedWithUsers(systemShare.getUserList());
-      }
-// TODO/REVIEW      system.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
-// TODO/REVIEW      system.setEffectiveUserId(resolveEffectiveUserId(system, rUser.getOboUserId()));
-
-      system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
-      system.setEffectiveUserId(sysUtils.resolveEffectiveUserId(system, rUser.getOboUserId()));
-    }
-    return systems;
+    // Do final filtering and setting of any dynamic attributes
+    // The return list will be either the full list returned by the dao call or new list containing only
+    //   records filtered by hasCredentials.
+    List<TSystem> retSystems = getSystemsFinal(rUser, systems, fetchShareInfo, filterByHasCredentials, oboUser);
+    return retSystems;
   }
 
   /**
@@ -1495,7 +1488,8 @@ public class SystemsServiceImpl implements SystemsService
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
-  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr, boolean fetchShareInfo)
+  public List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr,
+                                                       Boolean filterByHasCredentials, boolean fetchShareInfo)
           throws TapisException, TapisClientException
   {
     if (rUser == null)  throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
@@ -1517,20 +1511,11 @@ public class SystemsServiceImpl implements SystemsService
     // Get all allowed systems matching the constraint conditions
     List<TSystem> systems = dao.getSystemsSatisfyingConstraints(rUser.getOboTenantId(), matchAST, allowedSysIDs);
 
-    // Update dynamically computed info and resolve effUser as needed.
-    for (TSystem system : systems)
-    {
-      // Fetch share info only if requested by caller
-      if (fetchShareInfo)
-      {
-        SystemShare systemShare = authUtils.getSystemShareInfo(rUser, system.getTenant(), system.getId());
-        system.setIsPublic(systemShare.isPublic());
-        system.setSharedWithUsers(systemShare.getUserList());
-      }
-      system.setIsDynamicEffectiveUser(system.getEffectiveUserId().equals(APIUSERID_VAR));
-      system.setEffectiveUserId(sysUtils.resolveEffectiveUserId(system, rUser.getOboUserId()));
-    }
-    return systems;
+    // Do final filtering and setting of any dynamic attributes
+    // The return list will be either the full list returned by the dao call or new list containing only
+    //   records filtered by hasCredentials.
+    List<TSystem> retSystems = getSystemsFinal(rUser, systems, fetchShareInfo, false, rUser.getOboUserId());
+    return retSystems;
   }
 
   /**
@@ -1874,6 +1859,47 @@ public class SystemsServiceImpl implements SystemsService
   // ************************************************************************
 
   /*
+   * Given a TSystem and user making the request, fetch a credInfo record.
+   */
+  private CredentialInfo getCredInfo(ResourceRequestUser rUser, TSystem sys, String oboOrImpersonatedUser,
+                                     boolean isStaticEffUsr)
+  {
+    CredentialInfo retCredInfo = null;
+    // Determine tapisUser for looking up CredentialInfo
+    // If static use effectiveUserId, else use oboOrImpersonatedUser
+    String credTargetUser = (isStaticEffUsr) ? sys.getEffectiveUserId(): oboOrImpersonatedUser;
+    String tapisUser = isStaticEffUsr ? rUser.getOboUserId() : credTargetUser;
+    retCredInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUsr);
+    // If no CredInfo record, log an error
+    // This should never happen if CredInfo table is properly maintained.
+    if (retCredInfo == null)
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_RECORD_MISSING", rUser, sys.getTenant(), sys.getId(),
+                                       tapisUser, isStaticEffUsr);
+      log.error(msg);
+    }
+    return retCredInfo;
+  }
+
+  /*
+   * Given a TSystem and user making the request, fetch a credInfo record.
+   */
+  private TSystem setHasCredentials(ResourceRequestUser rUser, TSystem sys, String oboOrImpersonatedUser,
+                                    boolean isStaticEffUsr)
+  {
+    CredentialInfo credInfo = getCredInfo(rUser, sys, oboOrImpersonatedUser, isStaticEffUsr);
+    if (credInfo == null)
+    {
+      sys.setHasCredentials(false);
+    }
+    else
+    {
+      sys.setHasCredentials(credInfo.hasCredentials());
+    }
+    return sys;
+  }
+
+  /*
    * Do final filtering and setting of any dynamic attributes
    */
   private List<TSystem> getSystemsFinal(ResourceRequestUser rUser, List<TSystem> systems, boolean fetchShareInfo,
@@ -1885,32 +1911,12 @@ public class SystemsServiceImpl implements SystemsService
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem sys : systems)
     {
+      boolean isStaticEffUsr = sys.getEffectiveUserId().equals(APIUSERID_VAR);
       // NOTE: We could determine hasCredentials and fill in CredentialInfo more efficiently via
-      //       using SQL to join with table systems_cred_info, but building the SQL query is already very complex
-      //       and we have to fetch share info anyway, so for now brute force it.
+      //       using SQL to join with table systems_cred_info, but building the SQL query is already very complex.
+      //       And we have to fetch share info anyway, so for now brute force it.
       // Determine hasCredentials
-      // TODO/TBD/REVIEW Add full credentialInfo attribute to TSystem and fill it in here.
-      //   At the moment, all we need is hasCredentials, but for now look up complete record.
-      // Determine tapisUser for looking up CredentialInfo
-      // If static use effectiveUserId, else use oboOrImpersonatedUser
-// TODO/REVIEW
-      boolean isStaticEffectiveUser = !sys.getEffectiveUserId().equals(APIUSERID_VAR);
-      String credTargetUser = (isStaticEffectiveUser) ? sys.getEffectiveUserId(): oboOrImpersonatedUser;
-      String tapisUser = isStaticEffectiveUser ? rUser.getOboUserId() : credTargetUser;
-      CredentialInfo credInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffectiveUser);
-      // If no CredInfo record, log an error and set to false
-      // This should never happen if CredInfo table is properly maintained.
-      if (credInfo == null)
-      {
-        String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_RECORD_MISSING", rUser, sys.getTenant(), sys.getId(),
-              tapisUser, isStaticEffectiveUser);
-        log.error(msg);
-        sys.setHasCredentials(false);
-      }
-      else
-      {
-        sys.setHasCredentials(credInfo.hasCredentials());
-      }
+      setHasCredentials(rUser, sys, oboOrImpersonatedUser, isStaticEffUsr);
 
       // If filtering by hasCredentials and not including then simply continue now to skip the record.
       if (filterByHasCredentials != null && !filterByHasCredentials.equals(sys.hasCredentials())) continue;
@@ -1922,7 +1928,7 @@ public class SystemsServiceImpl implements SystemsService
         sys.setIsPublic(systemShare.isPublic());
         sys.setSharedWithUsers(systemShare.getUserList());
       }
-      sys.setIsDynamicEffectiveUser(sys.getEffectiveUserId().equals(APIUSERID_VAR));
+      sys.setIsDynamicEffectiveUser(!isStaticEffUsr);
       sys.setEffectiveUserId(sysUtils.resolveEffectiveUserId(sys, oboOrImpersonatedUser));
       // If filtering by hasCredentials then it is a match so add it to the newly created list.
       if (filterByHasCredentials != null) retSystems.add(sys);

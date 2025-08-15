@@ -140,8 +140,19 @@ public class CredUtils
   {
     String opName = "createCredInfoRecordFromVaultMetadata";
     CredentialInfo credInfo;
+    AuthnMethod authnMethod = sys.getDefaultAuthnMethod();
     String credTargetUser = sm.targetUser();
-    boolean hasCredentials = (sm.hasPassword() || sm.hasPkiKeys() || sm.hasAccessKey() || sm.hasToken() || sm.hasTmsKeys());
+    // Determine if credentials are registered for defaultAuthnMethod of the system
+    boolean hasCredentials = (AuthnMethod.PASSWORD.equals(authnMethod) && sm.hasPassword()) ||
+          (AuthnMethod.PKI_KEYS.equals(authnMethod) && sm.hasPkiKeys()) ||
+          (AuthnMethod.ACCESS_KEY.equals(authnMethod) && sm.hasAccessKey()) ||
+          (AuthnMethod.TOKEN.equals(authnMethod) && sm.hasToken() ) ||
+          (AuthnMethod.TMS_KEYS.equals(authnMethod) && sm.hasTmsKeys());
+
+
+
+
+
     int sysSeqId = sys.getSeqId();
 
     // Compute tapisUser, hostLoginUser and loginUserMapping
@@ -568,7 +579,7 @@ public class CredUtils
   {
     // Get all CredInfo records associated with the system.
     List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(system.getTenant(), system.getId());
-    // For each record remove all SK secrets and update CredInfo record to DELETED.
+    // For each record remove all SK secrets and the CredInfo record.
     for (CredentialInfo credInfo : ciList)
     {
       deleteCredential(rUser, system, credInfo.getCredTargetUser(), credInfo.isStatic(), op);
@@ -1072,6 +1083,51 @@ public class CredUtils
       }
     }
   }
+
+  /*
+   * Update CredentialInfo hasCredentials attribute based on current defaultAuthnMethod for the system.
+   * All records associated with the system will be updated unless updates are currently in progress
+   *
+   * NOTE: Since we are synchronizing here no updates should be IN_PROGRESS.
+   *       Any FAILED or PENDING records will get updated later by the maintenance task.
+   */
+  void updateCredInfoHasCredentials(ResourceRequestUser rUser, TSystem sys)
+  {
+    String opName = "updateCredInfoHasCredentials";
+    AuthnMethod authnMethod = sys.getDefaultAuthnMethod();
+    // We are mutating a CredInfo record so synchronize around the class
+    synchronized (CredUtils.class)
+    {
+      // Get all CredInfo records associated with the system.
+      List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(sys.getTenant(), sys.getId());
+      // For each record update hasCredentials
+      for (CredentialInfo ci : ciList)
+      {
+        // If not in COMPLETED state move on
+        if (ci == null || !SyncStatus.COMPLETED.equals(ci.getSyncStatus())) continue;
+
+        // Update status to IN_PROGRESS
+        ci = updateCredInfoStatus(rUser, ci, SyncStatus.IN_PROGRESS, opName);
+
+        // Determine if credentials are registered for defaultAuthnMethod of the system
+        boolean hasCredentials = (AuthnMethod.PASSWORD.equals(authnMethod) && ci.hasPassword()) ||
+              (AuthnMethod.PKI_KEYS.equals(authnMethod) && ci.hasPkiKeys()) ||
+              (AuthnMethod.ACCESS_KEY.equals(authnMethod) && ci.hasAccessKey()) ||
+              (AuthnMethod.TOKEN.equals(authnMethod) && ci.hasToken() ) ||
+              (AuthnMethod.TMS_KEYS.equals(authnMethod) && ci.hasTmsKeys());
+
+        // Update hasCredentials
+        dao.updateCredInfoHasCredentials(ci, hasCredentials);
+        log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_SET_HASCREDS", rUser, ci.getTenant(), ci.getSystemId(),
+                                 ci.getTapisUser(), ci.getHostLoginUser(), ci.isStatic(), hasCredentials, opName));
+
+
+        // Update status to COMPLETED
+        updateCredInfoStatus(rUser, ci, SyncStatus.COMPLETED, opName);
+      }
+    }
+  }
+
   /* **************************************************************************** */
   /*                                Private Methods                               */
   /* **************************************************************************** */

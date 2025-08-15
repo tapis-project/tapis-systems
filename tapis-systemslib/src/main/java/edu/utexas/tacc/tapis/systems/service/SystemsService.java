@@ -100,7 +100,8 @@ public interface SystemsService
                                             boolean fetchShareInfo)
           throws TapisException, TapisClientException;
 
-  List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr, boolean fetchShareInfo)
+  List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr,
+                                                Boolean filterByHasCredentials, boolean fetchShareInfo)
           throws TapisException, TapisClientException;
 
   String getSystemOwner(ResourceRequestUser rUser, String systemId)

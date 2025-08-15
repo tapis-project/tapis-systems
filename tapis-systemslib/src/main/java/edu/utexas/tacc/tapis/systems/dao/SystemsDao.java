@@ -103,6 +103,8 @@ public interface SystemsDao
 
   void updateCredInfoStatus(CredentialInfo credInfo, CredentialInfo.SyncStatus newSyncStatus, LocalDateTime updated);
 
+  void updateCredInfoHasCredentials(CredentialInfo credInfo, boolean hasCredentials);
+
   String getLoginUserMapping(String tenantId, String id, String tapisUser, boolean isStatic);
 
   int credInfoMarkAllInProgressAsFailed(ResourceRequestUser rUser, String failMsg);

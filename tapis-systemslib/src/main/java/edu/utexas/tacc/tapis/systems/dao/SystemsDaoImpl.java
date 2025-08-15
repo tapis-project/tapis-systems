@@ -2124,9 +2124,45 @@ public class SystemsDaoImpl implements SystemsDao
     }
   }
 
+  /*
+   * In SYSTEMS_CRED_INFO table, update hasCredentials for given record
+   */
+  @Override
+  public void updateCredInfoHasCredentials(CredentialInfo credInfo, boolean hasCredentials)
+  {
+    LocalDateTime updated = TapisUtils.getUTCTimeNow();
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
+      db.update(SYSTEMS_CRED_INFO)
+            .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, hasCredentials)
+            .set(SYSTEMS_CRED_INFO.UPDATED, updated)
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
+                  SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
+                  SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
+                  SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
+            .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
   /**
    * In SYSTEMS_CRED_INFO table, update record and mark as COMPLETE
-   * @throws TapisException on error
    */
   @Override
   public void credInfoMarkAsComplete(CredentialInfo credInfo)
