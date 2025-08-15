@@ -1524,6 +1524,7 @@ public class SystemsServiceTest
   @Test
   public void testUserCredentials() throws Exception
   {
+    SystemOperation op = SystemOperation.removeCred;
     PatchSystem patchSystem;
     // Create dynamic system with effUsr = apiUserId
     TSystem sys0 = systems[10];
@@ -1531,16 +1532,13 @@ public class SystemsServiceTest
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR); // "${apiUserId}"
     boolean isStatic = false;
     // Create the system
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
-/*
-// TODO/TBD REVIEW - from branch has-credentials.
-    //TODO/TBD REVIEW hasCredentials, from branch has-credentials
-    // As a precaution, clean up credentials. These do not get removed when deleting the system
-    svc.deleteUserCredential(rOwner1, sysId, owner1);
-    svc.deleteUserCredential(rOwner1, sysId, testUser3);
-    svc.deleteUserCredential(rOwner1, sysId, testUser5);
-//TODO/TBD REVIEW hasCredentials, from branch has-credentials
-*/
+    TSystem tmpSys = svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+    // As a precaution, clean up credentials. These may be left over from previous tests.
+    credUtils.deleteCredentialForUser(rOwner1, tmpSys, owner1, op); //testUser5LinuxUser
+    credUtils.deleteCredentialForUser(rOwner1, tmpSys, testUser3, op);
+    credUtils.deleteCredentialForUser(rOwner1, tmpSys, testUser4, op);
+    credUtils.deleteCredentialForUser(rOwner1, tmpSys, testUser5, op);
+    credUtils.deleteCredentialForUser(rOwner1, tmpSys, testUser5LinuxUser, op);
     // cred3NoLoginUser - all creds except TMS
     Credential cred3NoLoginUser = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
             "fakeAccessKey3", "fakeAccessSecret3", "fakeAccessToken3", "fakeRefreshToken3",
@@ -1556,8 +1554,8 @@ public class SystemsServiceTest
     svc.grantUserPermissions(rOwner1, sysId, testUser5, testPermsREAD, rawDataEmptyJson);
 
     // Test hasCredentials - no credentials yet, so should be false
-    TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull,
-          resourceTenantNull, fetchShareInfoFalse);
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull,
+                           resourceTenantNull, fetchShareInfoFalse);
     Assert.assertFalse(tmpSys.hasCredentials(), "hasCredentials should be false");
     tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PKI_KEYS, false, getCredsTrue, null, sharedCtxNull,
           resourceTenantNull, fetchShareInfoFalse);
