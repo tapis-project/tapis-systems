@@ -909,8 +909,6 @@ public class SystemsServiceTest
     systems = svc.getSystems(rAdminUser, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
                              showDeletedFalse, listTypeAll.name(), fetchShareInfoFalse, owner5); 
 
-    systems.forEach(s -> System.out.printf("TESTID=%s, ID=%s owner=%s public=%s shared=%s effectiveUser=%s%n", testID, s.getId(), s.getOwner(), s.isPublic(), s.getSharedWithUsers(), s.getEffectiveUserId()));
-
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeAll);
     Assert.assertEquals(systems.size(), 2, "Wrong number of returned systems tenant for admin impersonation");

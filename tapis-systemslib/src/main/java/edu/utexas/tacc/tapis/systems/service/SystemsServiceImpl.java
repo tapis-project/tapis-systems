@@ -304,8 +304,10 @@ public class SystemsServiceImpl implements SystemsService
       // NOTE: If effectiveUserId is dynamic then request has already been rejected above during
       //       call to validateTSystem(). See method TSystem.checkAttrMisc().
       //       But we include isStaticEffectiveUser here anyway in case that ever changes.
-      // FIXME: The following is temporarily commented off and moved to credUtils.createCredential method.
-      // 
+      // ---------------------------------------------
+      // TODO: The following is temporarily commented off and moved to credUtils.createCredential method.
+      //       We should test the new change thoroughly and see if it applies to all use cases correctly.
+      // ---------------------------------------------
       // if (isStaticEffectiveUser && !StringUtils.isBlank(cred.getLoginUser()))
       // {
       //   String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, sysId);
