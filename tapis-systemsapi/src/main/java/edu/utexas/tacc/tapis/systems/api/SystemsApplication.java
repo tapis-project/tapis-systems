@@ -1,6 +1,8 @@
 package edu.utexas.tacc.tapis.systems.api;
 
 import java.net.URI;
+import java.util.HashSet;
+import java.util.Set;
 import javax.ws.rs.ApplicationPath;
 
 import org.apache.commons.lang3.StringUtils;
@@ -34,6 +36,10 @@ import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDaoImpl;
 
+import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.APPS_SERVICE;
+import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.FILES_SERVICE;
+import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.JOBS_SERVICE;
+
 /*
  * Main startup class for the web application. Uses Jersey and Grizzly frameworks.
  *   Performs setup for HK2 dependency injection.
@@ -56,6 +62,8 @@ import edu.utexas.tacc.tapis.systems.dao.SystemsDaoImpl;
 @ApplicationPath("/")
 public class SystemsApplication extends ResourceConfig
 {
+  // List of Tapis services allowed to call this service with a service JWT.
+  public static final Set<String> SVCLIST_TRUSTED = new HashSet<>(Set.of(FILES_SERVICE, APPS_SERVICE, JOBS_SERVICE));
   // We must be running on a specific site and this will never change
   private static String siteId;
   public static String getSiteId() {return siteId;}

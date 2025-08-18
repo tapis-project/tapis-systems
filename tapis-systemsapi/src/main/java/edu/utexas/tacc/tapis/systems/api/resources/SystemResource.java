@@ -224,6 +224,8 @@ public class SystemResource {
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
                                                    "skipCredentialCheck="+skipCredCheck);
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
     String rawJson;
@@ -370,6 +372,8 @@ public class SystemResource {
               "systemId="+systemId);
     }
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
     String rawJson;
@@ -454,6 +458,8 @@ public class SystemResource {
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
+
+    ApiUtils.checkRestrictedSvcs(rUser);
 
     // load the correct json validation file depending on if this is a parent or child system
     String jsonValidationFile = isChildSystem(rUser, systemId) ?
@@ -588,6 +594,8 @@ public class SystemResource {
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "skipCredentialCheck="+skipCredCheck, "systemId="+systemId);
+
+    ApiUtils.checkRestrictedSvcs(rUser);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -860,6 +868,8 @@ public class SystemResource {
                                                    "resourceTenant="+resourceTenant,
                                                    "sharedAppCtx="+sharedAppCtx);
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     // Check that authnMethodStr is valid if is passed in
     AuthnMethod authnMethod = null;
     try { if (!StringUtils.isBlank(authnMethodStr)) authnMethod =  AuthnMethod.valueOf(authnMethodStr); }
@@ -936,6 +946,8 @@ public class SystemResource {
                                                    "listType="+listType,
                                                    "impersonationId="+impersonationId);
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     // ThreadContext designed to never return null for SearchParameters
     SearchParameters srchParms = threadContext.getSearchParameters();
 
@@ -987,6 +999,8 @@ public class SystemResource {
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
                                                    "listType="+listType);
+
+    ApiUtils.checkRestrictedSvcs(rUser);
 
     // Create search list based on query parameters
     // Note that some validation is done for each condition but the back end will handle translating LIKE wildcard
@@ -1060,6 +1074,8 @@ public class SystemResource {
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
                                                    "listType="+listType);
+
+    ApiUtils.checkRestrictedSvcs(rUser);
 
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
@@ -1147,6 +1163,8 @@ public class SystemResource {
 //
 //  // Trace this request.
 //    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "showDeleted="+showDeleted);
+//
+//      ApiUtils.checkRestrictedSvcs(rUser);
 //
 //    // ------------------------- Extract and validate payload -------------------------
 //    // Read the payload into a string.
@@ -1284,6 +1302,8 @@ public class SystemResource {
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     boolean isEnabled;
     try
     {
@@ -1345,6 +1365,8 @@ public class SystemResource {
       else
         ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
     }
+
+    ApiUtils.checkRestrictedSvcs(rUser);
 
     // ---------------------------- Make service call to update the system -------------------------------
     int changeCount;
