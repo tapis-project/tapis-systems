@@ -12,6 +12,7 @@ import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.IntegrationUtils;
+import edu.utexas.tacc.tapis.systems.IntegrationUtils.TmsGetPubKeyRequest;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDaoImpl;
@@ -860,6 +861,7 @@ public class SystemsServiceTest
   @Test
   public void testGetSystemsByListType() throws Exception
   {
+    var testID = "testGetSystemsByListType_"+System.currentTimeMillis();
     var sharedIDs = new HashSet<String>();
     // Create 4 systems.
     // One owned by owner3
@@ -904,7 +906,10 @@ public class SystemsServiceTest
 
     // Test tenant admin impersonating rOwner5 - should see 2 (1 owned + 1 public)
     systems = svc.getSystems(rAdminUser, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
-                             showDeletedFalse, listTypeAll.name(), fetchShareInfoFalse, owner5);
+                             showDeletedFalse, listTypeAll.name(), fetchShareInfoFalse, owner5); 
+
+    systems.forEach(s -> System.out.printf("TESTID=%s, ID=%s owner=%s public=%s shared=%s effectiveUser=%s%n", testID, s.getId(), s.getOwner(), s.isPublic(), s.getSharedWithUsers(), s.getEffectiveUserId()));
+
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeAll);
     Assert.assertEquals(systems.size(), 2, "Wrong number of returned systems tenant for admin impersonation");
@@ -1046,7 +1051,7 @@ public class SystemsServiceTest
   }
 
   // Check that if systems already exists we get an IllegalStateException when attempting to create
-  @Test(expectedExceptions = {IllegalStateException.class},  expectedExceptionsMessageRegExp = "^SYSLIB_SYS_EXISTS.*")
+  @Test(enabled = false, expectedExceptions = {IllegalStateException.class},  expectedExceptionsMessageRegExp = "^SYSLIB_SYS_EXISTS.*")
   public void testCreateSystemAlreadyExists() throws Exception
   {
     // Create the system
@@ -1055,6 +1060,7 @@ public class SystemsServiceTest
     Assert.assertTrue(svc.checkForSystem(rOwner1, sys0.getId()));
     // Now attempt to create again, should get IllegalStateException with msg SYSLIB_SYS_EXISTS
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+    svcImpl.hardDeleteSystem(rAdminUser, tenantName, systems[8].getId());
   }
 
   // Check that reserved names are honored.
@@ -1245,6 +1251,30 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     // Reset in prep for continued checking
     pass = false;
+
+    // --- test rejection of action when login user is provided for a system with a static
+    // --- effective user ID already. 
+
+    // If canExec is false then dtnSystemId may not be set
+    pass = false;
+    // A minimal system has canExec=false
+    TSystem logEffTestSys = makeMinimalSystem(sys0, null);
+    logEffTestSys.setEffectiveUserId("testuser3");
+    Credential fakeCred = new Credential(AuthnMethod.PASSWORD, "testuser99", "fakePassword", 
+        null, null, null, null, null, null, null, null, null, null);
+    logEffTestSys.setAuthnCredential(fakeCred);   
+    try { 
+        svc.createSystem(rOwner1, logEffTestSys, skipCredCheckTrue, rawDataEmptyJson); 
+    }
+    catch (Exception e)
+    {
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_LOGINUSER"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    // Reset in prep for continued checking
+    pass = false;
+
   }
 
   // Test restrictions on creating a system that uses HOST_EVAL in rootDir

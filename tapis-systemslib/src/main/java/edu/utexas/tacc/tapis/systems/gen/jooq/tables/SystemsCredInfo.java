@@ -92,7 +92,7 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
     /**
      * The column <code>tapis_sys.systems_cred_info.host_login_user</code>.
      */
-    public final TableField<SystemsCredInfoRecord, String> HOST_LOGIN_USER = createField(DSL.name("host_login_user"), SQLDataType.CLOB.nullable(false), this, "");
+    public final TableField<SystemsCredInfoRecord, String> HOST_LOGIN_USER = createField(DSL.name("host_login_user"), SQLDataType.CLOB.nullable(false).defaultValue(DSL.field("''::text", SQLDataType.CLOB)), this, "");
 
     /**
      * The column <code>tapis_sys.systems_cred_info.is_static</code>.

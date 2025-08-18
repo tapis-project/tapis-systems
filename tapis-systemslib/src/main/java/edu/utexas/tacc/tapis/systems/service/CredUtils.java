@@ -47,6 +47,9 @@ import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.migrate.CredInfoInitJob;
 import edu.utexas.tacc.tapis.systems.model.*;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
+import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
+import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
+import edu.utexas.tacc.tapis.systems.model.TSystem.SystemType;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 
 import static edu.utexas.tacc.tapis.systems.model.CredInfoFSM.CREDINFO_INIT_TMP_CSV_FILE;
@@ -640,6 +643,18 @@ public class CredUtils
     if (StringUtils.isBlank(hostLoginUser)) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_HOST_LOGIN", rUser));
     String oboUser = rUser.getOboUserId();
     String loginUserMapping = credential.getLoginUser();
+
+
+    // LoginUser field should not be provided if the system was created with a static effective user. 
+    // This is because the static effective user is already a LoginUser for the system, 
+    // and there is no need to map a static effective user to a login user again. 
+    if (isStatic && !StringUtils.isBlank(credential.getLoginUser()))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, sys.getId());
+      log.warn(msg);
+      throw new IllegalArgumentException(msg);
+    }
+
     // For CredentialInfo record, if static then tapisUser is oboUser, if dynamic then tapisUser is targetUser
     // NOTE: targetUser is never from loginUserMapping.
     String tapisUser = isStatic ? oboUser : credTargetUser;
