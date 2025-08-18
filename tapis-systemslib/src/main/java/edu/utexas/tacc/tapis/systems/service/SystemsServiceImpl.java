@@ -313,7 +313,6 @@ public class SystemsServiceImpl implements SystemsService
       //   String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, sysId);
       //   log.warn(msg);
       //   throw new IllegalArgumentException(msg);
-      // }
 
       // ---------------- Verify credentials if not skipped
       if (!skipCredCheck && manageCredentials)
