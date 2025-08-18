@@ -295,6 +295,7 @@ public class SystemsServiceTest
   @Test
   public void testCreateSystem() throws Exception
   {
+    System.out.println("=========HELLO CREATING SYSTEM========");
     TSystem sys0 = systems[0];
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
   }
@@ -1051,7 +1052,7 @@ public class SystemsServiceTest
   }
 
   // Check that if systems already exists we get an IllegalStateException when attempting to create
-  @Test(enabled = false, expectedExceptions = {IllegalStateException.class},  expectedExceptionsMessageRegExp = "^SYSLIB_SYS_EXISTS.*")
+  @Test(expectedExceptions = {IllegalStateException.class},  expectedExceptionsMessageRegExp = "^SYSLIB_SYS_EXISTS.*")
   public void testCreateSystemAlreadyExists() throws Exception
   {
     // Create the system
@@ -1060,7 +1061,7 @@ public class SystemsServiceTest
     Assert.assertTrue(svc.checkForSystem(rOwner1, sys0.getId()));
     // Now attempt to create again, should get IllegalStateException with msg SYSLIB_SYS_EXISTS
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
-    svcImpl.hardDeleteSystem(rAdminUser, tenantName, systems[8].getId());
+    // svcImpl.hardDeleteSystem(rAdminUser, tenantName, systems[8].getId());
   }
 
   // Check that reserved names are honored.
