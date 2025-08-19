@@ -10,12 +10,13 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 1.9.2 - 2025-08-13
+## 1.9.2 - 2025-08-19
 
-Bug fix and enhancement.
+Bug fix and enhancements.
 
 ### New features:
 - Add description field to LogicalQueue.
+- Add check for restricted services. Each authenticated endpoint now checks that an incoming service request is allowed.
 
 ### Bug fixes:
 - When registering credentials for a TMS systems check that createTmsKeys flag is set to true. Better error message.

@@ -48,6 +48,7 @@ public final class IntegrationUtils
   public static final String filesSvcName = "files";
   public static final String jobsSvcName = "jobs";
   public static final String appsSvcName = "apps";
+  public static final String restrictedSvcName = "dnasubway-authenticator";
 
   // Various usernames
   // NOTE: Continue to use the fake users owner1, owner2 since some operations involve modifying credentials

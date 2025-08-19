@@ -129,6 +129,8 @@ public class SchedulerProfileResource
     if (_log.isTraceEnabled())
       ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString());
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
     String rawJson;
@@ -247,6 +249,8 @@ public class SchedulerProfileResource
     if (_log.isTraceEnabled())
       ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "name="+name);
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     SchedulerProfile schedulerProfile;
     try
     {
@@ -295,6 +299,8 @@ public class SchedulerProfileResource
     // Trace this request.
     if (_log.isTraceEnabled())
       ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString());
+
+    ApiUtils.checkRestrictedSvcs(rUser);
 
     // ------------------------- Retrieve records -----------------------------
     RespSchedulerProfiles successResponse;
@@ -345,6 +351,8 @@ public class SchedulerProfileResource
     // Trace this request.
     if (_log.isTraceEnabled())
       ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "name="+name);
+
+    ApiUtils.checkRestrictedSvcs(rUser);
 
     // ---------------------------- Make service call to delete the profile -------------------------------
     int changeCount;

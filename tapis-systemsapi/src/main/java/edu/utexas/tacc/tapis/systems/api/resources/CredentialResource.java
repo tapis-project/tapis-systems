@@ -160,6 +160,8 @@ public class CredentialResource
       ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId=" + systemId,
                           "userName=" + userName, "createTmsKeys=" + createTmsKeys, "skipCredentialCheck=" + skipCredCheck);
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     // NOTE: Do not log any raw input data here since it may contain secrets.
 
     // ------------------------- Check prerequisites -------------------------
@@ -307,6 +309,8 @@ public class CredentialResource
       ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,
                           "userName="+userName,"authnMethod="+authnMethodStr);
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
     resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, "checkUserCredential");
@@ -383,6 +387,8 @@ public class CredentialResource
       ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,
                           "userName="+userName,"authnMethod="+authnMethodStr);
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
     resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, opName);
@@ -454,6 +460,8 @@ public class CredentialResource
     if (_log.isTraceEnabled())
       ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId,"userName="+userName);
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
     resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, opName);
@@ -512,6 +520,8 @@ public class CredentialResource
     // Trace this request.
     if (_log.isTraceEnabled())
       ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
+
+    ApiUtils.checkRestrictedSvcs(rUser);
 
     // ------------------------- Perform the operation -------------------------
     // Make the service call to get the globus auth url
@@ -578,6 +588,8 @@ public class CredentialResource
       ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
                           "systemId="+systemId,"userName="+userName,"authCode="+ac,"sessionId="+sessionId);
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     // ------------------------- Check prerequisites -------------------------
     // Check that the system exists
     resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, opName);
@@ -607,5 +619,4 @@ public class CredentialResource
   // ************************************************************************
   // *********************** Private Methods ********************************
   // ************************************************************************
-
 }

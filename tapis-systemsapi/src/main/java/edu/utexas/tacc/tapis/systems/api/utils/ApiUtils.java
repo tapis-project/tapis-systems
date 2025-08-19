@@ -11,8 +11,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import edu.utexas.tacc.tapis.shared.i18n.MsgUtils;
 import edu.utexas.tacc.tapis.shared.threadlocal.TapisThreadContext;
+import edu.utexas.tacc.tapis.shared.TapisConstants;
 import edu.utexas.tacc.tapis.sharedapi.utils.TapisRestUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
+import edu.utexas.tacc.tapis.systems.api.SystemsApplication;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
@@ -278,4 +280,10 @@ public class ApiUtils
 //    List<KeyValuePair> kvList = Arrays.stream(kvArray).map(KeyValuePair::fromString).collect(Collectors.toList());
 //    return kvList;
 //  }
+
+  // Simple wrapper for checking restricted svc permissions
+  public static void checkRestrictedSvcs(ResourceRequestUser rUser)
+  {
+    TapisRestUtils.checkServiceRestrictions(TapisConstants.SERVICE_NAME_SYSTEMS, SystemsApplication.SVCLIST_TRUSTED, rUser);
+  }
 }
