@@ -1264,6 +1264,7 @@ public class SystemsServiceTest
     }
     catch (Exception e)
     {
+      Assert.assertTrue(e instanceof IllegalArgumentException);
       Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_LOGINUSER"));
       pass = true;
     }
@@ -1727,6 +1728,15 @@ public class SystemsServiceTest
     // Get as testUser3 and check cred. Since it is static should always get back cred for testUser5
     tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred5NoLoginLinuxUser.getPassword(), testUser5, testUser5LinuxUser);
+
+    boolean passed = false;
+    try {
+        svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5B_LoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    } catch (IllegalArgumentException e) {
+        String msg = e.getMessage();
+        passed = msg.contains("SYSLIB_CRED_INVALID_LOGINUSER");
+    }
+    Assert.assertTrue(passed, "Expected credential creation to be rejected");
 
     // ------------------------
     // Test 4: patch system to revert to dynamic effectiveUserId = ${apiUserId}, get cred
