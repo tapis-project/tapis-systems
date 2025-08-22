@@ -1762,7 +1762,7 @@ public class CredUtils
    *   jwtTenantId = admin tenant (Site Tenant Admin)
    *   jwtUserId = TapisConstants.SERVICE_NAME_SYSTEMS ("systems")
    *   and AccountType = TapisThreadContext.AccountType.service
-   *
+   * <p>
    * For Systems the secret needs to be scoped by the tenant associated with the system,
    *   the system id, the target user (i.e. the user associated with the secret) and
    *   whether the effectiveUserId is static or dynamic.
@@ -1802,8 +1802,8 @@ public class CredUtils
     AuthnMethod defaultAuthnMethod = system.getDefaultAuthnMethod();
 
     // Flags used for building CredentialInfo
-    Boolean hasCredentials = null, hasPassword = null, hasPkiKeys = null, hasAccessKey = null, hasToken = null,
-            hasTmsKeys = null;
+    boolean hasCredentials;
+    Boolean hasPassword = null, hasPkiKeys = null, hasAccessKey = null, hasToken = null, hasTmsKeys = null;
 
     // Surround all SK related code in a try block. Catch any SK errors and throw a TapisSecurityException
     try
@@ -1876,7 +1876,6 @@ public class CredUtils
         dataMap.put(SK_KEY_TMS_PRIVATE_KEY, credential.getTmsPrivateKey());
         dataMap.put(SK_KEY_TMS_FINGERPRINT, credential.getTmsFingerprint());
         sParms.setData(dataMap);
-        String privKey = StringUtils.isBlank(credential.getTmsPrivateKey()) ? null : "*****";
         sysUtils.getSKClient(rUser).writeSecret(tenant, oboUser, sParms);
         hasTmsKeys = true;
       }
@@ -2006,7 +2005,7 @@ public class CredUtils
       // NOTE: To be sure we know that the secret does not exist we need to check each key type
       //       By default keyType is sshkey which may not exist
       boolean secretNotFound = true;
-      SkSecretVersionMetadata sksm = null;
+      SkSecretVersionMetadata sksm;
       // Attempt to read the secret, if not found (404) that is OK, but any other exception is an SK error.
       sMetaParms.setKeyType(KeyType.password);
       try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
