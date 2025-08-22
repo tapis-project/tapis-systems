@@ -175,6 +175,8 @@ public class ShareResource
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
     String rawJson;
@@ -262,6 +264,8 @@ public class ShareResource
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
 
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     // ------------------------- Extract and validate payload -------------------------
     // Read the payload into a string.
     String rawJson;
@@ -343,6 +347,9 @@ public class ShareResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
+
+    ApiUtils.checkRestrictedSvcs(rUser);
+
     String msg;
     try
     {
@@ -393,6 +400,8 @@ public class ShareResource
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
+
+    ApiUtils.checkRestrictedSvcs(rUser);
 
     String msg;
     try

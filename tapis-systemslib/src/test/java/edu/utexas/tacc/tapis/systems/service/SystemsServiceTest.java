@@ -93,7 +93,7 @@ public class SystemsServiceTest
           rParentChild1, rParentChild2, rParentChild3,
           rAdminUser, rAppsSvcTestUser1, rFilesSvcAsFiles,
           rFilesSvcOwner1, rFilesSvcTestUser3, rFilesSvcTestUser4, rFilesSvcTestUser5,
-          rJobsSvcOwner1, rAppsSvcOwner1;
+          rJobsSvcOwner1, rAppsSvcOwner1, rRestrictedSvc;
 
   // Create test system definitions and scheduler profiles in memory
   String testKey = "Svc";
@@ -199,6 +199,8 @@ public class SystemsServiceTest
                                              null, owner1, tenantName, null, null, null));
     rAppsSvcTestUser1 = new ResourceRequestUser(new AuthenticatedUser(appsSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
                                                 null, testUser1, tenantName, null, null, null));
+    rRestrictedSvc = new ResourceRequestUser(new AuthenticatedUser(restrictedSvcName, adminTenantName, TapisThreadContext.AccountType.service.name(),
+                                             null, testUser1, tenantName, null, null, null));
 
     // Cleanup anything leftover from previous failed run
     tearDown();
@@ -2254,10 +2256,11 @@ public class SystemsServiceTest
   }
 
   // Test Auth denials
-  // testUser0 - no perms, not owner
-  // testUser3 - READ perm
-  // testUser2 - MODIFY perm
+  // - testUser0 - no perms, not owner
+  // - testUser3 - READ perm
+  // - testUser2 - MODIFY perm
   // NOTE: owner1 is owner - all perms
+  //
   @Test
   public void testAuthDeny() throws Exception
   {
@@ -2504,6 +2507,17 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
+    pass = false;
+    // NOTE: Check is done in api layer so currently cannot check this here.
+//    // A restricted service should not be able to make a request
+//    try { svc.getSystem(rRestrictedSvc, systemId, null, false, false, impersonationIdNull, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse); }
+//    catch (ForbiddenException e)
+//    {
+//      Assert.assertTrue(e.getMessage().contains("RestrictedService"));
+//      pass = true;
+//    }
+//    Assert.assertTrue(pass);
+//    pass = false;
   }
 
   // Test Auth allow
