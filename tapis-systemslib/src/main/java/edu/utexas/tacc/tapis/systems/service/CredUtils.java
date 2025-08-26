@@ -654,7 +654,9 @@ public class CredUtils
   /**
    * Reject the LoginUser field for a static effective user.
    *
-   * LoginUser field should not be provided if the system was created with a static effective user.
+   * LoginUser field should not be provided in the *Credential* object if: 
+   *    1. a credential is being created for a system that was created with a static effective user; Or, 
+   *    2. a system with a static effective user is being created with the credential. 
    * This is because the static effective user is already a LoginUser for the system,
    * and there is no need to map a static effective user to a login user again.
    *

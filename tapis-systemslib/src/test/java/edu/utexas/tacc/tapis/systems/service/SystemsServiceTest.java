@@ -1250,8 +1250,6 @@ public class SystemsServiceTest
 
     // --- test rejection of action when login user is provided for a system with a static
     // --- effective user ID already. 
-
-    // If canExec is false then dtnSystemId may not be set
     pass = false;
     // A minimal system has canExec=false
     TSystem logEffTestSys = makeMinimalSystem(sys0, null);
