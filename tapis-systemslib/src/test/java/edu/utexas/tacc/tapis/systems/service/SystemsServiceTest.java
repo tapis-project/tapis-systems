@@ -12,6 +12,7 @@ import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.IntegrationUtils;
+import edu.utexas.tacc.tapis.systems.IntegrationUtils.TmsGetPubKeyRequest;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDaoImpl;
@@ -904,7 +905,8 @@ public class SystemsServiceTest
 
     // Test tenant admin impersonating rOwner5 - should see 2 (1 owned + 1 public)
     systems = svc.getSystems(rAdminUser, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
-                             showDeletedFalse, listTypeAll.name(), fetchShareInfoFalse, owner5);
+                             showDeletedFalse, listTypeAll.name(), fetchShareInfoFalse, owner5); 
+
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeAll);
     Assert.assertEquals(systems.size(), 2, "Wrong number of returned systems tenant for admin impersonation");
@@ -1245,6 +1247,29 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     // Reset in prep for continued checking
     pass = false;
+
+    // --- test rejection of action when login user is provided for a system with a static
+    // --- effective user ID already. 
+    pass = false;
+    // A minimal system has canExec=false
+    TSystem logEffTestSys = makeMinimalSystem(sys0, null);
+    logEffTestSys.setEffectiveUserId("testuser3");
+    Credential fakeCred = new Credential(AuthnMethod.PASSWORD, "testuser99", "fakePassword", 
+        null, null, null, null, null, null, null, null, null, null);
+    logEffTestSys.setAuthnCredential(fakeCred);   
+    try { 
+        svc.createSystem(rOwner1, logEffTestSys, skipCredCheckTrue, rawDataEmptyJson); 
+    }
+    catch (Exception e)
+    {
+      Assert.assertTrue(e instanceof IllegalArgumentException);
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_LOGINUSER"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    // Reset in prep for continued checking
+    pass = false;
+
   }
 
   // Test restrictions on creating a system that uses HOST_EVAL in rootDir
@@ -1701,6 +1726,15 @@ public class SystemsServiceTest
     // Get as testUser3 and check cred. Since it is static should always get back cred for testUser5
     tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred5NoLoginLinuxUser.getPassword(), testUser5, testUser5LinuxUser);
+
+    boolean passed = false;
+    try {
+        svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5B_LoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    } catch (IllegalArgumentException e) {
+        String msg = e.getMessage();
+        passed = msg.contains("SYSLIB_CRED_INVALID_LOGINUSER");
+    }
+    Assert.assertTrue(passed, "Expected credential creation to be rejected");
 
     // ------------------------
     // Test 4: patch system to revert to dynamic effectiveUserId = ${apiUserId}, get cred
