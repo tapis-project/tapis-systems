@@ -1,58 +1,87 @@
 package edu.utexas.tacc.tapis.systems.service;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.*;
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import javax.inject.Inject;
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.BadRequestException;
-import com.google.gson.JsonObject;
-import com.opencsv.CSVReader;
-import okhttp3.*;
+
 import org.apache.commons.lang3.EnumUtils;
-import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
-import software.amazon.awssdk.services.s3.model.S3Exception;
-import software.amazon.awssdk.services.s3.S3Client;
+
+import com.google.gson.JsonObject;
+import com.opencsv.CSVReader;
 
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
-import edu.utexas.tacc.tapis.security.client.model.*;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecretVersionMetadata;
-import edu.utexas.tacc.tapis.shared.exceptions.TapisSecurityException;
-import edu.utexas.tacc.tapis.shared.exceptions.runtime.TapisRuntimeException;
+import edu.utexas.tacc.tapis.security.client.model.KeyType;
+import edu.utexas.tacc.tapis.security.client.model.SKSecretMetaParms;
+import edu.utexas.tacc.tapis.security.client.model.SKSecretReadParms;
+import edu.utexas.tacc.tapis.security.client.model.SKSecretWriteParms;
+import edu.utexas.tacc.tapis.security.client.model.SecretType;
 import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
+import edu.utexas.tacc.tapis.shared.exceptions.TapisSecurityException;
 import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisSSHAuthException;
+import edu.utexas.tacc.tapis.shared.exceptions.runtime.TapisRuntimeException;
 import edu.utexas.tacc.tapis.shared.s3.S3Connection;
 import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
+import edu.utexas.tacc.tapis.shared.utils.PathUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
-import edu.utexas.tacc.tapis.shared.utils.PathUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.migrate.CredInfoInitJob;
-import edu.utexas.tacc.tapis.systems.model.*;
-import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
-import edu.utexas.tacc.tapis.systems.utils.LibUtils;
-
+import edu.utexas.tacc.tapis.systems.model.CredInfoFSM;
 import static edu.utexas.tacc.tapis.systems.model.CredInfoFSM.CREDINFO_INIT_TMP_CSV_FILE;
-import static edu.utexas.tacc.tapis.systems.model.Credential.*;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
+import edu.utexas.tacc.tapis.systems.model.Credential;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_TOKEN;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PASSWORD;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PRIVATE_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_PUBLIC_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_REFRESH_TOKEN;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_FINGERPRINT;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_PRIVATE_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_PUBLIC_KEY;
+import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
+import edu.utexas.tacc.tapis.systems.model.TSystem;
+import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
+import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
+import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
+import edu.utexas.tacc.tapis.systems.model.TSystem.SystemType;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.NOT_FOUND;
+import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+import okhttp3.Call;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 /*
    Utility class containing Tapis credential related methods needed by the
@@ -622,6 +651,29 @@ public class CredUtils
     return verifyConnection(rUser, opName, tSystem1, authnMethod, cred, hostLoginUser);
   }
 
+  /**
+   * Reject the LoginUser field for a static effective user.
+   *
+   * LoginUser field should not be provided in the *Credential* object if: 
+   *    1. a credential is being created for a system that was created with a static effective user; Or, 
+   *    2. a system with a static effective user is being created with the credential. 
+   * This is because the static effective user is already a LoginUser for the system,
+   * and there is no need to map a static effective user to a login user again.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param sys - the TSystem to check
+   * @param cred - credentials to check
+   */
+  void checkCredentialForInvalidLoginUser(ResourceRequestUser rUser, TSystem sys, Credential cred)
+  {
+    if (!sys.isDynamicEffectiveUser() && cred != null && !StringUtils.isBlank(cred.getLoginUser()))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, sys.getId());
+      log.warn(msg);
+      throw new IllegalArgumentException(msg);
+    }
+  }
+
   /*
    * Create or update a credential using SKClient.
    * Write credentials to SK and create or update the CredentialInfo in DB.
@@ -640,6 +692,13 @@ public class CredUtils
     if (StringUtils.isBlank(hostLoginUser)) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_HOST_LOGIN", rUser));
     String oboUser = rUser.getOboUserId();
     String loginUserMapping = credential.getLoginUser();
+
+
+    // LoginUser field should not be provided if the system was created with a static effective user. 
+    // This is because the static effective user is already a LoginUser for the system,
+    // and there is no need to map a static effective user to a login user again.
+    this.checkCredentialForInvalidLoginUser(rUser, sys, credential);
+
     // For CredentialInfo record, if static then tapisUser is oboUser, if dynamic then tapisUser is targetUser
     // NOTE: targetUser is never from loginUserMapping.
     String tapisUser = isStatic ? oboUser : credTargetUser;
@@ -1762,7 +1821,7 @@ public class CredUtils
    *   jwtTenantId = admin tenant (Site Tenant Admin)
    *   jwtUserId = TapisConstants.SERVICE_NAME_SYSTEMS ("systems")
    *   and AccountType = TapisThreadContext.AccountType.service
-   *
+   * <p>
    * For Systems the secret needs to be scoped by the tenant associated with the system,
    *   the system id, the target user (i.e. the user associated with the secret) and
    *   whether the effectiveUserId is static or dynamic.
@@ -1802,8 +1861,8 @@ public class CredUtils
     AuthnMethod defaultAuthnMethod = system.getDefaultAuthnMethod();
 
     // Flags used for building CredentialInfo
-    Boolean hasCredentials = null, hasPassword = null, hasPkiKeys = null, hasAccessKey = null, hasToken = null,
-            hasTmsKeys = null;
+    boolean hasCredentials;
+    Boolean hasPassword = null, hasPkiKeys = null, hasAccessKey = null, hasToken = null, hasTmsKeys = null;
 
     // Surround all SK related code in a try block. Catch any SK errors and throw a TapisSecurityException
     try
@@ -1876,7 +1935,6 @@ public class CredUtils
         dataMap.put(SK_KEY_TMS_PRIVATE_KEY, credential.getTmsPrivateKey());
         dataMap.put(SK_KEY_TMS_FINGERPRINT, credential.getTmsFingerprint());
         sParms.setData(dataMap);
-        String privKey = StringUtils.isBlank(credential.getTmsPrivateKey()) ? null : "*****";
         sysUtils.getSKClient(rUser).writeSecret(tenant, oboUser, sParms);
         hasTmsKeys = true;
       }
@@ -2006,7 +2064,7 @@ public class CredUtils
       // NOTE: To be sure we know that the secret does not exist we need to check each key type
       //       By default keyType is sshkey which may not exist
       boolean secretNotFound = true;
-      SkSecretVersionMetadata sksm = null;
+      SkSecretVersionMetadata sksm;
       // Attempt to read the secret, if not found (404) that is OK, but any other exception is an SK error.
       sMetaParms.setKeyType(KeyType.password);
       try { sksm=sysUtils.getSKClient(rUser).readSecretMeta(sMetaParms); if (sksm!=null) secretNotFound = false; }
