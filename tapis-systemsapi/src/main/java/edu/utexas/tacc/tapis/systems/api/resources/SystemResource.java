@@ -830,9 +830,11 @@ public class SystemResource {
    * @param systemId - name of the system
    * @param authnMethodStr - authn method to use instead of default
    * @param requireExecPerm - check for EXECUTE permission as well as READ permission
+   * @param returnCreds - Fetch credentials and include them in the result
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
    *                          resolving effectiveUserId
    * @param sharedAppCtx - Share grantor for the case of a shared application context.
+   * @param resourceTenant - Use specified tenant instead of tenant in securityContext
    * @param securityContext - user identity
    * @return Response with system object as the result
    */
@@ -843,7 +845,7 @@ public class SystemResource {
   public Response getSystem(@PathParam("systemId") String systemId,
                             @QueryParam("authnMethod") @DefaultValue("") String authnMethodStr,
                             @QueryParam("requireExecPerm") @DefaultValue("false") boolean requireExecPerm,
-                            @QueryParam("returnCredentials") @DefaultValue("false") boolean getCreds,
+                            @QueryParam("returnCredentials") @DefaultValue("false") boolean returnCreds,
                             @QueryParam("impersonationId") String impersonationId,
                             @QueryParam("sharedAppCtx") String sharedAppCtx,
                             @QueryParam("resourceTenant") String resourceTenant,
@@ -863,14 +865,14 @@ public class SystemResource {
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
                                                    "systemId="+systemId, "authnMethod="+authnMethodStr,
                                                    "requireExecPerm="+requireExecPerm,
-                                                   "returnCredentials="+getCreds,
+                                                   "returnCredentials="+returnCreds,
                                                    "impersonationId="+impersonationId,
                                                    "resourceTenant="+resourceTenant,
                                                    "sharedAppCtx="+sharedAppCtx);
 
     ApiUtils.checkRestrictedSvcs(rUser);
 
-    // Check that authnMethodStr is valid if is passed in
+    // Check that authnMethodStr is valid if it is passed in
     AuthnMethod authnMethod = null;
     try { if (!StringUtils.isBlank(authnMethodStr)) authnMethod =  AuthnMethod.valueOf(authnMethodStr); }
     catch (IllegalArgumentException e)
@@ -890,7 +892,7 @@ public class SystemResource {
     TSystem tSystem;
     try
     {
-      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, getCreds, impersonationId,
+      tSystem = service.getSystem(rUser, systemId, authnMethod, requireExecPerm, returnCreds, impersonationId,
                                   sharedAppCtx, resourceTenant, fetchShareInfo);
     }
     // Pass through not found or not auth to let exception mapper handle it.
@@ -919,6 +921,7 @@ public class SystemResource {
    * @param securityContext - user identity
    * @param showDeleted - flag indicating resources marked as deleted should be included.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param filterByHasCredentials - flag indicating if filtering should be done based on registered credentials.
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth and
    *                          resolving effectiveUserId
    * @return - list of systems accessible by requester and matching search conditions.
@@ -929,6 +932,7 @@ public class SystemResource {
   public Response getSystems(@Context SecurityContext securityContext,
                              @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
                              @QueryParam("listType") @DefaultValue("OWNED") String listType,
+                             @QueryParam("hasCredentials") Boolean filterByHasCredentials, // NOTE: Do not use @Default so this will default to null
                              @QueryParam("impersonationId") String impersonationId) throws TapisClientException
   {
     String opName = "getSystems";
@@ -943,7 +947,9 @@ public class SystemResource {
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+                                                   "showDeleted="+showDeleted,
                                                    "listType="+listType,
+                                                   "hasCredentials="+filterByHasCredentials,
                                                    "impersonationId="+impersonationId);
 
     ApiUtils.checkRestrictedSvcs(rUser);
@@ -955,7 +961,7 @@ public class SystemResource {
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, impersonationId);
+      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, filterByHasCredentials, impersonationId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -975,6 +981,7 @@ public class SystemResource {
    * @param securityContext - user identity
    * @param showDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param filterByHasCredentials - flag indicating if filtering should be done based on registered credentials.
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @GET
@@ -983,7 +990,8 @@ public class SystemResource {
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchSystemsQueryParameters(@Context SecurityContext securityContext,
                                                @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
-                                               @QueryParam("listType") @DefaultValue("OWNED") String listType)
+                                               @QueryParam("listType") @DefaultValue("OWNED") String listType,
+                                               @QueryParam("hasCredentials") Boolean filterByHasCredentials) // NOTE: Do not use @Default so this will default to null
           throws TapisClientException
   {
     String opName = "searchSystemsGet";
@@ -998,7 +1006,7 @@ public class SystemResource {
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "listType="+listType);
+                                                   "listType="+listType, "hasCredentials="+filterByHasCredentials);
 
     ApiUtils.checkRestrictedSvcs(rUser);
 
@@ -1025,7 +1033,7 @@ public class SystemResource {
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, null);
+      successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, filterByHasCredentials, null);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1049,6 +1057,7 @@ public class SystemResource {
    * @param securityContext - user identity
    * @param showDeleted - whether to included resources that have been marked as deleted.
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param filterByHasCredentials - flag indicating if filtering should be done based on registered credentials.
    * @return - list of systems accessible by requester and matching search conditions.
    */
   @POST
@@ -1058,7 +1067,8 @@ public class SystemResource {
   public Response searchSystemsRequestBody(InputStream payloadStream,
                                            @Context SecurityContext securityContext,
                                            @QueryParam("showDeleted") @DefaultValue("false") boolean showDeleted,
-                                           @QueryParam("listType") @DefaultValue("OWNED") String listType)
+                                           @QueryParam("listType") @DefaultValue("OWNED") String listType,
+                                           @QueryParam("hasCredentials") Boolean filterByHasCredentials) // NOTE: Do not use @Default so this will default to null
           throws TapisClientException
   {
     String opName = "searchSystemsPost";
@@ -1073,7 +1083,7 @@ public class SystemResource {
 
     // Trace this request.
     if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
-                                                   "listType="+listType);
+                                                   "listType="+listType, "hasCredentials="+filterByHasCredentials);
 
     ApiUtils.checkRestrictedSvcs(rUser);
 
@@ -1120,7 +1130,7 @@ public class SystemResource {
     Response successResponse;
     try
     {
-      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, showDeleted, listType, null);
+      successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, showDeleted, listType, filterByHasCredentials, null);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
@@ -1537,7 +1547,8 @@ public class SystemResource {
    *  One of srchParms.searchList or sqlSearchStr must be non-null
    */
   private Response getSearchResponse(ResourceRequestUser rUser, String sqlSearchStr, SearchParameters srchParms,
-                                     boolean showDeleted, String listType, String impersonationId)
+                                     boolean showDeleted, String listType, Boolean filterByHasCredentials,
+                                     String impersonationId)
           throws TapisException, TapisClientException
   {
     RespAbstract resp1;
@@ -1564,10 +1575,10 @@ public class SystemResource {
     // Call service method to fetch systems
     if (StringUtils.isBlank(sqlSearchStr))
       systems = service.getSystems(rUser, searchList, limit, orderByList, skip, startAfter, showDeleted,
-                                   listType, fetchShareInfo, impersonationId);
+                                   listType, filterByHasCredentials, fetchShareInfo, impersonationId);
     else
       systems = service.getSystemsUsingSqlSearchStr(rUser, sqlSearchStr, limit, orderByList, skip, startAfter,
-                                                    showDeleted, listType, fetchShareInfo);
+                                                    showDeleted, listType, filterByHasCredentials, fetchShareInfo);
     if (systems == null) systems = Collections.emptyList();
     itemCountStr = String.format(SYS_CNT_STR, systems.size());
     if (computeTotal && limit <= 0) totalCount = systems.size();

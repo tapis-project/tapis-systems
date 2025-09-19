@@ -1568,7 +1568,7 @@ public class SystemsServiceTest
     // cred3NoLoginUser - all creds except TMS
     Credential cred3NoLoginUser = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
             "fakeAccessKey3", "fakeAccessSecret3", "fakeAccessToken3", "fakeRefreshToken3",
-            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert3");
+            null, null, "fakeTmsFingerprint", "fakeCert3");
     Credential cred3NoLoginUserAccessAuthn = new Credential(null, null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null, null, null, null, null, null);
     Credential cred4LoginUser = new Credential(null, testUser4LinuxUser, "fakePassword4", null, null, null, null, null, null, null, null, null, null);
     Credential cred5A_NoLoginUser = new Credential(null, null, "fakePassword5a", null, null, null, null, null, null, null, null, null, null);
@@ -1644,7 +1644,7 @@ public class SystemsServiceTest
                            resourceTenantNull, fetchShareInfoFalse);
     Assert.assertTrue(tmpSys.hasCredentials(), "hasCredentials should be true");
 
-    // Use PATCH to change defaultAuthnMethodystem temporarily and confirm that hasCredentials changes as expected.
+    // Use PATCH to change defaultAuthnMethod temporarily and confirm that hasCredentials changes as expected.
     patchSystem = new PatchSystem(null, null, null, AuthnMethod.TMS_KEYS, null, null, null, null, null, null, null,
                               null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataEmptyJson);
