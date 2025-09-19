@@ -12,6 +12,7 @@ import edu.utexas.tacc.tapis.shared.utils.TapisUtils;
 import edu.utexas.tacc.tapis.sharedapi.security.AuthenticatedUser;
 import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.IntegrationUtils;
+import edu.utexas.tacc.tapis.systems.IntegrationUtils.TmsGetPubKeyRequest;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDaoImpl;
@@ -1248,6 +1249,29 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     // Reset in prep for continued checking
     pass = false;
+
+    // --- test rejection of action when login user is provided for a system with a static
+    // --- effective user ID already.
+    pass = false;
+    // A minimal system has canExec=false
+    TSystem logEffTestSys = makeMinimalSystem(sys0, null);
+    logEffTestSys.setEffectiveUserId("testuser3");
+    Credential fakeCred = new Credential(AuthnMethod.PASSWORD, "testuser99", "fakePassword",
+        null, null, null, null, null, null, null, null, null, null);
+    logEffTestSys.setAuthnCredential(fakeCred);
+    try {
+        svc.createSystem(rOwner1, logEffTestSys, skipCredCheckTrue, rawDataEmptyJson);
+    }
+    catch (Exception e)
+    {
+      Assert.assertTrue(e instanceof IllegalArgumentException);
+      Assert.assertTrue(e.getMessage().contains("SYSLIB_CRED_INVALID_LOGINUSER"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    // Reset in prep for continued checking
+    pass = false;
+
   }
 
   // Test restrictions on creating a system that uses HOST_EVAL in rootDir
@@ -1544,13 +1568,14 @@ public class SystemsServiceTest
     // cred3NoLoginUser - all creds except TMS
     Credential cred3NoLoginUser = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
             "fakeAccessKey3", "fakeAccessSecret3", "fakeAccessToken3", "fakeRefreshToken3",
-            null, null, "fakeTmsFingerprint", "fakeCert3");
+            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert3");
     Credential cred3NoLoginUserAccessAuthn = new Credential(null, null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null, null, null, null, null, null);
     Credential cred4LoginUser = new Credential(null, testUser4LinuxUser, "fakePassword4", null, null, null, null, null, null, null, null, null, null);
     Credential cred5A_NoLoginUser = new Credential(null, null, "fakePassword5a", null, null, null, null, null, null, null, null, null, null);
     Credential cred5NoLoginLinuxUser = new Credential(null, null, "fakePassword5LinuxUser", null, null, null, null, null, null, null, null, null, null);
     Credential cred5NoLoginStatic = new Credential(null, null, "fakePassword5Static", null, null, null, null, null, null, null, null, null, null);
     Credential cred5B_LoginUser = new Credential(null, testUser5LinuxUser, "fakePassword5b", null, null, null, null, null, null, null, null, null, null);
+
     // We will be updating credentials for testUser3, 5 so allow them READ access to system.
     svc.grantUserPermissions(rOwner1, sysId, testUser3, testPermsREAD, rawDataEmptyJson);
     svc.grantUserPermissions(rOwner1, sysId, testUser5, testPermsREAD, rawDataEmptyJson);
@@ -1574,7 +1599,7 @@ public class SystemsServiceTest
     svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     CredentialInfo credInfo = dao.getCredInfo(tenantName, sysId, owner1, isStatic);
     IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, owner1, isStatic, cred1NoLoginUser.getLoginUser(),
-          owner1, CredentialInfo.SyncStatus.COMPLETED);
+                                    owner1, CredentialInfo.SyncStatus.COMPLETED);
     List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
     Assert.assertNotNull(ciList);
     Assert.assertEquals(ciList.size(), 1);
@@ -1582,7 +1607,7 @@ public class SystemsServiceTest
     svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     credInfo = dao.getCredInfo(tenantName, sysId, testUser3, isStatic);
     IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, testUser3, isStatic, cred3NoLoginUser.getLoginUser(),
-          testUser3, CredentialInfo.SyncStatus.COMPLETED);
+                                    testUser3, CredentialInfo.SyncStatus.COMPLETED);
     ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
     Assert.assertNotNull(ciList);
     Assert.assertEquals(ciList.size(), 2);
@@ -1778,6 +1803,15 @@ public class SystemsServiceTest
     // Get as testUser3 and check cred. Since it is static should always get back cred for testUser5
     tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred5NoLoginLinuxUser.getPassword(), testUser5, testUser5LinuxUser);
+
+    boolean passed = false;
+    try {
+        svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5B_LoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    } catch (IllegalArgumentException e) {
+        String msg = e.getMessage();
+        passed = msg.contains("SYSLIB_CRED_INVALID_LOGINUSER");
+    }
+    Assert.assertTrue(passed, "Expected credential creation to be rejected");
 
     // ------------------------
     // Test 4: patch system to revert to dynamic effectiveUserId = ${apiUserId}, get cred
