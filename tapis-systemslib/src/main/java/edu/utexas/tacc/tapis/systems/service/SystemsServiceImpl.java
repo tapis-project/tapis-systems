@@ -87,6 +87,12 @@ public class SystemsServiceImpl implements SystemsService
   // Compiled regex for splitting around ":"
   private static final Pattern COLON_SPLIT = Pattern.compile(":");
 
+  // Long names for certail operations
+  String CREATE_SYS_OP = "createSystem";
+  String PUT_SYS_OP = "putSystem";
+  String GET_SYS_OP = "getSystem";
+  String GET_SYSF_OP = "getSystemsFinal";
+
   // Named and typed null values to make it clear what is being passed in to a method
   private static final String nullOwner = null;
   private static final AuthnMethod nullAuthnMethod = null;
@@ -281,7 +287,7 @@ public class SystemsServiceImpl implements SystemsService
     String effUserId = system.getEffectiveUserId();
 
     // Determine if effectiveUserId is static
-    boolean isStaticEffectiveUser = !APIUSERID_VAR.equals(effUserId);
+    boolean isStaticEffUser = !APIUSERID_VAR.equals(effUserId);
 
     // ---------------- Check constraints on TSystem attributes ------------------------
     validateTSystem(rUser, system, true);
@@ -295,7 +301,7 @@ public class SystemsServiceImpl implements SystemsService
     // Set flag indicating if we will deal with credentials.
     // We only do that when credentials provided and effectiveUser is static
     Credential cred = system.getAuthnCredential();
-    boolean manageCredentials = (cred != null && isStaticEffectiveUser);
+    boolean manageCredentials = (cred != null && isStaticEffUser);
     // If credentials provided validate constraints and verify credentials
     Credential verifiedCred = cred;
     if (manageCredentials)
@@ -306,7 +312,7 @@ public class SystemsServiceImpl implements SystemsService
       // static effectiveUser case. Credential must not contain loginUser
       // NOTE: If effectiveUserId is dynamic then request has already been rejected above during
       //       call to validateTSystem(). See method TSystem.checkAttrMisc().
-      //       But we include isStaticEffectiveUser here anyway in case that ever changes.
+      //       But we include isStaticEffUser here anyway in case that ever changes.
       // ---------------------------------------------
       credUtils.checkCredentialForInvalidLoginUser(rUser, system, cred);
 
@@ -371,7 +377,7 @@ public class SystemsServiceImpl implements SystemsService
       {
         // Use internal method instead of public API to skip auth and other checks not needed here.
         // This is createSystem, so isStatic is true so credTargetUser and hostLoginUser are the eff user id.
-        credUtils.createCredential(rUser, cred, retSystem, effUserId, isStaticEffectiveUser, effUserId, skipCredCheck, op);
+        credUtils.createCredential(rUser, cred, retSystem, effUserId, isStaticEffUser, effUserId, skipCredCheck, op);
       }
     }
     catch (Exception e0)
@@ -398,7 +404,7 @@ public class SystemsServiceImpl implements SystemsService
         {
           // Remove SK records and CredInfo record. Use sys fetched from DB if possible
           TSystem tmpSys = (retSystem == null) ? system : retSystem;
-          credUtils.deleteCredential(rUser, tmpSys, effUserId, isStaticEffectiveUser, op);
+          credUtils.deleteCredential(rUser, tmpSys, effUserId, isStaticEffUser, op);
         }
         catch (Exception e)
         {
@@ -414,15 +420,23 @@ public class SystemsServiceImpl implements SystemsService
 
     // Determine hasCredentials
     boolean hasCredentials = false;
-    CredentialInfo credInfo = null;
-    if (cred != null) credInfo = getCredInfo(rUser, retSystem, rUser.getOboUserId(), isStaticEffectiveUser);
+    CredentialInfo credInfo = getCredInfo(rUser, retSystem, rUser.getOboUserId(), isStaticEffUser, CREATE_SYS_OP);
     if (credInfo != null) hasCredentials = credInfo.hasCredentials();
+    // If no credInfo for a static effUser, create one.
+    if (credInfo == null && isStaticEffUser)
+    {
+      String tapisUser = retSystem.getOwner();
+      String hostLoginUser = retSystem.getEffectiveUserId();
+      credInfo = new CredentialInfo(retSystem.getSeqId(), sysTenant, sysId, tapisUser, isStaticEffUser, hostLoginUser,
+                                    nullTargetUser, CredentialInfo.SyncStatus.PENDING);
+      dao.createCredInfo(rUser, credInfo);
+    }
 
     // Update dynamically computed info and return the fully populated TSystem
     SystemShare systemShare = authUtils.getSystemShareInfo(rUser, sysTenant, sysId);
     retSystem.setIsPublic(systemShare.isPublic());
     retSystem.setSharedWithUsers(systemShare.getUserList());
-    retSystem.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
+    retSystem.setIsDynamicEffectiveUser(!isStaticEffUser);
     retSystem.setHasCredentials(hasCredentials);
     return retSystem;
   }
@@ -615,7 +629,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Set flag indicating if effectiveUserId is static
     String effectiveUserId = origTSystem.getEffectiveUserId();
-    boolean isStaticEffectiveUser = !effectiveUserId.equals(APIUSERID_VAR);
+    boolean isStaticEffUser = !effectiveUserId.equals(APIUSERID_VAR);
 
     // Note that effectiveUserId and authnCredential are ignored for PUT, so we do not need to
     // deal with updating credentials.
@@ -658,7 +672,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!origTSystem.getDefaultAuthnMethod().equals(putSystem.getDefaultAuthnMethod()))
     {
       credUtils.updateCredInfoHasCredentials(rUser, putSystem);
-      CredentialInfo credInfo = getCredInfo(rUser, putSystem, rUser.getOboUserId(), isStaticEffectiveUser);
+      CredentialInfo credInfo = getCredInfo(rUser, putSystem, rUser.getOboUserId(), isStaticEffUser, PUT_SYS_OP);
       if (credInfo != null) putSystem.setHasCredentials(credInfo.hasCredentials());
     }
 
@@ -666,7 +680,7 @@ public class SystemsServiceImpl implements SystemsService
     SystemShare systemShare = authUtils.getSystemShareInfo(rUser, sysTenant, sysId);
     putSystem.setIsPublic(systemShare.isPublic());
     putSystem.setSharedWithUsers(systemShare.getUserList());
-    putSystem.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
+    putSystem.setIsDynamicEffectiveUser(!isStaticEffUser);
     return updatedTSystem;
   }
 
@@ -1021,7 +1035,7 @@ public class SystemsServiceImpl implements SystemsService
     authUtils.revokeAllSKPermissions(rUser, system, resolvedEffectiveUserId);
     // Remove shareInfo associated with the system
     authUtils.deleteAllShareInfo(rUser, system);
-    // Delete all Credentials associated with the system. Moves CredentialInfo records to DELETED state.
+    // Delete all Credentials and CredInfo records associated with the system.
     credUtils.deleteAllCredentialsForSystem(rUser, system, op);
 
     // Delete the system from the DB
@@ -1148,7 +1162,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Determine the effectiveUser type, either static or dynamic
     // Secrets get stored on different paths based on this
-    boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
+    boolean isStaticEffUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
     // Determine the host login user. Not always needed, but at most 1 extra DB call for mapped loginUser
     // And getting it now makes some code below a little cleaner and clearer.
     String resolvedEffectiveUserId = sysUtils.resolveEffectiveUserId(system, oboOrImpersonatedUser);
@@ -1197,12 +1211,12 @@ public class SystemsServiceImpl implements SystemsService
       // Determine credTargetUser for fetching credential.
       //   If static use effectiveUserId, else use oboOrImpersonatedUser
       String credTargetUser;
-      if (isStaticEffectiveUser)
+      if (isStaticEffUser)
         credTargetUser = system.getEffectiveUserId();
       else
         credTargetUser = oboOrImpersonatedUser;
       // Use internal method instead of public API to skip auth and other checks not needed here.
-      Credential cred = credUtils.getCredential(rUser, system, credTargetUser, tmpAuthnMethod, isStaticEffectiveUser,
+      Credential cred = credUtils.getCredential(rUser, system, credTargetUser, tmpAuthnMethod, isStaticEffUser,
                                                 resourceTenant);
       system.setAuthnCredential(cred);
     }
@@ -1216,8 +1230,8 @@ public class SystemsServiceImpl implements SystemsService
       system.setSharedWithUsers(systemShare.getUserList());
     }
     // Update isDynamic and hasCredentials
-    system.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
-    system = setHasCredentials(rUser, system, oboOrImpersonatedUser, isStaticEffectiveUser);
+    system.setIsDynamicEffectiveUser(!isStaticEffUser);
+    system = setHasCredentials(rUser, system, oboOrImpersonatedUser, isStaticEffUser, GET_SYS_OP);
     return system;
   }
 
@@ -1862,20 +1876,21 @@ public class SystemsServiceImpl implements SystemsService
    * Given a TSystem and user making the request, fetch a credInfo record.
    */
   private CredentialInfo getCredInfo(ResourceRequestUser rUser, TSystem sys, String oboOrImpersonatedUser,
-                                     boolean isStaticEffUsr)
+                                     boolean isStaticEffUsr, String opStr)
   {
     CredentialInfo retCredInfo = null;
-    // Determine tapisUser for looking up CredentialInfo
+    // Determine tapisUser for looking up CredInfo
     // If static use effectiveUserId, else use oboOrImpersonatedUser
     String credTargetUser = (isStaticEffUsr) ? sys.getEffectiveUserId(): oboOrImpersonatedUser;
     String tapisUser = isStaticEffUsr ? rUser.getOboUserId() : credTargetUser;
     retCredInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUsr);
-    // If no CredInfo record, log an error
-    // This should never happen if CredInfo table is properly maintained.
-    if (retCredInfo == null)
+    // If static and no CredInfo record then log an error but assume no credentials.
+    // All static should have a record, but sys with dynamic effUser but no credentials registered is valid
+    // Skip error if this is a createSystem operation.
+    if (retCredInfo == null && isStaticEffUsr && !CREATE_SYS_OP.equals(opStr))
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_RECORD_MISSING", rUser, sys.getTenant(), sys.getId(),
-                                       tapisUser, isStaticEffUsr);
+                                       tapisUser, isStaticEffUsr, opStr);
       log.error(msg);
     }
     return retCredInfo;
@@ -1885,9 +1900,9 @@ public class SystemsServiceImpl implements SystemsService
    * Given a TSystem and user making the request, fetch a credInfo record.
    */
   private TSystem setHasCredentials(ResourceRequestUser rUser, TSystem sys, String oboOrImpersonatedUser,
-                                    boolean isStaticEffUsr)
+                                    boolean isStaticEffUsr, String opStr)
   {
-    CredentialInfo credInfo = getCredInfo(rUser, sys, oboOrImpersonatedUser, isStaticEffUsr);
+    CredentialInfo credInfo = getCredInfo(rUser, sys, oboOrImpersonatedUser, isStaticEffUsr, opStr);
     if (credInfo == null)
     {
       sys.setHasCredentials(false);
@@ -1911,12 +1926,12 @@ public class SystemsServiceImpl implements SystemsService
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem sys : systems)
     {
-      boolean isStaticEffUsr = sys.getEffectiveUserId().equals(APIUSERID_VAR);
-      // NOTE: We could determine hasCredentials and fill in CredentialInfo more efficiently via
+      boolean isStaticEffUsr = !sys.getEffectiveUserId().equals(APIUSERID_VAR);
+      // NOTE: We could determine hasCredentials and fill in CredInfo more efficiently via
       //       using SQL to join with table systems_cred_info, but building the SQL query is already very complex.
       //       And we have to fetch share info anyway, so for now brute force it.
       // Determine hasCredentials
-      setHasCredentials(rUser, sys, oboOrImpersonatedUser, isStaticEffUsr);
+      setHasCredentials(rUser, sys, oboOrImpersonatedUser, isStaticEffUsr, GET_SYSF_OP);
 
       // If filtering by hasCredentials and not including then simply continue now to skip the record.
       if (filterByHasCredentials != null && !filterByHasCredentials.equals(sys.hasCredentials())) continue;
