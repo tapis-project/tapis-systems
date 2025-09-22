@@ -387,7 +387,17 @@ public class SystemsServiceImpl implements SystemsService
       {
         // Use internal method instead of public API to skip auth and other checks not needed here.
         // This is createSystem, so isStatic is true so credTargetUser and hostLoginUser are the eff user id.
+        // Note that a CredInfo record will be created.
         credUtils.createCredential(rUser, cred, retSystem, effUserId, isStaticEffUser, effUserId, skipCredCheck, op);
+      }
+      else
+      {
+        // TODO We are not saving credentials but we still need to create a CredInfo record for a static effUser.
+        // This is to make sure we always have a CredInfo record for static effUser.
+        // Note that we do not create one for dynamic effUser. It is always possible for there to not be a
+        //   CredInfo record in that case. A credential for any user could be registered.
+        //   Check for isStatic is redundant but it makes it obvious what is happening.
+        if (isStaticEffUser) credUtils.createCredInfoRecordForStaticEffUser(rUser, retSystem, effUserId/*, TODO? opStr */);
       }
     }
     catch (Exception e0)
@@ -428,9 +438,9 @@ public class SystemsServiceImpl implements SystemsService
     // So caller will know if validation succeeded.
     retSystem.setAuthnCredential(verifiedCred);
 
-    // Determine hasCredentials
+    // TODO Determine hasCredentials
     boolean hasCredentials = false;
-    CredentialInfo credInfo = getCredInfo(rUser, retSystem, rUser.getOboUserId(), isStaticEffUser, CREATE_SYS_OP);
+    CredentialInfo credInfo = credUtils.getCredInfo(rUser, retSystem, rUser.getOboUserId(), isStaticEffUser, CREATE_SYS_OP);
     if (credInfo != null) hasCredentials = credInfo.hasCredentials();
     // If no credInfo for a static effUser, create one.
     if (credInfo == null && isStaticEffUser)
@@ -678,11 +688,11 @@ public class SystemsServiceImpl implements SystemsService
     // ------------------- Make Dao call to update the system -----------------------------------
     dao.putSystem(rUser, updatedTSystem, updateJsonStr, rawData);
 
-    // Update credInfo record if necessary, i.e. if defaultAuthnMethod has changed.
+    // TODO Update credInfo record if necessary, i.e. if defaultAuthnMethod has changed.
     if (!origTSystem.getDefaultAuthnMethod().equals(putSystem.getDefaultAuthnMethod()))
     {
       credUtils.updateCredInfoHasCredentials(rUser, putSystem);
-      CredentialInfo credInfo = getCredInfo(rUser, putSystem, rUser.getOboUserId(), isStaticEffUser, PUT_SYS_OP);
+      CredentialInfo credInfo = credUtils.getCredInfo(rUser, putSystem, rUser.getOboUserId(), isStaticEffUser, PUT_SYS_OP);
       if (credInfo != null) putSystem.setHasCredentials(credInfo.hasCredentials());
     }
 
@@ -729,6 +739,7 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Soft delete a system
    *   - Update deleted to true for the system
+   * NOTE: No other actions taken. Credentials, SK permissions not removed.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system to delete
    * @return Number of items updated
@@ -1046,7 +1057,7 @@ public class SystemsServiceImpl implements SystemsService
     // Remove shareInfo associated with the system
     authUtils.deleteAllShareInfo(rUser, system);
     // Delete all Credentials and CredInfo records associated with the system.
-    credUtils.deleteAllCredInfoRecordsForSystem(rUser, system, op);
+    credUtils.deleteAllCredentialsForSystem(rUser, system, op);
 
     // Delete the system from the DB
     return dao.hardDeleteSystem(tenant, systemId);
@@ -1885,34 +1896,10 @@ public class SystemsServiceImpl implements SystemsService
   /*
    * Given a TSystem and user making the request, fetch a credInfo record.
    */
-  private CredentialInfo getCredInfo(ResourceRequestUser rUser, TSystem sys, String oboOrImpersonatedUser,
-                                     boolean isStaticEffUsr, String opStr)
-  {
-    CredentialInfo retCredInfo = null;
-    // Determine tapisUser for looking up CredInfo
-    // If static use effectiveUserId, else use oboOrImpersonatedUser
-    String credTargetUser = (isStaticEffUsr) ? sys.getEffectiveUserId(): oboOrImpersonatedUser;
-    String tapisUser = isStaticEffUsr ? rUser.getOboUserId() : credTargetUser;
-    retCredInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUsr);
-    // If static and no CredInfo record then log an error but assume no credentials.
-    // All static should have a record, but sys with dynamic effUser but no credentials registered is valid
-    // Skip error if this is a createSystem operation.
-    if (retCredInfo == null && isStaticEffUsr && !CREATE_SYS_OP.equals(opStr))
-    {
-      String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_RECORD_MISSING", rUser, sys.getTenant(), sys.getId(),
-                                       tapisUser, isStaticEffUsr, opStr);
-      log.error(msg);
-    }
-    return retCredInfo;
-  }
-
-  /*
-   * Given a TSystem and user making the request, fetch a credInfo record.
-   */
   private TSystem setHasCredentials(ResourceRequestUser rUser, TSystem sys, String oboOrImpersonatedUser,
                                     boolean isStaticEffUsr, String opStr)
   {
-    CredentialInfo credInfo = getCredInfo(rUser, sys, oboOrImpersonatedUser, isStaticEffUsr, opStr);
+    CredentialInfo credInfo = credUtils.getCredInfo(rUser, sys, oboOrImpersonatedUser, isStaticEffUsr, opStr);
     if (credInfo == null)
     {
       sys.setHasCredentials(false);

@@ -80,7 +80,6 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_PUBLIC_K
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.CREATE_SYS_OP;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.NOT_FOUND;
-import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.nullTargetUser;
 
 /*
    Utility class containing Tapis credential related methods needed by the
@@ -596,16 +595,16 @@ public class CredUtils
   }
 
   /**
-   * Delete credential for given system and user.
-   * Remove SK records and CredentialInfo record
+   * Delete all credentials for given system and user.
+   * Remove SK secrets and CredInfo records
    * NOTE: May not need to be synchronized but currently only called by hardDelete which is only used during testing.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system Tapis system
    * @param op operation
    */
-  synchronized void deleteAllCredInfoRecordsForSystem(ResourceRequestUser rUser, TSystem system, SystemOperation op)
+  synchronized void deleteAllCredentialsForSystem(ResourceRequestUser rUser, TSystem system, SystemOperation op)
   {
-    // Get all CredInfo records associated with the system.
+    // Get all CredInfo records associated with the system. This gives a full list of registered credentials.
     List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(system.getTenant(), system.getId());
     // For each record remove all SK secrets and the CredInfo record.
     for (CredentialInfo credInfo : ciList)
@@ -1184,6 +1183,30 @@ public class CredUtils
         updateCredInfoStatus(rUser, ci, SyncStatus.COMPLETED, opName);
       }
     }
+  }
+
+  /*
+   * Given a TSystem and user making the request, fetch a credInfo record.
+   */
+  CredentialInfo getCredInfo(ResourceRequestUser rUser, TSystem sys, String oboOrImpersonatedUser,
+                             boolean isStaticEffUsr, String opStr)
+  {
+    CredentialInfo retCredInfo = null;
+    // Determine tapisUser for looking up CredInfo
+    // If static use effectiveUserId, else use oboOrImpersonatedUser
+    String credTargetUser = (isStaticEffUsr) ? sys.getEffectiveUserId(): oboOrImpersonatedUser;
+    String tapisUser = isStaticEffUsr ? rUser.getOboUserId() : credTargetUser;
+    retCredInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUsr);
+    // If static and no CredInfo record then log an error but assume no credentials.
+    // All static should have a record, but sys with dynamic effUser but no credentials registered is valid
+    // Skip error if this is a createSystem operation.
+    if (retCredInfo == null && isStaticEffUsr && !CREATE_SYS_OP.equals(opStr))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_RECORD_MISSING", rUser, sys.getTenant(), sys.getId(),
+            tapisUser, isStaticEffUsr, opStr);
+      log.error(msg);
+    }
+    return retCredInfo;
   }
 
   /* **************************************************************************** */

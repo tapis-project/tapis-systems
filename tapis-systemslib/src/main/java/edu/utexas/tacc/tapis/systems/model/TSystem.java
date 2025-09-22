@@ -17,8 +17,6 @@ import edu.utexas.tacc.tapis.shared.exceptions.TapisException;
 import edu.utexas.tacc.tapis.shared.utils.PathSanitizer;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
-import edu.utexas.tacc.tapis.systems.service.CredUtils;
-
 import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.KeyValueInputMode.FIXED;
 import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.KeyValueInputMode.REQUIRED;
 import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.RESERVED_PREFIX;
