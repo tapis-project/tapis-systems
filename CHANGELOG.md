@@ -12,7 +12,7 @@ https://tapis-project.github.io/live-docs
 ---------------------------------------------------------------------------
 ## 1.9.3 - 2025-08-??
 
-????Bug fix and enhancements.
+????Bug fix, refactoring and enhancements.
 
 ### New features:
 - ??
