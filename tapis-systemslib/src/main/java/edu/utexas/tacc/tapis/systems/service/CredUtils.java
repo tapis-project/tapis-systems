@@ -78,8 +78,8 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_FINGERPR
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_PRIVATE_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_PUBLIC_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
-import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.CREATE_SYS_OP;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.NOT_FOUND;
+import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.nullLoginUserMapping;
 
 /*
    Utility class containing Tapis credential related methods needed by the
@@ -688,13 +688,15 @@ public class CredUtils
    * Write credentials to SK and create or update the CredentialInfo in DB.
    * If operation is not System.create then record update in SYSTEMS_UPDATE table
    *
+   * Return a CredInfo record.
+   *
    * No checks are done for incoming arguments (except hostLoginUser) and the system must exist
    *
    * Note that this method contains a synchronized block.
    * Synchronizing this is a potential bottleneck, but we do not expect that much activity around updating credentials.
    */
-  void createCredential(ResourceRequestUser rUser, Credential credential, TSystem sys, String credTargetUser,
-                        boolean isStatic, String hostLoginUser, boolean skipCredCheck, SystemOperation op)
+  CredentialInfo createCredential(ResourceRequestUser rUser, Credential credential, TSystem sys, String credTargetUser,
+                                  boolean isStatic, String hostLoginUser, boolean skipCredCheck, SystemOperation op)
   {
     // There are other checks for missing hostLoginUser. This is a good backup check in case the code changes.
     // If missing it is a hard error.
@@ -780,6 +782,7 @@ public class CredUtils
     String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_SYNC_OK", rUser, credInfo.getTenant(), credInfo.getSystemId(),
                                      credInfo.getTapisUser(), credInfo.isStatic());
     log.debug(msg);
+    return credInfo;
   }
 
   /*
@@ -1141,7 +1144,7 @@ public class CredUtils
     }
   }
 
-  /*
+  /* TODO/TBD: remove? use as part of updateCredInfoRecord?
    * Update CredentialInfo hasCredentials attribute based on current defaultAuthnMethod for the system.
    * All records associated with the system will be updated unless updates are currently in progress
    *
@@ -1186,28 +1189,97 @@ public class CredUtils
   }
 
   /*
+   * TODO/TBD Use for patch and put? Make specific for defaultAuthnMethod and effUser? (Since those are the things that
+   *          impact credInfo). Need to pass in previous defaultAuthnMethod and effUser?
+   * Update CredentialInfo hasCredentials attribute based on current defaultAuthnMethod for the system.
+   * All records associated with the system will be updated unless updates are currently in progress
+   *
+   * NOTE: Since we are synchronizing here no updates should be IN_PROGRESS.
+   *       Any FAILED or PENDING records will get updated later by the maintenance task.
+   */
+  void updateCredInfoRecord(ResourceRequestUser rUser, TSystem sys)
+  {
+    String opName = "updateCredInfoHasCredentials";
+    AuthnMethod authnMethod = sys.getDefaultAuthnMethod();
+    // We are mutating a CredInfo record so synchronize around the class
+    synchronized (CredUtils.class)
+    {
+      // Get all CredInfo records associated with the system.
+      List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(sys.getTenant(), sys.getId());
+      // For each record update hasCredentials
+      for (CredentialInfo ci : ciList)
+      {
+        // If not in COMPLETED state move on
+        if (ci == null || !SyncStatus.COMPLETED.equals(ci.getSyncStatus())) continue;
+
+        // Update status to IN_PROGRESS
+        ci = updateCredInfoStatus(rUser, ci, SyncStatus.IN_PROGRESS, opName);
+
+        // Determine if credentials are registered for defaultAuthnMethod of the system
+        boolean hasCredentials = (AuthnMethod.PASSWORD.equals(authnMethod) && ci.hasPassword()) ||
+              (AuthnMethod.PKI_KEYS.equals(authnMethod) && ci.hasPkiKeys()) ||
+              (AuthnMethod.ACCESS_KEY.equals(authnMethod) && ci.hasAccessKey()) ||
+              (AuthnMethod.TOKEN.equals(authnMethod) && ci.hasToken() ) ||
+              (AuthnMethod.TMS_KEYS.equals(authnMethod) && ci.hasTmsKeys());
+
+        // Update hasCredentials
+        dao.updateCredInfoHasCredentials(ci, hasCredentials);
+        log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_SET_HASCREDS", rUser, ci.getTenant(), ci.getSystemId(),
+              ci.getTapisUser(), ci.getHostLoginUser(), ci.isStatic(), hasCredentials, opName));
+
+
+        // Update status to COMPLETED
+        updateCredInfoStatus(rUser, ci, SyncStatus.COMPLETED, opName);
+      }
+    }
+  }
+
+  /*
    * Given a TSystem and user making the request, fetch a credInfo record.
+   * Returns null if no record exists.
    */
   CredentialInfo getCredInfo(ResourceRequestUser rUser, TSystem sys, String oboOrImpersonatedUser,
-                             boolean isStaticEffUsr, String opStr)
+                             boolean isStaticEffUsr)
   {
-    CredentialInfo retCredInfo = null;
     // Determine tapisUser for looking up CredInfo
     // If static use effectiveUserId, else use oboOrImpersonatedUser
     String credTargetUser = (isStaticEffUsr) ? sys.getEffectiveUserId(): oboOrImpersonatedUser;
     String tapisUser = isStaticEffUsr ? rUser.getOboUserId() : credTargetUser;
-    retCredInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUsr);
-    // If static and no CredInfo record then log an error but assume no credentials.
-    // All static should have a record, but sys with dynamic effUser but no credentials registered is valid
-    // Skip error if this is a createSystem operation.
-    if (retCredInfo == null && isStaticEffUsr && !CREATE_SYS_OP.equals(opStr))
-    {
-      String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_RECORD_MISSING", rUser, sys.getTenant(), sys.getId(),
-            tapisUser, isStaticEffUsr, opStr);
-      log.error(msg);
-    }
-    return retCredInfo;
+    return dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUsr);
   }
+
+  /*
+   * Given a TSystem, tapisUser, hostLoginUser and isStatic create a CredInfo record if none exist.
+   * If record already exists then existing record is returned.
+   *TODO There are 2? cases where we want to make sure a record exists for a static effUser:
+   *   1. During system create when credentials are not provided and effUser is static.
+   *   2. ???
+   * Note that we do not need this for the dynamic effUser case. It is always possible for there to not be a
+   *   CredInfo record in that case. A credential for any user could be registered.
+   */
+   CredentialInfo createCredInfoRecordAsNeeded(ResourceRequestUser rUser, TSystem sys, String tapisUser,
+                                               boolean isStaticEffUser, String hostLoginUser, String loginUserMapping)
+   {
+     CredentialInfo credInfo = null;
+     // Use a synchronized block for the operation.
+     synchronized (CredUtils.class)
+     {
+       // 1. Create/update CredInfo record
+       credInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser);
+       if (credInfo == null)
+       {
+         // Record does not already exist, create it with status of COMPLETED. TODO/TBD: No need to sync with SK?
+         credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser,
+                                       hostLoginUser, loginUserMapping, SyncStatus.COMPLETED);
+         credInfo = dao.createCredInfo(rUser, credInfo);
+         // Log successful operation
+         String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_CREATED", rUser, credInfo.getTenant(), credInfo.getSystemId(),
+                                          credInfo.getTapisUser(), isStaticEffUser, hostLoginUser, loginUserMapping);
+         log.debug(msg);
+       }
+     }
+     return credInfo;
+   }
 
   /* **************************************************************************** */
   /*                                Private Methods                               */

@@ -96,6 +96,8 @@ public class SystemsServiceImpl implements SystemsService
   // Named and typed null values to make it clear what is being passed in to a method
   static final String nullTargetUser = null;
   static final String nullHostLoginUser = null;
+  static final String nullLoginUserMapping = null;
+  static final boolean isStaticEffUserTrue = true;
   private static final String nullOwner = null;
   private static final AuthnMethod nullAuthnMethod = null;
   private static final String nullImpersonationId = null;
@@ -284,14 +286,15 @@ public class SystemsServiceImpl implements SystemsService
     //       and the only variable of interest in rootDir should be HOST_EVAL($var)
     system.resolveVariablesAtCreate(rUser.getOboUserId());
 
-    // Now we can extract effUser, for convenience and clarity.
-    String effUserId = system.getEffectiveUserId();
+    // Now we can extract effUser and owner, for convenience and clarity.
+    String sysEffUserId = system.getEffectiveUserId();
+    String sysOwner = system.getOwner();
 
     // Determine if effectiveUserId is static
-    boolean isStaticEffUser = !APIUSERID_VAR.equals(effUserId);
+    boolean isStaticEffUser = !APIUSERID_VAR.equals(sysEffUserId);
 
     // ------------------------- Check authorization -------------------------
-    authUtils.checkAuthOwnerKnown(rUser, op, sysId, system.getOwner());
+    authUtils.checkAuthOwnerKnown(rUser, op, sysId, sysOwner);
 
     // ---------------- Check constraints on TSystem attributes. There are many. ------------------------
     validateTSystem(rUser, system, true);
@@ -331,7 +334,7 @@ public class SystemsServiceImpl implements SystemsService
       {
         // During create, we only verify for static effectiveUser and system default authnMethod, so we pass in the
         //   effectiveUser from request as hostLoginUser and the authnMethod from the system.
-        verifiedCred = credUtils.verifyCredentials(rUser, system, cred, effUserId, authnMethod);
+        verifiedCred = credUtils.verifyCredentials(rUser, system, cred, sysEffUserId, authnMethod);
         system.setAuthnCredential(verifiedCred);
         // If credential validation failed we do not create the system. Return now.
         if (Boolean.FALSE.equals(verifiedCred.getValidationResult())) return system;
@@ -366,6 +369,11 @@ public class SystemsServiceImpl implements SystemsService
     // Consider using a notification instead (jira cic-3071)
     String filesPermSpec = "files:" + sysTenant + ":*:" + sysId;
 
+    // We want to always have at least one CredInfo record once system is created.
+    // We can then use this record to update hasCredentials for the TSystem before returning it.
+    // For dynamic effUser we create a record for system owner.
+    CredentialInfo credInfo = null;
+
     // Get SK client now. If we cannot get this rollback not needed.
     // Note that we still need to call getSKClient each time because it refreshes the svc jwt as needed.
     sysUtils.getSKClient(rUser);
@@ -379,7 +387,7 @@ public class SystemsServiceImpl implements SystemsService
       // ------------------- Add permissions -----------------------------
       // Consider using a notification instead (jira cic-3071)
       // Give owner files service related permission for root directory
-      sysUtils.getSKClient(rUser).grantUserPermission(sysTenant, retSystem.getOwner(), filesPermSpec);
+      sysUtils.getSKClient(rUser).grantUserPermission(sysTenant, sysOwner, filesPermSpec);
 
       // ------------------- Store credentials -----------------------------------
       // Store credentials in Security Kernel if cred provided and effectiveUser is static
@@ -388,16 +396,20 @@ public class SystemsServiceImpl implements SystemsService
         // Use internal method instead of public API to skip auth and other checks not needed here.
         // This is createSystem, so isStatic is true so credTargetUser and hostLoginUser are the eff user id.
         // Note that a CredInfo record will be created.
-        credUtils.createCredential(rUser, cred, retSystem, effUserId, isStaticEffUser, effUserId, skipCredCheck, op);
+        credInfo = credUtils.createCredential(rUser, cred, retSystem, sysEffUserId, isStaticEffUser, sysEffUserId, skipCredCheck, op);
       }
-      else
+
+      // If no credInfo record yet then create one
+      if (credInfo == null)
       {
-        // TODO We are not saving credentials but we still need to create a CredInfo record for a static effUser.
-        // This is to make sure we always have a CredInfo record for static effUser.
-        // Note that we do not create one for dynamic effUser. It is always possible for there to not be a
-        //   CredInfo record in that case. A credential for any user could be registered.
-        //   Check for isStatic is redundant but it makes it obvious what is happening.
-        if (isStaticEffUser) credUtils.createCredInfoRecordForStaticEffUser(rUser, retSystem, effUserId/*, TODO? opStr */);
+        // We did not create a credInfo as part of manageCredentials, so create one now to be sure we always have a
+        //  CredInfo record for a newly created system.
+        // Tapis user for this initial record is system owner, hostLoginUser is resolved effUser and
+        //    userLoginMapping is null since no credential was provided.
+        // TODO review put and patch System. Probably need similar code there for when
+        //      effUser changes from static to dynamic or dynamic to static
+        credInfo = credUtils.createCredInfoRecordAsNeeded(rUser, retSystem, sysOwner, isStaticEffUser, sysEffUserId,
+                                                          nullLoginUserMapping);
       }
     }
     catch (Exception e0)
@@ -413,7 +425,7 @@ public class SystemsServiceImpl implements SystemsService
       catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, sysId, "hardDelete", e.getMessage()));}
       // Remove perms
       // Consider using a notification instead (jira cic-3071)
-      try { sysUtils.getSKClient(rUser).revokeUserPermission(sysTenant, system.getOwner(), filesPermSpec);  }
+      try { sysUtils.getSKClient(rUser).revokeUserPermission(sysTenant, sysOwner, filesPermSpec);  }
       catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, sysId, "revokePermF1", e.getMessage()));}
       // Remove creds
       if (manageCredentials)
@@ -424,7 +436,7 @@ public class SystemsServiceImpl implements SystemsService
         {
           // Remove SK records and CredInfo record. Use sys fetched from DB if possible
           TSystem tmpSys = (retSystem == null) ? system : retSystem;
-          credUtils.deleteCredential(rUser, tmpSys, effUserId, isStaticEffUser, op);
+          credUtils.deleteCredential(rUser, tmpSys, sysEffUserId, isStaticEffUser, op);
         }
         catch (Exception e)
         {
@@ -438,18 +450,17 @@ public class SystemsServiceImpl implements SystemsService
     // So caller will know if validation succeeded.
     retSystem.setAuthnCredential(verifiedCred);
 
-    // TODO Determine hasCredentials
-    boolean hasCredentials = false;
-    CredentialInfo credInfo = credUtils.getCredInfo(rUser, retSystem, rUser.getOboUserId(), isStaticEffUser, CREATE_SYS_OP);
-    if (credInfo != null) hasCredentials = credInfo.hasCredentials();
-    // If no credInfo for a static effUser, create one.
-    if (credInfo == null && isStaticEffUser)
+    // Determine hasCredentials. credInfo should always be set, but if not log an error and default to false.
+    // Most likely reason for an error here is code above has been changed.
+    boolean hasCredentials;
+    if (credInfo != null)
     {
-      String tapisUser = retSystem.getOwner();
-      String hostLoginUser = retSystem.getEffectiveUserId();
-      credInfo = new CredentialInfo(retSystem.getSeqId(), sysTenant, sysId, tapisUser, isStaticEffUser, hostLoginUser,
-                                    nullTargetUser, CredentialInfo.SyncStatus.PENDING);
-      dao.createCredInfo(rUser, credInfo);
+      hasCredentials = credInfo.hasCredentials();
+    }
+    else
+    {
+      hasCredentials = false;
+      log.error(LibUtils.getMsgAuth("SYSLIB_CREDINFO_CREATE_ERR", rUser, sysTenant, sysId, sysOwner, isStaticEffUser));
     }
 
     // Update dynamically computed info and return the fully populated TSystem
@@ -594,11 +605,15 @@ public class SystemsServiceImpl implements SystemsService
     // No distributed transactions so no distributed rollback needed
     // ------------------- Make Dao call to persist the system -----------------------------------
     dao.patchSystem(rUser, systemId, patchedTSystem, updateJsonStr, rawData);
-    // Update credInfo record if necessary, i.e. if defaultAuthnMethod has changed.
-    if (patchSystem.getDefaultAuthnMethod() != null &&
-          !origTSystem.getDefaultAuthnMethod().equals(patchSystem.getDefaultAuthnMethod()))
+    // TODO: Update credInfo record if necessary, i.e. if defaultAuthnMethod or effUser have changed.
+    if ((patchSystem.getDefaultAuthnMethod() != null &&
+          !origTSystem.getDefaultAuthnMethod().equals(patchSystem.getDefaultAuthnMethod())) ||
+        (patchSystem.getEffectiveUserId() != null &&
+                !origTSystem.getEffectiveUserId().equals(patchSystem.getEffectiveUserId())))
     {
-      credUtils.updateCredInfoHasCredentials(rUser, patchedTSystem);
+      // TODO Update credInfo, TBD: including re-synching with SK
+      credUtils.updateCredInfoRecord(rUser, patchedTSystem);
+      credUtils.updateCredInfoHasCredentials(rUser, patchedTSystem); // TODO/TBD remove?
     }
   }
 
@@ -692,7 +707,7 @@ public class SystemsServiceImpl implements SystemsService
     if (!origTSystem.getDefaultAuthnMethod().equals(putSystem.getDefaultAuthnMethod()))
     {
       credUtils.updateCredInfoHasCredentials(rUser, putSystem);
-      CredentialInfo credInfo = credUtils.getCredInfo(rUser, putSystem, rUser.getOboUserId(), isStaticEffUser, PUT_SYS_OP);
+      CredentialInfo credInfo = credUtils.getCredInfo(rUser, putSystem, rUser.getOboUserId(), isStaticEffUser);
       if (credInfo != null) putSystem.setHasCredentials(credInfo.hasCredentials());
     }
 
@@ -1897,9 +1912,9 @@ public class SystemsServiceImpl implements SystemsService
    * Given a TSystem and user making the request, fetch a credInfo record.
    */
   private TSystem setHasCredentials(ResourceRequestUser rUser, TSystem sys, String oboOrImpersonatedUser,
-                                    boolean isStaticEffUsr, String opStr)
+                                    boolean isStaticEffUser)
   {
-    CredentialInfo credInfo = credUtils.getCredInfo(rUser, sys, oboOrImpersonatedUser, isStaticEffUsr, opStr);
+    CredentialInfo credInfo = credUtils.getCredInfo(rUser, sys, oboOrImpersonatedUser, isStaticEffUser);
     if (credInfo == null)
     {
       sys.setHasCredentials(false);
@@ -1923,12 +1938,12 @@ public class SystemsServiceImpl implements SystemsService
     // Update dynamically computed info and resolve effUser as needed.
     for (TSystem sys : systems)
     {
-      boolean isStaticEffUsr = !sys.getEffectiveUserId().equals(APIUSERID_VAR);
+      boolean isStaticEffUser = !sys.getEffectiveUserId().equals(APIUSERID_VAR);
       // NOTE: We could determine hasCredentials and fill in CredInfo more efficiently via
       //       using SQL to join with table systems_cred_info, but building the SQL query is already very complex.
       //       And we have to fetch share info anyway, so for now brute force it.
       // Determine hasCredentials
-      setHasCredentials(rUser, sys, oboOrImpersonatedUser, isStaticEffUsr, GET_SYSF_OP);
+      setHasCredentials(rUser, sys, oboOrImpersonatedUser, isStaticEffUser, GET_SYSF_OP);
 
       // If filtering by hasCredentials and not including then simply continue now to skip the record.
       if (filterByHasCredentials != null && !filterByHasCredentials.equals(sys.hasCredentials())) continue;
@@ -1940,7 +1955,7 @@ public class SystemsServiceImpl implements SystemsService
         sys.setIsPublic(systemShare.isPublic());
         sys.setSharedWithUsers(systemShare.getUserList());
       }
-      sys.setIsDynamicEffectiveUser(!isStaticEffUsr);
+      sys.setIsDynamicEffectiveUser(!isStaticEffUser);
       sys.setEffectiveUserId(sysUtils.resolveEffectiveUserId(sys, oboOrImpersonatedUser));
       // If filtering by hasCredentials then it is a match so add it to the newly created list.
       if (filterByHasCredentials != null) retSystems.add(sys);
