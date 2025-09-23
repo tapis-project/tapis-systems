@@ -1189,24 +1189,82 @@ public class CredUtils
   }
 
   /*
-   * TODO/TBD Use for patch and put? Make specific for defaultAuthnMethod and effUser? (Since those are the things that
-   *          impact credInfo). Need to pass in previous defaultAuthnMethod and effUser?
-   * Update CredentialInfo hasCredentials attribute based on current defaultAuthnMethod for the system.
-   * All records associated with the system will be updated unless updates are currently in progress
+   * Update CredentialInfo record based on changes to defaultAuthnMethod or effUser.
+   * Used as part of patch and put update operations.
+   * TODO/TBD All records associated with the system will be updated unless updates are currently in progress
+   *  TODO sync against SK?
    *
    * NOTE: Since we are synchronizing here no updates should be IN_PROGRESS.
    *       Any FAILED or PENDING records will get updated later by the maintenance task.
    */
-  void updateCredInfoRecord(ResourceRequestUser rUser, TSystem sys)
+  void updateCredInfoRecords(ResourceRequestUser rUser, TSystem sys, AuthnMethod origDefaultAuthnMethod, String origEffUser)
   {
-    String opName = "updateCredInfoHasCredentials";
+    String opName = "updateCredInfoRecord";
     AuthnMethod authnMethod = sys.getDefaultAuthnMethod();
-    // We are mutating a CredInfo record so synchronize around the class
+    String effUser = sys.getEffectiveUserId();
+
+    boolean authnChanged = !authnMethod.equals(origDefaultAuthnMethod);
+    boolean effUserChanged = !effUser.equals(origEffUser);
+
+    // If no changes then simply return
+    if (!authnChanged && !effUserChanged) return;
+
+    boolean isStaticEffUser = !effUser.equals(APIUSERID_VAR);
+
+    // TODO/TBD Can we compute new hasCredentials now? And do we then need to use the new hasCredentials below
+    //    to update the record or records?
+    //  BUT, to do that we would need to read credential data from SK. So would not make sense?
+    //     OR, in some cases info is already available in CredInfo records created previously?
+    boolean hasCredentials = ;
+
+    // Fetch credInfo record for owner, if it exists. Use possibly new value of effUser
+    // We might check for and then create a credInfo record, so synchronize
+    CredentialInfo ownerCredInfo;
+    synchronized (CredUtils.class)
+    {
+      ownerCredInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), sys.getOwner(), isStaticEffUser);
+      // If it did not yet exist then create it
+      if (ownerCredInfo == null)
+      {
+        // No record yet existed, so logUserMapping is null
+        ownerCredInfo = createCredInfoRecordAsNeeded(rUser, sys, sys.getOwner(), isStaticEffUser,
+                                                     sys.getEffectiveUserId(), nullLoginUserMapping);
+      }
+    }
+
+    // TODO/TBD If effUser changed and we are going from dynamic to static and there is only one record to deal with,
+    //   for the system owner. And we have dealt with it, so we are done.
+    // TODO/TBD But what if authnMethod also changed, still okay to return here?
+    if (isStaticEffUser) return;
+
+    // There are four cases. We dealt with one above (neither changed). Handle other 3 now.
+    if (authnChanged && !effUserChanged)
+    {
+      //TODO authnMethod changed but not effUser
+    }
+    else if (!authnChanged && effUserChanged)
+    {
+      //TODO effUser changed but not authnMethod
+      // If going from dynamic to static then we have already updated the single record, we are done.
+      if (isStaticEffUser) return;
+      // TODO If going from static to dyanmic then ???
+    }
+    else if (authnChanged && effUserChanged)
+    {
+      //TODO BOTH have changed
+      // If going from dynamic to static then we have already updated the single record, we are done.
+      if (isStaticEffUser) return;
+      // TODO
+    }
+
+
+    // TODO
+    // We are mutating CredInfo records, so synchronize around the class
     synchronized (CredUtils.class)
     {
       // Get all CredInfo records associated with the system.
       List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(sys.getTenant(), sys.getId());
-      // For each record update hasCredentials
+      // Update each record.
       for (CredentialInfo ci : ciList)
       {
         // If not in COMPLETED state move on

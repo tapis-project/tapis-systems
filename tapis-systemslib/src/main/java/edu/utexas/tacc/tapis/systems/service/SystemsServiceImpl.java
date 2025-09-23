@@ -314,7 +314,7 @@ public class SystemsServiceImpl implements SystemsService
     //       But we include isStaticEffUser here anyway in case that ever changes.
     if (!isStaticEffUser && cred != null)
     {
-      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, sysId);
+      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_ALLOWED", rUser, sysId);
       log.warn(msg);
       throw new IllegalArgumentException(msg);
     }
@@ -612,8 +612,8 @@ public class SystemsServiceImpl implements SystemsService
                 !origTSystem.getEffectiveUserId().equals(patchSystem.getEffectiveUserId())))
     {
       // TODO Update credInfo, TBD: including re-synching with SK
-      credUtils.updateCredInfoRecord(rUser, patchedTSystem);
-      credUtils.updateCredInfoHasCredentials(rUser, patchedTSystem); // TODO/TBD remove?
+      credUtils.updateCredInfoRecords(rUser, patchedTSystem, origTSystem.getDefaultAuthnMethod(), origTSystem.getEffectiveUserId());
+//      credUtils.updateCredInfoHasCredentials(rUser, patchedTSystem); // TODO/TBD remove?
     }
   }
 
