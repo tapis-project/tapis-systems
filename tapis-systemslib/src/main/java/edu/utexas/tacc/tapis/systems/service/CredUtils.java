@@ -1164,7 +1164,7 @@ public class CredUtils
       for (CredentialInfo ci : ciList)
       {
         // If not in COMPLETED state move on
-        if (ci == null || !SyncStatus.COMPLETED.equals(ci.getSyncStatus())) continue;
+        if (!SyncStatus.COMPLETED.equals(ci.getSyncStatus())) continue;
 
         // Update status to IN_PROGRESS
         ci = updateCredInfoStatus(rUser, ci, SyncStatus.IN_PROGRESS, opName);
@@ -1192,12 +1192,11 @@ public class CredUtils
    * Update CredentialInfo record based on changes to defaultAuthnMethod or effUser.
    * Used as part of patch and put update operations.
    * TODO/TBD All records associated with the system will be updated unless updates are currently in progress
-   *  TODO sync against SK?
    *
    * NOTE: Since we are synchronizing here no updates should be IN_PROGRESS.
    *       Any FAILED or PENDING records will get updated later by the maintenance task.
    */
-  void updateCredInfoRecords(ResourceRequestUser rUser, TSystem sys, AuthnMethod origDefaultAuthnMethod, String origEffUser)
+  void updateCredInfoRecordsForSystem(ResourceRequestUser rUser, TSystem sys, AuthnMethod origDefaultAuthnMethod, String origEffUser)
   {
     String opName = "updateCredInfoRecord";
     AuthnMethod authnMethod = sys.getDefaultAuthnMethod();
@@ -1209,50 +1208,107 @@ public class CredUtils
     // If no changes then simply return
     if (!authnChanged && !effUserChanged) return;
 
+
+    // TODO/TBD PROBABLY JUST SIMPLY NEED TO MOVE updateCredInfoHasCredentials(ResourceRequestUser rUser, TSystem sys)
+    //     INTO THIS METHOD?
+
     boolean isStaticEffUser = !effUser.equals(APIUSERID_VAR);
+
+
+    // TODO/TBD No matter what has changed, does this work: ?
+    //    1. Start synchronized block
+    //    2. Make sure we have at least one record, for system owner.
+    //    3. Fetch all credInfo records for system.
+    //    4. For each, determine if it is impacted by changes.
+    //    5. If hasCredentials is impacted, update it.
+    // TODO WAIT, looks like this is already being done in updateCredInfoHasCredentials(ResourceRequestUser rUser, TSystem sys)
+    //            use that?
+    synchronized (CredUtils.class)
+    {
+      // Fetch credInfo record for owner, if it exists. Use possibly new value of effUser
+      // We might check for and then create a credInfo record, so synchronize
+      CredentialInfo ownerCredInfo;
+      synchronized (CredUtils.class)
+      {
+        ownerCredInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), sys.getOwner(), isStaticEffUser);
+        // If it did not yet exist then create it
+        if (ownerCredInfo == null)
+        {
+          // No record yet existed, so logUserMapping is null
+          ownerCredInfo = createCredInfoRecordAsNeeded(rUser, sys, sys.getOwner(), isStaticEffUser,
+                                                       sys.getEffectiveUserId(), nullLoginUserMapping);
+        }
+      }
+
+      List<CredentialInfo> sysCredInfoList = dao.getCredInfoRecordsForSystem(sys.getTenant(), sys.getId());
+      for (CredentialInfo ci : sysCredInfoList)
+      {
+        // There are four cases. We dealt with one above (neither changed). Handle other 3 now.
+        if (authnChanged && !effUserChanged) // authnMethod changed but not effUser
+        {
+          //TODO If a static effUser then only need to update the one record for the owner.
+          //TODO/TBD If dynamic there could be multiple. But maybe update could be same for either.
+          //         To update: fetch all credInfo records for the system.
+          //                    find the relevant ones and update hasCredentials for each one.
+          //          NOTE: No need to sync with SK. We have what we need in the CredInfo records.
+          if (isStaticEffUser)
+          {
+            // TODO could there be more than one record? Do we need to fetch all records for system just to make sure?
+          }
+//TODO      updateCredInfoForChangedAuthnMethod(rUser, sys, ownerCredInfo, )
+        }
+        else if (!authnChanged) // effUser changed but not authnMethod
+        {
+          // TODO Compute updated
+          updateCredInfoHasCredentials(rUser, sys);
+          // TODO/TBD If going from dynamic to static then we have already created or updated the single record, we are done because
+          //   existing records for dynamic case do not need updating. They only need updating when authnMethod changes.
+          if (isStaticEffUser) return;
+          // TODO If going from static to dynamic then ???
+        }
+        else // Both changed
+        {
+          //TODO/TBD If going from dynamic to static then we have already updated the single record, we are done.
+          //         what about existing (possibly multiple) dynamic records
+          if (isStaticEffUser) return;
+          // TODO
+        }
+      }
+    }
+
 
     // TODO/TBD Can we compute new hasCredentials now? And do we then need to use the new hasCredentials below
     //    to update the record or records?
     //  BUT, to do that we would need to read credential data from SK. So would not make sense?
     //     OR, in some cases info is already available in CredInfo records created previously?
-    boolean hasCredentials = ;
+//    boolean hasCredentials = ;
 
-    // Fetch credInfo record for owner, if it exists. Use possibly new value of effUser
-    // We might check for and then create a credInfo record, so synchronize
-    CredentialInfo ownerCredInfo;
-    synchronized (CredUtils.class)
-    {
-      ownerCredInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), sys.getOwner(), isStaticEffUser);
-      // If it did not yet exist then create it
-      if (ownerCredInfo == null)
-      {
-        // No record yet existed, so logUserMapping is null
-        ownerCredInfo = createCredInfoRecordAsNeeded(rUser, sys, sys.getOwner(), isStaticEffUser,
-                                                     sys.getEffectiveUserId(), nullLoginUserMapping);
-      }
-    }
-
-    // TODO/TBD If effUser changed and we are going from dynamic to static and there is only one record to deal with,
-    //   for the system owner. And we have dealt with it, so we are done.
-    // TODO/TBD But what if authnMethod also changed, still okay to return here?
-    if (isStaticEffUser) return;
 
     // There are four cases. We dealt with one above (neither changed). Handle other 3 now.
-    if (authnChanged && !effUserChanged)
+    if (authnChanged && !effUserChanged) // authnMethod changed but not effUser
     {
-      //TODO authnMethod changed but not effUser
+      //TODO If a static effUser then only need to update the one record for the owner.
+      //TODO/TBD If dynamic there could be multiple. But maybe update could be same for either.
+      //         To update: fetch all credInfo records for the system.
+      //                    find the relevant ones and update hasCredentials for each one.
+      //          NOTE: No need to sync with SK. We have what we need in the CredInfo records.
+      if (isStaticEffUser)
+      {
+        // TODO could there be more than one record? Do we need to fetch all records for system just to make sure?
+      }
+//TODO      updateCredInfoForChangedAuthnMethod(rUser, sys, ownerCredInfo, )
     }
-    else if (!authnChanged && effUserChanged)
+    else if (!authnChanged) // effUser changed but not authnMethod
     {
-      //TODO effUser changed but not authnMethod
-      // If going from dynamic to static then we have already updated the single record, we are done.
+      // If going from dynamic to static then we have already created or updated the single record, we are done because
+      //   existing records for dynamic case do not need updating. They only need updating when authnMethod changes.
       if (isStaticEffUser) return;
-      // TODO If going from static to dyanmic then ???
+      // TODO If going from static to dynamic then ???
     }
-    else if (authnChanged && effUserChanged)
+    else // Both changed
     {
-      //TODO BOTH have changed
-      // If going from dynamic to static then we have already updated the single record, we are done.
+      //TODO/TBD If going from dynamic to static then we have already updated the single record, we are done.
+      //         what about existing (possibly multiple) dynamic records
       if (isStaticEffUser) return;
       // TODO
     }

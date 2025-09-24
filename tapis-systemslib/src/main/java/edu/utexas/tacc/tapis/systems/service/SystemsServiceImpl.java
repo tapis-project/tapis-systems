@@ -579,6 +579,8 @@ public class SystemsServiceImpl implements SystemsService
     // Retrieve the system being patched and create fully populated TSystem with changes merged in
     TSystem origTSystem = dao.getSystem(oboTenant, systemId);
     TSystem patchedTSystem = createPatchedTSystem(origTSystem, patchSystem);
+    String origEffUser = origTSystem.getEffectiveUserId();
+    AuthnMethod origAuthnMethod = origTSystem.getDefaultAuthnMethod();
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerKnown(rUser, op, systemId, origTSystem.getOwner());
@@ -605,15 +607,12 @@ public class SystemsServiceImpl implements SystemsService
     // No distributed transactions so no distributed rollback needed
     // ------------------- Make Dao call to persist the system -----------------------------------
     dao.patchSystem(rUser, systemId, patchedTSystem, updateJsonStr, rawData);
-    // TODO: Update credInfo record if necessary, i.e. if defaultAuthnMethod or effUser have changed.
-    if ((patchSystem.getDefaultAuthnMethod() != null &&
-          !origTSystem.getDefaultAuthnMethod().equals(patchSystem.getDefaultAuthnMethod())) ||
-        (patchSystem.getEffectiveUserId() != null &&
-                !origTSystem.getEffectiveUserId().equals(patchSystem.getEffectiveUserId())))
+
+    // Update credInfo records if necessary, i.e. if defaultAuthnMethod or effUser have changed.
+    if ((patchSystem.getDefaultAuthnMethod() != null && !origAuthnMethod.equals(patchSystem.getDefaultAuthnMethod())) ||
+        (patchSystem.getEffectiveUserId() != null && !origEffUser.equals(patchSystem.getEffectiveUserId())))
     {
-      // TODO Update credInfo, TBD: including re-synching with SK
-      credUtils.updateCredInfoRecords(rUser, patchedTSystem, origTSystem.getDefaultAuthnMethod(), origTSystem.getEffectiveUserId());
-//      credUtils.updateCredInfoHasCredentials(rUser, patchedTSystem); // TODO/TBD remove?
+      credUtils.updateCredInfoRecordsForSystem(rUser, patchedTSystem, origAuthnMethod, origEffUser);
     }
   }
 
@@ -661,10 +660,11 @@ public class SystemsServiceImpl implements SystemsService
 
     // Retrieve the system being updated and create fully populated TSystem with updated attributes
     TSystem origTSystem = dao.getSystem(sysTenant, sysId);
+    String origEffUserId = origTSystem.getEffectiveUserId();
+    AuthnMethod origAuthnMethod = origTSystem.getDefaultAuthnMethod();
 
     // Set flag indicating if effectiveUserId is static
-    String effectiveUserId = origTSystem.getEffectiveUserId();
-    boolean isStaticEffUser = !effectiveUserId.equals(APIUSERID_VAR);
+    boolean origIsStaticEffUser = !origEffUserId.equals(APIUSERID_VAR);
 
     // Note that effectiveUserId and authnCredential are ignored for PUT, so we do not need to
     // deal with updating credentials.
@@ -703,19 +703,15 @@ public class SystemsServiceImpl implements SystemsService
     // ------------------- Make Dao call to update the system -----------------------------------
     dao.putSystem(rUser, updatedTSystem, updateJsonStr, rawData);
 
-    // TODO Update credInfo record if necessary, i.e. if defaultAuthnMethod has changed.
-    if (!origTSystem.getDefaultAuthnMethod().equals(putSystem.getDefaultAuthnMethod()))
-    {
-      credUtils.updateCredInfoHasCredentials(rUser, putSystem);
-      CredentialInfo credInfo = credUtils.getCredInfo(rUser, putSystem, rUser.getOboUserId(), isStaticEffUser);
-      if (credInfo != null) putSystem.setHasCredentials(credInfo.hasCredentials());
-    }
+    // Update credInfo records if necessary, i.e. if defaultAuthnMethod has changed.
+    // NOTE: Put does not allow for change effUser, so need to worry about that one.
+    credUtils.updateCredInfoRecordsForSystem(rUser, putSystem, origAuthnMethod, origEffUserId);
 
     // Update dynamically computed info.
     SystemShare systemShare = authUtils.getSystemShareInfo(rUser, sysTenant, sysId);
     putSystem.setIsPublic(systemShare.isPublic());
     putSystem.setSharedWithUsers(systemShare.getUserList());
-    putSystem.setIsDynamicEffectiveUser(!isStaticEffUser);
+    putSystem.setIsDynamicEffectiveUser(!origIsStaticEffUser);
     return updatedTSystem;
   }
 
