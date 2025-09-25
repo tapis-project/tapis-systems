@@ -406,10 +406,8 @@ public class SystemsServiceImpl implements SystemsService
         //  CredInfo record for a newly created system.
         // Tapis user for this initial record is system owner, hostLoginUser is resolved effUser and
         //    userLoginMapping is null since no credential was provided.
-        // TODO review put and patch System. Probably need similar code there for when
-        //      effUser changes from static to dynamic or dynamic to static
         credInfo = credUtils.createCredInfoRecordAsNeeded(rUser, retSystem, sysOwner, isStaticEffUser, sysEffUserId,
-                                                          nullLoginUserMapping);
+                                                          nullLoginUserMapping, op.name());
       }
     }
     catch (Exception e0)
@@ -609,11 +607,7 @@ public class SystemsServiceImpl implements SystemsService
     dao.patchSystem(rUser, systemId, patchedTSystem, updateJsonStr, rawData);
 
     // Update credInfo records if necessary, i.e. if defaultAuthnMethod or effUser have changed.
-    if ((patchSystem.getDefaultAuthnMethod() != null && !origAuthnMethod.equals(patchSystem.getDefaultAuthnMethod())) ||
-        (patchSystem.getEffectiveUserId() != null && !origEffUser.equals(patchSystem.getEffectiveUserId())))
-    {
-      credUtils.updateCredInfoRecordsForSystem(rUser, patchedTSystem, origAuthnMethod, origEffUser);
-    }
+    credUtils.updateCredInfoRecordsForSystem(rUser, patchedTSystem, origAuthnMethod, origEffUser);
   }
 
   /**
@@ -1263,7 +1257,7 @@ public class SystemsServiceImpl implements SystemsService
     }
     // Update isDynamic and hasCredentials
     system.setIsDynamicEffectiveUser(!isStaticEffUser);
-    system = setHasCredentials(rUser, system, oboOrImpersonatedUser, isStaticEffUser, GET_SYS_OP);
+    system = setHasCredentials(rUser, system, oboOrImpersonatedUser, isStaticEffUser);
     return system;
   }
 
@@ -1939,7 +1933,7 @@ public class SystemsServiceImpl implements SystemsService
       //       using SQL to join with table systems_cred_info, but building the SQL query is already very complex.
       //       And we have to fetch share info anyway, so for now brute force it.
       // Determine hasCredentials
-      setHasCredentials(rUser, sys, oboOrImpersonatedUser, isStaticEffUser, GET_SYSF_OP);
+      setHasCredentials(rUser, sys, oboOrImpersonatedUser, isStaticEffUser);
 
       // If filtering by hasCredentials and not including then simply continue now to skip the record.
       if (filterByHasCredentials != null && !filterByHasCredentials.equals(sys.hasCredentials())) continue;

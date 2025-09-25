@@ -1144,7 +1144,7 @@ public class CredUtils
     }
   }
 
-  /* TODO/TBD: remove? use as part of updateCredInfoRecord?
+  /*
    * Update CredentialInfo hasCredentials attribute based on current defaultAuthnMethod for the system.
    * All records associated with the system will be updated unless updates are currently in progress
    *
@@ -1191,7 +1191,7 @@ public class CredUtils
   /*
    * Update CredentialInfo record based on changes to defaultAuthnMethod or effUser.
    * Used as part of patch and put update operations.
-   * TODO/TBD All records associated with the system will be updated unless updates are currently in progress
+   * All records associated with the system will be updated unless updates are currently in progress
    *
    * NOTE: Since we are synchronizing here no updates should be IN_PROGRESS.
    *       Any FAILED or PENDING records will get updated later by the maintenance task.
@@ -1208,21 +1208,12 @@ public class CredUtils
     // If no changes then simply return
     if (!authnChanged && !effUserChanged) return;
 
-
-    // TODO/TBD PROBABLY JUST SIMPLY NEED TO MOVE updateCredInfoHasCredentials(ResourceRequestUser rUser, TSystem sys)
-    //     INTO THIS METHOD?
-
     boolean isStaticEffUser = !effUser.equals(APIUSERID_VAR);
 
-
-    // TODO/TBD No matter what has changed, does this work: ?
+    // Something has changed:
     //    1. Start synchronized block
     //    2. Make sure we have at least one record, for system owner.
-    //    3. Fetch all credInfo records for system.
-    //    4. For each, determine if it is impacted by changes.
-    //    5. If hasCredentials is impacted, update it.
-    // TODO WAIT, looks like this is already being done in updateCredInfoHasCredentials(ResourceRequestUser rUser, TSystem sys)
-    //            use that?
+    //    3. For each record update hasCredentials base on current authnMethod.
     synchronized (CredUtils.class)
     {
       // Fetch credInfo record for owner, if it exists. Use possibly new value of effUser
@@ -1235,115 +1226,11 @@ public class CredUtils
         if (ownerCredInfo == null)
         {
           // No record yet existed, so logUserMapping is null
-          ownerCredInfo = createCredInfoRecordAsNeeded(rUser, sys, sys.getOwner(), isStaticEffUser,
-                                                       sys.getEffectiveUserId(), nullLoginUserMapping);
+          createCredInfoRecordAsNeeded(rUser, sys, sys.getOwner(), isStaticEffUser, effUser, nullLoginUserMapping, opName);
         }
-      }
 
-      List<CredentialInfo> sysCredInfoList = dao.getCredInfoRecordsForSystem(sys.getTenant(), sys.getId());
-      for (CredentialInfo ci : sysCredInfoList)
-      {
-        // There are four cases. We dealt with one above (neither changed). Handle other 3 now.
-        if (authnChanged && !effUserChanged) // authnMethod changed but not effUser
-        {
-          //TODO If a static effUser then only need to update the one record for the owner.
-          //TODO/TBD If dynamic there could be multiple. But maybe update could be same for either.
-          //         To update: fetch all credInfo records for the system.
-          //                    find the relevant ones and update hasCredentials for each one.
-          //          NOTE: No need to sync with SK. We have what we need in the CredInfo records.
-          if (isStaticEffUser)
-          {
-            // TODO could there be more than one record? Do we need to fetch all records for system just to make sure?
-          }
-//TODO      updateCredInfoForChangedAuthnMethod(rUser, sys, ownerCredInfo, )
-        }
-        else if (!authnChanged) // effUser changed but not authnMethod
-        {
-          // TODO Compute updated
-          updateCredInfoHasCredentials(rUser, sys);
-          // TODO/TBD If going from dynamic to static then we have already created or updated the single record, we are done because
-          //   existing records for dynamic case do not need updating. They only need updating when authnMethod changes.
-          if (isStaticEffUser) return;
-          // TODO If going from static to dynamic then ???
-        }
-        else // Both changed
-        {
-          //TODO/TBD If going from dynamic to static then we have already updated the single record, we are done.
-          //         what about existing (possibly multiple) dynamic records
-          if (isStaticEffUser) return;
-          // TODO
-        }
-      }
-    }
-
-
-    // TODO/TBD Can we compute new hasCredentials now? And do we then need to use the new hasCredentials below
-    //    to update the record or records?
-    //  BUT, to do that we would need to read credential data from SK. So would not make sense?
-    //     OR, in some cases info is already available in CredInfo records created previously?
-//    boolean hasCredentials = ;
-
-
-    // There are four cases. We dealt with one above (neither changed). Handle other 3 now.
-    if (authnChanged && !effUserChanged) // authnMethod changed but not effUser
-    {
-      //TODO If a static effUser then only need to update the one record for the owner.
-      //TODO/TBD If dynamic there could be multiple. But maybe update could be same for either.
-      //         To update: fetch all credInfo records for the system.
-      //                    find the relevant ones and update hasCredentials for each one.
-      //          NOTE: No need to sync with SK. We have what we need in the CredInfo records.
-      if (isStaticEffUser)
-      {
-        // TODO could there be more than one record? Do we need to fetch all records for system just to make sure?
-      }
-//TODO      updateCredInfoForChangedAuthnMethod(rUser, sys, ownerCredInfo, )
-    }
-    else if (!authnChanged) // effUser changed but not authnMethod
-    {
-      // If going from dynamic to static then we have already created or updated the single record, we are done because
-      //   existing records for dynamic case do not need updating. They only need updating when authnMethod changes.
-      if (isStaticEffUser) return;
-      // TODO If going from static to dynamic then ???
-    }
-    else // Both changed
-    {
-      //TODO/TBD If going from dynamic to static then we have already updated the single record, we are done.
-      //         what about existing (possibly multiple) dynamic records
-      if (isStaticEffUser) return;
-      // TODO
-    }
-
-
-    // TODO
-    // We are mutating CredInfo records, so synchronize around the class
-    synchronized (CredUtils.class)
-    {
-      // Get all CredInfo records associated with the system.
-      List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(sys.getTenant(), sys.getId());
-      // Update each record.
-      for (CredentialInfo ci : ciList)
-      {
-        // If not in COMPLETED state move on
-        if (ci == null || !SyncStatus.COMPLETED.equals(ci.getSyncStatus())) continue;
-
-        // Update status to IN_PROGRESS
-        ci = updateCredInfoStatus(rUser, ci, SyncStatus.IN_PROGRESS, opName);
-
-        // Determine if credentials are registered for defaultAuthnMethod of the system
-        boolean hasCredentials = (AuthnMethod.PASSWORD.equals(authnMethod) && ci.hasPassword()) ||
-              (AuthnMethod.PKI_KEYS.equals(authnMethod) && ci.hasPkiKeys()) ||
-              (AuthnMethod.ACCESS_KEY.equals(authnMethod) && ci.hasAccessKey()) ||
-              (AuthnMethod.TOKEN.equals(authnMethod) && ci.hasToken() ) ||
-              (AuthnMethod.TMS_KEYS.equals(authnMethod) && ci.hasTmsKeys());
-
-        // Update hasCredentials
-        dao.updateCredInfoHasCredentials(ci, hasCredentials);
-        log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_SET_HASCREDS", rUser, ci.getTenant(), ci.getSystemId(),
-              ci.getTapisUser(), ci.getHostLoginUser(), ci.isStatic(), hasCredentials, opName));
-
-
-        // Update status to COMPLETED
-        updateCredInfoStatus(rUser, ci, SyncStatus.COMPLETED, opName);
+        // Update CredentialInfo hasCredentials attribute based on current defaultAuthnMethod for the system.
+        updateCredInfoHasCredentials(rUser, sys);
       }
     }
   }
@@ -1365,14 +1252,13 @@ public class CredUtils
   /*
    * Given a TSystem, tapisUser, hostLoginUser and isStatic create a CredInfo record if none exist.
    * If record already exists then existing record is returned.
-   *TODO There are 2? cases where we want to make sure a record exists for a static effUser:
+   * There are two cases where we want to make sure at least one record exists:
    *   1. During system create when credentials are not provided and effUser is static.
-   *   2. ???
-   * Note that we do not need this for the dynamic effUser case. It is always possible for there to not be a
-   *   CredInfo record in that case. A credential for any user could be registered.
+   *   2. During a put or patch update when authnMethod or effUser have changed.
    */
    CredentialInfo createCredInfoRecordAsNeeded(ResourceRequestUser rUser, TSystem sys, String tapisUser,
-                                               boolean isStaticEffUser, String hostLoginUser, String loginUserMapping)
+                                               boolean isStaticEffUser, String hostLoginUser,
+                                               String loginUserMapping, String opName)
    {
      CredentialInfo credInfo = null;
      // Use a synchronized block for the operation.
@@ -1382,10 +1268,13 @@ public class CredUtils
        credInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser);
        if (credInfo == null)
        {
-         // Record does not already exist, create it with status of COMPLETED. TODO/TBD: No need to sync with SK?
+         // Record does not already exist, create it. Note we go through all states PENDING->IN_PROGRESS->COMPLETED
+         //   because we want to make sure we never violate allowed state transitions.
          credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser,
-                                       hostLoginUser, loginUserMapping, SyncStatus.COMPLETED);
+                                       hostLoginUser, loginUserMapping, SyncStatus.PENDING);
          credInfo = dao.createCredInfo(rUser, credInfo);
+         updateCredInfoStatus(rUser, credInfo, SyncStatus.IN_PROGRESS, opName);
+         updateCredInfoStatus(rUser, credInfo, SyncStatus.COMPLETED, opName);
          // Log successful operation
          String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_CREATED", rUser, credInfo.getTenant(), credInfo.getSystemId(),
                                           credInfo.getTapisUser(), isStaticEffUser, hostLoginUser, loginUserMapping);
