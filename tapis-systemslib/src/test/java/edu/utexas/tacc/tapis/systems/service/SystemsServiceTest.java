@@ -296,7 +296,15 @@ public class SystemsServiceTest
   public void testCreateSystem() throws Exception
   {
     TSystem sys0 = systems[0];
+    String sysId = sys0.getId();
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+    TSystem tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    Assert.assertNotNull(tmpSys, "Failed to create item: " + sysId);
+    System.out.println("Found item: " + sysId);
+    boolean isStaticEffUser = !tmpSys.isDynamicEffectiveUser();
+    // Validate that a credInfo record has been created.
+    CredentialInfo ci = dao.getCredInfo(tenantName, sys0.getId(), sys0.getOwner(), isStaticEffUser);
+    Assert.assertNotNull(ci, "No CredInfo created");
   }
 
   // Create a system using minimal attributes:
@@ -1559,6 +1567,7 @@ public class SystemsServiceTest
     boolean isStatic = false;
     // Create the system
     TSystem tmpSys = svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+    // TODO at this point, in CredInfo table, hostLogin user is "${apiUserId}" this is incorrect, how did it happen?
     // As a precaution, clean up credentials. These may be left over from previous tests.
     credUtils.deleteCredentialForUser(rOwner1, tmpSys, owner1, op); //testUser5LinuxUser
     credUtils.deleteCredentialForUser(rOwner1, tmpSys, testUser3, op);

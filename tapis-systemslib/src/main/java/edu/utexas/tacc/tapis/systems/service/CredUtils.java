@@ -818,6 +818,9 @@ public class CredUtils
         changeCount = removeSKSecrets(rUser, sys, credTargetUser, isStatic);
         // Remove CredInfo record from DB
         dao.deleteCredInfo(sysTenant, sysId, tapisUser, isStatic);
+        // We want to make we always have at least one record for the system, for the owner.
+        // So in case we just removed the owner record create it now.
+        createCredInfoRecordAsNeeded(rUser, sys, sys.getOwner(), isStatic, sys.getOwner(), nullLoginUserMapping, op.name());
       }
       catch (TapisSecurityException tse)
       {
@@ -1250,11 +1253,12 @@ public class CredUtils
   }
 
   /*
-   * Given a TSystem, tapisUser, hostLoginUser and isStatic create a CredInfo record if none exist.
+   * Given a TSystem, tapisUser, hostLoginUser and isStatic create a CredInfo record if none exists.
    * If record already exists then existing record is returned.
    * There are two cases where we want to make sure at least one record exists:
    *   1. During system create when credentials are not provided and effUser is static.
    *   2. During a put or patch update when authnMethod or effUser have changed.
+   *   3. After deleting a CredInfo record
    */
    CredentialInfo createCredInfoRecordAsNeeded(ResourceRequestUser rUser, TSystem sys, String tapisUser,
                                                boolean isStaticEffUser, String hostLoginUser,
@@ -1264,7 +1268,7 @@ public class CredUtils
      // Use a synchronized block for the operation.
      synchronized (CredUtils.class)
      {
-       // 1. Create/update CredInfo record
+       // Create/update CredInfo record
        credInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser);
        if (credInfo == null)
        {
