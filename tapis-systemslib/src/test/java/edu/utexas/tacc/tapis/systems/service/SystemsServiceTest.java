@@ -1563,11 +1563,18 @@ public class SystemsServiceTest
     // Create dynamic system with effUsr = apiUserId
     TSystem sys0 = systems[10];
     String sysId = sys0.getId();
+    String sysOwner = sys0.getOwner();
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR); // "${apiUserId}"
     boolean isStatic = false;
     // Create the system
     TSystem tmpSys = svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // TODO at this point, in CredInfo table, hostLogin user is "${apiUserId}" this is incorrect, how did it happen?
+    // TODO debug and fix
+    // Make sure credInfo record created for owner, not $apiUser. This was a bug and one point.
+    CredentialInfo credInfo = dao.getCredInfo(tenantName, sysId, sysOwner, isStatic);
+    Assert.assertNotNull(credInfo, "No CredInfo initial record");
+    Assert.assertEquals(credInfo.getHostLoginUser(), sysOwner);
+
     // As a precaution, clean up credentials. These may be left over from previous tests.
     credUtils.deleteCredentialForUser(rOwner1, tmpSys, owner1, op); //testUser5LinuxUser
     credUtils.deleteCredentialForUser(rOwner1, tmpSys, testUser3, op);
@@ -1606,7 +1613,7 @@ public class SystemsServiceTest
     // After each one is created we should have a CredInfo record, so check for that
     // Cred 1
     svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
-    CredentialInfo credInfo = dao.getCredInfo(tenantName, sysId, owner1, isStatic);
+    credInfo = dao.getCredInfo(tenantName, sysId, owner1, isStatic);
     IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, owner1, isStatic, cred1NoLoginUser.getLoginUser(),
                                     owner1, CredentialInfo.SyncStatus.COMPLETED);
     List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
@@ -1630,7 +1637,6 @@ public class SystemsServiceTest
     Assert.assertEquals(ciList.size(), 3);
     int ciTotalCount = dao.getCredInfoTotalCount();
     Assert.assertTrue((ciTotalCount >= 3));
-
 
     // ------------------------------------------------------
     // Test that hasCredential attribute is set as expected
@@ -1727,7 +1733,12 @@ public class SystemsServiceTest
     changeCount = svcCred.deleteUserCredential(rOwner1, sysId, testUser3);
     Assert.assertEquals(changeCount, 0, "Change count incorrect when removing a credential already removed.");
 
+    // TODO remove
+    changeCount = svcCred.deleteUserCredential(rOwner1, sysId, testUser5);
+
     // Verify CredInfo records are also gone.
+    // TODO they are not. Is that correct and the test is wrong?
+    //      only deleted for dynamic effUser case. is that correct? update test?
     credInfo = dao.getCredInfo(tenantName, sysId, owner1, isStatic);
     Assert.assertNull(credInfo, "CredentialInfo not deleted. System name: " + sysId + " User name: " + owner1);
     credInfo = dao.getCredInfo(tenantName, sysId, testUser3, isStatic);

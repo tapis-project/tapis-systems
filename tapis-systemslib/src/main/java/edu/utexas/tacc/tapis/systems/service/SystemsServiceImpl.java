@@ -406,7 +406,7 @@ public class SystemsServiceImpl implements SystemsService
         //  CredInfo record for a newly created system.
         // Tapis user for this initial record is system owner, hostLoginUser is resolved effUser and
         //    userLoginMapping is null since no credential was provided.
-        credInfo = credUtils.createCredInfoRecordAsNeeded(rUser, retSystem, sysOwner, isStaticEffUser, sysEffUserId,
+        credInfo = credUtils.createCredInfoRecordAsNeeded(rUser, retSystem, sysOwner, isStaticEffUser,
                                                           nullLoginUserMapping, op.name());
       }
     }

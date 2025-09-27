@@ -820,7 +820,7 @@ public class CredUtils
         dao.deleteCredInfo(sysTenant, sysId, tapisUser, isStatic);
         // We want to make we always have at least one record for the system, for the owner.
         // So in case we just removed the owner record create it now.
-        createCredInfoRecordAsNeeded(rUser, sys, sys.getOwner(), isStatic, sys.getOwner(), nullLoginUserMapping, op.name());
+        createCredInfoRecordAsNeeded(rUser, sys, sys.getOwner(), isStatic, nullLoginUserMapping, op.name());
       }
       catch (TapisSecurityException tse)
       {
@@ -1229,7 +1229,7 @@ public class CredUtils
         if (ownerCredInfo == null)
         {
           // No record yet existed, so logUserMapping is null
-          createCredInfoRecordAsNeeded(rUser, sys, sys.getOwner(), isStaticEffUser, effUser, nullLoginUserMapping, opName);
+          createCredInfoRecordAsNeeded(rUser, sys, sys.getOwner(), isStaticEffUser, nullLoginUserMapping, opName);
         }
 
         // Update CredentialInfo hasCredentials attribute based on current defaultAuthnMethod for the system.
@@ -1261,8 +1261,7 @@ public class CredUtils
    *   3. After deleting a CredInfo record
    */
    CredentialInfo createCredInfoRecordAsNeeded(ResourceRequestUser rUser, TSystem sys, String tapisUser,
-                                               boolean isStaticEffUser, String hostLoginUser,
-                                               String loginUserMapping, String opName)
+                                               boolean isStaticEffUser, String loginUserMapping, String opName)
    {
      CredentialInfo credInfo = null;
      // Use a synchronized block for the operation.
@@ -1274,6 +1273,19 @@ public class CredUtils
        {
          // Record does not already exist, create it. Note we go through all states PENDING->IN_PROGRESS->COMPLETED
          //   because we want to make sure we never violate allowed state transitions.
+         // Determine hostLogin user based on isStatic and loginUserMapping
+         String hostLoginUser;
+         if (isStaticEffUser)
+         {
+           hostLoginUser = sys.getEffectiveUserId();
+         }
+         else
+         {
+           // Dynamic effUser. If we have loginUser mapping, use it. Else resolve effUser by filling in with tapisUser.
+           // Note that initial record starts with hasCredentials=false. If tapisUser creates a credential
+           //   it will get filled in.
+           hostLoginUser = (StringUtils.isBlank(loginUserMapping)) ?  tapisUser : loginUserMapping;
+         }
          credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser,
                                        hostLoginUser, loginUserMapping, SyncStatus.PENDING);
          credInfo = dao.createCredInfo(rUser, credInfo);
