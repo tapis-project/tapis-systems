@@ -698,8 +698,8 @@ public class SystemsServiceImpl implements SystemsService
     dao.putSystem(rUser, updatedTSystem, updateJsonStr, rawData);
 
     // Update credInfo records if necessary, i.e. if defaultAuthnMethod has changed.
-    // NOTE: Put does not allow for change effUser, so need to worry about that one.
-    credUtils.updateCredInfoRecordsForSystem(rUser, putSystem, origAuthnMethod, origEffUserId);
+    // NOTE: Put does not allow for changing effUser, so no need to worry about that one.
+    credUtils.updateCredInfoRecordsForSystem(rUser, updatedTSystem, origAuthnMethod, origEffUserId);
 
     // Update dynamically computed info.
     SystemShare systemShare = authUtils.getSystemShareInfo(rUser, sysTenant, sysId);
@@ -744,7 +744,7 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Soft delete a system
    *   - Update deleted to true for the system
-   * NOTE: No other actions taken. Credentials, SK permissions not removed.
+   * NOTE: No other actions taken. Credentials and SK permissions are not removed.
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system to delete
    * @return Number of items updated
@@ -1899,7 +1899,7 @@ public class SystemsServiceImpl implements SystemsService
   // ************************************************************************
 
   /*
-   * Given a TSystem and user making the request, fetch a credInfo record.
+   * Update the hasCredentials attribute for a system. Return the updated system.
    */
   private TSystem setHasCredentials(ResourceRequestUser rUser, TSystem sys, String oboOrImpersonatedUser,
                                     boolean isStaticEffUser)

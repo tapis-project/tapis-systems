@@ -51,7 +51,7 @@ public final class PatchSystem
   // ************************************************************************
 
   /*
-   * Constructor setting all attributes. All but 2 are final.
+   * Constructor setting all attributes.
    */
   public PatchSystem(String description1, String host1, String effectiveUserId1,
                      AuthnMethod defaultAuthnMethod1,

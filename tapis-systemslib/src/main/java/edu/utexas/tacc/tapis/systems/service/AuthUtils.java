@@ -815,6 +815,7 @@ public class AuthUtils
       case checkCred:
       case setAccessRefreshTokens:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
+              // TODO/TBD ???? If sys has static effUser should we include next 2? Seems like no, should not.
                 (oboOrImpersonatedUser.equals(targetUser) && isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS)) ||
                 (oboOrImpersonatedUser.equals(targetUser) && isSystemSharedWithUser(rUser, systemId, oboOrImpersonatedUser, Permission.READ)))
           return;

@@ -688,7 +688,7 @@ public class CredUtils
    * Write credentials to SK and create or update the CredentialInfo in DB.
    * If operation is not System.create then record update in SYSTEMS_UPDATE table
    *
-   * Return a CredInfo record.
+   * Return the CredInfo record resulting from the update.
    *
    * No checks are done for incoming arguments (except hostLoginUser) and the system must exist
    *
@@ -818,7 +818,7 @@ public class CredUtils
         changeCount = removeSKSecrets(rUser, sys, credTargetUser, isStatic);
         // Remove CredInfo record from DB
         dao.deleteCredInfo(sysTenant, sysId, tapisUser, isStatic);
-        // We want to make we always have at least one record for the system, for the owner.
+        // We want to make sure we always have at least one record for the system, for the owner.
         // So in case we just removed the owner record create it now.
         createCredInfoRecordAsNeeded(rUser, sys, sys.getOwner(), isStatic, nullLoginUserMapping, op.name());
       }
@@ -1233,6 +1233,7 @@ public class CredUtils
         }
 
         // Update CredentialInfo hasCredentials attribute based on current defaultAuthnMethod for the system.
+        // Note: There may be multiple credInfo records for the system. This call updates all of them.
         updateCredInfoHasCredentials(rUser, sys);
       }
     }
