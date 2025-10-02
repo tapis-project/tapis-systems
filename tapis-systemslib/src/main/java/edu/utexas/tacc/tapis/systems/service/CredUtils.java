@@ -603,7 +603,7 @@ public class CredUtils
     // For each record remove all SK secrets and the CredInfo record.
     for (CredentialInfo credInfo : ciList)
     {
-      deleteCredential(rUser, system, credInfo.getCredTargetUser(), credInfo.isStatic(), op);
+      deleteCredential(rUser, system, credInfo.getCredTargetUser(), credInfo.isStatic(), credInfo.getHostLoginUser(), op);
     }
   }
 
@@ -714,7 +714,7 @@ public class CredUtils
     synchronized (CredUtils.class)
     {
       // 1. Create/update CredInfo record to status PENDING
-      CredentialInfo credInfoDB = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStatic);
+      CredentialInfo credInfoDB = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStatic, hostLoginUser);
       if (credInfoDB == null)
       {
         // Record does not already exist, create it with status of PENDING
@@ -788,6 +788,11 @@ public class CredUtils
    */
   int deleteCredential(ResourceRequestUser rUser, TSystem sys, String credTargetUser, boolean isStatic, SystemOperation op)
   {
+    return deleteCredential(rUser, sys, credTargetUser, isStatic, null, op);
+  }
+  int deleteCredential(ResourceRequestUser rUser, TSystem sys, String credTargetUser, boolean isStatic,
+                       String hostLoginUser, SystemOperation op)
+  {
     String oboUser = rUser.getOboUserId();
     String sysId = sys.getId();
     String sysTenant = sys.getTenant();
@@ -805,14 +810,14 @@ public class CredUtils
       try
       {
         // Get CredInfo record from DB. If not there that is OK.
-        credInfoDB = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStatic);
+        credInfoDB = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStatic, hostLoginUser);
         // Remove secrets from SK
         changeCount = removeSKSecrets(rUser, sys, credTargetUser, isStatic);
         // Remove CredInfo record from DB
-        dao.deleteCredInfo(sysTenant, sysId, tapisUser, isStatic);
+        dao.deleteCredInfo(sysTenant, sysId, tapisUser, isStatic, hostLoginUser);
         // We want to make sure we always have at least one record for the system, for the owner.
         // So in case we just removed the owner record create it now.
-        createCredInfoRecordAsNeeded(rUser, sys, sys.getOwner(), isStatic, nullLoginUserMapping, op.name());
+        createCredInfoForOwnerAsNeeded(rUser, sys, isStatic, nullLoginUserMapping, op.name());
       }
       catch (TapisSecurityException tse)
       {
@@ -1222,7 +1227,7 @@ public class CredUtils
         if (ownerCredInfo == null)
         {
           // No record yet existed, so logUserMapping is null
-          createCredInfoRecordAsNeeded(rUser, sys, sys.getOwner(), isStaticEffUser, nullLoginUserMapping, opName);
+          createCredInfoForOwnerAsNeeded(rUser, sys, isStaticEffUser, nullLoginUserMapping, opName);
         }
 
         // Update CredentialInfo hasCredentials attribute based on current defaultAuthnMethod for the system.
@@ -1247,17 +1252,18 @@ public class CredUtils
   }
 
   /*
-   * Given a TSystem, tapisUser, hostLoginUser and isStatic create a CredInfo record if none exists.
+   * Given a TSystem and isStatic create a CredInfo record for system owner if none exists.
    * If record already exists then existing record is returned.
    * There are three cases where we want to make sure at least one record exists:
    *   1. During system create when credentials are not provided and effUser is static.
    *   2. During a put or patch update when authnMethod or effUser have changed.
    *   3. After deleting a CredInfo record
    */
-   CredentialInfo createCredInfoRecordAsNeeded(ResourceRequestUser rUser, TSystem sys, String tapisUser,
-                                               boolean isStaticEffUser, String loginUserMapping, String opName)
+   CredentialInfo createCredInfoForOwnerAsNeeded(ResourceRequestUser rUser, TSystem sys, boolean isStaticEffUser,
+                                                 String loginUserMapping, String opName)
    {
-     CredentialInfo credInfo = null;
+     CredentialInfo credInfo;
+     String tapisUser = sys.getOwner();
      // Use a synchronized block for the operation.
      synchronized (CredUtils.class)
      {

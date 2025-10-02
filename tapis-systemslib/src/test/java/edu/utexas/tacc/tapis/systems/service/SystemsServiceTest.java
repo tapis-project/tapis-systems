@@ -2276,7 +2276,7 @@ public class SystemsServiceTest
     // Owner should still be able to set cred. TODO In fact, should be able register cred for static effUser not the current effUser
     svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     // TODO/TBD can we create 2 Creds with different static effUser?
-//TODO    svcCred.createUserCredential(rOwner1, sysId, testUser4LinuxUser, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    svcCred.createUserCredential(rOwner1, sysId, testUser4LinuxUser, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     // TODO Check what CredInfo records have been created? RE: do we need to add host_login_user to primary key?
     //      Instead of creating a new credInfo record, this replaced the host_login_user with testUser4LinuxUser
     //      Is that what we want?

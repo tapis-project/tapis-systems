@@ -701,10 +701,10 @@ public class CredInfoInitJob
         return;
       }
 
-      String fmt = "Write CredentialInfo. tenant: %s sysId: %s tapisUser: %s isStatic: %b";
+      String fmt = "Write CredentialInfo. tenant: %s sysId: %s targetUser: %s isStatic: %b";
       trace(String.format(fmt, secretMetadata.tenantId, secretMetadata.systemId, secretMetadata.targetUser, secretMetadata.isStatic));
       CredentialInfo ci = credUtils.initCredInfoRecordFromVaultMetadata(rUserSvc, tenant, sys, isStatic, secretMetadata);
-      fmt = "Wrote CredentialInfo. tenant: %s sysId: %s tapisUser: %s isStatic: %b, loginUserMapping: %s " +
+      fmt = "Wrote CredentialInfo. tenant: %s sysId: %s targetUser: %s isStatic: %b, loginUserMapping: %s " +
             "hostLoginUser: %s hasCredentials: %b hasPassword: %b hasPkiKeys: %b hasAccessKey: %b hasToken %b hasTmsKeys: %b";
       trace(String.format(fmt, ci.getTenant(), ci.getSystemId(), ci.getTapisUser(), ci.isStatic(), ci.getLoginUserMapping(), ci.getHostLoginUser(),
                                ci.hasCredentials(), ci.hasPassword(), ci.hasPkiKeys(), ci.hasAccessKey(), ci.hasToken(),
