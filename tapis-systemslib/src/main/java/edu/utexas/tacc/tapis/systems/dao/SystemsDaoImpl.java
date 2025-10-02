@@ -1610,10 +1610,9 @@ public class SystemsDaoImpl implements SystemsDao
    * @param tenantId - name of tenant
    * @param id - name of system
    * @return Owner or null if no system found
-   * @throws TapisException - on error
    */
   @Override
-  public String getSystemOwner(String tenantId, String id) throws TapisException
+  public String getSystemOwner(String tenantId, String id)
   {
     String owner = null;
     // ------------------------- Call SQL ----------------------------
@@ -1639,6 +1638,41 @@ public class SystemsDaoImpl implements SystemsDao
       LibUtils.finalCloseDB(conn);
     }
     return owner;
+  }
+
+  /**
+   * getSystemEffectiveUserId
+   * @param tenantId - name of tenant
+   * @param id - name of system
+   * @return EffectiveUserId or null if no system found
+   */
+  @Override
+  public String getSystemEffectiveUserId(String tenantId, String id)
+  {
+    String effUser = null;
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      effUser = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(id)).fetchOne(SYSTEMS.EFFECTIVE_USER_ID);
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_QUERY_ERROR", "systems", e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return effUser;
   }
 
   /**

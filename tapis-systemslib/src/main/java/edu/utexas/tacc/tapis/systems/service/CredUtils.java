@@ -176,19 +176,13 @@ public class CredUtils
           (AuthnMethod.TOKEN.equals(authnMethod) && sm.hasToken() ) ||
           (AuthnMethod.TMS_KEYS.equals(authnMethod) && sm.hasTmsKeys());
 
-
-
-
-
     int sysSeqId = sys.getSeqId();
 
     // Compute tapisUser, hostLoginUser and loginUserMapping
     String tapisUser, hostLoginUser, loginUserMapping;
     // tapisUser.
     // For dynamic always credTargetUser.
-    // For static use system owner, that is who will most likely have registered the credential.
-    //   In practice, if it was not the owner, but instead it was a tenant admin, for example, it should not matter
-    //   since anyone using the system will get the credential for the static effUserId.
+    // For static use system owner. For static tapisUser should always be the system owner.
     if (!isStatic) tapisUser = credTargetUser; else tapisUser = sys.getOwner();
 
     // We are mutating a CredInfo record so synchronize around the class
@@ -701,18 +695,16 @@ public class CredUtils
     // There are other checks for missing hostLoginUser. This is a good backup check in case the code changes.
     // If missing it is a hard error.
     if (StringUtils.isBlank(hostLoginUser)) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_HOST_LOGIN", rUser));
-    String oboUser = rUser.getOboUserId();
     String loginUserMapping = credential.getLoginUser();
-
 
     // LoginUser field should not be provided if the system was created with a static effective user. 
     // This is because the static effective user is already a LoginUser for the system,
     // and there is no need to map a static effective user to a login user again.
     this.checkCredentialForInvalidLoginUser(rUser, sys, credential);
 
-    // For CredentialInfo record, if static then tapisUser is oboUser, if dynamic then tapisUser is targetUser
+    // For CredentialInfo record, if static then tapisUser is sys owner, if dynamic then tapisUser is targetUser
     // NOTE: targetUser is never from loginUserMapping.
-    String tapisUser = isStatic ? oboUser : credTargetUser;
+    String tapisUser = isStatic ? sys.getOwner() : credTargetUser;
 
     // Use a synchronized block for the update operation.
     // This is basically the equivalent of a selectForUpdate DB type operation.
@@ -1198,6 +1190,7 @@ public class CredUtils
    *
    * NOTE: Since we are synchronizing here no updates should be IN_PROGRESS.
    *       Any FAILED or PENDING records will get updated later by the maintenance task.
+   * TODO/TBD This might need updating after/if we had host_login_user to primary key of credInfo. See TODOs in SystemsServiceTest
    */
   void updateCredInfoRecordsForSystem(ResourceRequestUser rUser, TSystem sys, AuthnMethod origDefaultAuthnMethod, String origEffUser)
   {
@@ -1256,7 +1249,7 @@ public class CredUtils
   /*
    * Given a TSystem, tapisUser, hostLoginUser and isStatic create a CredInfo record if none exists.
    * If record already exists then existing record is returned.
-   * There are two cases where we want to make sure at least one record exists:
+   * There are three cases where we want to make sure at least one record exists:
    *   1. During system create when credentials are not provided and effUser is static.
    *   2. During a put or patch update when authnMethod or effUser have changed.
    *   3. After deleting a CredInfo record

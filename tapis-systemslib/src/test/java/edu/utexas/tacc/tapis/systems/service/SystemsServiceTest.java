@@ -2172,6 +2172,9 @@ public class SystemsServiceTest
   //    - user only has READ perm
   //    - user only has MODIFY perm
   //    - user only has share access
+  // Test that user cannot create credentials when:
+  //    - user does not have READ perm or shared access
+  //    - user has READ access but System has a static effUser.
   @Test
   public void testUserCredentialsNotOwner() throws Exception
   {
@@ -2179,7 +2182,9 @@ public class SystemsServiceTest
     TSystem sys0 = systems[2];
     String sysId = sys0.getId();
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+    TSystem tmpSys = svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+    Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
+    System.out.println("Created item: " + sys0.getId());
 
     Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
                                       "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1",
@@ -2194,9 +2199,9 @@ public class SystemsServiceTest
     svc.unshareSystem(rOwner1, sysId, systemShare);
     svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREADMODIFY, rawDataEmptyJson);
 
-    // Get system as owner using files service, should get cred for static effUser
-    TSystem tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse,
-            getCredsTrue, impersonationIdNull, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    // Get system as owner using files service, should get cred for owner
+    tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse,
+                           getCredsTrue, impersonationIdNull, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     Credential cred0 = tmpSys.getAuthnCredential();
     Assert.assertNotNull(cred0, "AuthnCredential should not be null");
     Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
@@ -2256,6 +2261,39 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
     pass = false;
     try { svcCred.deleteUserCredential(rTestUser5, sysId, testUser5); }
+    catch (ForbiddenException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+
+    // Patch system to have static effUser.
+    String rawDataPatch = "{\"effectiveUserId\": \"testuser5LinuxUser\"}";
+    PatchSystem patchSystem = new PatchSystem(null, null, testUser5LinuxUser, null, null, null, null, null, null,
+            null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+    svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
+    // Owner should still be able to set cred. TODO In fact, should be able register cred for static effUser not the current effUser
+    svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    // TODO/TBD can we create 2 Creds with different static effUser?
+//TODO    svcCred.createUserCredential(rOwner1, sysId, testUser4LinuxUser, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    // TODO Check what CredInfo records have been created? RE: do we need to add host_login_user to primary key?
+    //      Instead of creating a new credInfo record, this replaced the host_login_user with testUser4LinuxUser
+    //      Is that what we want?
+
+    // Other user should not be able to set cred, even when they have permission for the system and the targetUser
+    //   for the cred is the same as the user's tapis username.
+    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREAD, rawDataEmptyJson);
+    pass = false;
+    try { svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (ForbiddenException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    pass = false;
+    try { svcCred.deleteUserCredential(rTestUser5, sysId, testUser5LinuxUser); }
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));

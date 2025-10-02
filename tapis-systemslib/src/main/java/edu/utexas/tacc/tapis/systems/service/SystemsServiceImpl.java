@@ -371,7 +371,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // We want to always have at least one CredInfo record once system is created.
     // We can then use this record to update hasCredentials for the TSystem before returning it.
-    // For dynamic effUser we create a record for system owner.
+    // The initial credInfo record will always be for tapisUser = system owner.
     CredentialInfo credInfo = null;
 
     // Get SK client now. If we cannot get this rollback not needed.
@@ -607,6 +607,10 @@ public class SystemsServiceImpl implements SystemsService
     dao.patchSystem(rUser, systemId, patchedTSystem, updateJsonStr, rawData);
 
     // Update credInfo records if necessary, i.e. if defaultAuthnMethod or effUser have changed.
+    // TODO needs reviewing, for when going back and forth between static and dynamic or going
+    //      from one static effUser to another, and then maybe back again.
+    //      Basically, probably need to add host_login_user in credInfo table as part of the primary key.
+    //      See TODOs in SystemsServiceTest.
     credUtils.updateCredInfoRecordsForSystem(rUser, patchedTSystem, origAuthnMethod, origEffUser);
   }
 

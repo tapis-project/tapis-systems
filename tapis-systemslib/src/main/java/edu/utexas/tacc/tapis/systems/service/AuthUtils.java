@@ -814,17 +814,35 @@ public class AuthUtils
       case removeCred:
       case checkCred:
       case setAccessRefreshTokens:
-        if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser) ||
-              // TODO/TBD ???? If sys has static effUser should we include next 2? Seems like no, should not.
-                (oboOrImpersonatedUser.equals(targetUser) && isPermittedAny(rUser, oboTenant, oboOrImpersonatedUser, systemId, READMODIFY_PERMS)) ||
-                (oboOrImpersonatedUser.equals(targetUser) && isSystemSharedWithUser(rUser, systemId, oboOrImpersonatedUser, Permission.READ)))
-          return;
+        if (checkAuthCredOp(rUser, systemId, owner, oboOrImpersonatedUser, targetUser)) return;
         break;
     }
     // Not authorized, throw an exception
     String msg = LibUtils.getMsgAuth("SYSLIB_UNAUTH", rUser, systemId, op.name());
     log.info(msg);
     throw new ForbiddenException(msg);
+  }
+
+  /*
+   * Check auth for a credential operation
+   * If owner or tenant admin then allow.
+   * else if static effUser then deny
+   * else allow only if target user is requesting user and user has access to the system.
+   */
+  private boolean checkAuthCredOp(ResourceRequestUser rUser, String sysId, String owner, String oboOrImpersonatedUser,
+                                  String targetUser)
+        throws TapisException, TapisClientException
+  {
+    // If owner or tenant admin then allow
+    if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser)) return true;
+    // If system has a static effUser then deny. Only owner or admin can operate on credentials.
+    String effUser = dao.getSystemEffectiveUserId(rUser.getOboTenantId(), sysId);
+    if (!APIUSERID_VAR.equals(effUser)) return false;
+    // It is a dynamic effUser and requesting user is not the owner or a tenant admin,
+    // allow only if target user is requesting user and requesting user has access to the system.
+    return
+      (oboOrImpersonatedUser.equals(targetUser) && isPermittedAny(rUser, rUser.getOboTenantId(), oboOrImpersonatedUser, sysId, READMODIFY_PERMS)) ||
+      (oboOrImpersonatedUser.equals(targetUser) && isSystemSharedWithUser(rUser, sysId, oboOrImpersonatedUser, Permission.READ));
   }
 
   /*
