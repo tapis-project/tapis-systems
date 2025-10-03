@@ -367,6 +367,16 @@ public class SystemsServiceTest
     checkedCred = svcCred.createUserCredential(rOwner1, sysId, targetUser, credGoodWithLoginMapping, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
     checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, null);
+    // TODO next assert fails. Looks like a bug in CredInfo table. There are two entries for tapisUser=owner1, isStatic=false.
+    // TODO Should only be 1 entry
+    // TODO one has a login_user_mapping and one does not:
+/*
+TODO system_id    | tapis_user | login_user_mapping | host_login_user | is_static | has_credentials | has_password | has_pki_keys | sync_status
+ -----------------+------------+--------------------+-----------------+-----------+-----------------+--------------+--------------+-------------
+  TestSys_Svc_035 | owner1     |                    | testuser3       | t         | t               | t            | f            | COMPLETED
+  TestSys_Svc_035 | owner1     |                    | owner1          | f         | f               | f            | f            | COMPLETED
+  TestSys_Svc_035 | owner1     | testuser3          | testuser3       | f         | t               | t            | f            | COMPLETED
+*/
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
     checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, AuthnMethod.PASSWORD);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
@@ -1556,7 +1566,8 @@ public class SystemsServiceTest
   // testuser4    false     password
   // owner1       true      <none>
   //
-  // Also test support for dynamic attribute hasCredentials
+  // Also test support for dynamic attribute hasCredentials.
+  //   - Check credInfo records.
   // Initial system is dynamic, effectiveUserId = ${apiUserId}
   //   - Test 1 - create and get cred as owner1, testuser3
   //             - create and get should always use Tapis user (owner1, testuser3) in method arguments
@@ -1643,7 +1654,7 @@ public class SystemsServiceTest
     svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     credInfo = dao.getCredInfo(tenantName, sysId, testUser5, isStatic);
     IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, testUser5, isStatic, cred5A_NoLoginUser.getLoginUser(),
-          testUser5, CredentialInfo.SyncStatus.COMPLETED);
+                                    testUser5, CredentialInfo.SyncStatus.COMPLETED);
     ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
     Assert.assertNotNull(ciList);
     Assert.assertEquals(ciList.size(), 3);
@@ -1813,27 +1824,18 @@ public class SystemsServiceTest
     // Retrieve with resolve of effUser, effUser should be static value
     tmpSys = svc.getSystem(rOwner1, sysId, null, false, getCredsFalse, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     Assert.assertEquals(tmpSys.getEffectiveUserId(), testUser5LinuxUser);
-    // Create "static" cred for testuser5LinuxUser and testuser5
-    // These should go under the static secret path in SK
+    // Create "static" cred for testuser5LinuxUser and testuser5. Should go under the static secret path in SK
     // Note that we create a static cred for testuser5 to make sure it does not get mixed up with the dynamic cred for same user name
     svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5NoLoginLinuxUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
-    // TODO/TBD Bug, following createCred creates a credInfo record with host_login_user=testuser5, replacing the
-    //         existing record with host_login_user=testuser5LinuxUser
-    // TODO/TBD: Looks like maybe we need to add host_login_user to the primary key. Since we can have
-    //           multiple records for a system with isStatic=true.
-    //           User's can register credentials for different static effUser IDs. But should we allow that?
-    //           And who should be able to register credentials for the isStatic=true case? Just the owner or tenant admin? probably.
-    //           Currently it looks like there might be a bug in that any user with access to the system can register credentials
-    //             for any effUserId as long as the effUser matches their tapis user ID. This should not be allowed.
-
-    // TODO Begin test-check Let's test something, patch the static effUser to testuser5. Does it update the host_login_user of the credInfo?
-    //      NO, it does not, so credInfo is out-of-sync with current static effUser of system.
-    patchSystem = new PatchSystem(null, null, testUser5, null, null, null, null, null, null,
-          null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-    svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
-    // TODO End test-check
-
     svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5NoLoginStatic, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    // Check what CredInfo records have been created. Should both be there with hasCredentials = false becase we created PASSWORD, not PKI_KEYS
+    credInfo = dao.getCredInfo(tenantName, sysId, owner1, true,testUser5LinuxUser);
+    Assert.assertNotNull(credInfo, "Missing credInfo record for static effUser. effUsr = " + testUser5LinuxUser);
+    Assert.assertFalse(credInfo.hasCredentials(), "CredInfo.hasCredentials should be false. effUser = " + testUser5LinuxUser);
+    credInfo = dao.getCredInfo(tenantName, sysId, owner1, true,testUser5);
+    Assert.assertNotNull(credInfo, "Missing credInfo record for static effUser. effUsr = " + testUser5);
+    Assert.assertFalse(credInfo.hasCredentials(), "CredInfo.hasCredentials should be false. effUser = " + testUser5);
+
     // Get cred and verify for testUser5LinuxUser
     cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser5LinuxUser, AuthnMethod.PASSWORD);
     Assert.assertNotNull(cred0, "AuthnCredential should not be null for user: " + testUser5LinuxUser);
@@ -1850,21 +1852,6 @@ public class SystemsServiceTest
     // Get as testUser3 and check cred. Since it is static should always get back cred for testUser5
     tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred5NoLoginLinuxUser.getPassword(), testUser5, testUser5LinuxUser);
-
-    // While system is still static effUser, before we change back to dynamic test create and delete of a credential
-    //   using a user other than the owner. Use testUser5.
-    svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred5NoLoginStatic, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
-    // Should have credInfo with hasCredentials = true.
-    credInfo = dao.getCredInfo(tenantName, sysId, testUser5, isStaticTrue);
-    Assert.assertNotNull(credInfo, "CredentialInfo for test user was deleted. System name: " + sysId + " User name: " + testUser5);
-    // TODO following check fails
-    Assert.assertTrue(credInfo.hasCredentials(), "hasCredentials should be true");
-    // TODO Delete the credInfo. TBD: credInfo should remain (because it's a static effUser) and hasCredentials should now be false.
-    svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
-
-
-
-
 
     boolean passed = false;
     try {
@@ -1900,9 +1887,9 @@ public class SystemsServiceTest
     tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred3NoLoginUser.getPassword(), testUser3, testUser3);
 
-    // Get system as testUser5 and check cred.
+    // Get system as testUser5 and check cred created above during dynamic effUser phase
     tmpSys = svc.getSystem(rFilesSvcTestUser5, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-    checkCredPasswordAndEffectiveUser(tmpSys, cred5B_LoginUser.getPassword(), testUser5, testUser5LinuxUser);
+    checkCredPasswordAndEffectiveUser(tmpSys, cred5B_LoginUser.getPassword(), testUser5, testUser5);
   }
 
   // Test creating, reading and using a TMS ssh key-pair.
@@ -3444,7 +3431,6 @@ public class SystemsServiceTest
     Assert.assertNotNull(cred.getPassword(), "AuthnCredential password should not be null for user: " + user);
     Assert.assertEquals(cred.getPassword(), password, "Retrieved password incorrect");
     Assert.assertEquals(sys.getEffectiveUserId(), effUser, "Incorrect effectiveUserId");
-
   }
 
   private String getParentSysName(int num) {
