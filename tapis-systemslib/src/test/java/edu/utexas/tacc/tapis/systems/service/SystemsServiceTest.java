@@ -352,18 +352,24 @@ public class SystemsServiceTest
 
     // Cleanup any previous credentials for targetUser = owner1
     svcCred.deleteUserCredential(rOwner1, sysId, owner1);
+    // TODO: another bug? after delete, static effUser record is still there but it has has_cred=true and has_password=true
+    //       Shouldn't they both be false after the delete?
 
     // Update the system to have a dynamic effectiveUserId. Use PATCH
     PatchSystem patchSystem = new PatchSystem(null, null, TSystem.APIUSERID_VAR, null, null, null, null, null, null,
                   null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+    // TODO THIS is the call that creates the entry with no login mapping
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataEmptyJson);
     tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
 
     // Test create with invalid credentials
+    // TODO/TBD This is create that probably does entry with no login mapping
+    //    NO, entry is already there. Possibly the entry created when the system is created?
     Credential checkedCred = svcCred.createUserCredential(rOwner1, sysId, targetUser, credFake, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
 
     // Test createCred and check with valid credentials
+    // TODO/TBD This is create that probably does entry with a login mapping, it should replace the one with no login mapping.
     checkedCred = svcCred.createUserCredential(rOwner1, sysId, targetUser, credGoodWithLoginMapping, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
     checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, null);
