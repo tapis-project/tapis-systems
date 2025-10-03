@@ -41,7 +41,7 @@ public class CredentialInfo
   private final int systemSeqId; // Sequence id associated with the system id
   private final String tenant; // Name of tenant associated with the credential
   private final String systemId; // Name of the system associated with the credential
-  private final String tapisUser; // Tapis user associated with the credential
+  private final String tapisUser; // Tapis user associated with the credential. If static effUser this is always sys owner.
   private final boolean isStatic; // Indicates if record is for the static or dynamic effectiveUserId case.
 
   private final String hostLoginUser; // Username used when connecting to host

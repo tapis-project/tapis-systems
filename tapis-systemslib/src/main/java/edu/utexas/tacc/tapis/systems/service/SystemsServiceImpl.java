@@ -331,7 +331,7 @@ public class SystemsServiceImpl implements SystemsService
       if (!SystemType.LINUX.equals(sysType) && !SystemType.S3.equals(sysType)) skipCredCheck = true;
 
       // static effectiveUser case. Credential must not contain loginUser
-      credUtils.checkCredentialForInvalidLoginUser(rUser, system, cred);
+      credUtils.checkCredentialForInvalidLoginUser(rUser, system, cred, isStaticEffUser);
 
       // ---------------- Verify credentials if not skipped
       if (!skipCredCheck)
@@ -610,10 +610,6 @@ public class SystemsServiceImpl implements SystemsService
     dao.patchSystem(rUser, systemId, patchedTSystem, updateJsonStr, rawData);
 
     // Update credInfo records if necessary, i.e. if defaultAuthnMethod or effUser have changed.
-    // TODO needs reviewing, for when going back and forth between static and dynamic or going
-    //      from one static effUser to another, and then maybe back again.
-    //      Basically, probably need to add host_login_user in credInfo table as part of the primary key.
-    //      See TODOs in SystemsServiceTest.
     credUtils.updateCredInfoRecordsForSystem(rUser, patchedTSystem, origAuthnMethod, origEffUser);
   }
 
@@ -705,7 +701,7 @@ public class SystemsServiceImpl implements SystemsService
     dao.putSystem(rUser, updatedTSystem, updateJsonStr, rawData);
 
     // Update credInfo records if necessary, i.e. if defaultAuthnMethod has changed.
-    // NOTE: Put does not allow for changing effUser, so no need to worry about that one.
+    // NOTE: Put does not allow for changing effUser, but this method will handle both, just in clase that ever changes.
     credUtils.updateCredInfoRecordsForSystem(rUser, updatedTSystem, origAuthnMethod, origEffUserId);
 
     // Update dynamically computed info.
@@ -1196,8 +1192,6 @@ public class SystemsServiceImpl implements SystemsService
     // Determine the effectiveUser type, either static or dynamic
     // Secrets get stored on different paths based on this
     boolean isStaticEffUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
-    // Determine the host login user. Not always needed, but at most 1 extra DB call for mapped loginUser
-    // And getting it now makes some code below a little cleaner and clearer.
     String resolvedEffectiveUserId = sysUtils.resolveEffectiveUserId(system, oboOrImpersonatedUser);
 
     // ------------------------- Check authorization -------------------------

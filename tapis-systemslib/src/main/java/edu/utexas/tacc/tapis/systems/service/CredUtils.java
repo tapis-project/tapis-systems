@@ -182,7 +182,7 @@ public class CredUtils
     String tapisUser, hostLoginUser, loginUserMapping;
     // tapisUser.
     // For dynamic always credTargetUser.
-    // For static use system owner. For static tapisUser should always be the system owner.
+    // For static, tapisUser should always be the system owner.
     if (!isStatic) tapisUser = credTargetUser; else tapisUser = sys.getOwner();
 
     // We are mutating a CredInfo record so synchronize around the class
@@ -203,6 +203,8 @@ public class CredUtils
         loginUserMapping = credInfoDB.getLoginUserMapping();
 
         // Determine hostLoginUser
+        // TODO/TBD move to a method? There are many places where we need to figure out hostLoginUser. How much do they
+        //          have in common? Is the one used at sys create the only special one?
         if (isStatic && APIUSERID_VAR.equals(sys.getEffectiveUserId()))
         {
           // Exceptional case. Vault record is static but system has effectiveUserId = ${apiUserId} This means that
@@ -667,9 +669,9 @@ public class CredUtils
    * @param sys - the TSystem to check
    * @param cred - credentials to check
    */
-  void checkCredentialForInvalidLoginUser(ResourceRequestUser rUser, TSystem sys, Credential cred)
+  void checkCredentialForInvalidLoginUser(ResourceRequestUser rUser, TSystem sys, Credential cred, boolean isStatic)
   {
-    if (!sys.isDynamicEffectiveUser() && cred != null && !StringUtils.isBlank(cred.getLoginUser()))
+    if (isStatic && cred != null && !StringUtils.isBlank(cred.getLoginUser()))
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, sys.getId());
       log.warn(msg);
@@ -700,7 +702,7 @@ public class CredUtils
     // LoginUser field should not be provided if the system was created with a static effective user. 
     // This is because the static effective user is already a LoginUser for the system,
     // and there is no need to map a static effective user to a login user again.
-    this.checkCredentialForInvalidLoginUser(rUser, sys, credential);
+    this.checkCredentialForInvalidLoginUser(rUser, sys, credential, isStatic);
 
     // For CredentialInfo record, if static then tapisUser is sys owner, if dynamic then tapisUser is targetUser
     // NOTE: targetUser is never from loginUserMapping.
@@ -799,6 +801,10 @@ public class CredUtils
     int changeCount;
     // If static then tapisUser is oboUser, if dynamic then tapisUser is targetUser
     String tapisUser = isStatic ? oboUser : credTargetUser;
+    // If static we can figure out hostLoginUser. Otherwise dao.deleteCredInfo would look it up and get the
+    //  one currently associated with the system, which might not be the correct one. That is because multiple
+    //  credentials can be created even for static effUser, resulting in multiple credInfo records.
+    if (isStatic) hostLoginUser = credTargetUser;
 
     // Use a synchronized block for the update operation.
     // This is basically the equivalent of a selectForUpdate DB type operation.
@@ -1155,7 +1161,7 @@ public class CredUtils
   {
     String opName = "updateCredInfoHasCredentials";
     AuthnMethod authnMethod = sys.getDefaultAuthnMethod();
-    // We are mutating a CredInfo record so synchronize around the class
+    // We are mutating CredInfo records so synchronize around the class
     synchronized (CredUtils.class)
     {
       // Get all CredInfo records associated with the system.
@@ -1191,11 +1197,15 @@ public class CredUtils
   /*
    * Update CredentialInfo record based on changes to defaultAuthnMethod or effUser.
    * Used as part of patch and put update operations.
+   * In theory PUT will never change effUser, but we will leave this method general purpose in case that ever changes.
    * All records associated with the system will be updated unless updates are currently in progress
    *
    * NOTE: Since we are synchronizing here no updates should be IN_PROGRESS.
    *       Any FAILED or PENDING records will get updated later by the maintenance task.
-   * TODO/TBD This might need updating after/if we had host_login_user to primary key of credInfo. See TODOs in SystemsServiceTest
+   *
+   * We might be going back and forth between static and dynamic or going from one static effUser to another, so it
+   *   is possible for there to be multiple credInfo records for a tapisUser if static effUser.
+   * This is why we needed to add host_login_user in credInfo table as part of the primary key.
    */
   void updateCredInfoRecordsForSystem(ResourceRequestUser rUser, TSystem sys, AuthnMethod origDefaultAuthnMethod, String origEffUser)
   {
@@ -1215,12 +1225,11 @@ public class CredUtils
     //    1. Start synchronized block
     //    2. Make sure we have at least one record, for system owner.
     //    3. For each record update hasCredentials base on current authnMethod.
+    // We will be updating CredInfo records so synchronize.
     synchronized (CredUtils.class)
     {
       // Fetch credInfo record for owner, if it exists. Use possibly new value of effUser
-      // We might check for and then create a credInfo record, so synchronize
       CredentialInfo ownerCredInfo;
-      synchronized (CredUtils.class)
       {
         ownerCredInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), sys.getOwner(), isStaticEffUser);
         // If it did not yet exist then create it
@@ -1255,9 +1264,9 @@ public class CredUtils
    * Given a TSystem and isStatic create a CredInfo record for system owner if none exists.
    * If record already exists then existing record is returned.
    * There are three cases where we want to make sure at least one record exists:
-   *   1. During system create when credentials are not provided and effUser is static.
+   *   1. During system create when credentials are not provided.
    *   2. During a put or patch update when authnMethod or effUser have changed.
-   *   3. After deleting a CredInfo record
+   *   3. After deleting a CredInfo record.
    */
    CredentialInfo createCredInfoForOwnerAsNeeded(ResourceRequestUser rUser, TSystem sys, boolean isStaticEffUser,
                                                  String loginUserMapping, String opName)

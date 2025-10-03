@@ -2273,13 +2273,31 @@ public class SystemsServiceTest
     PatchSystem patchSystem = new PatchSystem(null, null, testUser5LinuxUser, null, null, null, null, null, null,
             null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
-    // Owner should still be able to set cred. TODO In fact, should be able register cred for static effUser not the current effUser
+    // Owner should still be able to set cred.
     svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
-    // TODO/TBD can we create 2 Creds with different static effUser?
+    // In fact, should be able to register cred for static effUser not the current effUser. Do that now.
     svcCred.createUserCredential(rOwner1, sysId, testUser4LinuxUser, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
-    // TODO Check what CredInfo records have been created? RE: do we need to add host_login_user to primary key?
-    //      Instead of creating a new credInfo record, this replaced the host_login_user with testUser4LinuxUser
-    //      Is that what we want?
+    // Check what CredInfo records have been created. Should both be there with hasCredentials = true
+    CredentialInfo ci = dao.getCredInfo(tenantName, sysId, owner1, true,testUser5LinuxUser);
+    Assert.assertNotNull(ci, "Missing credInfo record for static effUser. effUsr = " + testUser5LinuxUser);
+    Assert.assertTrue(ci.hasCredentials(), "CredInfo.hasCredentials should be true. effUser = " + testUser5LinuxUser);
+    ci = dao.getCredInfo(tenantName, sysId, owner1, true,testUser4LinuxUser);
+    Assert.assertNotNull(ci, "Missing credInfo record for static effUser. effUsr = " + testUser4LinuxUser);
+    Assert.assertTrue(ci.hasCredentials(), "CredInfo.hasCredentials should be true. effUser = " + testUser4LinuxUser);
+    // Delete credential for static effUser not currently associated with the system. CredInfo should be deleted.
+    svcCred.deleteUserCredential(rOwner1, sysId, testUser4LinuxUser);
+    ci = dao.getCredInfo(tenantName, sysId, owner1, true,testUser4LinuxUser);
+    Assert.assertNull(ci, "credInfo record not deleted for static effUser. effUsr = " + testUser4LinuxUser);
+    // CredInfo for current static effUser should still be there.
+    ci = dao.getCredInfo(tenantName, sysId, owner1, true,testUser5LinuxUser);
+    Assert.assertNotNull(ci, "Missing credInfo record for static effUser. effUsr = " + testUser5LinuxUser);
+    Assert.assertTrue(ci.hasCredentials(), "CredInfo.hasCredentials should be true. effUser = " + testUser5LinuxUser);
+    // Now, delete credential for current static effUser. CredInfo should stay because it is for the owner,
+    //   but credInfo.hasCredentials should now be false.
+    svcCred.deleteUserCredential(rOwner1, sysId, testUser5LinuxUser);
+    ci = dao.getCredInfo(tenantName, sysId, owner1, true,testUser5LinuxUser);
+    Assert.assertNotNull(ci, "Missing credInfo record for static effUser. effUsr = " + testUser5LinuxUser);
+    Assert.assertFalse(ci.hasCredentials(), "CredInfo.hasCredentials should be false. effUser = " + testUser5LinuxUser);
 
     // Other user should not be able to set cred, even when they have permission for the system and the targetUser
     //   for the cred is the same as the user's tapis username.
