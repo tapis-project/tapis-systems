@@ -1552,14 +1552,17 @@ public class SystemsServiceTest
   // Test creating, reading and deleting user credentials for a system
   // DATA - System ID TestSys_Svc_011 - owned by "owner1",
   //        starts dynamic effUser, switches to static, then back to dynamic.
-  // Credentials:
-  // TapisUser    isStatic  Credentials
-  // ---------    --------  --------------
-  // owner1       false     password, pki_keys
-  // testuser3    false     password, pki_keys
-  // testuser5    false     password
-  // testuser4    false     password
-  // owner1       true      <none>
+  // ======================================================================================================
+  // Credentials created along the way, although sometimes they are delete or loginUserMapping is changed:
+  // ---------    ---------------- ------------- --------  --------------
+  // TapisUser    loginUserMapping hostLoginUser isStatic  Credentials
+  // ---------    ---------------- ------------- --------  --------------
+  // owner1        <none>          owner1        false     password, pki_keys
+  // owner1        <none>          testUser5Lnx  true      password
+  // owner1        <none>          testuser5     true      <none>
+  // testuser3     <none>          testuser3     false     password, pki_keys
+  // testuser4     testUser4Lnx    testUser4Lnx  false     password
+  // testuser5     testUser5Lnx    testUser5Lnx  false     password
   //
   // Also test support for dynamic attribute hasCredentials.
   //   - Check credInfo records.
@@ -1587,22 +1590,23 @@ public class SystemsServiceTest
     boolean isStatic = false;
     // Create the system
     TSystem tmpSys = svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
-    // Make sure credInfo record created for owner, not $apiUser. This was a bug and one point.
+    // Make sure credInfo record created for owner, not $apiUser. Bug at one point, make sure not back.
     CredentialInfo credInfo = dao.getCredInfo(tenantName, sysId, sysOwner, isStatic);
     Assert.assertNotNull(credInfo, "No CredInfo initial record");
     Assert.assertEquals(credInfo.getHostLoginUser(), sysOwner);
     Assert.assertFalse(credInfo.hasCredentials(), "hasCredentials should be false");
 
     // As a precaution, clean up credentials. These may be left over from previous tests.
-    credUtils.deleteCredentialForUser(rOwner1, tmpSys, owner1, op); //testUser5LinuxUser
+    credUtils.deleteCredentialForUser(rOwner1, tmpSys, owner1, op);
     credUtils.deleteCredentialForUser(rOwner1, tmpSys, testUser3, op);
     credUtils.deleteCredentialForUser(rOwner1, tmpSys, testUser4, op);
     credUtils.deleteCredentialForUser(rOwner1, tmpSys, testUser5, op);
+    credUtils.deleteCredentialForUser(rOwner1, tmpSys, testUser4LinuxUser, op);
     credUtils.deleteCredentialForUser(rOwner1, tmpSys, testUser5LinuxUser, op);
     // cred3NoLoginUser - all creds except TMS
     Credential cred3NoLoginUser = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
-            "fakeAccessKey3", "fakeAccessSecret3", "fakeAccessToken3", "fakeRefreshToken3",
-            null, null, "fakeTmsFingerprint", "fakeCert3");
+                                       "fakeAccessKey3", "fakeAccessSecret3", "fakeAccessToken3", "fakeRefreshToken3",
+                                       null, null, "fakeTmsFingerprint", "fakeCert3");
     Credential cred3NoLoginUserAccessAuthn = new Credential(null, null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null, null, null, null, null, null);
     Credential cred4LoginUser = new Credential(null, testUser4LinuxUser, "fakePassword4", null, null, null, null, null, null, null, null, null, null);
     Credential cred5A_NoLoginUser = new Credential(null, null, "fakePassword5a", null, null, null, null, null, null, null, null, null, null);
@@ -1610,7 +1614,7 @@ public class SystemsServiceTest
     Credential cred5NoLoginStatic = new Credential(null, null, "fakePassword5Static", null, null, null, null, null, null, null, null, null, null);
     Credential cred5B_LoginUser = new Credential(null, testUser5LinuxUser, "fakePassword5b", null, null, null, null, null, null, null, null, null, null);
 
-    // We will be updating credentials for testUser3, 5 so allow them READ access to system.
+    // We will be updating credentials for testUser3, testUser5 so allow them READ access to system.
     svc.grantUserPermissions(rOwner1, sysId, testUser3, testPermsREAD, rawDataEmptyJson);
     svc.grantUserPermissions(rOwner1, sysId, testUser5, testPermsREAD, rawDataEmptyJson);
 
@@ -1619,10 +1623,7 @@ public class SystemsServiceTest
                            resourceTenantNull, fetchShareInfoFalse);
     Assert.assertFalse(tmpSys.hasCredentials(), "hasCredentials should be false");
     tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PKI_KEYS, false, getCredsTrue, null, sharedCtxNull,
-          resourceTenantNull, fetchShareInfoFalse);
-    Assert.assertFalse(tmpSys.hasCredentials(), "hasCredentials should be false");
-    tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsFalse, null, sharedCtxNull,
-          resourceTenantNull, fetchShareInfoFalse);
+                           resourceTenantNull, fetchShareInfoFalse);
     Assert.assertFalse(tmpSys.hasCredentials(), "hasCredentials should be false");
 
     // Make the separate calls required to store credentials for each user.
@@ -1848,12 +1849,16 @@ public class SystemsServiceTest
     tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred5NoLoginLinuxUser.getPassword(), testUser5, testUser5LinuxUser);
 
+    // Before we switch back to dynamic, test that for a static effUser we are not allowed to pass in a loginUserMapping
     boolean passed = false;
-    try {
-        svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5B_LoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
-    } catch (IllegalArgumentException e) {
-        String msg = e.getMessage();
-        passed = msg.contains("SYSLIB_CRED_INVALID_LOGINUSER");
+    try
+    {
+      svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5B_LoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    }
+    catch (IllegalArgumentException e)
+    {
+      String msg = e.getMessage();
+      passed = msg.contains("SYSLIB_CRED_INVALID_LOGINUSER");
     }
     Assert.assertTrue(passed, "Expected credential creation to be rejected");
 
@@ -1871,35 +1876,26 @@ public class SystemsServiceTest
     // Re-create creds for owner1, testuser3. Recall we deleted them above as part of the test
     svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
-    // Create "dynamic" cred for testuser5
+
+    // Delete cred for testuser5 before re-creating for the dynamic case
+    changeCount = svcCred.deleteUserCredential(rOwner1, sysId, testUser5);
+    Assert.assertEquals(changeCount, 1, "Change count incorrect when removing credential for user: " + testUser5);
+    cred0 = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser5, AuthnMethod.PASSWORD);
+    Assert.assertNull(cred0, "Credential not deleted. System name: " + sysId + " User name: " + testUser5);
+
+    // Create "dynamic" cred for testuser5 with userLoginMapping to testuser5LinuxUser
     // This should go under the dynamic secret path in SK
     svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5B_LoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
 
-    // Get system as owner and check cred, should be same as before for "dynamic" use case.
+    // Final checks, retrieve creds for various uses for dynamic case
     tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred1NoLoginUser.getPassword(), owner1, owner1);
     // Get system as testUser3 using files service and should get cred for testUser3
     tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred3NoLoginUser.getPassword(), testUser3, testUser3);
-
     // Get system as testUser5 and check cred created above during dynamic effUser phase
-    tmpSys = svc.getSystem(rFilesSvcTestUser5, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-    checkCredPasswordAndEffectiveUser(tmpSys, cred5B_LoginUser.getPassword(), testUser5, testUser5);
-     // TODO above check fails.
-    //   Also here is the state at the end:
-/*
- TODO
-  select tenant,system_id,tapis_user,login_user_mapping,host_login_user,is_static,has_credentials,has_password,has_pki_keys,sync_status from systems_cred_info where system_id like 'TestSys_Svc%' order by (tapis_user, is_static);
-  tenant |    system_id    | tapis_user | login_user_mapping |  host_login_user   | is_static | has_credentials | has_password | has_pki_keys | sync_status
-  --------+-----------------+------------+--------------------+--------------------+-----------+-----------------+--------------+--------------+-------------
-  dev    | TestSys_Svc_011 | owner1     |                    | owner1             | f         | t               | t            | t            | COMPLETED
-  dev    | TestSys_Svc_011 | owner1     |                    | testuser5LinuxUser | t         | f               | t            | f            | COMPLETED
-  dev    | TestSys_Svc_011 | owner1     |                    | testuser5          | t         | f               | t            | f            | COMPLETED
-  dev    | TestSys_Svc_011 | testuser3  |                    | testuser3          | f         | t               | t            | t            | COMPLETED
-  dev    | TestSys_Svc_011 | testuser4  | testuser4LinuxUser | testuser4LinuxUser | f         | f               | t            | f            | COMPLETED
-  dev    | TestSys_Svc_011 | testuser5  | testuser5LinuxUser | testuser5LinuxUser | f         | f               | t            | f            | COMPLETED
-*/
-
+    tmpSys = svc.getSystem(rFilesSvcTestUser5, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, impersonationIdNull, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    checkCredPasswordAndEffectiveUser(tmpSys, cred5B_LoginUser.getPassword(), testUser5, testUser5LinuxUser);
   }
 
   // Test creating, reading and using a TMS ssh key-pair.
