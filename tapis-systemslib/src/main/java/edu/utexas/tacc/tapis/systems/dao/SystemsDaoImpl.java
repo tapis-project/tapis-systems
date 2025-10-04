@@ -1850,6 +1850,10 @@ public class SystemsDaoImpl implements SystemsDao
    * getCredentialInfo given attributes of primary key
    * If hostLoginUser not provided then look it up from existing data.
    */
+  // TODO If dynamic effUser, there should be only 1 record but the existing record might have a different
+  //    hostLoginUser. For example, there was no loginUserMapping before and it is being provided now or the
+  //    loginUserMapping is being changed. So we need to make sure look for a record independent of the
+  //    hostLoginUser and then when the credInfo record is updated we need to set a different hostLoginUser.
   @Override
   public CredentialInfo getCredInfo(String tenantId, String sysId, String tapisUser, boolean isStatic)
   {

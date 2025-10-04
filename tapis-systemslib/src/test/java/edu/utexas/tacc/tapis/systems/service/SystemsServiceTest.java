@@ -326,8 +326,10 @@ public class SystemsServiceTest
     String targetUser = owner1;
     String sysId = sys0.getId();
     // Get username and password from environment
+    // Use username from env for both login mapping and static effUser
     String loginUserMapping = System.getenv(TAPIS_TEST_USERNAME_ENV_VAR);
     String testTapisUserP = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
+    String staticEffUser = loginUserMapping;
     if (StringUtils.isBlank(loginUserMapping))
     {
       Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_USERNAME_ENV_VAR);
@@ -341,7 +343,7 @@ public class SystemsServiceTest
     Credential credGoodWithLoginMapping = new Credential(null, loginUserMapping, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
 
     // Create the system with a static effectiveUserId so we can test creating a system with credentials.
-    sys0.setEffectiveUserId(loginUserMapping);
+    sys0.setEffectiveUserId(staticEffUser);
     sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
     sys0.setHost(TAPIS_TEST_HOST_IP);
     sys0.setAuthnCredential(credGoodPasswd);
@@ -350,39 +352,26 @@ public class SystemsServiceTest
     Assert.assertNotNull(tmpSys, "Failed to create item: " + sysId);
     System.out.println("Found item: " + sysId);
 
-    // Cleanup any previous credentials for targetUser = owner1
+    // Cleanup any previous credentials for targetUser = owner1 and staticEff user.
     svcCred.deleteUserCredential(rOwner1, sysId, owner1);
-    // TODO: another bug? after delete, static effUser record is still there but it has has_cred=true and has_password=true
-    //       Shouldn't they both be false after the delete?
+    svcCred.deleteUserCredential(rOwner1, sysId, staticEffUser);
 
     // Update the system to have a dynamic effectiveUserId. Use PATCH
     PatchSystem patchSystem = new PatchSystem(null, null, TSystem.APIUSERID_VAR, null, null, null, null, null, null,
                   null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-    // TODO THIS is the call that creates the entry with no login mapping
+    // THIS is the call that creates the entry with no login mapping
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataEmptyJson);
     tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
 
-    // Test create with invalid credentials
-    // TODO/TBD This is create that probably does entry with no login mapping
-    //    NO, entry is already there. Possibly the entry created when the system is created?
+    // Test create with invalid credentials. No secrets are stored in SK and CredInfo record is not updated.
     Credential checkedCred = svcCred.createUserCredential(rOwner1, sysId, targetUser, credFake, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
 
     // Test createCred and check with valid credentials
-    // TODO/TBD This is create that probably does entry with a login mapping, it should replace the one with no login mapping.
+    // This is the call that creates a credInfo entry with a login mapping, it should replace the one with no login mapping.
     checkedCred = svcCred.createUserCredential(rOwner1, sysId, targetUser, credGoodWithLoginMapping, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
     checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, null);
-    // TODO next assert fails. Looks like a bug in CredInfo table. There are two entries for tapisUser=owner1, isStatic=false.
-    // TODO Should only be 1 entry
-    // TODO one has a login_user_mapping and one does not:
-/*
-TODO system_id    | tapis_user | login_user_mapping | host_login_user | is_static | has_credentials | has_password | has_pki_keys | sync_status
- -----------------+------------+--------------------+-----------------+-----------+-----------------+--------------+--------------+-------------
-  TestSys_Svc_035 | owner1     |                    | testuser3       | t         | t               | t            | f            | COMPLETED
-  TestSys_Svc_035 | owner1     |                    | owner1          | f         | f               | f            | f            | COMPLETED
-  TestSys_Svc_035 | owner1     | testuser3          | testuser3       | f         | t               | t            | f            | COMPLETED
-*/
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
     checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, AuthnMethod.PASSWORD);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
@@ -1896,6 +1885,21 @@ TODO system_id    | tapis_user | login_user_mapping | host_login_user | is_stati
     // Get system as testUser5 and check cred created above during dynamic effUser phase
     tmpSys = svc.getSystem(rFilesSvcTestUser5, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred5B_LoginUser.getPassword(), testUser5, testUser5);
+     // TODO above check fails.
+    //   Also here is the state at the end:
+/*
+ TODO
+  select tenant,system_id,tapis_user,login_user_mapping,host_login_user,is_static,has_credentials,has_password,has_pki_keys,sync_status from systems_cred_info where system_id like 'TestSys_Svc%' order by (tapis_user, is_static);
+  tenant |    system_id    | tapis_user | login_user_mapping |  host_login_user   | is_static | has_credentials | has_password | has_pki_keys | sync_status
+  --------+-----------------+------------+--------------------+--------------------+-----------+-----------------+--------------+--------------+-------------
+  dev    | TestSys_Svc_011 | owner1     |                    | owner1             | f         | t               | t            | t            | COMPLETED
+  dev    | TestSys_Svc_011 | owner1     |                    | testuser5LinuxUser | t         | f               | t            | f            | COMPLETED
+  dev    | TestSys_Svc_011 | owner1     |                    | testuser5          | t         | f               | t            | f            | COMPLETED
+  dev    | TestSys_Svc_011 | testuser3  |                    | testuser3          | f         | t               | t            | t            | COMPLETED
+  dev    | TestSys_Svc_011 | testuser4  | testuser4LinuxUser | testuser4LinuxUser | f         | f               | t            | f            | COMPLETED
+  dev    | TestSys_Svc_011 | testuser5  | testuser5LinuxUser | testuser5LinuxUser | f         | f               | t            | f            | COMPLETED
+*/
+
   }
 
   // Test creating, reading and using a TMS ssh key-pair.
