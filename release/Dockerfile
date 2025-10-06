@@ -28,8 +28,8 @@ COPY --chown=tapis:tapis /dependencies dependencies
 ENV TAPIS_REQUEST_LOGGING_FILTER_PREFIXES /v3/systems
 
 # Java module commands that are always needed (java 17 and later).
-ENV JAVA_MODULE_OPTS --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.time=ALL-UNNAMED \
-                     --add-opens java.base/java.util=ALL-UNNAMED
+ENV JAVA_MODULE_OPTS --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.time=ALL-UNNAMED \
+                     --add-opens=java.base/java.util=ALL-UNNAMED
 
 # Options for JVM
 # Most options are for allowing jmx and remote debug access
