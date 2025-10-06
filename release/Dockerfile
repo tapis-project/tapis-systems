@@ -44,5 +44,4 @@ ENV JAVA_TOOL_OPTIONS -agentlib:jdwp=transport=dt_socket,address=8000,server=y,s
 # Server port, debug port and jmx port
 EXPOSE 8080 8000 9090
 
-CMD java -Xms4g -Xmx4g ${JAVA_MODULE_OPTS} -Dlogback.configurationFile=./logback.xml -cp "systems.jar:dependencies/*" \
-    edu.utexas.tacc.tapis.systems.api.SystemsApplication
+CMD ["java","-Xms4g","-Xmx4g","-Dlogback.configurationFile=./logback.xml","-cp","systems.jar:dependencies/*","edu.utexas.tacc.tapis.systems.api.SystemsApplication"]
