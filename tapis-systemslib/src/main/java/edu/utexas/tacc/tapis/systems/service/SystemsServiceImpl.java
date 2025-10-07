@@ -74,6 +74,12 @@ public class SystemsServiceImpl implements SystemsService
   // Default interval in minutes for running the maintenance background task
   public static final int DEFAULT_SVC_MAINT_INTERVAL = 60;
 
+  // Long names for certain operations
+  static final String CREATE_SYS_OP = "createSystem";
+  public static final String PUT_SYS_OP = "putSystem";
+  public static final String GET_SYS_OP = "getSystem";
+  public static final String GET_SYSF_OP = "getSystemsFinal";
+
   // Allow interrupt when shutting down executor services.
   private static final boolean mayInterruptIfRunning = true;
 
@@ -88,12 +94,13 @@ public class SystemsServiceImpl implements SystemsService
   private static final Pattern COLON_SPLIT = Pattern.compile(":");
 
   // Named and typed null values to make it clear what is being passed in to a method
+  static final String nullTargetUser = null;
+  static final String nullHostLoginUser = null;
   private static final String nullOwner = null;
   private static final AuthnMethod nullAuthnMethod = null;
   private static final String nullImpersonationId = null;
   private static final String nullSharedAppCtx = null;
   private static final String nullResourceTenant = null;
-  private static final String nullTargetUser = null;
   private static final Set<Permission> nullPermSet = null;
   private static final SystemShare nullSystemShare = null;
   private static final Credential nullCredential = null;
@@ -216,10 +223,10 @@ public class SystemsServiceImpl implements SystemsService
   /**
    * Create a new system object given a TSystem and the raw data used to create the TSystem.
    * Secrets in the rawData should be masked.
-   * <p>
+   *
    * NOTE that if credentials are provided and checked, and credentials are invalid,
    *    a system object is still returned. Caller must check Credential.getValidationResult()
-   * <p>
+   *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param system - Pre-populated TSystem object (including tenantId and systemId)
    * @param skipCredCheck - Indicates if cred check should happen (for LINUX, S3)
@@ -267,7 +274,7 @@ public class SystemsServiceImpl implements SystemsService
     //          Ordering of setting defaults, resolving variables and validating attributes can be critical.
     // ==========================================================================================================
 
-    // Make sure owner, effectiveUserId, notes and tags are all set
+    // Make sure owner, effectiveUserId, notes, tags, jobEnvVariables and batchDefaultLogincalQueue. are all set.
     // Note that this is done before auth so owner can get resolved and used during auth check.
     system.setDefaults();
 
@@ -281,38 +288,46 @@ public class SystemsServiceImpl implements SystemsService
     String effUserId = system.getEffectiveUserId();
 
     // Determine if effectiveUserId is static
-    boolean isStaticEffectiveUser = !APIUSERID_VAR.equals(effUserId);
-
-    // ---------------- Check constraints on TSystem attributes ------------------------
-    validateTSystem(rUser, system, true);
-
-    // Set flag indicating if we will deal with credentials.
-    // We only do that when credentials provided and effectiveUser is static
-    Credential cred = system.getAuthnCredential();
-    boolean manageCredentials = (cred != null && isStaticEffectiveUser);
+    boolean isStaticEffUser = !APIUSERID_VAR.equals(effUserId);
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerKnown(rUser, op, sysId, system.getOwner());
 
+    // ---------------- Check constraints on TSystem attributes. There are many. ------------------------
+    validateTSystem(rUser, system, true);
+
     // ---------------- Check for reserved names ------------------------
     checkReservedIds(rUser, sysId);
 
+    // We only do that when credentials provided and effectiveUser is static
+    Credential cred = system.getAuthnCredential();
+
+    // Set flag indicating if we will deal with credentials.
+    boolean manageCredentials = (cred != null && isStaticEffUser);
+
+    // Check that user is not trying to register credentials with a dynamic effUser.
+    // NOTE: If effectiveUserId is dynamic then request has already been rejected above during
+    //       call to validateTSystem(). See method TSystem.checkAttrMisc().
+    //       But we include isStaticEffUser here anyway in case that ever changes.
+    if (!isStaticEffUser && cred != null)
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_INVALID_LOGINUSER", rUser, sysId);
+      log.warn(msg);
+      throw new IllegalArgumentException(msg);
+    }
+
     // If credentials provided validate constraints and verify credentials
-    Credential verifiedCred = null;
-    if (cred != null)
+    Credential verifiedCred = cred;
+    if (manageCredentials)
     {
       // Skip check if not LINUX or S3
       if (!SystemType.LINUX.equals(sysType) && !SystemType.S3.equals(sysType)) skipCredCheck = true;
 
       // static effectiveUser case. Credential must not contain loginUser
-      // NOTE: If effectiveUserId is dynamic then request has already been rejected above during
-      //       call to validateTSystem(). See method TSystem.checkAttrMisc().
-      //       But we include isStaticEffectiveUser here anyway in case that ever changes.
-      // ---------------------------------------------
       credUtils.checkCredentialForInvalidLoginUser(rUser, system, cred);
 
       // ---------------- Verify credentials if not skipped
-      if (!skipCredCheck && manageCredentials)
+      if (!skipCredCheck)
       {
         // During create, we only verify for static effectiveUser and system default authnMethod, so we pass in the
         //   effectiveUser from request as hostLoginUser and the authnMethod from the system.
@@ -372,7 +387,7 @@ public class SystemsServiceImpl implements SystemsService
       {
         // Use internal method instead of public API to skip auth and other checks not needed here.
         // This is createSystem, so isStatic is true so credTargetUser and hostLoginUser are the eff user id.
-        credUtils.createCredential(rUser, cred, retSystem, effUserId, isStaticEffectiveUser, effUserId, skipCredCheck, op);
+        credUtils.createCredential(rUser, cred, retSystem, effUserId, isStaticEffUser, effUserId, skipCredCheck, op);
       }
     }
     catch (Exception e0)
@@ -399,7 +414,7 @@ public class SystemsServiceImpl implements SystemsService
         {
           // Remove SK records and CredInfo record. Use sys fetched from DB if possible
           TSystem tmpSys = (retSystem == null) ? system : retSystem;
-          credUtils.deleteCredential(rUser, tmpSys, effUserId, isStaticEffectiveUser, op);
+          credUtils.deleteCredential(rUser, tmpSys, effUserId, isStaticEffUser, op);
         }
         catch (Exception e)
         {
@@ -415,7 +430,7 @@ public class SystemsServiceImpl implements SystemsService
     SystemShare systemShare = authUtils.getSystemShareInfo(rUser, sysTenant, sysId);
     retSystem.setIsPublic(systemShare.isPublic());
     retSystem.setSharedWithUsers(systemShare.getUserList());
-    retSystem.setIsDynamicEffectiveUser(!isStaticEffectiveUser);
+    retSystem.setIsDynamicEffectiveUser(!isStaticEffUser);
     return retSystem;
   }
 
@@ -999,7 +1014,7 @@ public class SystemsServiceImpl implements SystemsService
     // Remove shareInfo associated with the system
     authUtils.deleteAllShareInfo(rUser, system);
     // Delete all Credentials associated with the system. Moves CredentialInfo records to DELETED state.
-    credUtils.deleteAllCredentialsForSystem(rUser, system, op);
+    credUtils.deleteAllCredInfoRecordsForSystem(rUser, system, op);
 
     // Delete the system from the DB
     return dao.hardDeleteSystem(tenant, systemId);

@@ -148,6 +148,15 @@ public class SystemsDaoImpl implements SystemsDao
       conn = getConnection();
       DSLContext db = DSL.using(conn);
 
+      // Make sure system still does not exist. A lot has been done since the last check in service level code.
+      // We need to make check within a DB txn.
+      if (checkForSystem(system.getTenant(), system.getId(), true))
+      {
+        String msg = LibUtils.getMsgAuth("SYSLIB_SYS_EXISTS", rUser, system.getId());
+        log.warn(msg);
+        throw new IllegalStateException(msg);
+      }
+
       if(!StringUtils.isBlank(system.getParentId())) {
         // in the case of a child system (the parentId is not null) we must guard against race conditions related
         // to the allowChildren flag.  We will read the parent system for update ('lock'), and then check that

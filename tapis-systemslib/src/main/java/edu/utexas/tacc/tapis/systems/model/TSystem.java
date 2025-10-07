@@ -206,6 +206,7 @@ public final class TSystem
   // *********************** Fields *****************************************
   // ************************************************************************
 
+  // Dynamically computed fields populated when fetching systems
   private boolean isPublic = DEFAULT_IS_PUBLIC;
   private boolean isDynamicEffectiveUser = DEFAULT_IS_DYNAMIC_EFFECTIVE_USER;
   private Set<String> sharedWithUsers;
@@ -471,7 +472,8 @@ public final class TSystem
   // ************************************************************************
 
   /**
-   * Set defaults for a TSystem for attributes: owner, effectiveUserId, tags, notes
+   * Set defaults for a TSystem for attributes: owner, effectiveUserId, tags, notes, jobEnvVariables
+   *   and batchDefaultLogincalQueue.
    */
   public void setDefaults()
   {
@@ -491,6 +493,7 @@ public final class TSystem
     // Process request to create list of job env variables with proper defaults.
     setJobEnvVariables(processJobEnvVariables(jobEnvVariables));
   }
+
   /**
    * Resolve variables for TSystem attributes
    */

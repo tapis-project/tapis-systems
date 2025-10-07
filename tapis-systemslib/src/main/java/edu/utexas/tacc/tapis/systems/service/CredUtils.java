@@ -10,23 +10,28 @@ import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
-
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import okhttp3.Call;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import com.google.gson.JsonObject;
 import com.opencsv.CSVReader;
-
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecret;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkSecretVersionMetadata;
@@ -50,8 +55,17 @@ import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
 import edu.utexas.tacc.tapis.systems.migrate.CredInfoInitJob;
 import edu.utexas.tacc.tapis.systems.model.CredInfoFSM;
-import static edu.utexas.tacc.tapis.systems.model.CredInfoFSM.CREDINFO_INIT_TMP_CSV_FILE;
 import edu.utexas.tacc.tapis.systems.model.Credential;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
+import edu.utexas.tacc.tapis.systems.model.TSystem;
+import edu.utexas.tacc.tapis.systems.utils.LibUtils;
+import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
+import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
+import edu.utexas.tacc.tapis.systems.model.TSystem.SystemType;
+
+import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
+import static edu.utexas.tacc.tapis.systems.model.CredInfoFSM.CREDINFO_INIT_TMP_CSV_FILE;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
@@ -64,24 +78,9 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_FINGERPR
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_PRIVATE_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_PUBLIC_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
-import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
-import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
-import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
-import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
-import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
-import edu.utexas.tacc.tapis.systems.model.TSystem.SystemType;
+import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.CREATE_SYS_OP;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.NOT_FOUND;
-import edu.utexas.tacc.tapis.systems.utils.LibUtils;
-import okhttp3.Call;
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
-import software.amazon.awssdk.services.s3.model.S3Exception;
+import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.nullTargetUser;
 
 /*
    Utility class containing Tapis credential related methods needed by the
@@ -169,8 +168,19 @@ public class CredUtils
   {
     String opName = "createCredInfoRecordFromVaultMetadata";
     CredentialInfo credInfo;
+    AuthnMethod authnMethod = sys.getDefaultAuthnMethod();
     String credTargetUser = sm.targetUser();
-    boolean hasCredentials = (sm.hasPassword() || sm.hasPkiKeys() || sm.hasAccessKey() || sm.hasToken() || sm.hasTmsKeys());
+    // Determine if credentials are registered for defaultAuthnMethod of the system
+    boolean hasCredentials = (AuthnMethod.PASSWORD.equals(authnMethod) && sm.hasPassword()) ||
+          (AuthnMethod.PKI_KEYS.equals(authnMethod) && sm.hasPkiKeys()) ||
+          (AuthnMethod.ACCESS_KEY.equals(authnMethod) && sm.hasAccessKey()) ||
+          (AuthnMethod.TOKEN.equals(authnMethod) && sm.hasToken() ) ||
+          (AuthnMethod.TMS_KEYS.equals(authnMethod) && sm.hasTmsKeys());
+
+
+
+
+
     int sysSeqId = sys.getSeqId();
 
     // Compute tapisUser, hostLoginUser and loginUserMapping
@@ -593,11 +603,11 @@ public class CredUtils
    * @param system Tapis system
    * @param op operation
    */
-  synchronized void deleteAllCredentialsForSystem(ResourceRequestUser rUser, TSystem system, SystemOperation op)
+  synchronized void deleteAllCredInfoRecordsForSystem(ResourceRequestUser rUser, TSystem system, SystemOperation op)
   {
     // Get all CredInfo records associated with the system.
     List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(system.getTenant(), system.getId());
-    // For each record remove all SK secrets and update CredInfo record to DELETED.
+    // For each record remove all SK secrets and the CredInfo record.
     for (CredentialInfo credInfo : ciList)
     {
       deleteCredential(rUser, system, credInfo.getCredTargetUser(), credInfo.isStatic(), op);
@@ -653,12 +663,12 @@ public class CredUtils
 
   /**
    * Reject the LoginUser field for a static effective user.
-   *
-   * LoginUser field should not be provided in the *Credential* object if: 
-   *    1. a credential is being created for a system that was created with a static effective user; Or, 
-   *    2. a system with a static effective user is being created with the credential. 
+   * LoginUser field should not be provided in the credential if the system was created with a static effective user.
    * This is because the static effective user is already a LoginUser for the system,
-   * and there is no need to map a static effective user to a login user again.
+   * and there is no need to map a static effective user to another user. Allowing this would be misleading.
+   * There are 2 cases:
+   *    1. a credential is being created for a system that was created with a static effective user; Or,
+   *    2. a system is being created with a static effective user and a credential.
    *
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param sys - the TSystem to check
@@ -1683,7 +1693,7 @@ public class CredUtils
     return credInfo;
   }
 
-  /**
+  /*
    * Update CredentialInfo to FAILED
    * Check that transition from current status to new status is allowed.
    */

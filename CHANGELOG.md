@@ -10,6 +10,17 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 1.9.3 - 2025-08-??
+
+????Bug fix, refactoring and enhancements.
+
+### New features:
+- ??
+
+### Bug fixes:
+- Reject request when loginUser is provided in the credential creation post body for a system with a static effective user.
+
+---------------------------------------------------------------------------
 ## 1.9.2 - 2025-08-19
 
 Bug fix and enhancements.
