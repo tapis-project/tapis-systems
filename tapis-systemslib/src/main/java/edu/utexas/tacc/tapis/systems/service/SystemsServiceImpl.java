@@ -546,6 +546,7 @@ public class SystemsServiceImpl implements SystemsService
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException
   {
     SystemOperation op = SystemOperation.modify;
+    String methodName = "patchSystem";
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (patchSystem == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
     // Extract various names for convenience
@@ -610,7 +611,7 @@ public class SystemsServiceImpl implements SystemsService
     dao.patchSystem(rUser, systemId, patchedTSystem, updateJsonStr, rawData);
 
     // Update credInfo records if necessary, i.e. if defaultAuthnMethod or effUser have changed.
-    credUtils.updateCredInfoRecordsForSystem(rUser, patchedTSystem, origAuthnMethod, origEffUser);
+    credUtils.updateCredInfoRecordsForSystem(rUser, patchedTSystem, origAuthnMethod, origEffUser, methodName);
   }
 
   /**
@@ -637,6 +638,7 @@ public class SystemsServiceImpl implements SystemsService
           throws TapisException, TapisClientException, IllegalStateException, IllegalArgumentException
   {
     SystemOperation op = SystemOperation.modify;
+    String methodName = "putSystem";
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
     if (putSystem == null) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
     // Extract some attributes for convenience and clarity
@@ -702,7 +704,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Update credInfo records if necessary, i.e. if defaultAuthnMethod has changed.
     // NOTE: Put does not allow for changing effUser, but this method will handle both, just in clase that ever changes.
-    credUtils.updateCredInfoRecordsForSystem(rUser, updatedTSystem, origAuthnMethod, origEffUserId);
+    credUtils.updateCredInfoRecordsForSystem(rUser, updatedTSystem, origAuthnMethod, origEffUserId, methodName);
 
     // Update dynamically computed info.
     SystemShare systemShare = authUtils.getSystemShareInfo(rUser, sysTenant, sysId);

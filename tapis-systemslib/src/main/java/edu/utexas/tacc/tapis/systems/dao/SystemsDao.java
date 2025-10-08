@@ -88,13 +88,13 @@ public interface SystemsDao
   int getCredInfoTotalCount();
 
   CredentialInfo getCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic);
-  CredentialInfo getCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic, String hostLoginUser);
+//  CredentialInfo getCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic, String hostLoginUser);
 
   CredentialInfo getCredInfo(CredentialInfo credInfo);
 
   List<CredentialInfo> getCredInfoRecordsForSystem(String tenantId, String systemId);
 
-  void deleteCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic, String hostLoginUser);
+  void deleteCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic);
 
   void deleteCredInfoRecord(CredentialInfo credInfo);
 

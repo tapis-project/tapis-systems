@@ -42,6 +42,7 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.Permission;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotFoundException;
 import java.io.*;
@@ -370,6 +371,16 @@ public class SystemsServiceTest
     // Test createCred and check with valid credentials
     // This is the call that creates a credInfo entry with a login mapping, it should replace the one with no login mapping.
     checkedCred = svcCred.createUserCredential(rOwner1, sysId, targetUser, credGoodWithLoginMapping, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
+    // TODO/tBD Is credInfo in pending after this? Yes, bug, it is in PENDING
+    /*
+    tapissysdb=> select tenant,system_id,tapis_user,login_user_mapping,host_login_user,is_static,has_credentials,has_password,has_pki_keys,sync_status from systems_cred_info where system_id like 'TestSys_Svc%' order by (tapis_user, is_static);
+ tenant |    system_id    | tapis_user | login_user_mapping | host_login_user | is_static | has_credentials | has_password | has_pki_keys | sync_status
+--------+-----------------+------------+--------------------+-----------------+-----------+-----------------+--------------+--------------+-------------
+ dev    | TestSys_Svc_035 | owner1     |                    | owner1          | f         | f               | f            | f            | PENDING
+ dev    | TestSys_Svc_035 | owner1     |                    | testuser3       | t         | f               | f            | f            | COMPLETED
+(2 rows)
+
+     */
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
     checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, null);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
@@ -710,6 +721,7 @@ public class SystemsServiceTest
   }
 
   // Test changing system owner
+  // TODO add check that credInfo record gets created and then changed as owner changes.
   @Test
   public void testChangeSystemOwner() throws Exception
   {
@@ -1825,10 +1837,11 @@ public class SystemsServiceTest
     svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred5NoLoginLinuxUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5NoLoginStatic, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     // Check what CredInfo records have been created. Should both be there with hasCredentials = false becase we created PASSWORD, not PKI_KEYS
-    credInfo = dao.getCredInfo(tenantName, sysId, owner1, true,testUser5LinuxUser);
+    credInfo = dao.getCredInfo(tenantName, sysId, owner1, true);
+    // TODO Update here and elsewhere for updates where we assume only 1 credInfo record exists for tenant,sysId,tapisUser,isStatic
     Assert.assertNotNull(credInfo, "Missing credInfo record for static effUser. effUsr = " + testUser5LinuxUser);
     Assert.assertFalse(credInfo.hasCredentials(), "CredInfo.hasCredentials should be false. effUser = " + testUser5LinuxUser);
-    credInfo = dao.getCredInfo(tenantName, sysId, owner1, true,testUser5);
+    credInfo = dao.getCredInfo(tenantName, sysId, owner1, true);
     Assert.assertNotNull(credInfo, "Missing credInfo record for static effUser. effUsr = " + testUser5);
     Assert.assertFalse(credInfo.hasCredentials(), "CredInfo.hasCredentials should be false. effUser = " + testUser5);
 
@@ -2161,6 +2174,7 @@ public class SystemsServiceTest
   }
 
   // Test creating, reading and deleting user credentials when user is not the owner, dynamic effectiveUserId
+  // System owner: "owner1", other user: "testuser5"
   // Test that user can create and remove credentials when:
   //    - user only has READ perm
   //    - user only has MODIFY perm
@@ -2168,6 +2182,7 @@ public class SystemsServiceTest
   // Test that user cannot create credentials when:
   //    - user does not have READ perm or shared access
   //    - user has READ access but System has a static effUser.
+  // Also check that credInfo records are created and deleted as expected
   @Test
   public void testUserCredentialsNotOwner() throws Exception
   {
@@ -2175,22 +2190,30 @@ public class SystemsServiceTest
     TSystem sys0 = systems[2];
     String sysId = sys0.getId();
     sys0.setEffectiveUserId(TSystem.APIUSERID_VAR);
+    boolean isStaticEffUser = false;
     TSystem tmpSys = svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
     System.out.println("Created item: " + sys0.getId());
+    // Should have credInfo record for owner with hasCreds = false
+    CredentialInfo ci = dao.getCredInfo(tenantName, sysId, owner1, isStaticEffUser);
+    Assert.assertNotNull(ci, "Missing credInfo record for sys owner.");
+    Assert.assertFalse(ci.hasCredentials(), "CredInfo.hasCredentials should be false.");
 
+    // Cleanup from any previous runs
+    String rawDataShare = "{\"users\": [\"" + testUser5 + "\"]}";
+    SystemShare systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
+    svc.unshareSystemPublicly(rOwner1, sysId);
+    svc.unshareSystem(rOwner1, sysId, systemShare);
+    svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREADMODIFY, rawDataEmptyJson);
+
+    // Register credential for owner
     Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
                                       "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1",
                                       "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert1");
     svcCred.createUserCredential(rOwner1, sysId, owner1, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
-
-    String rawDataShare = "{\"users\": [\"" + testUser5 + "\"]}";
-    SystemShare systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
-
-    // Cleanup from any previous runs
-    svc.unshareSystemPublicly(rOwner1, sysId);
-    svc.unshareSystem(rOwner1, sysId, systemShare);
-    svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREADMODIFY, rawDataEmptyJson);
+    ci = dao.getCredInfo(tenantName, sysId, owner1, isStaticEffUser);
+    Assert.assertNotNull(ci, "Missing credInfo record for sys owner.");
+    Assert.assertTrue(ci.hasCredentials(), "CredInfo.hasCredentials should be true.");
 
     // Get system as owner using files service, should get cred for owner
     tmpSys = svc.getSystem(rFilesSvcOwner1, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse,
@@ -2222,7 +2245,12 @@ public class SystemsServiceTest
     // Grant READ perm, now user should be able to set cred
     svc.grantUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREAD, rawDataEmptyJson);
     svcCred.createUserCredential(rTestUser5, sysId, testUser5, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+    ci = dao.getCredInfo(tenantName, sysId, testUser5, isStaticEffUser);
+    Assert.assertNotNull(ci, "Missing credInfo record for testuser5.");
+    Assert.assertTrue(ci.hasCredentials(), "CredInfo.hasCredentials should be true.");
     svcCred.deleteUserCredential(rTestUser5, sysId, testUser5);
+    ci = dao.getCredInfo(tenantName, sysId, testUser5, isStaticEffUser);
+    Assert.assertNull(ci, "CredInfo record should be null for testuser5.");
 
     // Revoke READ perm and grant MODIFY perm. User should be able to set cred.
     svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREAD, rawDataEmptyJson);
@@ -2262,35 +2290,41 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
 
     // Patch system to have static effUser.
-    String rawDataPatch = "{\"effectiveUserId\": \"testuser5LinuxUser\"}";
+    String rawDataPatch = "{\"effectiveUserId\": \"" + testUser5LinuxUser + "\"}";
     PatchSystem patchSystem = new PatchSystem(null, null, testUser5LinuxUser, null, null, null, null, null, null,
             null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
+    isStaticEffUser = true;
     // Owner should still be able to set cred.
     svcCred.createUserCredential(rOwner1, sysId, testUser5LinuxUser, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
-    // In fact, should be able to register cred for static effUser not the current effUser. Do that now.
-    svcCred.createUserCredential(rOwner1, sysId, testUser4LinuxUser, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
-    // Check what CredInfo records have been created. Should both be there with hasCredentials = true
-    CredentialInfo ci = dao.getCredInfo(tenantName, sysId, owner1, true,testUser5LinuxUser);
-    Assert.assertNotNull(ci, "Missing credInfo record for static effUser. effUsr = " + testUser5LinuxUser);
-    Assert.assertTrue(ci.hasCredentials(), "CredInfo.hasCredentials should be true. effUser = " + testUser5LinuxUser);
-    ci = dao.getCredInfo(tenantName, sysId, owner1, true,testUser4LinuxUser);
-    Assert.assertNotNull(ci, "Missing credInfo record for static effUser. effUsr = " + testUser4LinuxUser);
-    Assert.assertTrue(ci.hasCredentials(), "CredInfo.hasCredentials should be true. effUser = " + testUser4LinuxUser);
-    // Delete credential for static effUser not currently associated with the system. CredInfo should be deleted.
-    svcCred.deleteUserCredential(rOwner1, sysId, testUser4LinuxUser);
-    ci = dao.getCredInfo(tenantName, sysId, owner1, true,testUser4LinuxUser);
-    Assert.assertNull(ci, "credInfo record not deleted for static effUser. effUsr = " + testUser4LinuxUser);
-    // CredInfo for current static effUser should still be there.
-    ci = dao.getCredInfo(tenantName, sysId, owner1, true,testUser5LinuxUser);
-    Assert.assertNotNull(ci, "Missing credInfo record for static effUser. effUsr = " + testUser5LinuxUser);
-    Assert.assertTrue(ci.hasCredentials(), "CredInfo.hasCredentials should be true. effUser = " + testUser5LinuxUser);
-    // Now, delete credential for current static effUser. CredInfo should stay because it is for the owner,
-    //   but credInfo.hasCredentials should now be false.
-    svcCred.deleteUserCredential(rOwner1, sysId, testUser5LinuxUser);
-    ci = dao.getCredInfo(tenantName, sysId, owner1, true,testUser5LinuxUser);
-    Assert.assertNotNull(ci, "Missing credInfo record for static effUser. effUsr = " + testUser5LinuxUser);
-    Assert.assertFalse(ci.hasCredentials(), "CredInfo.hasCredentials should be false. effUser = " + testUser5LinuxUser);
+    ci = dao.getCredInfo(tenantName, sysId, owner1, isStaticEffUser);
+    Assert.assertNotNull(ci, "Missing credInfo record for sys owner.");
+    Assert.assertTrue(ci.hasCredentials(), "CredInfo.hasCredentials should be true.");
+    Assert.assertEquals(ci.getHostLoginUser(), testUser5LinuxUser);
+
+    // Attempt to register credential for a different static user. Request should be rejected as invalid
+    pass = false;
+    try { svcCred.createUserCredential(rOwner1, sysId, testUser4LinuxUser, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson); }
+    catch (BadRequestException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_CRED_CREATE_STATIC_MISMATCH"));  // TODO and what should exception msg be?
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+
+    // Patch system to have different static user.
+    // Existing credInfo record should be updated for new hostLoginUser.
+    // And credentials in SK for previous static effUser should be removed.
+    rawDataPatch = "{\"effectiveUserId\": \"" + testUser4LinuxUser + "\"}";
+    patchSystem = new PatchSystem(null, null, testUser4LinuxUser, null, null, null, null, null, null,
+          null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+    svc.patchSystem(rOwner1, sysId, patchSystem, rawDataPatch);
+    ci = dao.getCredInfo(tenantName, sysId, owner1, isStaticEffUser);
+    Assert.assertNotNull(ci, "Missing credInfo record for sys owner.");
+    Assert.assertEquals(ci.getHostLoginUser(), testUser4LinuxUser);
+    Assert.assertFalse(ci.hasCredentials(), "CredInfo.hasCredentials should be false.");
+    Credential cred = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser5LinuxUser, null);
+    Assert.assertNull(cred, "Credential in SK not deleted for static effUser. effUser = " + testUser5LinuxUser);
 
     // Other user should not be able to set cred, even when they have permission for the system and the targetUser
     //   for the cred is the same as the user's tapis username.

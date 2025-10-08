@@ -1857,11 +1857,6 @@ public class SystemsDaoImpl implements SystemsDao
   @Override
   public CredentialInfo getCredInfo(String tenantId, String sysId, String tapisUser, boolean isStatic)
   {
-    return getCredInfo(tenantId, sysId, tapisUser, isStatic, null);
-  }
-  @Override
-  public CredentialInfo getCredInfo(String tenantId, String sysId, String tapisUser, boolean isStatic, String hostLoginUser)
-  {
     // Initialize result.
     CredentialInfo credInfo = null;
     // ------------------------- Call SQL ----------------------------
@@ -1871,12 +1866,9 @@ public class SystemsDaoImpl implements SystemsDao
       // Get a database connection.
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      // If hostLoginUser not provided compute it now
-      if (StringUtils.isBlank(hostLoginUser)) hostLoginUser = determineHostLoginUser(db, tenantId, sysId, isStatic, tapisUser);
       SystemsCredInfoRecord r = db.selectFrom(SYSTEMS_CRED_INFO)
               .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
-                     SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser), SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic),
-                     SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(hostLoginUser)).fetchOne();
+                     SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser), SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic)).fetchOne();
       if (r == null) return null;
       else credInfo = getCredentialInfoFromRecord(r);
 
@@ -1902,7 +1894,7 @@ public class SystemsDaoImpl implements SystemsDao
   @Override
   public CredentialInfo getCredInfo(CredentialInfo credInfo)
   {
-    return getCredInfo(credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic(), credInfo.getHostLoginUser());
+    return getCredInfo(credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic());
   }
 
   /**
@@ -1952,7 +1944,7 @@ public class SystemsDaoImpl implements SystemsDao
    * Delete CredInfo record given tenant, systemId, tapis user and isStatic
    */
   @Override
-  public void deleteCredInfo(String tenantId, String sysId, String tapisUser, boolean isStatic, String hostLoginUser)
+  public void deleteCredInfo(String tenantId, String sysId, String tapisUser, boolean isStatic)
   {
     // If anything missing throw an exception. These values make up the primary key
     if (StringUtils.isBlank(tenantId) || StringUtils.isBlank(sysId) || StringUtils.isBlank(tapisUser))
@@ -1965,12 +1957,9 @@ public class SystemsDaoImpl implements SystemsDao
     {
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      // If hostLoginUser not provided compute it now
-      if (StringUtils.isBlank(hostLoginUser)) hostLoginUser = determineHostLoginUser(db, tenantId, sysId, isStatic, tapisUser);
       db.deleteFrom(SYSTEMS_CRED_INFO)
               .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
-                      SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser), SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic),
-                      SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(hostLoginUser))
+                      SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser), SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
               .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -1997,7 +1986,7 @@ public class SystemsDaoImpl implements SystemsDao
     {
       throw new TapisRuntimeException(LibUtils.getMsg("SYSLIB_CREDINFO_NULL"));
     }
-    deleteCredInfo(credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic(), credInfo.getHostLoginUser());
+    deleteCredInfo(credInfo.getTenant(), credInfo.getSystemId(), credInfo.getTapisUser(), credInfo.isStatic());
   }
 
   /**
@@ -2129,8 +2118,7 @@ public class SystemsDaoImpl implements SystemsDao
             .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                   SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
                   SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
-                  SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()),
-                  SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(credInfo.getHostLoginUser()))
+                  SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
             .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -2167,8 +2155,7 @@ public class SystemsDaoImpl implements SystemsDao
             .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                   SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
                   SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
-                  SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()),
-                  SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(credInfo.getHostLoginUser()))
+                  SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
             .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -2205,8 +2192,7 @@ public class SystemsDaoImpl implements SystemsDao
             .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                   SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
                   SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
-                  SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()),
-                  SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(credInfo.getHostLoginUser()))
+                  SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
             .execute();
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
@@ -2242,8 +2228,7 @@ public class SystemsDaoImpl implements SystemsDao
             .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
                     SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
                     SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
-                    SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()),
-                    SYSTEMS_CRED_INFO.HOST_LOGIN_USER.eq(credInfo.getHostLoginUser()))
+                    SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
             .execute();
 
 

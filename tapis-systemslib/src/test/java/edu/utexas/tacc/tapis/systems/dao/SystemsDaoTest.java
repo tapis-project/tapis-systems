@@ -382,7 +382,7 @@ public class SystemsDaoTest
     CredentialInfo credInfo1 = new CredentialInfo(sys.getSeqId(), tenantName, sysId, tapisUser, isStaticFalse,
                                                   hostLoginUser, loginUserMapping1, CredentialInfo.SyncStatus.PENDING);
     dao.createCredInfo(rOwner1, credInfo1);
-    CredentialInfo ci = dao.getCredInfo(tenantName, sysId, tapisUser, isStaticFalse, hostLoginUser);
+    CredentialInfo ci = dao.getCredInfo(tenantName, sysId, tapisUser, isStaticFalse);
     Assert.assertNotNull(ci);
     Assert.assertEquals(ci.getTapisUser(), tapisUser);
     Assert.assertEquals(ci.getHostLoginUser(), hostLoginUser);
@@ -412,7 +412,7 @@ public class SystemsDaoTest
     List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
     Assert.assertNotNull(ciList);
     Assert.assertEquals(ciList.size(), 2);
-    dao.deleteCredInfo(credInfo1.getTenant(), credInfo1.getSystemId(), credInfo1.getTapisUser(), credInfo1.isStatic(), credInfo1.getHostLoginUser());
+    dao.deleteCredInfo(credInfo1.getTenant(), credInfo1.getSystemId(), credInfo1.getTapisUser(), credInfo1.isStatic());
     ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
     Assert.assertNotNull(ciList);
     Assert.assertEquals(ciList.size(), 1);
