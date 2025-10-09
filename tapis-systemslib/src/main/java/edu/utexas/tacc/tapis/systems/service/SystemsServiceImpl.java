@@ -410,7 +410,7 @@ public class SystemsServiceImpl implements SystemsService
         //  CredInfo record associated with the owner for a newly created system.
         // Tapis user for this initial record is system owner, hostLoginUser is resolved effUser and
         //    userLoginMapping is null since no credential was provided.
-        credInfo = credUtils.createCredInfoForOwnerAsNeeded(rUser, retSystem, isStaticEffUser, nullLoginUserMapping, op.name());
+        credInfo = credUtils.createCredInfoForOwnerAsNeeded(rUser, retSystem, isStaticEffUser, op.name());
       }
     }
     catch (Exception e0)
@@ -879,53 +879,73 @@ public class SystemsServiceImpl implements SystemsService
 
     String oboTenant = rUser.getOboTenantId();
 
-    // System must already exist and not be deleted
-    checkForSysWithThrow(rUser, oboTenant, systemId, false);
-
-    // Retrieve old owner
-    String oldOwnerName = dao.getSystemOwner(oboTenant, systemId);
-
-    // ------------------------- Check authorization -------------------------
-    authUtils.checkAuthOwnerKnown(rUser, op, systemId, oldOwnerName);
-
-    // If new owner same as old owner then this is a no-op
-    if (newOwnerName.equals(oldOwnerName)) return 0;
-
-    // ----------------- Make all updates --------------------
-    // Changes not in single DB transaction.
-    // Use try/catch to roll back any changes in case of failure.
-    // Get SK client now. If we cannot get this rollback not needed.
-    // Note that we still need to call getSKClient each time because it refreshes the svc jwt as needed.
-    sysUtils.getSKClient(rUser);
-    String systemsPermSpec = getPermSpecAllStr(oboTenant, systemId);
-    // Consider using a notification instead (jira cic-3071)
-    String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
-    try
+    // We will be updating the CredInfo table, so make sure we are the only ones working on it
+    synchronized (CredUtils.class)
     {
-      // ------------------- Make Dao call to update the system owner -----------------------------------
-      dao.updateSystemOwner(rUser, systemId, oldOwnerName, newOwnerName);
+      // System must already exist and not be deleted
+      checkForSysWithThrow(rUser, oboTenant, systemId, false);
+
+      // Retrieve system. We will need it for a few things.
+      TSystem sys = dao.getSystem(oboTenant, systemId);
+      String oldOwnerName = sys.getOwner();
+      boolean isStaticEffUser = !sys.isDynamicEffectiveUser();
+
+      // ------------------------- Check authorization -------------------------
+      authUtils.checkAuthOwnerKnown(rUser, op, systemId, oldOwnerName);
+
+      // If new owner same as old owner then this is a no-op
+      if (newOwnerName.equals(oldOwnerName)) return 0;
+
+      // ----------------- Make all updates --------------------
+      // Changes not in single DB transaction.
+      // Use try/catch to roll back any changes in case of failure.
+      // Get SK client now. If we cannot get this rollback not needed.
+      // Note that we still need to call getSKClient each time because it refreshes the svc jwt as needed.
+      sysUtils.getSKClient(rUser);
+      String systemsPermSpec = getPermSpecAllStr(oboTenant, systemId);
       // Consider using a notification instead (jira cic-3071)
-      // Give new owner files service related permission for root directory
-      sysUtils.getSKClient(rUser).grantUserPermission(oboTenant, newOwnerName, filesPermSpec);
+      String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
+      try
+      {
+        // ------------------- Make Dao call to update the system owner -----------------------------------
+        dao.updateSystemOwner(rUser, systemId, oldOwnerName, newOwnerName);
+        sys.setOwner(newOwnerName);
 
-      // Remove permissions from old owner
-      sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, oldOwnerName, filesPermSpec);
+        // Consider using a notification instead (jira cic-3071)
+        // Give new owner files service related permission for root directory
+        sysUtils.getSKClient(rUser).grantUserPermission(oboTenant, newOwnerName, filesPermSpec);
+        // Remove permissions from old owner
+        sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, oldOwnerName, filesPermSpec);
 
-      // Get a complete and succinct description of the update.
-      String changeDescription = LibUtils.getChangeDescriptionUpdateOwner(systemId, oldOwnerName, newOwnerName);
-      // Create a record of the update
-      dao.addUpdateRecord(rUser, systemId, op, changeDescription, null);
-    }
-    catch (Exception e0)
-    {
-      // Something went wrong. Attempt to undo all changes and then re-throw the exception
-      try { dao.updateSystemOwner(rUser, systemId, newOwnerName, oldOwnerName); } catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "updateOwner", e.getMessage()));}
-      // Consider using a notification instead(jira cic-3071)
-      try { sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, newOwnerName, filesPermSpec); }
-      catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));}
-      try { sysUtils.getSKClient(rUser).grantUserPermission(oboTenant, oldOwnerName, filesPermSpec); }
-      catch (Exception e) {log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPermF1", e.getMessage()));}
-      throw e0;
+        // Create credInfo record for new owner and if static effUser remove old credential
+        credUtils.createCredInfoForOwnerAsNeeded(rUser, sys, isStaticEffUser, op.name());
+        if (isStaticEffUser) credUtils.deleteCredential(rUser, sys, sys.getEffectiveUserId(), isStaticEffUser, op);
+
+        // Get a complete and succinct description of the update.
+        String changeDescription = LibUtils.getChangeDescriptionUpdateOwner(systemId, oldOwnerName, newOwnerName);
+        // Create a record of the update
+        dao.addUpdateRecord(rUser, systemId, op, changeDescription, null);
+      }
+      catch (Exception e0)
+      {
+        // Something went wrong. Attempt to undo all changes and then re-throw the exception
+        try {dao.updateSystemOwner(rUser, systemId, newOwnerName, oldOwnerName);} catch (Exception e)
+        {
+          log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "updateOwner", e.getMessage()));
+        }
+        // Consider using a notification instead(jira cic-3071)
+        try {sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, newOwnerName, filesPermSpec);}
+        catch (Exception e)
+        {
+          log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "revokePermF1", e.getMessage()));
+        }
+        try {sysUtils.getSKClient(rUser).grantUserPermission(oboTenant, oldOwnerName, filesPermSpec);}
+        catch (Exception e)
+        {
+          log.warn(LibUtils.getMsgAuth(ERROR_ROLLBACK, rUser, systemId, "grantPermF1", e.getMessage()));
+        }
+        throw e0;
+      }
     }
     return 1;
   }

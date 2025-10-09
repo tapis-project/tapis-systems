@@ -712,7 +712,7 @@ public class SystemsServiceTest
   }
 
   // Test changing system owner
-  // TODO add check that credInfo record gets created and then changed as owner changes.
+  // Check that credInfo record gets created and then changed as owner changes.
   @Test
   public void testChangeSystemOwner() throws Exception
   {
@@ -720,11 +720,34 @@ public class SystemsServiceTest
     sys0.setJobCapabilities(capList1);
     String rawDataCreate = "{\"testChangeOwner\": \"0-create\"}";
     String newOwnerName = testUser2;
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataCreate);
+    TSystem tmpSys = svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataCreate);
+    String origSysOwner = tmpSys.getOwner();
+    String sysId = tmpSys.getId();
+    String effUser = tmpSys.getEffectiveUserId();
+    boolean isStaticEffUser = !tmpSys.isDynamicEffectiveUser();
+    // Make sure we have a credInfo record as expected.
+    CredentialInfo credInfo = dao.getCredInfo(tenantName, sysId, origSysOwner, isStaticEffUser);
+    Assert.assertNotNull(credInfo, "No CredInfo created");
+    Assert.assertEquals(credInfo.getTapisUser(), origSysOwner);
+    Assert.assertEquals(credInfo.getHostLoginUser(), effUser);
+    Assert.assertTrue(StringUtils.isBlank(credInfo.getLoginUserMapping()));
+    Assert.assertEquals(credInfo.getCredTargetUser(), effUser);
+    Assert.assertFalse(credInfo.hasCredentials(), "hasCredentials should be false");
     // Change owner using api
-    svc.changeSystemOwner(rOwner1, sys0.getId(), newOwnerName);
-    TSystem tmpSys = svc.getSystem(rTestUser2, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    svc.changeSystemOwner(rOwner1, sysId, newOwnerName);
+    tmpSys = svc.getSystem(rTestUser2, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     Assert.assertEquals(tmpSys.getOwner(), newOwnerName);
+    // Check that old credInfo removed and new one created
+    credInfo = dao.getCredInfo(tenantName, sysId, origSysOwner, isStaticEffUser);
+    Assert.assertNull(credInfo, "CredInfo for original owner not deleted");
+    credInfo = dao.getCredInfo(tenantName, sys0.getId(), newOwnerName, isStaticEffUser);
+    Assert.assertNotNull(credInfo, "No CredInfo created");
+    Assert.assertEquals(credInfo.getTapisUser(), newOwnerName);
+    Assert.assertEquals(credInfo.getHostLoginUser(), effUser);
+    Assert.assertTrue(StringUtils.isBlank(credInfo.getLoginUserMapping()));
+    Assert.assertEquals(credInfo.getCredTargetUser(), effUser);
+    Assert.assertFalse(credInfo.hasCredentials(), "hasCredentials should be false");
+
     // Check expected auxiliary updates have happened
     // New owner should be able to retrieve permissions
     Set<Permission> userPerms = svc.getUserPermissions(rTestUser2, sys0.getId(), newOwnerName);
@@ -1840,12 +1863,11 @@ public class SystemsServiceTest
 
     // Get sys as owner and check cred. Since it is static should always get back cred for testUser5LinuxUser
     tmpSys = svc.getSystem(rFilesSvcOwner1, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-    checkCredPasswordAndEffectiveUser(tmpSys, cred5NoLoginLinuxUser.getPassword(), testUser5, testUser5LinuxUser);
+    checkCredPasswordAndEffectiveUser(tmpSys, cred5NoLoginLinuxUser.getPassword(), owner1, testUser5LinuxUser);
 
     // Get as testUser3 and check cred. Since it is static should always get back cred for testUser5
     tmpSys = svc.getSystem(rFilesSvcTestUser3, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-    // TODO/TBD Why are we passing in testUser5 here? test still passes, so what is up with this?
-    checkCredPasswordAndEffectiveUser(tmpSys, cred5NoLoginLinuxUser.getPassword(), testUser5, testUser5LinuxUser);
+    checkCredPasswordAndEffectiveUser(tmpSys, cred5NoLoginLinuxUser.getPassword(), testUser3, testUser5LinuxUser);
 
     // Before we switch back to dynamic, test that for a static effUser we are not allowed to pass in a loginUserMapping
     boolean passed = false;
@@ -2292,7 +2314,7 @@ public class SystemsServiceTest
     try { svcCred.createUserCredential(rOwner1, sysId, testUser4LinuxUser, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson); }
     catch (BadRequestException e)
     {
-      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_CRED_CREATE_STATIC_MISMATCH"));  // TODO and what should exception msg be?
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_CRED_CREATE_STATIC_MISMATCH"));
       pass = true;
     }
     Assert.assertTrue(pass);
@@ -3448,6 +3470,7 @@ public class SystemsServiceTest
  }
 
   // Check password and effective user as part of credentials check
+  // Argument "user" is only used for logging.
   private void checkCredPasswordAndEffectiveUser(TSystem sys, String password, String user, String effUser)
   {
     Credential cred = sys.getAuthnCredential();

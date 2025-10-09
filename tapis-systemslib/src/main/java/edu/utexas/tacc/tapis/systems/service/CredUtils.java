@@ -206,8 +206,6 @@ public class CredUtils
         loginUserMapping = credInfoDB.getLoginUserMapping();
 
         // Determine hostLoginUser
-        // TODO/TBD move to a method? There are many places where we need to figure out hostLoginUser. How much do they
-        //          have in common? Is the one used at sys create the only special one?
         if (isStatic && APIUSERID_VAR.equals(sys.getEffectiveUserId()))
         {
           // Exceptional case. Vault record is static but system has effectiveUserId = ${apiUserId} This means that
@@ -216,10 +214,10 @@ public class CredUtils
         }
         else
         {
-          // Normal case. If static use system effUsr else use loginUserMapping or credTargetUser
-          if (isStatic) hostLoginUser = sys.getEffectiveUserId();
-          else hostLoginUser = (loginUserMapping != null) ? loginUserMapping : credTargetUser;
+          // Normal case
+          hostLoginUser = determineHostLoginUser(isStatic, sys.getEffectiveUserId(), loginUserMapping, credTargetUser);
         }
+
         // We now have all attributes, use them to create a CredInfo record in memory
         credInfo = new CredentialInfo(sysSeqId, credInfoDB.getTenant(), credInfoDB.getSystemId(),
                                       tapisUser, isStatic, hostLoginUser, loginUserMapping,
@@ -244,7 +242,7 @@ public class CredUtils
         else
         {
           // Normal case. If static use system effUsr else use credTargetUser
-          hostLoginUser = (isStatic) ? sys.getEffectiveUserId() : credTargetUser;
+          hostLoginUser = determineHostLoginUser(isStatic, sys.getEffectiveUserId(), loginUserMapping, credTargetUser);
         }
         int syncFailCount = 0;
         String syncFailMsg = null;
@@ -433,6 +431,8 @@ public class CredUtils
     //     and call it from the method createCredential(rUser, retCred, system, credTargetUser, isStaticEffectiveUser, newHostLoginUser, skipCheck, op);
     //     which is called from other places. When called from the other places we are not validating credentials.
 
+    // TODO
+//    validateProvidedCred(rUser, system, cred, credTargetUser, isStaticEffectiveUser, createTmsKeys);
     // TODO For a static effUser, the credTargetUser must be the same as the current effUser defined for the system
     if (isStaticEffectiveUser && !sysEffUser.equals(credTargetUser))
     {
@@ -565,7 +565,9 @@ public class CredUtils
       throw new NotAuthorizedException(msg, NO_CHALLENGE);
     }
     // ---------------- Verify credentials using defaultAuthnMethod --------------------
-    // Determine hostLoginUser.
+    // Determine hostLoginUser. Note that this is not the normal case. We are being given a target user for checking.
+    // The target user might be a Tapis user (dynamic case) or a specific static effUser which could be different
+    //   from the current static effUser defined for a system.
     String hostLoginUser;
     //  If static use targetUser, else dynamic so use call to resolveEffUsr
     if (isStaticEffectiveUser)
@@ -833,7 +835,7 @@ public class CredUtils
         dao.deleteCredInfo(sysTenant, sysId, tapisUser, isStatic);
         // We want to make sure we always have at least one record for the system, for the owner.
         // So in case we just removed the owner record create it now.
-        createCredInfoForOwnerAsNeeded(rUser, sys, isStatic, nullLoginUserMapping, op.name());
+        createCredInfoForOwnerAsNeeded(rUser, sys, isStatic, op.name());
       }
       catch (TapisSecurityException tse)
       {
@@ -1273,7 +1275,7 @@ public class CredUtils
         if (ownerCredInfo == null)
         {
           // No record yet existed, so logUserMapping is null
-          ownerCredInfo = createCredInfoForOwnerAsNeeded(rUser, sys, isStaticEffUser, nullLoginUserMapping, opName);
+          ownerCredInfo = createCredInfoForOwnerAsNeeded(rUser, sys, isStaticEffUser, opName);
         }
 
         // If static and effUser is changing we need to update hostLoginUser and reset hasCreds related attributes.
@@ -1307,13 +1309,16 @@ public class CredUtils
   /*
    * Given a TSystem and isStatic create a CredInfo record for system owner if none exists.
    * If record already exists then existing record is returned.
-   * There are three cases where we want to make sure at least one record exists:
+   *
+   * NOTE: loginUserMapping must already exist in the cred_info table. If no current mapping we take it
+   *       to be null because there is not currently a mapping.
+   * There are a few cases where we want to make sure at least one record exists:
    *   1. During system create when credentials are not provided.
    *   2. During a put or patch update when authnMethod or effUser have changed.
-   *   3. After deleting a CredInfo record.
+   *   3. During a changeOwner operation.
+   *   4. After deleting a CredInfo record.
    */
-   CredentialInfo createCredInfoForOwnerAsNeeded(ResourceRequestUser rUser, TSystem sys, boolean isStaticEffUser,
-                                                 String loginUserMapping, String opName)
+   CredentialInfo createCredInfoForOwnerAsNeeded(ResourceRequestUser rUser, TSystem sys, boolean isStaticEffUser, String opName)
    {
      CredentialInfo credInfo;
      String tapisUser = sys.getOwner();
@@ -1322,23 +1327,13 @@ public class CredUtils
      {
        // Create/update CredInfo record
        credInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser);
+       String loginUserMapping = (credInfo == null) ? null : credInfo.getLoginUserMapping();
        if (credInfo == null)
        {
          // Record does not already exist, create it. Note we go through all states PENDING->IN_PROGRESS->COMPLETED
          //   because we want to make sure we never violate allowed state transitions.
          // Determine hostLogin user based on isStatic and loginUserMapping
-         String hostLoginUser;
-         if (isStaticEffUser)
-         {
-           hostLoginUser = sys.getEffectiveUserId();
-         }
-         else
-         {
-           // Dynamic effUser. If we have loginUser mapping, use it. Else resolve effUser by filling in with tapisUser.
-           // Note that initial record starts with hasCredentials=false. If tapisUser creates a credential
-           //   it will get filled in.
-           hostLoginUser = (StringUtils.isBlank(loginUserMapping)) ?  tapisUser : loginUserMapping;
-         }
+         String hostLoginUser = determineHostLoginUser(isStaticEffUser, sys.getEffectiveUserId(), loginUserMapping, tapisUser);
          credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser,
                                        hostLoginUser, loginUserMapping, SyncStatus.PENDING);
          credInfo = dao.createCredInfo(rUser, credInfo);
@@ -1669,6 +1664,14 @@ public class CredUtils
     return retCred;
   }
 
+  // Determine hostLoginUser
+  private String determineHostLoginUser(boolean isStatic, String effUser, String loginUserMapping, String credTargetUser)
+  {
+    // If static use system effUsr else use credTargetUser or loginUserMapping
+    if (isStatic) return effUser;
+    else return (StringUtils.isBlank(loginUserMapping)) ? credTargetUser : loginUserMapping;
+  }
+
   /*
    * For credential creation operation, determine the host login user, i.e. the resolved effectiveUserId,
    *   based on isStatic and loginUserMapping from the credential being provided.
@@ -1869,7 +1872,7 @@ public class CredUtils
         loginUserMapping = null;
 
         // Determine hostLoginUser. If dynamic, credTargetUser, if static, system effectiveUserId
-        if (!isStatic) hostLoginUser = credTargetUser; else hostLoginUser = sys.getEffectiveUserId();
+        hostLoginUser = determineHostLoginUser(isStatic, sys.getEffectiveUserId(), nullLoginUserMapping, credTargetUser);
 
         // Create and persist the record
         credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStatic,
