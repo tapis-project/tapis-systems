@@ -106,10 +106,8 @@ public class CredentialsServiceImpl
     if (StringUtils.isBlank(systemId) || StringUtils.isBlank(credTargetUser) || cred == null)
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
-    // We will need some info from the system, so fetch it now.
-    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
     // If system does not exist or has been deleted then throw an exception
-    if (system == null)
+    if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false))
     {
       String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
       log.info(msg);
@@ -120,7 +118,7 @@ public class CredentialsServiceImpl
     authUtils.checkAuth(rUser, op, systemId, nullOwner, credTargetUser, nullPermSet);
 
     // Use utility method to do most of the work
-    return credUtils.createCredentialForUser(rUser, system, credTargetUser, cred, createTmsKeys, skipCredCheck, rawData);
+    return credUtils.createCredentialForUser(rUser, systemId, credTargetUser, cred, createTmsKeys, skipCredCheck, rawData);
   }
 
   /**
@@ -371,7 +369,8 @@ public class CredentialsServiceImpl
     // When connecting to Globus there is no username directly set. Username is used when storing the credentials in SK.
     boolean skipCheck = true; // We never check when generating globus tokens
     String hostLoginUser = credTargetUser;
-    credUtils.createCredential(rUser, credential, system, credTargetUser, isStaticEffectiveUser, hostLoginUser, skipCheck, op);
+    credUtils.createCredential(rUser, credential, system, credTargetUser, isStaticEffectiveUser, hostLoginUser,
+                               skipCheck, false, op);
   }
 
   // ************************************************************************

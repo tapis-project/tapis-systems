@@ -2072,10 +2072,9 @@ public class SystemsServiceTest
     sys0.setDefaultAuthnMethod(AuthnMethod.TMS_KEYS);
     // Create the system
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
-    TSystem tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull,
-                                   resourceTenantNull, fetchShareInfoFalse);
-    Assert.assertNotNull(tmpSys, "Failed to create item: " + sys0.getId());
-    System.out.println("Found item: " + sys0.getId());
+    TSystem tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    Assert.assertNotNull(tmpSys, "Failed to create item: " + sysId);
+    System.out.println("Found item: " + sysId);
     // Share the system with test user
     SystemShare systemShare;
     String rawDataShare = "{\"users\": [\"" + tmsTestUser + "\"]}";

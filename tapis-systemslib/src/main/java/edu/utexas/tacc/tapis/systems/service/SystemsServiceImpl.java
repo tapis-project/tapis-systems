@@ -400,7 +400,8 @@ public class SystemsServiceImpl implements SystemsService
         // Use internal method instead of public API to skip auth and other checks not needed here.
         // This is createSystem, so isStatic is true so credTargetUser and hostLoginUser are the eff user id.
         // Note that a CredInfo record will be created.
-        credInfo = credUtils.createCredential(rUser, cred, retSystem, credTargetUser, isStaticEffUser, hostLoginUser, skipCredCheck, op);
+        credInfo = credUtils.createCredential(rUser, cred, retSystem, credTargetUser, isStaticEffUser, hostLoginUser,
+                                              skipCredCheck, false, op);
       }
 
       // If no credInfo record yet then create one
