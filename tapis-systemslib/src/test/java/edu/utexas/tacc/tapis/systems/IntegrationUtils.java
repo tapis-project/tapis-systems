@@ -77,6 +77,7 @@ public final class IntegrationUtils
   public static final String testUser5LinuxUser = "testuser5LinuxUser";
   public static final String impersonationIdTestUser9 = "testuser9";
   public static final String impersonationIdNull = null;
+  public static final Boolean hasCredentialsNull = null;
   public static final String apiUser = "testApiUser";
   public static final boolean isStaticTrue = true;
   public static final boolean isStaticFalse = false;
@@ -275,6 +276,8 @@ public final class IntegrationUtils
   public static final boolean showDeletedTrue = true;
   public static final boolean resolveEffUserTrue = true;
   public static final boolean resolveEffUserFalse = false;
+  public static final boolean filterByHasCredentialsFalse = false;
+  public static final boolean filterByHasCredentialsTrue = true;
   public static final boolean fetchShareInfoFalse = false;
   public static final boolean fetchShareInfoTrue = true;
   public static final String sharedCtxOwner = owner1;

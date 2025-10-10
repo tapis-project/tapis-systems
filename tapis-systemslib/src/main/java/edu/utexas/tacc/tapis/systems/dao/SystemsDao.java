@@ -75,7 +75,9 @@ public interface SystemsDao
 
   List<TSystem> getSystemsSatisfyingConstraints(String tenantId, ASTNode matchAST, Set<String> setOfIDs) throws TapisException;
 
-  String getSystemOwner(String tenantId, String id) throws TapisException;
+  String getSystemOwner(String tenantId, String id);
+
+  String getSystemEffectiveUserId(String tenantId, String id);
 
   AuthnMethod getSystemDefaultAuthnMethod(String tenantId, String id);
 
@@ -102,6 +104,8 @@ public interface SystemsDao
   void updateCredInfoRecord(CredentialInfo credInfo, LocalDateTime updated);
 
   void updateCredInfoStatus(CredentialInfo credInfo, CredentialInfo.SyncStatus newSyncStatus, LocalDateTime updated);
+
+  void updateCredInfoHasCredentials(CredentialInfo credInfo, boolean hasCredentials);
 
   String getLoginUserMapping(String tenantId, String id, String tapisUser, boolean isStatic);
 

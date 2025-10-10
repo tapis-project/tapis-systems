@@ -81,11 +81,11 @@ public class SystemsDaoImpl implements SystemsDao
   /* ********************************************************************** */
   /*                               Constants                                */
   /* ********************************************************************** */
-  // Local logger.
-  private static final Logger log = LoggerFactory.getLogger(SystemsDaoImpl.class);
-
   private static final String EMPTY_JSON = "{}";
   private static final int INVALID_SEQ_ID = -1;
+
+  // Local logger.
+  private static final Logger log = LoggerFactory.getLogger(SystemsDaoImpl.class);
 
   // Create a static Set of column names for table SYSTEMS
   private static final Set<String> SYSTEMS_FIELDS = new HashSet<>();
@@ -1610,10 +1610,9 @@ public class SystemsDaoImpl implements SystemsDao
    * @param tenantId - name of tenant
    * @param id - name of system
    * @return Owner or null if no system found
-   * @throws TapisException - on error
    */
   @Override
-  public String getSystemOwner(String tenantId, String id) throws TapisException
+  public String getSystemOwner(String tenantId, String id)
   {
     String owner = null;
     // ------------------------- Call SQL ----------------------------
@@ -1639,6 +1638,41 @@ public class SystemsDaoImpl implements SystemsDao
       LibUtils.finalCloseDB(conn);
     }
     return owner;
+  }
+
+  /**
+   * getSystemEffectiveUserId
+   * @param tenantId - name of tenant
+   * @param id - name of system
+   * @return EffectiveUserId or null if no system found
+   */
+  @Override
+  public String getSystemEffectiveUserId(String tenantId, String id)
+  {
+    String effUser = null;
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      // Get a database connection.
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      effUser = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(id)).fetchOne(SYSTEMS.EFFECTIVE_USER_ID);
+
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_QUERY_ERROR", "systems", e.getMessage());
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+    return effUser;
   }
 
   /**
@@ -2133,9 +2167,45 @@ public class SystemsDaoImpl implements SystemsDao
     }
   }
 
+  /*
+   * In SYSTEMS_CRED_INFO table, update hasCredentials for given record
+   */
+  @Override
+  public void updateCredInfoHasCredentials(CredentialInfo credInfo, boolean hasCredentials)
+  {
+    LocalDateTime updated = TapisUtils.getUTCTimeNow();
+    // ------------------------- Call SQL ----------------------------
+    Connection conn = null;
+    try
+    {
+      conn = getConnection();
+      DSLContext db = DSL.using(conn);
+      // NOTE: Primary key is (tenant, systemId, tapisUser, isStatic)
+      db.update(SYSTEMS_CRED_INFO)
+            .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, hasCredentials)
+            .set(SYSTEMS_CRED_INFO.UPDATED, updated)
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(credInfo.getTenant()),
+                  SYSTEMS_CRED_INFO.SYSTEM_ID.eq(credInfo.getSystemId()),
+                  SYSTEMS_CRED_INFO.TAPIS_USER.eq(credInfo.getTapisUser()),
+                  SYSTEMS_CRED_INFO.IS_STATIC.eq(credInfo.isStatic()))
+            .execute();
+      // Close out and commit
+      LibUtils.closeAndCommitDB(conn, null, null);
+    }
+    catch (Exception e)
+    {
+      // Rollback transaction and throw an exception
+      LibUtils.rollbackDB(conn, e,"DB_UPDATE_FAILURE", "SYSTEMS_CRED_INFO");
+    }
+    finally
+    {
+      // Always return the connection back to the connection pool.
+      LibUtils.finalCloseDB(conn);
+    }
+  }
+
   /**
    * In SYSTEMS_CRED_INFO table, update record and mark as COMPLETE
-   * @throws TapisException on error
    */
   @Override
   public void credInfoMarkAsComplete(CredentialInfo credInfo)
@@ -2274,7 +2344,7 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   /**
-   * getLoginUser
+   * getLoginUserMapping
    * Given a System Id and a tapisUser get the mapping to the loginUser if the map table has an entry.
    * If there is no mapping return null
    * @param sysId - system name
@@ -2294,11 +2364,7 @@ public class SystemsDaoImpl implements SystemsDao
       // Get a database connection.
       conn = getConnection();
       DSLContext db = DSL.using(conn);
-      // Run the sql
-      loginUserMapping = db.selectFrom(SYSTEMS_CRED_INFO)
-          .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
-                 SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser), SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic))
-          .fetchOne(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING);
+      loginUserMapping = determineLoginUserMapping(db, tenantId, sysId, isStatic, tapisUser);
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
     }
@@ -3379,21 +3445,6 @@ public class SystemsDaoImpl implements SystemsDao
   }
 
   /*
-   * Given a record from a select, create a CredentialInfo object
-   */
-  private CredentialInfo getCredentialInfoFromRecord(SystemsCredInfoRecord r)
-  {
-    // SyncFailed timestamp might be null
-    LocalDateTime syncFailedLDT = r.getSyncFailed();
-    Instant syncFailedI = syncFailedLDT == null ? null : syncFailedLDT.toInstant(ZoneOffset.UTC);
-    return new CredentialInfo(r.getSystemSeqId(), r.getTenant(), r.getSystemId(), r.getTapisUser(),
-            r.getIsStatic(), r.getHostLoginUser(), r.getLoginUserMapping(), r.getHasCredentials(), r.getHasPassword(),
-            r.getHasPkiKeys(), r.getHasAccessKey(), r.getHasToken(), r.getHasTmsKeys(), r.getSyncStatus(),
-            r.getSyncFailCount(), r.getSyncFailMessage(), syncFailedI,
-            r.getCreated().toInstant(ZoneOffset.UTC), r.getUpdated().toInstant(ZoneOffset.UTC));
-  }
-
-  /*
    * Given a parent system update all inheritable attributes for children
    */
   private void updateChildSystemsFromParent(DSLContext db, String tenant, String parentId) {
@@ -3455,6 +3506,74 @@ public class SystemsDaoImpl implements SystemsDao
     Condition cond = DSL.condition("{0} && {1}::text[]", col, DSL.array(array));
     if (negate) return cond.not();
     else return cond;
+  }
+
+  /*
+   * Given a db connection, tenant, system, isStatic and tapisUser figure out the hostLoginUser
+   */
+  private String determineHostLoginUser(DSLContext db, String tenantId, String sysId, boolean isStatic, String tapisUser)
+  {
+    // Determine the unresolved effUser
+    String effUser = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(sysId)).fetchOne(SYSTEMS.EFFECTIVE_USER_ID);
+    if (isStatic)
+    {
+      // For static, simply return effUser from system definition.
+      return effUser;
+    }
+    else
+    {
+      // So it is dynamic. If there is a loginUser mapping, then it will be in a record associated with tapisUser.
+      String loginUserMapping = determineLoginUserMapping(db, tenantId, sysId, isStatic, tapisUser);
+      // If no mapping, return tapis user, else return the mapping
+      return StringUtils.isBlank(loginUserMapping) ? tapisUser : loginUserMapping;
+    }
+  }
+
+  /*
+   * Given a db connection, tenant, system, isStatic and tapisUser figure out the loginUserMapping
+   * If static always return null.
+   * If dynamic look for a record.
+   */
+  private String determineLoginUserMapping(DSLContext db, String tenantId, String sysId, boolean isStatic, String tapisUser)
+  {
+
+    // Determine the unresolved effUser
+    String effUser = db.selectFrom(SYSTEMS).where(SYSTEMS.TENANT.eq(tenantId),SYSTEMS.ID.eq(sysId)).fetchOne(SYSTEMS.EFFECTIVE_USER_ID);
+    if (isStatic)
+    {
+      // If static return null, never a mapping
+      return effUser;
+    }
+    else
+    {
+      // So it is dynamic. There should be only one entry. Get all entries and log an error if more than 1.
+      var records = db.selectFrom(SYSTEMS_CRED_INFO)
+            .where(SYSTEMS_CRED_INFO.TENANT.eq(tenantId),SYSTEMS_CRED_INFO.SYSTEM_ID.eq(sysId),
+                   SYSTEMS_CRED_INFO.TAPIS_USER.eq(tapisUser), SYSTEMS_CRED_INFO.IS_STATIC.eq(isStatic)).fetch();
+      if (records.isEmpty()) return null;
+      if (records.size() > 1)
+      {
+        log.error(LibUtils.getMsg("SYSLIB_CREDINFO_DB_MAP_ERR", tenantId, sysId, isStatic, tapisUser, records.size()));
+        return null;
+      }
+      CredentialInfo ci = getCredentialInfoFromRecord(records.getFirst());
+      return ci.getLoginUserMapping();
+    }
+  }
+
+  /*
+   * Given a record from a select, create a CredentialInfo object
+   */
+  private CredentialInfo getCredentialInfoFromRecord(SystemsCredInfoRecord r)
+  {
+    // SyncFailed timestamp might be null
+    LocalDateTime syncFailedLDT = r.getSyncFailed();
+    Instant syncFailedI = syncFailedLDT == null ? null : syncFailedLDT.toInstant(ZoneOffset.UTC);
+    return new CredentialInfo(r.getSystemSeqId(), r.getTenant(), r.getSystemId(), r.getTapisUser(),
+          r.getIsStatic(), r.getHostLoginUser(), r.getLoginUserMapping(), r.getHasCredentials(), r.getHasPassword(),
+          r.getHasPkiKeys(), r.getHasAccessKey(), r.getHasToken(), r.getHasTmsKeys(), r.getSyncStatus(),
+          r.getSyncFailCount(), r.getSyncFailMessage(), syncFailedI,
+          r.getCreated().toInstant(ZoneOffset.UTC), r.getUpdated().toInstant(ZoneOffset.UTC));
   }
 
 }

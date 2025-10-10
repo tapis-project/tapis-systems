@@ -81,7 +81,7 @@ public interface SystemsService
         throws TapisException, TapisClientException;
 
   TSystem getSystem(ResourceRequestUser rUser, String systemId, AuthnMethod authnMethod, boolean requireExecPerm,
-                    boolean getCreds, String impersonationId, String sharedAppCtxGrantor, String resourceTenant,
+                    boolean returnCreds, String impersonationId, String sharedAppCtxGrantor, String resourceTenant,
                     boolean fetchShareInfo)
           throws TapisException, TapisClientException;
 
@@ -90,16 +90,18 @@ public interface SystemsService
           throws TapisException, TapisClientException;
 
   List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, int limit, List<OrderBy> orderByList,
-                           int skip, String startAfter, boolean includeDeleted, String listType, boolean fetchShareInfo,
-                           String impersonationId)
+                           int skip, String startAfter, boolean includeDeleted, String listType,
+                           Boolean filterByHasCredentials, boolean fetchShareInfo, String impersonationId)
           throws TapisException, TapisClientException;
 
   List<TSystem> getSystemsUsingSqlSearchStr(ResourceRequestUser rUser, String searchStr, int limit,
-                                        List<OrderBy> orderByList, int skip, String startAfter,
-                                        boolean includeDeleted, String listType, boolean fetchShareInfo)
+                                            List<OrderBy> orderByList, int skip, String startAfter,
+                                            boolean includeDeleted, String listType, Boolean filterByHasCredentials,
+                                            boolean fetchShareInfo)
           throws TapisException, TapisClientException;
 
-  List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr, boolean fetchShareInfo)
+  List<TSystem> getSystemsSatisfyingConstraints(ResourceRequestUser rUser, String matchStr,
+                                                Boolean filterByHasCredentials, boolean fetchShareInfo)
           throws TapisException, TapisClientException;
 
   String getSystemOwner(ResourceRequestUser rUser, String systemId)

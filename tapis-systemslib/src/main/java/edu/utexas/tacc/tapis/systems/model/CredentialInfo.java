@@ -41,11 +41,11 @@ public class CredentialInfo
   private final int systemSeqId; // Sequence id associated with the system id
   private final String tenant; // Name of tenant associated with the credential
   private final String systemId; // Name of the system associated with the credential
-  private final String tapisUser; // Tapis user associated with the credential
+  private final String tapisUser; // Tapis user associated with the credential. If static effUser this is always sys owner.
   private final boolean isStatic; // Indicates if record is for the static or dynamic effectiveUserId case.
 
-  private final String hostLoginUser; // Username used when connecting to host
   private final String loginUserMapping; // For case of dynamic effectiveUserId, this is an optional mapping to host login user.
+  private String hostLoginUser; // Username used when connecting to host
   private boolean hasCredentials; // Indicates if system has credentials registered for the current defaultAuthnMethod
   private boolean hasPassword; // Indicates if credentials for PASSWORD have been registered.
   private boolean hasPkiKeys; // Indicates if credentials for PKI_KEYS have been registered.
@@ -185,6 +185,7 @@ public class CredentialInfo
   public boolean isStatic() { return isStatic; }
 
   public String getHostLoginUser() { return hostLoginUser; }
+  public void setHostLoginUser(String s) { hostLoginUser = s; }
 
   public String getLoginUserMapping() { return loginUserMapping; }
 
