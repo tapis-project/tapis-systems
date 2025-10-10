@@ -802,9 +802,6 @@ public class CredUtils
     int changeCount;
     // If static then tapisUser is oboUser, if dynamic then tapisUser is targetUser
     String tapisUser = isStatic ? oboUser : credTargetUser;
-    // If static we can figure out hostLoginUser. Otherwise, dao.deleteCredInfo would look it up and get the
-    //  one currently associated with the system, which might not be the correct one. That is because multiple
-    //  credentials can be created even for static effUser, resulting in multiple credInfo records.
 
     // Use a synchronized block for the update operation.
     // This is basically the equivalent of a selectForUpdate DB type operation.

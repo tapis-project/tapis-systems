@@ -1848,7 +1848,6 @@ public class SystemsDaoImpl implements SystemsDao
 
   /*
    * getCredentialInfo given attributes of primary key
-   * If hostLoginUser not provided then look it up from existing data.
    */
   @Override
   public CredentialInfo getCredInfo(String tenantId, String sysId, String tapisUser, boolean isStatic)

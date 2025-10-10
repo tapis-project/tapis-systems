@@ -88,7 +88,6 @@ public interface SystemsDao
   int getCredInfoTotalCount();
 
   CredentialInfo getCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic);
-//  CredentialInfo getCredInfo(String tenantId, String systemId, String tapisUser, boolean isStatic, String hostLoginUser);
 
   CredentialInfo getCredInfo(CredentialInfo credInfo);
 
