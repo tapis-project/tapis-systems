@@ -1445,14 +1445,18 @@ public class SystemsServiceImpl implements SystemsService
     else if (publicOnly) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboOrImpersonatedUser, true);
 
     // Get all allowed systems matching the search conditions
+    // If filtering by hasCredentials, turn off limit temporarily.
+    //   Unfortunately cannot do it as part of SQL. We will need to get all of them and then limit later.
+    int tmpLimit = limit;
+    if (Boolean.TRUE.equals(filterByHasCredentials)) tmpLimit = -1;
     List<TSystem> systems = dao.getSystems(rUser, oboOrImpersonatedUser, verifiedSearchList,
-                                           null,  limit, orderByList, skip, startAfter,
+                                           null,  tmpLimit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
 
     // Do final filtering and setting of any dynamic attributes
     // The return list will be either the full list returned by the dao call or new list containing only
     //   records filtered by hasCredentials.
-    List<TSystem> retSystems = getSystemsFinal(rUser, systems, fetchShareInfo, filterByHasCredentials, oboOrImpersonatedUser);
+    List<TSystem> retSystems = getSystemsFinal(rUser, systems, fetchShareInfo, filterByHasCredentials, limit, oboOrImpersonatedUser);
     return retSystems;
   }
 
@@ -1534,12 +1538,16 @@ public class SystemsServiceImpl implements SystemsService
     else if (publicOnly) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboUser, true);
 
     // Get all allowed systems matching the search conditions
-    List<TSystem> systems = dao.getSystems(rUser, oboUser, null, searchAST, limit, orderByList,
+    // If filtering by hasCredentials, turn off limit temporarily.
+    //   Unfortunately cannot do it as part of SQL. We will need to get all of them and then limit later.
+    int tmpLimit = limit;
+    if (Boolean.TRUE.equals(filterByHasCredentials)) tmpLimit = -1;
+    List<TSystem> systems = dao.getSystems(rUser, oboUser, null, searchAST, tmpLimit, orderByList,
                                            skip, startAfter, includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
     // Do final filtering and setting of any dynamic attributes
     // The return list will be either the full list returned by the dao call or new list containing only
     //   records filtered by hasCredentials.
-    List<TSystem> retSystems = getSystemsFinal(rUser, systems, fetchShareInfo, filterByHasCredentials, oboUser);
+    List<TSystem> retSystems = getSystemsFinal(rUser, systems, fetchShareInfo, filterByHasCredentials, limit, oboUser);
     return retSystems;
   }
 
@@ -1578,7 +1586,7 @@ public class SystemsServiceImpl implements SystemsService
     // Do final filtering and setting of any dynamic attributes
     // The return list will be either the full list returned by the dao call or new list containing only
     //   records filtered by hasCredentials.
-    List<TSystem> retSystems = getSystemsFinal(rUser, systems, fetchShareInfo, false, rUser.getOboUserId());
+    List<TSystem> retSystems = getSystemsFinal(rUser, systems, fetchShareInfo, false, -1, rUser.getOboUserId());
     return retSystems;
   }
 
@@ -1935,14 +1943,18 @@ public class SystemsServiceImpl implements SystemsService
 
   /*
    * Do final filtering and setting of any dynamic attributes
+   * We compute hasCredentials here for each system so if we are filtering by credentials we do it here
+   *   and also check limit here if needed.
    */
   private List<TSystem> getSystemsFinal(ResourceRequestUser rUser, List<TSystem> systems, boolean fetchShareInfo,
-                                        Boolean filterByHasCredentials, String oboOrImpersonatedUser)
+                                        Boolean filterByHasCredentials, int limit, String oboOrImpersonatedUser)
         throws TapisException, TapisClientException
   {
-    // If we filter on hasCredentials, start a new list to return.
-    List<TSystem> retSystems = (filterByHasCredentials == null) ? systems : new ArrayList<>();
-    // Update dynamically computed info and resolve effUser as needed.
+    // Start a new list for final result. If filtering by credentials we need to do it here and possibly limit
+    List<TSystem> retSystems = new ArrayList<>();
+
+    // Loop over full list of systems computing dynamic attributes and possibly filtering and limiting as requested
+    int counter = 0;
     for (TSystem sys : systems)
     {
       boolean isStaticEffUser = !sys.getEffectiveUserId().equals(APIUSERID_VAR);
@@ -1952,9 +1964,17 @@ public class SystemsServiceImpl implements SystemsService
       // Determine hasCredentials
       sys.setHasCredentials(determineHasCredentials(rUser, sys, oboOrImpersonatedUser, isStaticEffUser));
 
-      // If filtering by hasCredentials and not including then simply continue now to skip the record.
-      if (filterByHasCredentials != null && !filterByHasCredentials.equals(sys.hasCredentials())) continue;
+      // If filtering by hasCredentials there is some special handling.
+      if (filterByHasCredentials != null)
+      {
+        // If not including then simply continue now to skip the record.
+        if (!filterByHasCredentials.equals(sys.hasCredentials())) continue;
+        // If we have passed the limit then we are done, break out of loop
+        counter++;
+        if (limit >= 0 && counter > limit) break;
+      }
 
+      // Update other dynamically computed attributes and resolve effUser as needed.
       // Fetch share info only if requested by caller
       if (fetchShareInfo)
       {
@@ -1964,8 +1984,9 @@ public class SystemsServiceImpl implements SystemsService
       }
       sys.setIsDynamicEffectiveUser(!isStaticEffUser);
       sys.setEffectiveUserId(sysUtils.resolveEffectiveUserId(sys, oboOrImpersonatedUser));
-      // If filtering by hasCredentials then it is a match so add it to the newly created list.
-      if (filterByHasCredentials != null) retSystems.add(sys);
+
+      // Include the system in final result
+      retSystems.add(sys);
     }
     return retSystems;
   }
