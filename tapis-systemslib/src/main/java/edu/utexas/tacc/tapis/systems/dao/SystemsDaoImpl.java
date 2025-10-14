@@ -1243,11 +1243,12 @@ public class SystemsDaoImpl implements SystemsDao
       }
     }
     whereCondition = whereCondition.and(listTypeCondition);
-    // TODO If filtering by hasCredentials add the the where clause
-    if (filterByHasCredentials != null)
-    {
-      whereCondition = whereCondition.and(SYSTEMS_CRED_INFO.HAS_CREDENTIALS.eq(filterByHasCredentials));
-    }
+//    // TODO If filtering by hasCredentials add the the where clause
+// TODO Leave commented out for now. Updates do not appear to fix the issue with combined use of hasCredentials+computeTotal
+//    if (filterByHasCredentials != null)
+//    {
+//      whereCondition = whereCondition.and(SYSTEMS_CRED_INFO.HAS_CREDENTIALS.eq(filterByHasCredentials));
+//    }
 
     // ------------------------- Build and execute SQL ----------------------------
     int count = 0;
@@ -1262,17 +1263,19 @@ public class SystemsDaoImpl implements SystemsDao
       // NOTE: This is much simpler than the same section in getSystems() because we are not ordering since
       //       we only want the count, and we are not limiting (we want a count of all records).
       Integer countInt;
-      // TODO If not filtering by hasCredentials, no join, else include a join
-      if (filterByHasCredentials == null)
-      {
-        countInt = db.selectCount().from(SYSTEMS).where(whereCondition).fetchOne(0, Integer.class);
-      }
-      else
-      {
-        countInt = db.selectCount().from(SYSTEMS)
-              .join(SYSTEMS_CRED_INFO).on(SYSTEMS.SEQ_ID.eq(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID))
-              .where(whereCondition).fetchOne(0, Integer.class); // TODO
-      }
+      countInt = db.selectCount().from(SYSTEMS).where(whereCondition).fetchOne(0, Integer.class);
+// TODO Leave commented out for now. Updates do not appear to fix the issue with combined use of hasCredentials+computeTotal
+//      // TODO If not filtering by hasCredentials, no join, else include a join
+//      if (filterByHasCredentials == null)
+//      {
+//        countInt = db.selectCount().from(SYSTEMS).where(whereCondition).fetchOne(0, Integer.class);
+//      }
+//      else
+//      {
+//        countInt = db.selectCount().from(SYSTEMS)
+//              .join(SYSTEMS_CRED_INFO).on(SYSTEMS.SEQ_ID.eq(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID))
+//              .where(whereCondition).fetchOne(0, Integer.class); // TODO
+//      }
       count = (countInt == null) ? 0 : countInt;
 
       // Close out and commit
