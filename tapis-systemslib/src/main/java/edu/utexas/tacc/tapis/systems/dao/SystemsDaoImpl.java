@@ -1124,6 +1124,7 @@ public class SystemsDaoImpl implements SystemsDao
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param startAfter - where to start when sorting, e.g. orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param includeDeleted - whether to included resources that have been marked as deleted.
+   * @param filterByHasCredentials - whether to filter by hasCredentials = true, false or null
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @param viewableIDs - list of IDs to include due to permission READ or MODIFY
    * @param sharedIDs - list of IDs shared with the requester or only shared publicly.
@@ -1133,7 +1134,8 @@ public class SystemsDaoImpl implements SystemsDao
   @Override
   public int getSystemsCount(ResourceRequestUser rUser, String oboUser, List<String> searchList, ASTNode searchAST,
                              List<OrderBy> orderByList, String startAfter, boolean includeDeleted,
-                             AuthListType listType, Set<String> viewableIDs, Set<String> sharedIDs)
+                             Boolean filterByHasCredentials, AuthListType listType, Set<String> viewableIDs,
+                             Set<String> sharedIDs)
           throws TapisException
   {
     // For convenience
@@ -1241,6 +1243,11 @@ public class SystemsDaoImpl implements SystemsDao
       }
     }
     whereCondition = whereCondition.and(listTypeCondition);
+    // TODO If filtering by hasCredentials add the the where clause
+    if (filterByHasCredentials != null)
+    {
+      whereCondition = whereCondition.and(SYSTEMS_CRED_INFO.HAS_CREDENTIALS.eq(filterByHasCredentials));
+    }
 
     // ------------------------- Build and execute SQL ----------------------------
     int count = 0;
@@ -1254,7 +1261,18 @@ public class SystemsDaoImpl implements SystemsDao
       // Execute the select including startAfter
       // NOTE: This is much simpler than the same section in getSystems() because we are not ordering since
       //       we only want the count, and we are not limiting (we want a count of all records).
-      Integer countInt = db.selectCount().from(SYSTEMS).where(whereCondition).fetchOne(0,Integer.class);
+      Integer countInt;
+      // TODO If not filtering by hasCredentials, no join, else include a join
+      if (filterByHasCredentials == null)
+      {
+        countInt = db.selectCount().from(SYSTEMS).where(whereCondition).fetchOne(0, Integer.class);
+      }
+      else
+      {
+        countInt = db.selectCount().from(SYSTEMS)
+              .join(SYSTEMS_CRED_INFO).on(SYSTEMS.SEQ_ID.eq(SYSTEMS_CRED_INFO.SYSTEM_SEQ_ID))
+              .where(whereCondition).fetchOne(0, Integer.class); // TODO
+      }
       count = (countInt == null) ? 0 : countInt;
 
       // Close out and commit

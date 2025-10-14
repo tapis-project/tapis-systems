@@ -1590,7 +1590,7 @@ public class SystemResource {
     if (computeTotal && limit > 0)
     {
       totalCount = service.getSystemsTotalCount(rUser, searchList, orderByList, startAfter, showDeleted,
-                                                listType, impersonationId);
+                                                filterByHasCredentials, listType, impersonationId);
     }
 
     // ---------------------------- Success -------------------------------

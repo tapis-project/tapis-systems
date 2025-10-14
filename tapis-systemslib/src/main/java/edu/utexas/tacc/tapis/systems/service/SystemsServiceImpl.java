@@ -1292,6 +1292,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param orderByList - orderBy entries for sorting, e.g. orderBy=created(desc).
    * @param startAfter - where to start when sorting, e.g. orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param includeDeleted - whether to included resources that have been marked as deleted.
+   * @param filterByHasCredentials - whether to filter by hasCredentials = true, false or null
    * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth
    * @return Count of TSystem objects
@@ -1299,7 +1300,8 @@ public class SystemsServiceImpl implements SystemsService
    */
   @Override
   public int getSystemsTotalCount(ResourceRequestUser rUser, List<String> searchList, List<OrderBy> orderByList,
-                               String startAfter, boolean includeDeleted, String listType, String impersonationId)
+                                  String startAfter, boolean includeDeleted, Boolean filterByHasCredentials,
+                                  String listType, String impersonationId)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.read;
@@ -1361,7 +1363,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // Count all allowed systems matching the search conditions
     return dao.getSystemsCount(rUser, oboOrImpersonatedUser, verifiedSearchList, null, orderByList,
-                               startAfter, includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
+                               startAfter, includeDeleted, filterByHasCredentials, listTypeEnum, viewableIDs, sharedIDs);
   }
 
   /**

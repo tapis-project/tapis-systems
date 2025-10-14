@@ -86,7 +86,8 @@ public interface SystemsService
           throws TapisException, TapisClientException;
 
   int getSystemsTotalCount(ResourceRequestUser rUser, List<String> searchList, List<OrderBy> orderByList,
-                           String startAfter, boolean includeDeleted, String listType, String impersonationId)
+                           String startAfter, boolean includeDeleted, Boolean filterByHasCredentials, String listType,
+                           String impersonationId)
           throws TapisException, TapisClientException;
 
   List<TSystem> getSystems(ResourceRequestUser rUser, List<String> searchList, int limit, List<OrderBy> orderByList,
