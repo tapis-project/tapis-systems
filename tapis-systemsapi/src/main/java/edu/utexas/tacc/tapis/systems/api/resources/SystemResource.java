@@ -1397,9 +1397,14 @@ public class SystemResource {
         changeCount = service.unlinkChildren(rUser, systemId, (List<String>)additionalArg.getRight());
       else if (OP_UNLINK_ALL_CHILDREN.equals(opName))
         changeCount = service.unlinkAllChildren(rUser, systemId);
-      else {
+      else if (OP_CHANGEOWNER.equals(opName))
+      {
         String userName = ARGUMENT_TYPE.ARG_USER_NAME.equals(additionalArg.getLeft()) ? (String) additionalArg.getRight() : null;
         changeCount = service.changeSystemOwner(rUser, systemId, userName);
+      }
+      else
+      {
+       throw new UnsupportedOperationException("Operation not supported.");
       }
     }
     catch (IllegalStateException e)

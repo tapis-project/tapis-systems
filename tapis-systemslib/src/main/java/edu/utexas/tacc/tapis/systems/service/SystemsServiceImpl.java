@@ -886,8 +886,10 @@ public class SystemsServiceImpl implements SystemsService
       // System must already exist and not be deleted
       checkForSysWithThrow(rUser, oboTenant, systemId, false);
 
-      // Retrieve system. We will need it for a few things.
-      TSystem sys = dao.getSystem(oboTenant, systemId);
+      // Retrieve system with some fields resolved. We will need it for a few things.
+      // NOTE: Basic getSystem with default options, share info and credentials are NOT fetched.
+      //       Dynamic properties and effectiveUserId are resolved
+      TSystem sys = getSystem(rUser, oboTenant, systemId);
       String oldOwnerName = sys.getOwner();
       boolean isStaticEffUser = !sys.isDynamicEffectiveUser();
 
@@ -915,8 +917,14 @@ public class SystemsServiceImpl implements SystemsService
         // Consider using a notification instead (jira cic-3071)
         // Give new owner files service related permission for root directory
         sysUtils.getSKClient(rUser).grantUserPermission(oboTenant, newOwnerName, filesPermSpec);
-        // Remove permissions from old owner
+
+        // Remove files permissions from old owner
         sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, oldOwnerName, filesPermSpec);
+
+        // TODO/TBD Remove any sharing records except for public sharing.
+        authUtils.deleteAllShareInfo(rUser, sys, false);
+        // TODO Remove all fine-grained systems permission grants.
+        authUtils.revokeAllSKPermissions(rUser, sys, sys.getEffectiveUserId());
 
         // Create credInfo record for new owner and if static effUser remove old credential
         credUtils.createCredInfoForOwnerAsNeeded(rUser, sys, isStaticEffUser, op.name());
@@ -1085,7 +1093,7 @@ public class SystemsServiceImpl implements SystemsService
     String resolvedEffectiveUserId = sysUtils.resolveEffectiveUserId(system, rUser.getOboUserId());
     // Remove permissions associated with the system
     authUtils.revokeAllSKPermissions(rUser, system, resolvedEffectiveUserId);
-    // Remove shareInfo associated with the system
+    // Remove shareInfo associated with the system, including isPublic
     authUtils.deleteAllShareInfo(rUser, system);
     // Delete all Credentials and CredInfo records associated with the system.
     credUtils.deleteAllCredentialsForSystem(rUser, system, op);
@@ -1800,7 +1808,7 @@ public class SystemsServiceImpl implements SystemsService
    * Create or update share of a system
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param systemShare - User names
+   * @param systemShare - Usernames
    */
   @Override
   public void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare)
@@ -1814,7 +1822,7 @@ public class SystemsServiceImpl implements SystemsService
    * Unshare of a system
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param systemShare - User names
+   * @param systemShare - Usernames
    *
    * @throws TapisException - for Tapis related exceptions
    * @throws TapisClientException - for Tapis client related exceptions

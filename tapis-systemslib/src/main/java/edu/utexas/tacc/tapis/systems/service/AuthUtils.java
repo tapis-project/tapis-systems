@@ -525,10 +525,16 @@ public class AuthUtils
    * Remove all share info associated with a system.
    * No checks are done for incoming arguments and the system must exist
    */
-  void deleteAllShareInfo(ResourceRequestUser rUser, TSystem system) throws TapisException, TapisClientException
+  void deleteAllShareInfo(ResourceRequestUser rUser, TSystem system) // Wrapper for backward compatibility
+        throws TapisException, TapisClientException
+  {
+    deleteAllShareInfo(rUser, system, true);
+  }
+  void deleteAllShareInfo(ResourceRequestUser rUser, TSystem system, boolean unsharePublic)
+        throws TapisException, TapisClientException
   {
     String sysId = system.getId();
-    updateUserShares(rUser, OP_UNSHARE, sysId, null, true);
+    if (unsharePublic) updateUserShares(rUser, OP_UNSHARE, sysId, null, true);
     var systemShare = getSystemShareInfo(rUser, system.getTenant(), sysId);
     // If any shareInfo to remove do so now.
     if (systemShare != null && systemShare.getUserList() != null && !systemShare.getUserList().isEmpty())
