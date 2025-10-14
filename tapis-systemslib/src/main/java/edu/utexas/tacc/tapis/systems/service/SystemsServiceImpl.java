@@ -1448,7 +1448,7 @@ public class SystemsServiceImpl implements SystemsService
     // If filtering by hasCredentials, turn off limit temporarily.
     //   Unfortunately cannot do it as part of SQL. We will need to get all of them and then limit later.
     int tmpLimit = limit;
-    if (Boolean.TRUE.equals(filterByHasCredentials)) tmpLimit = -1;
+    if (filterByHasCredentials != null) tmpLimit = -1;
     List<TSystem> systems = dao.getSystems(rUser, oboOrImpersonatedUser, verifiedSearchList,
                                            null,  tmpLimit, orderByList, skip, startAfter,
                                            includeDeleted, listTypeEnum, viewableIDs, sharedIDs);
