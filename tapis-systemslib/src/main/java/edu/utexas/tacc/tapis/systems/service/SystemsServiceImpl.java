@@ -886,8 +886,10 @@ public class SystemsServiceImpl implements SystemsService
       // System must already exist and not be deleted
       checkForSysWithThrow(rUser, oboTenant, systemId, false);
 
-      // Retrieve system. We will need it for a few things.
-      TSystem sys = dao.getSystem(oboTenant, systemId);
+      // Retrieve system with some fields resolved. We will need it for a few things.
+      // NOTE: Basic getSystem with default options, share info and credentials are NOT fetched.
+      //       Dynamic properties and effectiveUserId are resolved
+      TSystem sys = getSystem(rUser, oboTenant, systemId);
       String oldOwnerName = sys.getOwner();
       boolean isStaticEffUser = !sys.isDynamicEffectiveUser();
 
@@ -913,10 +915,13 @@ public class SystemsServiceImpl implements SystemsService
         sys.setOwner(newOwnerName);
 
         // Consider using a notification instead (jira cic-3071)
-        // Give new owner files service related permission for root directory
+        // Give new owner files service related permission for root directory and remove files perm for old owner
         sysUtils.getSKClient(rUser).grantUserPermission(oboTenant, newOwnerName, filesPermSpec);
-        // Remove permissions from old owner
         sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, oldOwnerName, filesPermSpec);
+
+        // NOTE: Leave all other existing system perm grants and share records in place.
+        // Update all share records to have new owner as grantor.
+        authUtils.updateShareGrantorToNewOwner(rUser, sys, newOwnerName);
 
         // Create credInfo record for new owner and if static effUser remove old credential
         credUtils.createCredInfoForOwnerAsNeeded(rUser, sys, isStaticEffUser, op.name());
@@ -1075,17 +1080,15 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     // If system does not exist then nothing to do, 0 changes
-    TSystem system = dao.getSystem(tenant, systemId, true);
+    TSystem system = getSystem(rUser, tenant, systemId);
     if (system == null) return 0;
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
 
-    // Resolve effectiveUserId
-    String resolvedEffectiveUserId = sysUtils.resolveEffectiveUserId(system, rUser.getOboUserId());
     // Remove permissions associated with the system
-    authUtils.revokeAllSKPermissions(rUser, system, resolvedEffectiveUserId);
-    // Remove shareInfo associated with the system
+    authUtils.revokeAllSKPermissions(rUser, system);
+    // Remove shareInfo associated with the system, including isPublic
     authUtils.deleteAllShareInfo(rUser, system);
     // Delete all Credentials and CredInfo records associated with the system.
     credUtils.deleteAllCredentialsForSystem(rUser, system, op);
@@ -1800,7 +1803,7 @@ public class SystemsServiceImpl implements SystemsService
    * Create or update share of a system
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param systemShare - User names
+   * @param systemShare - Usernames
    */
   @Override
   public void shareSystem(ResourceRequestUser rUser, String systemId, SystemShare systemShare)
@@ -1814,7 +1817,7 @@ public class SystemsServiceImpl implements SystemsService
    * Unshare of a system
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
-   * @param systemShare - User names
+   * @param systemShare - Usernames
    *
    * @throws TapisException - for Tapis related exceptions
    * @throws TapisClientException - for Tapis client related exceptions

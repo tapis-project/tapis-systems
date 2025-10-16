@@ -10,15 +10,16 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 25Q4.0 - 2025-10-14
+## 25Q4.0 - 2025-10-16
 
-Bug fix, refactoring and enhancements.
+Bug fixes, refactoring and enhancements.
 
 ### New features:
 - Support for filtering by *hasCredentials*.
 
 ### Bug fixes:
 - Reject request when loginUser is provided in the credential creation post body for a system with a static effective user.
+- changeOwner should preserve sharing records and allow new owner to unshare from old owner.
 
 ---------------------------------------------------------------------------
 ## 1.9.2 - 2025-08-19

@@ -363,7 +363,6 @@ public class SystemsServiceTest
     // THIS is the call that creates the entry with no login mapping
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataEmptyJson);
     tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-    tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
 
     // Test create with invalid credentials. No secrets are stored in SK and CredInfo record is not updated.
     Credential checkedCred = svcCred.createUserCredential(rOwner1, sysId, targetUser, credFake, createTmsKeysFalse, skipCredCheckFalse, rawDataEmptyJson);
@@ -713,6 +712,8 @@ public class SystemsServiceTest
 
   // Test changing system owner
   // Check that credInfo record gets created and then changed as owner changes.
+  // Check that shares and perms remain in place.
+  // Check that new owner can unshare from old owner
   @Test
   public void testChangeSystemOwner() throws Exception
   {
@@ -720,6 +721,7 @@ public class SystemsServiceTest
     sys0.setJobCapabilities(capList1);
     String rawDataCreate = "{\"testChangeOwner\": \"0-create\"}";
     String newOwnerName = testUser2;
+    String thirdUser = testUser3;
     TSystem tmpSys = svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataCreate);
     String origSysOwner = tmpSys.getOwner();
     String sysId = tmpSys.getId();
@@ -733,9 +735,23 @@ public class SystemsServiceTest
     Assert.assertTrue(StringUtils.isBlank(credInfo.getLoginUserMapping()));
     Assert.assertEquals(credInfo.getCredTargetUser(), effUser);
     Assert.assertFalse(credInfo.hasCredentials(), "hasCredentials should be false");
+    // Grant shares and perms to old owner and a third user
+    svc.grantUserPermissions(rOwner1, sysId, owner1, testPermsREADMODIFY, rawDataEmptyJson);
+    svc.grantUserPermissions(rOwner1, sysId, thirdUser, testPermsREADMODIFY, rawDataEmptyJson);
+    String rawDataShare = "{\"users\": [\"" + owner1 + "\", \"" + thirdUser + "\"]}";
+    SystemShare sysShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
+    svc.shareSystem(rOwner1, sysId, sysShare);
+    // NOTE: We do not test sharing publicly because it can interfere with other tests when run concurrently.
+    //       Instead, do manualy testing.
+//    svc.shareSystemPublicly(rOwner1, sysId);
+    tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoTrue);
+    sysShare = svc.getSystemShare(rOwner1, sysId);
+    Set<Permission> userPerms = svc.getUserPermissions(rOwner1, sysId, owner1);
+    userPerms = svc.getUserPermissions(rOwner1, sysId, thirdUser);
+
     // Change owner using api
     svc.changeSystemOwner(rOwner1, sysId, newOwnerName);
-    tmpSys = svc.getSystem(rTestUser2, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    tmpSys = svc.getSystem(rTestUser2, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoTrue);
     Assert.assertEquals(tmpSys.getOwner(), newOwnerName);
     // Check that old credInfo removed and new one created
     credInfo = dao.getCredInfo(tenantName, sysId, origSysOwner, isStaticEffUser);
@@ -748,23 +764,49 @@ public class SystemsServiceTest
     Assert.assertEquals(credInfo.getCredTargetUser(), effUser);
     Assert.assertFalse(credInfo.hasCredentials(), "hasCredentials should be false");
 
+    // Check that shares and perms still in place.
     // Check expected auxiliary updates have happened
-    // New owner should be able to retrieve permissions
-    Set<Permission> userPerms = svc.getUserPermissions(rTestUser2, sys0.getId(), newOwnerName);
+    // NOTE: We do not test sharing publically because it can interfere with other tests when run concurrently.
+    //       Instead, do manualy testing.
+    // System should still be public
+//    Assert.assertTrue(tmpSys.isPublic());
+    // New owner should be able to retrieve permissions and old perms should be in place
+    userPerms = svc.getUserPermissions(rTestUser2, sysId, owner1);
     Assert.assertNotNull(userPerms, "Null returned when retrieving perms.");
+    Assert.assertTrue(userPerms.contains(Permission.READ));
+    Assert.assertTrue(userPerms.contains(Permission.MODIFY));
+    userPerms = svc.getUserPermissions(rTestUser2, sysId, thirdUser);
+    Assert.assertNotNull(userPerms, "Null returned when retrieving perms.");
+    Assert.assertTrue(userPerms.contains(Permission.READ));
+    Assert.assertTrue(userPerms.contains(Permission.MODIFY));
+    // Old shares should also be in place
+    sysShare = svc.getSystemShare(rTestUser2, sysId);
+    var userList = sysShare.getUserList();
+    Assert.assertTrue(userList.contains(owner1));
+    Assert.assertTrue(userList.contains(thirdUser));
+    // Now revoke perms from old owner
+    svc.revokeUserPermissions(rTestUser2, sysId, owner1, testPermsREADMODIFY, rawDataEmptyJson);
+
+    // Unshare from old owner and confirm it happened
+    rawDataShare = "{\"users\": [\"" + owner1 + "\"]}";
+    sysShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
+    svc.unshareSystem(rTestUser2, sysId, sysShare);
+    sysShare = svc.getSystemShare(rTestUser2, sysId);
+    Assert.assertFalse(sysShare.getUserList().contains(owner1));
+
     // Original owner should not be able to modify system
     try {
       svc.deleteSystem(rOwner1, sys0.getId());
       Assert.fail("Original owner should not have permission to update system after change of ownership. System name: " + sys0.getId() +
-              " Old owner: " + rOwner1.getOboUserId() + " New Owner: " + newOwnerName);
+            " Old owner: " + rOwner1.getOboUserId() + " New Owner: " + newOwnerName);
     } catch (Exception e) {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
     }
     // Original owner should not be able to read system
     try {
-      svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+      tmpSys = svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoTrue);
       Assert.fail("Original owner should not have permission to read system after change of ownership. System name: " + sys0.getId() +
-              " Old owner: " + rOwner1.getOboUserId() + " New Owner: " + newOwnerName);
+            " Old owner: " + rOwner1.getOboUserId() + " New Owner: " + newOwnerName);
     } catch (Exception e) {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
     }
@@ -3138,7 +3180,7 @@ public class SystemsServiceTest
    
    // Test retrieval using specified authn method
    SystemShare systemShareTest = svc.getSystemShare(rTestUser5, sysId);
-   System.out.println("Found item: " + sysId);
+   System.out.println("Found share for system: " + sysId);
 
    // Verify system share fields
    Assert.assertNotNull(systemShareTest, "System Share information found.");
@@ -3158,7 +3200,7 @@ public class SystemsServiceTest
    
    // Test retrieval using specified authn method
    systemShareTest = svc.getSystemShare(rTestUser5, sysId);
-   System.out.println("Found item: " + sysId);
+   System.out.println("Found share for system: " + sysId);
 
    // Verify system share fields
    Assert.assertNotNull(systemShareTest, "System Share information found.");
@@ -3193,7 +3235,7 @@ public class SystemsServiceTest
    
    // Test retrieval using specified authn method
    systemShareTest = svc.getSystemShare(rTestUser5, sysId);
-   System.out.println("Found item: " + sysId);
+   System.out.println("Found share for system: " + sysId);
 
    // Verify system share fields
    Assert.assertNotNull(systemShareTest, "System Share information found.");
