@@ -4,6 +4,7 @@ import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.security.client.SKClient;
 import edu.utexas.tacc.tapis.security.client.gen.model.ReqShareResource;
 import edu.utexas.tacc.tapis.security.client.gen.model.SkShare;
+import edu.utexas.tacc.tapis.security.client.gen.model.SkShareList;
 import edu.utexas.tacc.tapis.security.client.model.SKShareDeleteShareParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareGetSharesParms;
 import edu.utexas.tacc.tapis.security.client.model.SKShareHasPrivilegeParms;
@@ -25,6 +26,7 @@ import javax.ws.rs.NotFoundException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
@@ -417,23 +419,29 @@ public class AuthUtils
 
     // First determine if system is publicly shared. Search for share to grantee ~public
     skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
-    var skShares = sysUtils.getSKClient(rUser).getShares(skParms);
+    SkShareList skShares = sysUtils.getSKClient(rUser).getShares(skParms);
     // Set isPublic based on result.
     boolean isPublic = (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
 
-    // Now get all the users with whom the system has been shared
+    // Now get all the users with whom the system has been shared and all individual skShare records.
+    // We use a Set for usernames because for some purposes we only care about which users have a share record.
+    // We also include a List of share records because we could have multiple grantors per user for a share.
+    // Plus, we will need the list when we got to remove the share records. We want to make sure we remove all
+    //   records regardless of who created the share record.
     var userSet = new HashSet<String>();
     skParms.setGrantee(null);
     skParms.setIncludePublicGrantees(false);
     skShares = sysUtils.getSKClient(rUser).getShares(skParms);
+    List<SkShare> skShareList = new ArrayList<>();
     if (skShares != null && skShares.getShares() != null)
     {
       for (SkShare skShare : skShares.getShares())
       {
+        skShareList.add(skShare);
         userSet.add(skShare.getGrantee());
       }
     }
-    return new SystemShare(isPublic, userSet);
+    return new SystemShare(isPublic, userSet, skShareList);
   }
 
   /*
@@ -507,17 +515,68 @@ public class AuthUtils
         deleteShareParms.setResourceType(SYS_SHR_TYPE);
         deleteShareParms.setTenant(system.getTenant());
         deleteShareParms.setResourceId1(systemId);
-        deleteShareParms.setGrantor(rUser.getOboUserId());
 
-        for (String userName : userList)
+        // Iterate over skShares list and remove each one.
+        // We do this rather than iterate over the userList because there might be
+        // multiple grantors other than rUser.getOboUser().
+        for (SkShare skShare : systemShare.getSkShares())
         {
-          deleteShareParms.setGrantee(userName);
+          deleteShareParms.setGrantor(skShare.getGrantor());;
+          deleteShareParms.setGrantee(skShare.getGrantee());
           deleteShareParms.setPrivilege(Permission.READ.name());
           sysUtils.getSKClient(rUser).deleteShare(deleteShareParms);
           deleteShareParms.setPrivilege(Permission.EXECUTE.name());
           sysUtils.getSKClient(rUser).deleteShare(deleteShareParms);
         }
       }
+    }
+  }
+
+  /*
+   * Update all share info associated with a system to have a new grantor for the share records.
+   * No checks are done for incoming arguments and the system must exist
+   */
+  void updateShareGrantorToNewOwner(ResourceRequestUser rUser, TSystem system, String newOwner)
+        throws TapisException, TapisClientException
+  {
+    String sysId = system.getId();
+    String sysTenant = system.getTenant();
+    SystemShare systemShare = getSystemShareInfo(rUser, sysTenant, sysId);
+    // If nothing to do then return
+    if (systemShare == null || systemShare.getUserList() == null || systemShare.getUserList().isEmpty()) return;
+    // Save the current list of users. We need it when adding share records back in.
+    Set<String> userList = systemShare.getUserList();
+
+    // First remove all existing skShare records
+    // Create object needed for SK calls.
+    SKShareDeleteShareParms deleteShareParms = new SKShareDeleteShareParms();
+    deleteShareParms.setResourceType(SYS_SHR_TYPE);
+    deleteShareParms.setTenant(system.getTenant());
+    deleteShareParms.setResourceId1(sysId);
+    for (SkShare skShare : systemShare.getSkShares())
+    {
+      deleteShareParms.setGrantor(skShare.getGrantor());
+      deleteShareParms.setGrantee(skShare.getGrantee());
+      deleteShareParms.setPrivilege(Permission.READ.name());
+      sysUtils.getSKClient(rUser).deleteShare(deleteShareParms);
+      deleteShareParms.setPrivilege(Permission.EXECUTE.name());
+      sysUtils.getSKClient(rUser).deleteShare(deleteShareParms);
+    }
+
+    // Re-create shares using newOwner as grantor
+    // Create request object needed for SK calls.
+    var reqShareResource = new ReqShareResource();
+    reqShareResource.setResourceType(SYS_SHR_TYPE);
+    reqShareResource.setTenant(sysTenant);
+    reqShareResource.setResourceId1(sysId);
+    reqShareResource.setGrantor(newOwner);
+    for (String userName : userList)
+    {
+      reqShareResource.setGrantee(userName);
+      reqShareResource.setPrivilege(Permission.READ.name());
+      sysUtils.getSKClient(rUser).shareResource(reqShareResource);
+      reqShareResource.setPrivilege(Permission.EXECUTE.name());
+      sysUtils.getSKClient(rUser).shareResource(reqShareResource);
     }
   }
 
@@ -535,7 +594,7 @@ public class AuthUtils
   {
     String sysId = system.getId();
     if (unsharePublic) updateUserShares(rUser, OP_UNSHARE, sysId, null, true);
-    var systemShare = getSystemShareInfo(rUser, system.getTenant(), sysId);
+    SystemShare systemShare = getSystemShareInfo(rUser, system.getTenant(), sysId);
     // If any shareInfo to remove do so now.
     if (systemShare != null && systemShare.getUserList() != null && !systemShare.getUserList().isEmpty())
     {
@@ -546,8 +605,9 @@ public class AuthUtils
   /*
    * Remove SK artifacts associated with a System: user credentials, user permissions
    * No checks are done for incoming arguments and the system must exist
+   * NOTE: Provided TSystem should have dynamic properties resolved, specifically isDynamic and resolved effUser
    */
-  void revokeAllSKPermissions(ResourceRequestUser rUser, TSystem system, String resolvedEffectiveUserId)
+  void revokeAllSKPermissions(ResourceRequestUser rUser, TSystem system)
           throws TapisException, TapisClientException
   {
     String systemId = system.getId();
@@ -566,11 +626,13 @@ public class AuthUtils
     }
 
     // NOTE: Consider using a notification instead(jira cic-3071)
-    // Remove files perm for owner and possibly effectiveUser
+    // NOTE: We currently have no way to remove all files perm records because they are normally managed by
+    // the Files service. So it is possible for dangling Files perms to remain in SK.
+    // Remove files perms for owner
     String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
     sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, system.getOwner(), filesPermSpec);
-    if (!effectiveUserId.equals(APIUSERID_VAR))
-      sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, resolvedEffectiveUserId, filesPermSpec);
+    // Remove files perms for effectiveUser.
+    sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, system.getEffectiveUserId(), filesPermSpec);
   }
 
   /**

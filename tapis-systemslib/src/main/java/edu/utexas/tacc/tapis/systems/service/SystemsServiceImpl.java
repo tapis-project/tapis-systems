@@ -915,16 +915,13 @@ public class SystemsServiceImpl implements SystemsService
         sys.setOwner(newOwnerName);
 
         // Consider using a notification instead (jira cic-3071)
-        // Give new owner files service related permission for root directory
+        // Give new owner files service related permission for root directory and remove files perm for old owner
         sysUtils.getSKClient(rUser).grantUserPermission(oboTenant, newOwnerName, filesPermSpec);
-
-        // Remove files permissions from old owner
         sysUtils.getSKClient(rUser).revokeUserPermission(oboTenant, oldOwnerName, filesPermSpec);
 
-        // TODO/TBD Remove any sharing records except for public sharing.
-        authUtils.deleteAllShareInfo(rUser, sys, false);
-        // TODO Remove all fine-grained systems permission grants.
-        authUtils.revokeAllSKPermissions(rUser, sys, sys.getEffectiveUserId());
+        // NOTE: Leave all other existing system perm grants and share records in place.
+        // Update all share records to have new owner as grantor.
+        authUtils.updateShareGrantorToNewOwner(rUser, sys, newOwnerName);
 
         // Create credInfo record for new owner and if static effUser remove old credential
         credUtils.createCredInfoForOwnerAsNeeded(rUser, sys, isStaticEffUser, op.name());
@@ -1083,16 +1080,14 @@ public class SystemsServiceImpl implements SystemsService
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     // If system does not exist then nothing to do, 0 changes
-    TSystem system = dao.getSystem(tenant, systemId, true);
+    TSystem system = getSystem(rUser, tenant, systemId);
     if (system == null) return 0;
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
 
-    // Resolve effectiveUserId
-    String resolvedEffectiveUserId = sysUtils.resolveEffectiveUserId(system, rUser.getOboUserId());
     // Remove permissions associated with the system
-    authUtils.revokeAllSKPermissions(rUser, system, resolvedEffectiveUserId);
+    authUtils.revokeAllSKPermissions(rUser, system);
     // Remove shareInfo associated with the system, including isPublic
     authUtils.deleteAllShareInfo(rUser, system);
     // Delete all Credentials and CredInfo records associated with the system.

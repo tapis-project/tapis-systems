@@ -212,7 +212,7 @@ public class ShareResource
 
     try
     {
-      // Retrieve share information
+      // Create share records
       service.shareSystem(rUser, systemId, systemShare);
     }
     // Pass through not found or not auth to let exception mapper handle it.
