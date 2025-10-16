@@ -411,24 +411,34 @@ public class AuthUtils
   SystemShare getSystemShareInfo(ResourceRequestUser rUser, String tenant, String sysId)
           throws TapisException, TapisClientException
   {
+    // Attributes needed to create a SystemShare
+    boolean isPublic = false;
+    var userSet = new HashSet<String>();
+    Set<String> publicGrantors = Collections.emptySet();
+    SkShareList skShares;
+
     // Create SKShareGetSharesParms needed for SK calls.
     var skParms = new SKShareGetSharesParms();
     skParms.setResourceType(SYS_SHR_TYPE);
     skParms.setTenant(tenant);
     skParms.setResourceId1(sysId);
 
-    // First determine if system is publicly shared. Search for share to grantee ~public
+    // First determine if system is publicly shared. Search for shares to grantee ~public
     skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
-    SkShareList skShares = sysUtils.getSKClient(rUser).getShares(skParms);
-    // Set isPublic based on result.
-    boolean isPublic = (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty());
+    skShares = sysUtils.getSKClient(rUser).getShares(skParms);
+    // Set isPublic and publicGrantors based on result.
+    if (skShares != null && skShares.getShares() != null && !skShares.getShares().isEmpty())
+    {
+      isPublic = true;
+      publicGrantors = new HashSet<>();
+      for (SkShare skShare : skShares.getShares()) { publicGrantors.add(skShare.getGrantor()); }
+    }
 
     // Now get all the users with whom the system has been shared and all individual skShare records.
     // We use a Set for usernames because for some purposes we only care about which users have a share record.
     // We also include a List of share records because we could have multiple grantors per user for a share.
     // Plus, we will need the list when we got to remove the share records. We want to make sure we remove all
     //   records regardless of who created the share record.
-    var userSet = new HashSet<String>();
     skParms.setGrantee(null);
     skParms.setIncludePublicGrantees(false);
     skShares = sysUtils.getSKClient(rUser).getShares(skParms);
@@ -441,23 +451,25 @@ public class AuthUtils
         userSet.add(skShare.getGrantee());
       }
     }
-    return new SystemShare(isPublic, userSet, skShareList);
+    return new SystemShare(isPublic, userSet, skShareList, publicGrantors);
   }
 
   /*
    * Common routine to update share/unshare for a list of users.
-   * Can be used to mark a system publicly shared with all users in tenant including "~public" in the set of users.
+   * NOTE that if isPublic = true then only the special user "~public" will be operated on.
+   * Can be used to mark a system publicly shared with all users in tenant.
    * Sharing and unsharing always involves privileges READ and EXECUTE.
    *
    * @param rUser - Resource request user
    * @param shareOpName - Operation type: share/unshare
    * @param systemId - System ID
    * @param  systemShare - System share object
-   * @param isPublic - Indicates if the sharing operation is public
+   * @param isPublic - Indicates if the sharing operation is for public sharing
    * @throws TapisClientException - for Tapis client exception
    * @throws TapisException - for Tapis exception
    */
-  void updateUserShares(ResourceRequestUser rUser, String shareOpName, String systemId, SystemShare systemShare, boolean isPublic)
+  void updateUserShares(ResourceRequestUser rUser, String shareOpName, String systemId, SystemShare systemShare,
+                        boolean isPublic)
           throws TapisClientException, TapisException
   {
     SystemOperation op = SystemOperation.modify;
@@ -466,17 +478,17 @@ public class AuthUtils
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
+    SystemShare sysShare = systemShare;
     Set<String> userList;
     if (!isPublic) {
-      // if is not public update userList must have items
-      if (systemShare == null || systemShare.getUserList() == null || systemShare.getUserList().isEmpty())
+      // if is not public update we must have a userList
+      if (sysShare == null || sysShare.getUserList() == null)
         throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_USER_LIST", rUser));
-      userList = systemShare.getUserList();
+      userList = sysShare.getUserList();
     } else {
       userList = PUBLIC_USER_SET; // "~public"
     }
 
-    // We will need info from system, so fetch it now
     TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId, true);
     // We need owner to check auth and if system not there cannot find owner.
     if (system == null)
@@ -498,7 +510,7 @@ public class AuthUtils
         reqShareResource.setTenant(system.getTenant());
         reqShareResource.setResourceId1(systemId);
         reqShareResource.setGrantor(rUser.getOboUserId());
-
+        // Share with each user in the list
         for (String userName : userList)
         {
           reqShareResource.setGrantee(userName);
@@ -510,23 +522,48 @@ public class AuthUtils
       }
       case OP_UNSHARE ->
       {
+        // For unshare we need the full list of grantors for each grantee, so fetch full share record now.
+        // NOTE: Typically the incoming SystemShare has skShares = null because SystemShare is usually
+        // created using Gson.fromJson().
+        sysShare = getSystemShareInfo(rUser, system.getTenant(), systemId);
+
         // Create object needed for SK calls.
         SKShareDeleteShareParms deleteShareParms = new SKShareDeleteShareParms();
         deleteShareParms.setResourceType(SYS_SHR_TYPE);
         deleteShareParms.setTenant(system.getTenant());
         deleteShareParms.setResourceId1(systemId);
 
-        // Iterate over skShares list and remove each one.
-        // We do this rather than iterate over the userList because there might be
-        // multiple grantors other than rUser.getOboUser().
-        for (SkShare skShare : systemShare.getSkShares())
+        // Since the list of SkShares in SystemShare only contains the grants for regular users and not
+        // the special user ~public, we handle the case of public differently.
+        if (isPublic)
         {
-          deleteShareParms.setGrantor(skShare.getGrantor());;
-          deleteShareParms.setGrantee(skShare.getGrantee());
-          deleteShareParms.setPrivilege(Permission.READ.name());
-          sysUtils.getSKClient(rUser).deleteShare(deleteShareParms);
-          deleteShareParms.setPrivilege(Permission.EXECUTE.name());
-          sysUtils.getSKClient(rUser).deleteShare(deleteShareParms);
+          // For each grantor for ~public remove the grant
+          deleteShareParms.setGrantee(SKClient.PUBLIC_GRANTEE);
+          for (String grantor : sysShare.getPublicGrantors())
+          {
+            deleteShareParms.setGrantor(grantor); // The grantor is ~public, but original code (that works) set this to oboUser
+            deleteShareParms.setPrivilege(Permission.READ.name());
+            sysUtils.getSKClient(rUser).deleteShare(deleteShareParms);
+            deleteShareParms.setPrivilege(Permission.EXECUTE.name());
+            sysUtils.getSKClient(rUser).deleteShare(deleteShareParms);
+          }
+        }
+        else
+        {
+          // Iterate over skShares list and remove any that are for a grantee in userList
+          // We do this rather than iterate over the userList because there might be
+          // multiple grantors other than rUser.getOboUser().
+          for (SkShare skShare : sysShare.getSkShares())
+          {
+            // If grantee is not in the list of users to act on, then skip
+            if (!userList.contains(skShare.getGrantee())) continue;
+            deleteShareParms.setGrantor(skShare.getGrantor());
+            deleteShareParms.setGrantee(skShare.getGrantee());
+            deleteShareParms.setPrivilege(Permission.READ.name());
+            sysUtils.getSKClient(rUser).deleteShare(deleteShareParms);
+            deleteShareParms.setPrivilege(Permission.EXECUTE.name());
+            sysUtils.getSKClient(rUser).deleteShare(deleteShareParms);
+          }
         }
       }
     }
