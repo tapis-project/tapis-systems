@@ -712,8 +712,8 @@ public class SystemsServiceTest
 
   // Test changing system owner
   // Check that credInfo record gets created and then changed as owner changes.
-  // TODO Check that shares and perms remain in place.
-  // TODO Check that new owner can unshare from old owner
+  // Check that shares and perms remain in place.
+  // Check that new owner can unshare from old owner
   @Test
   public void testChangeSystemOwner() throws Exception
   {
