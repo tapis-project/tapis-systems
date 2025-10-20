@@ -10,12 +10,12 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 25Q4.0 - 2025-10-16
+## 25Q4.0 - 2025-10-19
 
 Bug fixes, refactoring and enhancements.
 
 ### New features:
-- Support for filtering by *hasCredentials*.
+- Support for filtering by *hasCredentials* (beta release).
 
 ### Bug fixes:
 - Reject request when loginUser is provided in the credential creation post body for a system with a static effective user.
