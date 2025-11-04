@@ -10,6 +10,17 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 25Q4.1 - 2025-??-??
+
+TBD Bug fixes, refactoring and enhancements.
+
+### New features:
+- 
+
+### Bug fixes:
+- Reject request when credential deletion for a static effective user does not match the effective user defined for the system.
+
+---------------------------------------------------------------------------
 ## 25Q4.0 - 2025-10-19
 
 Bug fixes, refactoring and enhancements.

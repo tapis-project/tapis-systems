@@ -353,8 +353,7 @@ public class SystemsServiceTest
     Assert.assertNotNull(tmpSys, "Failed to create item: " + sysId);
     System.out.println("Found item: " + sysId);
 
-    // Cleanup any previous credentials for targetUser = owner1 and staticEff user.
-    svcCred.deleteUserCredential(rOwner1, sysId, owner1);
+    // Cleanup any previous credentials for targetUser = staticEff user.
     svcCred.deleteUserCredential(rOwner1, sysId, staticEffUser);
 
     // Update the system to have a dynamic effectiveUserId. Use PATCH
@@ -1923,6 +1922,20 @@ public class SystemsServiceTest
       passed = msg.contains("SYSLIB_CRED_INVALID_LOGINUSER");
     }
     Assert.assertTrue(passed, "Expected credential creation to be rejected");
+
+    // Also before switch back to dynamic, test that for a static effUser attempting to delete a credential
+    // for a different static user is rejected.
+    passed = false;
+    try
+    {
+      svcCred.deleteUserCredential(rOwner1, sysId, testUser4LinuxUser);
+    }
+    catch (BadRequestException e) // TODO
+    {
+      String msg = e.getMessage();
+      passed = msg.contains("SYSLIB_CRED_DELETE_STATIC_MISMATCH");
+    }
+    Assert.assertTrue(passed, "Expected credential deletion to be rejected");
 
     // ------------------------
     // Test 4: patch system to revert to dynamic effectiveUserId = ${apiUserId}, get cred
