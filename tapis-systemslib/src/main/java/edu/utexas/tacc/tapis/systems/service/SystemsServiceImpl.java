@@ -1079,8 +1079,8 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(tenant) ||  StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
-    // If system does not exist then nothing to do, 0 changes
-    TSystem system = getSystem(rUser, tenant, systemId);
+    // If system does not exist then 0 changes
+    TSystem system = dao.getSystem(tenant, systemId, true);
     if (system == null) return 0;
 
     // ------------------------- Check authorization -------------------------
