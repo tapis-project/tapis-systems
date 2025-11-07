@@ -7,7 +7,7 @@
     <parent>
       <groupId>edu.utexas.tacc.tapis</groupId>
       <artifactId>tapis-bom</artifactId>
-      <version>[2.0,3.0)</version>
+      <version>[2.0.51,3.0)</version>
       <!-- Set empty relative path to avoid maven warning and-->
       <!--   ensure parent is found in local repository if that-->
       <!--   is the only place it exists.-->
@@ -15,9 +15,8 @@
     </parent>
 
     <artifactId>tapis-systems</artifactId>
-    <version>25Q4.0</version>
+    <version>${revision}</version>
     <packaging>pom</packaging>
-
     <name>TACC Tapis Systems Parent POM</name>
     <description>Parent POM file for TAPIS Systems service</description>
 
@@ -27,6 +26,7 @@
     </scm>
 
     <properties>
+      <revision>25Q4.1</revision>
       <!-- Most properties set in parent tapis-bom   -->
       <!-- Properties can be overridden here         -->
       <!-- Individual projects may want to override. -->
