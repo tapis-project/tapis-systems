@@ -413,11 +413,44 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(pass);
 
+    // -------------------------------
     // TODO Test hostEval
-    // Test invalid env var name
-    svc.hostEval();
+    // -------------------------------
+    // Test invalid env var names
+    pass = false;
+    try
+    {
+      svc.hostEval(rOwner1, sysId, "1Invalid");
+      Assert.fail("hostEval should have thrown an exception for invalid env var name");
+    }
+    catch (Exception e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_ENV_VAR_INVALID"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    pass = false;
+    try
+    {
+      svc.hostEval(rOwner1, sysId, "Invalid#2");
+      Assert.fail("hostEval should have thrown an exception for invalid env var name");
+    }
+    catch (Exception e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_ENV_VAR_INVALID"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
 
-
+    // Eval and check HOME
+    String homeValue = svc.hostEval(rOwner1, sysId, "HOME");
+    Assert.assertEquals(homeValue, String.format("/home/%s", loginUserMapping));
+    // Eval and check variable that probably is not set
+    String emptyVarValue = svc.hostEval(rOwner1, sysId, "ADFASDFBDDSERZDFADSFADSF22314515");
+    Assert .assertEquals(homeValue, String.format("/home/%s", loginUserMapping));
+    Assert.assertTrue(StringUtils.isBlank(emptyVarValue), "hostEval of unset env var should return empty string");
   }
 
   // Test credential verification for S3 - local ceph server

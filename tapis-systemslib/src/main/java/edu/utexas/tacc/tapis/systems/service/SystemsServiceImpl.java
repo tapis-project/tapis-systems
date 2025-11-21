@@ -2296,10 +2296,8 @@ public class SystemsServiceImpl implements SystemsService
    */
   private static String resolveEnvVar(ResourceRequestUser rUser, TSystem system, String varName) throws TapisException
   {
-    String resolvedEnvVar;
     String msg;
     String systemId = system.getId();
-
     // Make sure we have non-empty env var name.
     if (StringUtils.isBlank(varName))
     {
@@ -2330,12 +2328,9 @@ public class SystemsServiceImpl implements SystemsService
     msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_RESOLVE_EXIT", rUser, systemId, system.getHost(), cmd, exitStatus, result);
     log.trace(msg);
 
-    // TODO ?????????????????????????????????????????????????????????
-    // TODO/TBD If resolve returns an empty string then that is what we should return.
-    //
-    String resolvedVar;
-    if (StringUtils.isBlank(result)) resolvedVar = "";
-    else resolvedVar = LibUtils.getLastLineFromResultString(result);
+    // If resolve returns an empty string then that is what we should return.
+    String resolvedVar = (StringUtils.isBlank(result)) ? "" : LibUtils.getLastLineFromResultString(result);
+
     return resolvedVar;
   }
 
