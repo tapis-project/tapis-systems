@@ -323,6 +323,8 @@ public class SystemsServiceTest
   }
 
   // Test credential verification for linux
+  // TODO Also, to avoid having to create another system and duplicate a lot of code,
+  //  test hostEval endpoint functionality here.
   @Test
   public void testCredCheckLinux() throws Exception
   {
@@ -410,6 +412,12 @@ public class SystemsServiceTest
       pass = true;
     }
     Assert.assertTrue(pass);
+
+    // TODO Test hostEval
+    // Test invalid env var name
+    svc.hostEval();
+
+
   }
 
   // Test credential verification for S3 - local ceph server

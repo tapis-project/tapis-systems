@@ -179,7 +179,7 @@ public final class TSystem
   //                 followed by 0 or more characters (group 2)
   public static final Pattern HOST_EVAL_PATTERN = Pattern.compile("^\\/?HOST_EVAL\\((.*)\\)(.*)");
 
-  // Pattern for environment variable name with optional default value pattern
+  // Pattern for environment variable name with optional default value
   // Regex matching: start with 1 letter or underscore (part of group 1 - the env var name)
   //                 followed by 0 or more alphanumeric or underscore (part of group 1 - the env var name)
   //                 followed by whitespace
@@ -190,8 +190,12 @@ public final class TSystem
   //                   whitespace (part of group 2)
   // The optional value is separated from the name with a comma, which can have whitespace on either side of it.
   // The value itself consists of non-whitespace characters. Trailing whitespace is ignored.
-  public static final Pattern ENV_VAR_NAME_PATTERN =
+  public static final Pattern HOST_EVAL_VAR_NAME_PATTERN =
           Pattern.compile("(^[a-zA-Z_][a-zA-Z0-9_]*)\\s*(,\\s*(\\S+)\\s*)?");
+
+  // Pattern for environment variable name with no optional default value. Use for hostEval endpoint.
+  // Regex matching: start with 1 letter or underscore followed by 0 or more alphanumeric or underscore
+  public static final String ENV_VAR_NAME_PATTERN = "(^[a-zA-Z_][a-zA-Z0-9_]*)";
 
   // ************************************************************************
   // *********************** Enums ******************************************
