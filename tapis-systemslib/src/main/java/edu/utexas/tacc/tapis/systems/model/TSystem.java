@@ -179,7 +179,7 @@ public final class TSystem
   //                 followed by 0 or more characters (group 2)
   public static final Pattern HOST_EVAL_PATTERN = Pattern.compile("^\\/?HOST_EVAL\\((.*)\\)(.*)");
 
-  // Pattern for environment variable name with optional default value
+  // Pattern for environment variable name with optional default value pattern
   // Regex matching: start with 1 letter or underscore (part of group 1 - the env var name)
   //                 followed by 0 or more alphanumeric or underscore (part of group 1 - the env var name)
   //                 followed by whitespace
@@ -203,7 +203,7 @@ public final class TSystem
   public enum SystemType {LINUX, S3, IRODS, GLOBUS}
   public enum SystemOperation {create, read, modify, execute, delete, undelete, hardDelete, changeOwner, enable, disable,
                                getPerms, grantPerms, revokePerms, setCred, removeCred, getCred, checkCred,
-                               getGlobusAuthInfo, setAccessRefreshTokens}
+                               getGlobusAuthInfo, setAccessRefreshTokens, hostEval}
   public enum Permission {READ, MODIFY, EXECUTE}
   public enum AuthnMethod {PASSWORD, PKI_KEYS, ACCESS_KEY, TOKEN, TMS_KEYS, CERT}
   public enum SchedulerType {SLURM, CONDOR, PBS, SGE, UGE, TORQUE}
