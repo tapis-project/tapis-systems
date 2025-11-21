@@ -32,6 +32,8 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 
+import edu.utexas.tacc.tapis.sharedapi.responses.RespName;
+import edu.utexas.tacc.tapis.sharedapi.responses.results.ResultName;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -352,9 +354,9 @@ public class SystemResource {
   @Produces(MediaType.APPLICATION_JSON)
   public Response createChildSystem(InputStream payloadStream,
                                @PathParam("systemId") String systemId,
-                               @Context SecurityContext securityContext) throws TapisClientException {
+                               @Context SecurityContext securityContext) throws TapisClientException
+  {
     String opName = "createChildSystem";
-
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -1248,6 +1250,7 @@ public class SystemResource {
   public Response getHistory(@PathParam("systemId") String systemId,
                              @Context SecurityContext securityContext) throws TapisClientException
   {
+    String opName = "getHistory";
     // Check that we have all we need from the context, the jwtTenantId and jwtUserId
     // Utility method returns null if all OK and appropriate error response if there was a problem.
     TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
@@ -1256,6 +1259,11 @@ public class SystemResource {
 
     // Create a user that collects together tenant, user and request information needed by the service call
     ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),"systemId="+systemId);
+
+    ApiUtils.checkRestrictedSvcs(rUser);
 
     //RespAbstract resp1;
     List<SystemHistoryItem> systemHistory;
@@ -1283,6 +1291,58 @@ public class SystemResource {
     // Success means we retrieved the system history information.
     RespSystemHistory resp1 = new RespSystemHistory(systemHistory);
     return createSuccessResponse(Status.OK, MsgUtils.getMsg(TAPIS_FOUND, "SystemHistory", systemId), resp1);
+  }
+
+  /**
+   * hostEval
+   * @param systemId - name of the system
+   * @param securityContext - user identity
+   * @return Response with resolve environment variable
+   */
+  @GET
+  @Path("{systemId}/hostEval/{envVarName}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response hostEval(@PathParam("systemId") String systemId,
+                           @PathParam("envVarName") String envVarName,
+                           @Context SecurityContext securityContext) throws TapisClientException
+  {
+    String opName = "hostEval";
+    // Check that we have all we need from the context, the jwtTenantId and jwtUserId
+    // Utility method returns null if all OK and appropriate error response if there was a problem.
+    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get();
+    Response resp = ApiUtils.checkContext(threadContext);
+    if (resp != null) return resp;
+
+    // Create a user that collects together tenant, user and request information needed by the service call
+    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled()) ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(),
+                                                   "systemId="+systemId, "envVarName="+envVarName);
+
+    ApiUtils.checkRestrictedSvcs(rUser);
+
+    String envVarValue;
+    try
+    {
+      envVarValue = service.hostEval(rUser, systemId, envVarName);
+    }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // As final fallback
+    catch (Exception e)
+    {
+      String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
+      _log.error(msg, e);
+      throw new WebApplicationException(msg);
+    }
+    // ---------------------------- Success -------------------------------
+    // Success means we made the check
+    ResultName respResult = new ResultName();
+    respResult.name = envVarValue;
+    RespName resp1 = new RespName(respResult);
+    return createSuccessResponse(Status.OK, MsgUtils.getMsg("TAPIS_FOUND", "System", systemId), resp1);
   }
 
   /**

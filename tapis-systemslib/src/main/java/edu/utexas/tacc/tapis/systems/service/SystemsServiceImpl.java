@@ -1645,6 +1645,34 @@ public class SystemsServiceImpl implements SystemsService
     return dao.getParent(oboTenant, systemId);
   }
 
+  /**
+   * Resolve env var on associate host
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - Name of the system
+   * @param envVarName - Name of env var to resolve
+   * @return - value of env variable. TODO: What if var is unset vs set but empty string.?
+   * @throws TapisException - for Tapis related exceptions
+   */
+  @Override
+  public String hostEval(ResourceRequestUser rUser, String systemId, String envVarName)
+        throws TapisException, TapisClientException
+  {
+    SystemOperation op = SystemOperation.hostEval;
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+
+    // We need owner to check auth and if system not there cannot find owner, so
+    // if system does not exist is deleted then return null
+    if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false)) return null;
+
+    // ------------------------- Check authorization -------------------------
+    authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
+    // TODO????????????????????????
+
+//    return dao.getSystemOwner(rUser.getOboTenantId(), systemId);
+  }
+
   // -----------------------------------------------------------------------
   // --------------------------- Permissions -------------------------------
   // -----------------------------------------------------------------------

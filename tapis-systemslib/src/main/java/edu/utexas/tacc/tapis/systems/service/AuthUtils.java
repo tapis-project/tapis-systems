@@ -892,6 +892,7 @@ public class AuthUtils
       case undelete:
       case changeOwner:
       case grantPerms:
+      case hostEval:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser)) return;
         break;
       case read:
