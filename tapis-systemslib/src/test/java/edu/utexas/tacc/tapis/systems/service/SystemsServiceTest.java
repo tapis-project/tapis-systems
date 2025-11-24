@@ -415,12 +415,7 @@ public class SystemsServiceTest
     String emptyVarValue = svc.hostEval(rOwner1, sysId, "ADFASDFBDDSERZDFADSFADSF22314515");
     Assert.assertTrue(StringUtils.isBlank(emptyVarValue), "hostEval of unset env var should return empty string");
 
-
-
-
-
-    // Cleanup any previous credentials for targetUser = owner1 and staticEff user.
-    svcCred.deleteUserCredential(rOwner1, sysId, owner1);
+    // Cleanup any previous credentials for targetUser = staticEff user.
     svcCred.deleteUserCredential(rOwner1, sysId, staticEffUser);
 
     // Update the system to have a dynamic effectiveUserId. Use PATCH
@@ -1988,6 +1983,20 @@ public class SystemsServiceTest
       passed = msg.contains("SYSLIB_CRED_INVALID_LOGINUSER");
     }
     Assert.assertTrue(passed, "Expected credential creation to be rejected");
+
+    // Before switch back to dynamic, test that for a static effUser attempting to delete a credential
+    // for a different static user is rejected.
+    passed = false;
+    try
+    {
+      svcCred.deleteUserCredential(rOwner1, sysId, testUser4LinuxUser);
+    }
+    catch (BadRequestException e)
+    {
+      String msg = e.getMessage();
+      passed = msg.contains("SYSLIB_CRED_DELETE_STATIC_MISMATCH");
+    }
+    Assert.assertTrue(passed, "Expected credential deletion to be rejected");
 
     // ------------------------
     // Test 4: patch system to revert to dynamic effectiveUserId = ${apiUserId}, get cred

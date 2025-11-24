@@ -144,6 +144,18 @@ public class CredentialsServiceImpl
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuth(rUser, op, systemId, nullOwner, credTargetUser, nullPermSet);
 
+    // If system has a static effUser and the target user is not the static effUser then reject
+    // the request. If we did not do this it would be misleading. The credential for the static
+    // effUser could still be in place.
+    String sysEffUser = system.getEffectiveUserId();
+    boolean isStaticEffectiveUser = !sysEffUser.equals(APIUSERID_VAR);
+    if (isStaticEffectiveUser && !sysEffUser.equals(credTargetUser))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_CRED_DELETE_STATIC_MISMATCH", rUser, systemId, sysEffUser, credTargetUser);
+      log.warn(msg);
+      throw new BadRequestException(msg);
+    }
+
     // Use utility method to remove SK records and CredInfo record
     return credUtils.deleteCredentialForUser(rUser, system, credTargetUser, op);
   }

@@ -1227,9 +1227,8 @@ public class CredUtils
    * NOTE: Since we are synchronizing here no updates should be IN_PROGRESS.
    *       Any FAILED or PENDING records will get updated later by the maintenance task.
    *
-   * We might be going back and forth between static and dynamic or going from one static effUser to another, so it
-   *   is possible for there to be multiple credInfo records for a tapisUser if static effUser.
-   * This is why we needed to add host_login_user in credInfo table as part of the primary key.
+   * We might be going back and forth between static and dynamic or going from one static effUser to another,
+   *   so we need to handle both scenarios.
    */
   void updateCredInfoRecordsForSystem(ResourceRequestUser rUser, TSystem sys, AuthnMethod origDefaultAuthnMethod,
                                       String origEffUser, String opName)
@@ -1263,7 +1262,8 @@ public class CredUtils
           ownerCredInfo = createCredInfoForOwnerAsNeeded(rUser, sys, isStaticEffUser, opName);
         }
 
-        // If static and effUser is changing we need to update hostLoginUser and reset hasCreds related attributes.
+        // If static and effUser is changing we need to remove credentials for previous static effUser
+        //   and update hasCredentials.
         if (isStaticEffUser && effUserChanged)
         {
           // Remove credentials for old eff user
