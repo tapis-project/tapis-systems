@@ -128,7 +128,7 @@ public class ShareResource
       systemShare = service.getSystemShare(rUser, systemId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -216,7 +216,7 @@ public class ShareResource
       service.shareSystem(rUser, systemId, systemShare);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -304,7 +304,7 @@ public class ShareResource
       service.unshareSystem(rUser, systemId, systemShare);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -357,7 +357,7 @@ public class ShareResource
       service.shareSystemPublicly(rUser, systemId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -410,7 +410,7 @@ public class ShareResource
       service.unshareSystemPublicly(rUser, systemId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {

@@ -312,7 +312,7 @@ public class SystemResource {
       throw new BadRequestException(msg, e);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -414,10 +414,11 @@ public class SystemResource {
       childSystem = service.createChildSystem(rUser, systemId, childSystemRequest.id,
               childSystemRequest.effectiveUserId, childSystemRequest.rootDir,
               childSystemRequest.owner, childSystemRequest.enabled, rawJson);
-    } catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) {
-      // Pass through not found or not auth to let exception mapper handle it.
-      throw e;
-    } catch (Exception e) {
+    }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
+    catch (Exception e)
+    {
       // IllegalStateException indicates an Invalid TSystem was passed in
       msg = ApiUtils.getMsgAuth(CREATE_ERR, rUser, systemId, e.getMessage());
       _log.error(msg);
@@ -528,7 +529,7 @@ public class SystemResource {
       throw new BadRequestException(msg, e);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -668,7 +669,7 @@ public class SystemResource {
       throw new BadRequestException(msg, e);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -898,7 +899,7 @@ public class SystemResource {
                                   sharedAppCtx, resourceTenant, fetchShareInfo);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -966,7 +967,7 @@ public class SystemResource {
       successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, filterByHasCredentials, impersonationId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -1038,7 +1039,7 @@ public class SystemResource {
       successResponse = getSearchResponse(rUser, null, srchParms, showDeleted, listType, filterByHasCredentials, null);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -1135,7 +1136,7 @@ public class SystemResource {
       successResponse = getSearchResponse(rUser, sqlSearchStr, srchParms, showDeleted, listType, filterByHasCredentials, null);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -1220,7 +1221,7 @@ public class SystemResource {
 //      systems = systemsService.getSystemsSatisfyingConstraints(rUser, matchStr);
 //    }
 //  // Pass through not found or not auth to let exception mapper handle it.
-//    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+//    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
 //  // As final fallback
 //    catch (Exception e)
 //    {
@@ -1274,7 +1275,7 @@ public class SystemResource {
       systemHistory = service.getSystemHistory(rUser, systemId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -1329,7 +1330,7 @@ public class SystemResource {
       envVarValue = service.hostEval(rUser, systemId, envVarName);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -1380,7 +1381,7 @@ public class SystemResource {
       isEnabled = service.isEnabled(rUser, systemId);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -1482,7 +1483,7 @@ public class SystemResource {
       throw new BadRequestException(msg, e);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -1679,12 +1680,13 @@ public class SystemResource {
    * Determine if a system is a child of some parent system.
    */
   private boolean isChildSystem(ResourceRequestUser rUser, String systemId) throws TapisClientException {
-    try {
+    try
+    {
       return !StringUtils.isBlank(service.getParentId(rUser, systemId));
-    } catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) {
-      // Pass through not found or not auth so let exception mapper handle it.
-      throw e;
-    } catch (Exception e) {
+    }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
+    catch (Exception e)
+    {
       // As final fallback
       String msg = ApiUtils.getMsgAuth("SYSAPI_SYS_GET_ERROR", rUser, systemId, e.getMessage());
       _log.error(msg, e);
