@@ -190,8 +190,12 @@ public final class TSystem
   //                   whitespace (part of group 2)
   // The optional value is separated from the name with a comma, which can have whitespace on either side of it.
   // The value itself consists of non-whitespace characters. Trailing whitespace is ignored.
-  public static final Pattern ENV_VAR_NAME_PATTERN =
+  public static final Pattern HOST_EVAL_VAR_NAME_PATTERN =
           Pattern.compile("(^[a-zA-Z_][a-zA-Z0-9_]*)\\s*(,\\s*(\\S+)\\s*)?");
+
+  // Pattern for environment variable name with no optional default value. Used for hostEval endpoint.
+  // Regex matching: start with 1 letter or underscore followed by 0 or more alphanumeric or underscore
+  public static final String ENV_VAR_NAME_PATTERN = "(^[a-zA-Z_][a-zA-Z0-9_]*)";
 
   // ************************************************************************
   // *********************** Enums ******************************************
@@ -199,7 +203,7 @@ public final class TSystem
   public enum SystemType {LINUX, S3, IRODS, GLOBUS}
   public enum SystemOperation {create, read, modify, execute, delete, undelete, hardDelete, changeOwner, enable, disable,
                                getPerms, grantPerms, revokePerms, setCred, removeCred, getCred, checkCred,
-                               getGlobusAuthInfo, setAccessRefreshTokens}
+                               getGlobusAuthInfo, setAccessRefreshTokens, hostEval}
   public enum Permission {READ, MODIFY, EXECUTE}
   public enum AuthnMethod {PASSWORD, PKI_KEYS, ACCESS_KEY, TOKEN, TMS_KEYS, CERT}
   public enum SchedulerType {SLURM, CONDOR, PBS, SGE, UGE, TORQUE}

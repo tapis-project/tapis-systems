@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
@@ -271,7 +272,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // ==========================================================================================================
     // WARNING: Be very careful of ordering of steps from here on.
-    //          Ordering of setting defaults, resolving variables and validating attributes can be critical.
+    //          Ordering of setting defaults, resolving variables and validating attributes is critical.
     // ==========================================================================================================
 
     // Make sure owner, effectiveUserId, notes, tags, jobEnvVariables and batchDefaultLogincalQueue. are all set.
@@ -1644,6 +1645,45 @@ public class SystemsServiceImpl implements SystemsService
     return dao.getParent(oboTenant, systemId);
   }
 
+  /**
+   * Resolve env var on associate host
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - Name of the system
+   * @param envVarName - Name of env var to resolve
+   * @return - value of env variable. If var not set return empty string.
+   * @throws TapisException - for Tapis related exceptions
+   */
+  @Override
+  public String hostEval(ResourceRequestUser rUser, String systemId, String envVarName)
+        throws TapisException, TapisClientException
+  {
+    SystemOperation op = SystemOperation.hostEval;
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
+
+    // If system deleted or does not exist throw NotFound exception
+    // Retrieve system with some fields resolved. We will need it for a few things.
+    // NOTE: Basic getSystem with default options, share info and credentials are NOT fetched.
+    //       Dynamic properties and effectiveUserId are resolved
+    TSystem system = getSystem(rUser, rUser.getOboTenantId(), systemId);
+    if (system == null)
+    {
+      String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+      log.info(msg);
+      throw new NotFoundException(msg);
+    }
+
+    // ------------------------- Check authorization -------------------------
+    authUtils.checkAuthOwnerKnown(rUser, op, systemId, system.getOwner());
+
+    // We will need credentials. Fetch them now.
+    Credential cred = credUtils.getCredential(rUser, system, system.getEffectiveUserId(), null,
+                                              !system.isDynamicEffectiveUser(), null);
+    system.setAuthnCredential(cred);
+    return resolveEnvVar(rUser, system, envVarName);
+  }
+
   // -----------------------------------------------------------------------
   // --------------------------- Permissions -------------------------------
   // -----------------------------------------------------------------------
@@ -2196,7 +2236,7 @@ public class SystemsServiceImpl implements SystemsService
     // Make sure we have non-empty env var name.
     if (StringUtils.isBlank(hostEvalParm))
     {
-      msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_NO_ENV_VAR", rUser,rootDir);
+      msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_NO_ENV_VAR", rUser, rootDir);
       log.warn(msg);
       throw new IllegalArgumentException(msg);
     }
@@ -2207,7 +2247,7 @@ public class SystemsServiceImpl implements SystemsService
     //  - extract optional default value
     // First trim any leading or trailing whitespace and strip off optional leading $
     hostEvalParm = StringUtils.removeStart(hostEvalParm.strip(), '$');
-    m = ENV_VAR_NAME_PATTERN.matcher(hostEvalParm);
+    m = HOST_EVAL_VAR_NAME_PATTERN.matcher(hostEvalParm);
     if (!m.matches())
     {
       msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_INVALID_ENV_VAR", rUser, systemId, rootDir, hostEvalParm);
@@ -2254,6 +2294,55 @@ public class SystemsServiceImpl implements SystemsService
     resolvedRootDir = resolvedVar + remainingPath;
     resolvedRootDir = StringUtils.prependIfMissing(resolvedRootDir, "/");
     return resolvedRootDir;
+  }
+
+  /**
+   * Resolve env var on the host. For hostEval endpoint.
+   * If envVarName is null or empty then throw IllegalArg exception
+   * If envVarName does not match acceptable pattern then throw BadRequestException.
+   *
+   * @param system - the system
+   * @param varName - name of env var to resolve
+   * @return Resolved env var
+   */
+  private static String resolveEnvVar(ResourceRequestUser rUser, TSystem system, String varName) throws TapisException
+  {
+    String msg;
+    String systemId = system.getId();
+    // Make sure we have non-empty env var name.
+    if (StringUtils.isBlank(varName))
+    {
+      msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_NO_ENV_VAR", rUser, varName);
+      log.warn(msg);
+      throw new IllegalArgumentException(msg);
+    }
+    // Check that name does not contain invalid characters.
+    if (!varName.matches(ENV_VAR_NAME_PATTERN))
+    {
+      msg = LibUtils.getMsgAuth("SYSLIB_ENV_VAR_INVALID", rUser, systemId, varName, ENV_VAR_NAME_PATTERN);
+      log.warn(msg);
+      throw new BadRequestException(msg);
+    }
+
+    // We will need to make an ssh connection to the host.
+    // Easiest way to do that is to use TapisRunCommand, which requires a client base TapisSystem object.
+    TapisSystem tapisSystem = createClientTapisSystemFromTSystem(system);
+    // Run the command on the host system.
+    String cmd = String.format("echo $%s", varName);
+    msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_RESOLVE_CMD", rUser, systemId, system.getHost(), cmd);
+    log.trace(msg);
+    var runCmd = new TapisRunCommand(tapisSystem);
+    int exitStatus = runCmd.execute(cmd, true); // connection automatically closed
+    runCmd.logNonZeroExitCode();
+    String result = runCmd.getOutAsTrimmedString();
+    // Trace the result
+    msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_RESOLVE_EXIT", rUser, systemId, system.getHost(), cmd, exitStatus, result);
+    log.trace(msg);
+
+    // If resolve returns an empty string then that is what we should return.
+    String resolvedVar = (StringUtils.isBlank(result)) ? "" : LibUtils.getLastLineFromResultString(result);
+
+    return resolvedVar;
   }
 
   /**
