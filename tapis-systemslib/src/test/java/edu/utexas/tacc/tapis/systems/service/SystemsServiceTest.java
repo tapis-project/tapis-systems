@@ -1984,7 +1984,7 @@ public class SystemsServiceTest
     }
     Assert.assertTrue(passed, "Expected credential creation to be rejected");
 
-    // Also before switch back to dynamic, test that for a static effUser attempting to delete a credential
+    // Before switch back to dynamic, test that for a static effUser attempting to delete a credential
     // for a different static user is rejected.
     passed = false;
     try

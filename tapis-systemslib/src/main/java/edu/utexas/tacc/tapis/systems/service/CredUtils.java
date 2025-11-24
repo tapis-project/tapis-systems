@@ -1263,7 +1263,7 @@ public class CredUtils
         }
 
         // If static and effUser is changing we need to remove credentials for previous static effUser
-        //   and update hostLoginUser
+        //   and update hasCredentials.
         if (isStaticEffUser && effUserChanged)
         {
           // Remove credentials for old eff user
