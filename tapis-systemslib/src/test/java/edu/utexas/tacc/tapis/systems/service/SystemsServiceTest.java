@@ -323,6 +323,8 @@ public class SystemsServiceTest
   }
 
   // Test credential verification for linux
+  // Also, to avoid having to create another system and duplicate a lot of code,
+  //  test hostEval endpoint functionality here.
   @Test
   public void testCredCheckLinux() throws Exception
   {
@@ -356,6 +358,67 @@ public class SystemsServiceTest
     Assert.assertNotNull(tmpSys, "Failed to create item: " + sysId);
     System.out.println("Found item: " + sysId);
 
+    // Before patching to have dynamic effUser, test hostEval so we do not have to muck about with creds.
+    // hostEval will always use current effUser and once system is dynamic it is extra work to create credentials.
+    // -------------------------------
+    // Test hostEval.
+    // Note that we do this before the negative tests which delete the credentials.
+    // -------------------------------
+    // Test invalid env var names
+    // Must not start with a number
+    boolean pass = false;
+    try
+    {
+      svc.hostEval(rOwner1, sysId, "1Invalid");
+      Assert.fail("hostEval should have thrown an exception for invalid env var name");
+    }
+    catch (BadRequestException e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_ENV_VAR_INVALID"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    // Must contain only alphanumeric or underscore
+    pass = false;
+    try
+    {
+      svc.hostEval(rOwner1, sysId, "Invalid#2");
+      Assert.fail("hostEval should have thrown an exception for invalid env var name");
+    }
+    catch (BadRequestException e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_ENV_VAR_INVALID"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    // Must not be blank
+    pass = false;
+    try
+    {
+      svc.hostEval(rOwner1, sysId, "");
+      Assert.fail("hostEval should have thrown an exception for blank env var name");
+    }
+    catch (IllegalArgumentException e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_HOST_EVAL_NO_ENV_VAR"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+
+    // Eval and check HOME
+    String homeValue = svc.hostEval(rOwner1, sysId, "HOME");
+    Assert.assertEquals(homeValue, String.format("/home/%s", loginUserMapping));
+    // Eval and check variable that probably is not set
+    String emptyVarValue = svc.hostEval(rOwner1, sysId, "ADFASDFBDDSERZDFADSFADSF22314515");
+    Assert.assertTrue(StringUtils.isBlank(emptyVarValue), "hostEval of unset env var should return empty string");
+
+
+
+
+
     // Cleanup any previous credentials for targetUser = owner1 and staticEff user.
     svcCred.deleteUserCredential(rOwner1, sysId, owner1);
     svcCred.deleteUserCredential(rOwner1, sysId, staticEffUser);
@@ -363,7 +426,6 @@ public class SystemsServiceTest
     // Update the system to have a dynamic effectiveUserId. Use PATCH
     PatchSystem patchSystem = new PatchSystem(null, null, TSystem.APIUSERID_VAR, null, null, null, null, null, null,
                   null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-    // THIS is the call that creates the entry with no login mapping
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataEmptyJson);
     tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
 
@@ -380,9 +442,9 @@ public class SystemsServiceTest
     checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, AuthnMethod.PASSWORD);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
 
-    // Negative tests
+    // Negative credential tests
     // Check with different authnMethod. Should throw NotAuthorized
-    boolean pass = false;
+    pass = false;
     try
     {
       checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, AuthnMethod.PKI_KEYS);
