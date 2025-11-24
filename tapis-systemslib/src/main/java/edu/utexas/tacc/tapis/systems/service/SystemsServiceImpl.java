@@ -272,7 +272,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // ==========================================================================================================
     // WARNING: Be very careful of ordering of steps from here on.
-    //          Ordering of setting defaults, resolving variables and validating attributes can be critical.
+    //          Ordering of setting defaults, resolving variables and validating attributes is critical.
     // ==========================================================================================================
 
     // Make sure owner, effectiveUserId, notes, tags, jobEnvVariables and batchDefaultLogincalQueue. are all set.
@@ -1650,7 +1650,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - Name of the system
    * @param envVarName - Name of env var to resolve
-   * @return - value of env variable. TODO: What if var is unset vs set but empty string.?
+   * @return - value of env variable. If var not set return empty string.
    * @throws TapisException - for Tapis related exceptions
    */
   @Override
@@ -1662,15 +1662,26 @@ public class SystemsServiceImpl implements SystemsService
     if (StringUtils.isBlank(systemId))
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_SYSTEM", rUser));
 
-    // We need owner to check auth and if system not there cannot find owner, so
-    // if system does not exist is deleted then return null
-    if (!dao.checkForSystem(rUser.getOboTenantId(), systemId, false)) return null;
+    // If system deleted or does not exist throw NotFound exception
+    // Retrieve system with some fields resolved. We will need it for a few things.
+    // NOTE: Basic getSystem with default options, share info and credentials are NOT fetched.
+    //       Dynamic properties and effectiveUserId are resolved
+    TSystem system = getSystem(rUser, rUser.getOboTenantId(), systemId);
+    if (system == null)
+    {
+      String msg = LibUtils.getMsgAuth(NOT_FOUND, rUser, systemId);
+      log.info(msg);
+      throw new NotFoundException(msg);
+    }
 
     // ------------------------- Check authorization -------------------------
-    authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
-    // TODO????????????????????????
+    authUtils.checkAuthOwnerKnown(rUser, op, systemId, system.getOwner());
 
-//    return dao.getSystemOwner(rUser.getOboTenantId(), systemId);
+    // We will need credentials. Fetch them now.
+    Credential cred = credUtils.getCredential(rUser, system, system.getEffectiveUserId(), null,
+                                              !system.isDynamicEffectiveUser(), null);
+    system.setAuthnCredential(cred);
+    return resolveEnvVar(rUser, system, envVarName);
   }
 
   // -----------------------------------------------------------------------
@@ -2286,7 +2297,7 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * TODO Resolve env var on the host. For hostEval endpoint.
+   * Resolve env var on the host. For hostEval endpoint.
    * If envVarName is null or empty then throw IllegalArg exception
    * If envVarName does not match acceptable pattern then throw BadRequestException.
    *

@@ -193,7 +193,7 @@ public final class TSystem
   public static final Pattern HOST_EVAL_VAR_NAME_PATTERN =
           Pattern.compile("(^[a-zA-Z_][a-zA-Z0-9_]*)\\s*(,\\s*(\\S+)\\s*)?");
 
-  // Pattern for environment variable name with no optional default value. Use for hostEval endpoint.
+  // Pattern for environment variable name with no optional default value. Used for hostEval endpoint.
   // Regex matching: start with 1 letter or underscore followed by 0 or more alphanumeric or underscore
   public static final String ENV_VAR_NAME_PATTERN = "(^[a-zA-Z_][a-zA-Z0-9_]*)";
 
