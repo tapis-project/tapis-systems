@@ -245,7 +245,7 @@ public class CredentialResource
     }
     // Pass through not found or not auth to let exception mapper handle it.
     // Class edu.utexas.tacc.tapis.sharedapi.providers.ApiExceptionMapper
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -336,7 +336,7 @@ public class CredentialResource
       checkedCred = service.checkUserCredential(rUser, systemId, userName, authnMethod);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -410,7 +410,7 @@ public class CredentialResource
     Credential credential;
     try { credential = service.getUserCredential(rUser, systemId, userName, authnMethod); }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -473,8 +473,8 @@ public class CredentialResource
     {
       service.deleteUserCredential(rUser, systemId, userName);
     }
-    // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    // Pass through not found, not auth, etc. to Let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {

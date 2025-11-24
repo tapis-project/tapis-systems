@@ -152,7 +152,7 @@ public class PermsResource
       service.grantUserPermissions(rUser, systemId, userName, permsList, json);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException  | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -209,7 +209,7 @@ public class PermsResource
     String msg;
     try { perms = service.getUserPermissions(rUser, systemId, userName); }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException  | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -279,7 +279,7 @@ public class PermsResource
       throw new BadRequestException(msg);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException  | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -355,7 +355,7 @@ public class PermsResource
       service.revokeUserPermissions(rUser, systemId, userName, permsList, json);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException  | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {

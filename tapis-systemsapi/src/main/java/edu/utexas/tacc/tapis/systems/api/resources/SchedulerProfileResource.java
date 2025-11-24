@@ -205,7 +205,7 @@ public class SchedulerProfileResource
       throw new BadRequestException(msg);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -257,7 +257,7 @@ public class SchedulerProfileResource
       schedulerProfile = svc.getSchedulerProfile(rUser, name);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -315,7 +315,7 @@ public class SchedulerProfileResource
                                    successResponse);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException e ) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
@@ -369,7 +369,7 @@ public class SchedulerProfileResource
       throw new BadRequestException(msg);
     }
     // Pass through not found or not auth to let exception mapper handle it.
-    catch (NotFoundException | NotAuthorizedException | ForbiddenException | TapisClientException e) { throw e; }
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException  | TapisClientException e) { throw e; }
     // As final fallback
     catch (Exception e)
     {
