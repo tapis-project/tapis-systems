@@ -649,7 +649,6 @@ public class AuthUtils
   {
     String systemId = system.getId();
     String oboTenant = system.getTenant();
-    String effectiveUserId = system.getEffectiveUserId();
 
     // Use Security Kernel client to find all users with perms associated with the system.
     String permSpec = String.format(PERM_SPEC_TEMPLATE, oboTenant, "%", systemId);
@@ -893,6 +892,7 @@ public class AuthUtils
       case undelete:
       case changeOwner:
       case grantPerms:
+      case hostEval:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser)) return;
         break;
       case read:

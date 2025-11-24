@@ -108,6 +108,9 @@ public interface SystemsService
   String getSystemOwner(ResourceRequestUser rUser, String systemId)
           throws TapisException, TapisClientException;
 
+  String hostEval(ResourceRequestUser rUser, String systemId, String envVarName)
+        throws TapisException, TapisClientException;
+
   // --------------------------- Permissions -------------------------------
   // -----------------------------------------------------------------------
   void grantUserPermissions(ResourceRequestUser rUser, String systemId, String targetUser, Set<Permission> permissions, String rawData)

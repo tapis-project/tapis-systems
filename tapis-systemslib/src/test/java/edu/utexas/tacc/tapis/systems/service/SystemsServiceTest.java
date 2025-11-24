@@ -269,7 +269,10 @@ public class SystemsServiceTest
     {
       List<TSystem> childSystems = dao.getSystems(rAdminUser, childUser, null, null, -1, null,
                                              0, null, true, listTypeOwned, null, null);
-      for(TSystem cSystem : childSystems) { svcImpl.hardDeleteSystem(rAdminUser, tenantName, cSystem.getId()); }
+      for(TSystem cSystem : childSystems)
+      {
+        svcImpl.hardDeleteSystem(rAdminUser, tenantName, cSystem.getId());
+      }
     }
 
     // Delete all parent systems.
@@ -320,6 +323,8 @@ public class SystemsServiceTest
   }
 
   // Test credential verification for linux
+  // Also, to avoid having to create another system and duplicate a lot of code,
+  //  test hostEval endpoint functionality here.
   @Test
   public void testCredCheckLinux() throws Exception
   {
@@ -353,13 +358,69 @@ public class SystemsServiceTest
     Assert.assertNotNull(tmpSys, "Failed to create item: " + sysId);
     System.out.println("Found item: " + sysId);
 
+    // Before patching to have dynamic effUser, test hostEval so we do not have to muck about with creds.
+    // hostEval will always use current effUser and once system is dynamic it is extra work to create credentials.
+    // -------------------------------
+    // Test hostEval.
+    // Note that we do this before the negative tests which delete the credentials.
+    // -------------------------------
+    // Test invalid env var names
+    // Must not start with a number
+    boolean pass = false;
+    try
+    {
+      svc.hostEval(rOwner1, sysId, "1Invalid");
+      Assert.fail("hostEval should have thrown an exception for invalid env var name");
+    }
+    catch (BadRequestException e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_ENV_VAR_INVALID"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    // Must contain only alphanumeric or underscore
+    pass = false;
+    try
+    {
+      svc.hostEval(rOwner1, sysId, "Invalid#2");
+      Assert.fail("hostEval should have thrown an exception for invalid env var name");
+    }
+    catch (BadRequestException e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_ENV_VAR_INVALID"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    // Must not be blank
+    pass = false;
+    try
+    {
+      svc.hostEval(rOwner1, sysId, "");
+      Assert.fail("hostEval should have thrown an exception for blank env var name");
+    }
+    catch (IllegalArgumentException e)
+    {
+      String msg = e.getMessage();
+      Assert.assertTrue(msg.contains("SYSLIB_HOST_EVAL_NO_ENV_VAR"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+
+    // Eval and check HOME
+    String homeValue = svc.hostEval(rOwner1, sysId, "HOME");
+    Assert.assertEquals(homeValue, String.format("/home/%s", loginUserMapping));
+    // Eval and check variable that probably is not set
+    String emptyVarValue = svc.hostEval(rOwner1, sysId, "ADFASDFBDDSERZDFADSFADSF22314515");
+    Assert.assertTrue(StringUtils.isBlank(emptyVarValue), "hostEval of unset env var should return empty string");
+
     // Cleanup any previous credentials for targetUser = staticEff user.
     svcCred.deleteUserCredential(rOwner1, sysId, staticEffUser);
 
     // Update the system to have a dynamic effectiveUserId. Use PATCH
     PatchSystem patchSystem = new PatchSystem(null, null, TSystem.APIUSERID_VAR, null, null, null, null, null, null,
                   null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-    // THIS is the call that creates the entry with no login mapping
     svc.patchSystem(rOwner1, sysId, patchSystem, rawDataEmptyJson);
     tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
 
@@ -376,9 +437,9 @@ public class SystemsServiceTest
     checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, AuthnMethod.PASSWORD);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
 
-    // Negative tests
+    // Negative credential tests
     // Check with different authnMethod. Should throw NotAuthorized
-    boolean pass = false;
+    pass = false;
     try
     {
       checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, AuthnMethod.PKI_KEYS);
@@ -1930,7 +1991,7 @@ public class SystemsServiceTest
     {
       svcCred.deleteUserCredential(rOwner1, sysId, testUser4LinuxUser);
     }
-    catch (BadRequestException e) // TODO
+    catch (BadRequestException e)
     {
       String msg = e.getMessage();
       passed = msg.contains("SYSLIB_CRED_DELETE_STATIC_MISMATCH");
@@ -3281,7 +3342,7 @@ public class SystemsServiceTest
     createdParent = svc.createSystem(rParentChild1, parentSystem, skipCredCheckTrue, rawDataEmptyJson);
     Assert.assertTrue(createdParent.isAllowChildren());
 
-    String childId = "childSystem";
+    String childId = sysNamePrefix + "_childSystem";
     String childEffectiveUserId = "unitTestUser";
     String childRootDir = "/childRoot";
     TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
@@ -3327,9 +3388,9 @@ public class SystemsServiceTest
 
     String childEffectiveUserId = "unitTestUser";
     String childRootDir = "/childRoot";
-    TSystem child1 = svc.createChildSystem(rParentChild1, createdParent.getId(), "childId1", childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
-    TSystem child2 = svc.createChildSystem(rParentChild1, createdParent.getId(), "childId2", childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
-    TSystem child3 = svc.createChildSystem(rParentChild1, createdParent.getId(), "childId3", childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
+    TSystem child1 = svc.createChildSystem(rParentChild1, createdParent.getId(), sysNamePrefix + "_childId1", childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
+    TSystem child2 = svc.createChildSystem(rParentChild1, createdParent.getId(), sysNamePrefix + "_childId2", childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
+    TSystem child3 = svc.createChildSystem(rParentChild1, createdParent.getId(), sysNamePrefix + "_childId3", childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
 
     checkCommonParentChildAttrs(createdParent, child1);
     checkCommonParentChildAttrs(createdParent, child2);
@@ -3371,7 +3432,7 @@ public class SystemsServiceTest
 
     String childEffectiveUserId = "unitTestUser";
     String childRootDir = "/childRoot";
-    String childSysId = "childSys-" + UUID.randomUUID().toString();
+    String childSysId = sysNamePrefix + "_childSys-" + UUID.randomUUID().toString();
     TSystem child1 = svc.createChildSystem(rParentChild2, createdParent.getId(), childSysId, childEffectiveUserId,
             childRootDir, null, true, rawDataEmptyJson);
     Assert.assertEquals(child1.getOwner(), parentChild2);
@@ -3391,7 +3452,7 @@ public class SystemsServiceTest
 
     String childEffectiveUserId = "unitTestUser";
     String childRootDir = "/childRoot";
-    String childSysId = "childSys-" + UUID.randomUUID().toString();
+    String childSysId = sysNamePrefix + "_childSys-" + UUID.randomUUID().toString();
     TSystem child1 = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
 
     Assert.assertEquals(child1.getOwner(), parentChild1);
@@ -3407,7 +3468,7 @@ public class SystemsServiceTest
 
     String childEffectiveUserId = "unitTestUser";
     String childRootDir = "/childRoot";
-    String childSysId = "childSys-" + UUID.randomUUID().toString();
+    String childSysId = sysNamePrefix + "_childSys-" + UUID.randomUUID().toString();
     TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
     Assert.assertEquals(createdChild.getId(), childSysId);
 
@@ -3434,7 +3495,7 @@ public class SystemsServiceTest
     // update system to allow children
     String childEffectiveUserId = "unitTestUser";
     String childRootDir = "/childRoot";
-    String childSysId = "childSys-" + UUID.randomUUID().toString();
+    String childSysId = sysNamePrefix + "_childSys-" + UUID.randomUUID().toString();
     svc.createChildSystem(rParentChild2, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
   }
 
@@ -3449,7 +3510,7 @@ public class SystemsServiceTest
     for(int i=0;i<4;i++) {
       String childEffectiveUserId = "unitTestUser";
       String childRootDir = "/childRoot";
-      String childSysId = "childSys-" + UUID.randomUUID().toString();
+      String childSysId = sysNamePrefix + "_childSys-" + UUID.randomUUID().toString();
       childIds.add(childSysId);
       TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
       Assert.assertEquals(createdChild.getId(), childSysId);
@@ -3482,7 +3543,7 @@ public class SystemsServiceTest
     for(int i=0;i<2;i++) {
       String childEffectiveUserId = "unitTestUser";
       String childRootDir = "/childRoot";
-      String childSysId = "childSys-" + UUID.randomUUID().toString();
+      String childSysId = sysNamePrefix + "_childSys-" + UUID.randomUUID().toString();
       TSystem createdChild = svc.createChildSystem(rParentChild1, createdParent.getId(), childSysId, childEffectiveUserId, childRootDir, null, true, rawDataEmptyJson);
       Assert.assertEquals(createdChild.getId(), childSysId);
       Assert.assertEquals(createdChild.getParentId(), createdParent.getId());

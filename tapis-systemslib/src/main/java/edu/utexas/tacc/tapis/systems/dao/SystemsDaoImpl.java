@@ -165,12 +165,12 @@ public class SystemsDaoImpl implements SystemsDao
         TSystem parentSystem = getSystemForUpdate(db, system.getTenant(), system.getParentId());
         if (parentSystem == null)
         {
-          throw new IllegalStateException(LibUtils.getMsg("SYSLIB_CHILD_PARENT_NOT_FOUND", rUser, opName,
+          throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CHILD_PARENT_NOT_FOUND", rUser, opName,
                                                           system.getParentId(), system.getId()));
         }
         if (!parentSystem.isAllowChildren())
         {
-          throw new IllegalStateException(LibUtils.getMsg("SYSLIB_CHILD_NOT_PERMITTED", rUser, system.getParentId()));
+          throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CHILD_NOT_PERMITTED", rUser, system.getParentId()));
         }
       }
 
@@ -312,7 +312,7 @@ public class SystemsDaoImpl implements SystemsDao
         // go through.
         TSystem system = getSystemForUpdate(db, tenantId, systemId);
         if((system != null) && hasChildren(tenantId, systemId)) {
-          throw new IllegalStateException(LibUtils.getMsg("SYSLIB_CHILD_ALLOW_CONFLICT_ERROR", rUser, opName, systemId));
+          throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CHILD_ALLOW_CONFLICT_ERROR", rUser, opName, systemId));
         }
       }
 
@@ -436,7 +436,7 @@ public class SystemsDaoImpl implements SystemsDao
         // go through.
         TSystem parentSystem = getSystemForUpdate(db, tenant, systemId);
         if((parentSystem == null) && hasChildren(tenant, systemId)) {
-          throw new IllegalStateException(LibUtils.getMsg("SYSLIB_CHILD_ALLOW_CONFLICT_ERROR", rUser, opName, systemId));
+          throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CHILD_ALLOW_CONFLICT_ERROR", rUser, opName, systemId));
         }
       }
 
@@ -592,12 +592,12 @@ public class SystemsDaoImpl implements SystemsDao
           // Make sure we can still find the parent
           if (parentSystem == null)
           {
-            throw new IllegalStateException(LibUtils.getMsg("SYSLIB_CHILD_PARENT_NOT_FOUND", rUser, opName, parentId, id));
+            throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CHILD_PARENT_NOT_FOUND", rUser, opName, parentId, id));
           }
           // Make sure parent still allows children
           if (!parentSystem.isAllowChildren())
           {
-            throw new IllegalStateException(LibUtils.getMsg("SYSLIB_CHILD_NOT_PERMITTED", rUser, id));
+            throw new IllegalStateException(LibUtils.getMsgAuth("SYSLIB_CHILD_NOT_PERMITTED", rUser, id));
           }
 
           // we really only need to update a single system - the one that was undeleted.  This method

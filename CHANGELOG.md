@@ -10,7 +10,7 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 25Q4.1 - 2025-??-??
+## 25Q4.1 - 2025-11-24
 
 TBD Bug fixes, refactoring and enhancements.
 
