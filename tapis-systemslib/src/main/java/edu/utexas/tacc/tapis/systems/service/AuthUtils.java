@@ -892,10 +892,10 @@ public class AuthUtils
       case undelete:
       case changeOwner:
       case grantPerms:
-      case hostEval:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser)) return;
         break;
       case read:
+      case hostEval:
         // Sharing support makes check complicated. Use separate method.
         if (checkAuthReadExecIncludeSharing(rUser, systemId, op, owner, oboOrImpersonatedUser, sharedAppCtx)) return;
         break;
