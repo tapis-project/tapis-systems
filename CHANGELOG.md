@@ -10,6 +10,17 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
+## 25Q4.2 - 2025-??-??
+
+Bug fix.
+
+### New features:
+- TBD
+
+### Bug fixes:
+- Better error message when attempting to use hostEval endpoint for non-LINUX system type.
+
+---------------------------------------------------------------------------
 ## 25Q4.1 - 2025-11-24
 
 Enhancement and bug fix.

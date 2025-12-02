@@ -1646,7 +1646,7 @@ public class SystemsServiceImpl implements SystemsService
   }
 
   /**
-   * Resolve env var on associate host
+   * Resolve env var on associated host
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - Name of the system
    * @param envVarName - Name of env var to resolve
@@ -1676,6 +1676,13 @@ public class SystemsServiceImpl implements SystemsService
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerKnown(rUser, op, systemId, system.getOwner());
+
+    // If system not of type LINUX then throw BadRequestException
+    if (!SystemType.LINUX.equals(system.getSystemType()))
+    {
+      String msg = LibUtils.getMsgAuth("SYSLIB_HOST_EVAL_TYPE_ERR", rUser, systemId, envVarName, system.getSystemType());
+      throw new BadRequestException(msg);
+    }
 
     // We will need credentials. Fetch them now.
     Credential cred = credUtils.getCredential(rUser, system, system.getEffectiveUserId(), null,
