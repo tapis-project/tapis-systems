@@ -10,15 +10,16 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 25Q4.2 - 2025-??-??
+## 25Q4.2 - 2025-12-04
 
-Bug fix.
+Bug fixes.
 
 ### New features:
-- TBD
+- None
 
 ### Bug fixes:
 - Better error message when attempting to use hostEval endpoint for non-LINUX system type.
+- changeOwner operation should not delete credentials when effectiveUser is static.
 
 ---------------------------------------------------------------------------
 ## 25Q4.1 - 2025-11-24

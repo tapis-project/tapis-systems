@@ -906,7 +906,6 @@ public class SystemsServiceImpl implements SystemsService
       // Get SK client now. If we cannot get this rollback not needed.
       // Note that we still need to call getSKClient each time because it refreshes the svc jwt as needed.
       sysUtils.getSKClient(rUser);
-      String systemsPermSpec = getPermSpecAllStr(oboTenant, systemId);
       // Consider using a notification instead (jira cic-3071)
       String filesPermSpec = "files:" + oboTenant + ":*:" + systemId;
       try
@@ -924,9 +923,16 @@ public class SystemsServiceImpl implements SystemsService
         // Update all share records to have new owner as grantor.
         authUtils.updateShareGrantorToNewOwner(rUser, sys, newOwnerName);
 
-        // Create credInfo record for new owner and if static effUser remove old credential
-        credUtils.createCredInfoForOwnerAsNeeded(rUser, sys, isStaticEffUser, op.name());
-        if (isStaticEffUser) credUtils.deleteCredential(rUser, sys, sys.getEffectiveUserId(), isStaticEffUser, op);
+        // If isStatic==true we need to switch CredInfo record to the new owner.
+        // else for dynamic create credInfo record for new owner
+        if (isStaticEffUser)
+        {
+          credUtils.updateStaticCredInfoWithNewOwner(rUser, sys, oldOwnerName, newOwnerName, op.name());
+        }
+        else
+        {
+          credUtils.createCredInfoForOwnerAsNeeded(rUser, sys, isStaticEffUser, op.name());
+        }
 
         // Get a complete and succinct description of the update.
         String changeDescription = LibUtils.getChangeDescriptionUpdateOwner(systemId, oldOwnerName, newOwnerName);
