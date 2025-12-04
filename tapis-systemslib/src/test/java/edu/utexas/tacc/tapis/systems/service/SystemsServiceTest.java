@@ -2246,6 +2246,7 @@ public class SystemsServiceTest
 
   // Test creating, reading and deleting user credentials for a system
   //  for the case of a static effectiveUserId
+  // Also check that for static eff user credential is not deleted and credInfo record is switched to new user.
   @Test
   public void testUserCredentialsStaticEffUser() throws Exception
   {
@@ -2253,7 +2254,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[28];
     Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
                                       "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1",
-            "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert1");
+                                      "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert1");
     sys0.setEffectiveUserId(effectiveUserId1);
     sys0.setAuthnCredential(cred1);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
@@ -2287,6 +2288,28 @@ public class SystemsServiceTest
     svc.grantUserPermissions(rOwner1, sys0.getId(), testUser4, testPermsREAD, rawDataEmptyJson);
     tmpSys = svc.getSystem(rFilesSvcTestUser3, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse, getCredsTrue,
                            testUser4, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    cred0 = tmpSys.getAuthnCredential();
+    Assert.assertNotNull(cred0, "AuthnCredential should not be null");
+    Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);
+    Assert.assertNotNull(cred0.getPassword(), "AuthnCredential password should not be null");
+    Assert.assertEquals(cred0.getPassword(), cred1.getPassword());
+    Assert.assertEquals(cred0.getLoginUser(), effectiveUserId1, "Incorrect loginUser. Should be static effUser");
+
+    // Before changing owner, confirm there is no credInfo for new owner and there is one for old owner.
+    CredentialInfo credInfo = credUtils.getCredInfo(rTestUser5, tmpSys, rTestUser5.getOboUserId(), !tmpSys.isDynamicEffectiveUser());
+    Assert.assertNull(credInfo, "CredentialInfo for new owner should be null");
+    credInfo = credUtils.getCredInfo(rOwner1, tmpSys, rOwner1.getOboUserId(), !tmpSys.isDynamicEffectiveUser());
+    Assert.assertNotNull(credInfo, "CredentialInfo for old owner should not be null");
+    // Change the owner.
+    svc.changeSystemOwner(rOwner1, sys0.getId(), testUser5);
+    // Change the owner. Confirm that old credInfo record is gone and new one is created.
+    credInfo = credUtils.getCredInfo(rOwner1, tmpSys, rOwner1.getOboUserId(), !tmpSys.isDynamicEffectiveUser());
+    Assert.assertNull(credInfo, "CredentialInfo for old owner should be null");
+    credInfo = credUtils.getCredInfo(rTestUser5, tmpSys, rTestUser5.getOboUserId(), !tmpSys.isDynamicEffectiveUser());
+    Assert.assertNotNull(credInfo, "CredentialInfo for new owner should not be null");
+    // Fetch credentials for static effUser to confirm they did not get deleted.
+    tmpSys = svc.getSystem(rFilesSvcTestUser5, sys0.getId(), AuthnMethod.PASSWORD, requireExecPermFalse,
+                           getCredsTrue, impersonationIdNull, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     cred0 = tmpSys.getAuthnCredential();
     Assert.assertNotNull(cred0, "AuthnCredential should not be null");
     Assert.assertEquals(cred0.getAuthnMethod(), AuthnMethod.PASSWORD);

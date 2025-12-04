@@ -1286,7 +1286,7 @@ public class CredUtils
   {
     // Determine tapisUser for looking up CredInfo
     // If static use effectiveUserId, else use oboOrImpersonatedUser
-    String credTargetUser = (isStaticEffUsr) ? sys.getEffectiveUserId(): oboOrImpersonatedUser;
+    String credTargetUser = (isStaticEffUsr) ? sys.getEffectiveUserId() : oboOrImpersonatedUser;
     String tapisUser = isStaticEffUsr ? rUser.getOboUserId() : credTargetUser;
     return dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUsr);
   }
@@ -1300,7 +1300,7 @@ public class CredUtils
    * There are a few cases where we want to make sure at least one record exists:
    *   1. During system create when credentials are not provided.
    *   2. During a put or patch update when authnMethod or effUser have changed.
-   *   3. During a changeOwner operation.
+   *   3. During a changeOwner operation when isStatic is false.
    *   4. After deleting a CredInfo record.
    */
    CredentialInfo createCredInfoForOwnerAsNeeded(ResourceRequestUser rUser, TSystem sys, boolean isStaticEffUser, String opName)
@@ -1332,6 +1332,73 @@ public class CredUtils
      }
      return credInfo;
    }
+
+   /*
+    * As part of changeOwner operation, create or update CredInfo record for a system with a static effUser.
+    * If a CredInfo record already exists for old owner then delete it and create a new
+    * one for the new owner with all values the same except for tapisUser which is set to the new owner.
+    * If no CredInfo record exists for old owner then create a record for the new owner.
+    */
+  void updateStaticCredInfoWithNewOwner(ResourceRequestUser rUser, TSystem sys, String oldOwner, String newOwner,
+                                        String opName)
+  {
+    String tapisUser;
+    CredentialInfo credInfo;
+    boolean isStaticEffUser = true;
+    // For static effUser hostLogin is always effUser.
+    String hostLoginUser = sys.getEffectiveUserId();
+
+    // Use a synchronized block for the operation.
+    synchronized (CredUtils.class)
+    {
+      // Look for CredInfo record associated with old owner
+      tapisUser = oldOwner;
+      credInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser);
+      if (credInfo == null)
+      {
+        // Record does not already exist, create it using new owner as tapisUser.
+        tapisUser = newOwner;
+        // First check that a record does not exist. There should never be one.
+        CredentialInfo ci = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser);
+        if (ci != null)
+        {
+          String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_ERR1", rUser, ci.getTenant(), ci.getSystemId(),
+                                           isStaticEffUser, oldOwner, newOwner);
+          log.error(msg);
+          throw new WebApplicationException(msg);
+        }
+        credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser,
+              hostLoginUser, nullLoginUserMapping, SyncStatus.PENDING);
+      }
+      else
+      {
+        // Record exists. Delete old record and create new one replacing tapisUser with newOwner.
+        dao.deleteCredInfoRecord(credInfo);
+        tapisUser = newOwner;
+        int syncFailCount = 0;
+        String syncFailMsg = null;
+        Instant syncFailTimestamp = null;
+        Instant utcNow = TapisUtils.getUTCTimeNow().toInstant(ZoneOffset.UTC);
+        credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser,
+                             hostLoginUser, nullLoginUserMapping, credInfo.hasCredentials(), credInfo.hasPassword(),
+                             credInfo.hasPkiKeys(), credInfo.hasAccessKey(), credInfo.hasToken(), credInfo.hasTmsKeys(),
+                             SyncStatus.PENDING, syncFailCount, syncFailMsg, syncFailTimestamp, utcNow, utcNow);
+      }
+      // Now create the record in the DB
+      // Note we go through all states PENDING->IN_PROGRESS->COMPLETED because we want to make sure we never
+      // violate allowed state transitions.
+      credInfo = dao.createCredInfo(rUser, credInfo);
+      updateCredInfoStatus(rUser, credInfo, SyncStatus.IN_PROGRESS, opName);
+      updateCredInfoStatus(rUser, credInfo, SyncStatus.COMPLETED, opName);
+      // Log successful operation
+      String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_CREATED", rUser, credInfo.getTenant(), credInfo.getSystemId(),
+            credInfo.getTapisUser(), isStaticEffUser, hostLoginUser, nullLoginUserMapping);
+      log.debug(msg);
+    }
+  }
+
+
+
 
   /* **************************************************************************** */
   /*                                Private Methods                               */
