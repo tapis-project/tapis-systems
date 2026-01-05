@@ -15,10 +15,10 @@
         </encoder>
     </appender>
 
-    <!-- Rollover to a new log file on a monthly basis, set a limits to manage sizes, 
-         default output to the user's home directory. Each job JVM is expected to have
-         its own dedicated logfile.  This removes the need to run in prudent mode
-         and deal with attendant scalability issues. -->
+    <!-- Rollover to a new log file on a monthly basis, set a limit to manage sizes, default output to the home
+         directory. Each job JVM is expected to have its own dedicated logfile since multiple processes cannot
+         write to the same log. This constraint removes the need to run in prudent mode and deal with attendant
+         scalability issues. -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${tapis.log.directory:-${user.home}}/tapis-systemsapi.log</file>
         <rollingPolicy
