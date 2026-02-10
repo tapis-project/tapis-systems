@@ -109,7 +109,7 @@ public class SystemsServiceImpl implements SystemsService
   // ************************************************************************
   // *********************** Enums ******************************************
   // ************************************************************************
-  public enum AuthListType  {OWNED, SHARED_PUBLIC, ALL}
+  public enum AuthListType  {OWNED, SHARED_DIRECT, SHARED_PUBLIC, MINE, READ_PERM, ALL}
   public static final AuthListType DEFAULT_LIST_TYPE = AuthListType.OWNED;
 
   // ************************************************************************
@@ -1303,7 +1303,7 @@ public class SystemsServiceImpl implements SystemsService
    * @param startAfter - where to start when sorting, e.g. orderBy=id(asc)&startAfter=101 (may not be used with skip)
    * @param includeDeleted - whether to included resources that have been marked as deleted.
    * @param filterByHasCredentials - whether to filter by hasCredentials = true, false or null
-   * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL
+   * @param listType - allows for filtering results based on authorization: OWNED, SHARED_PUBLIC, ALL, etc
    * @param impersonationId - use provided Tapis username instead of oboUser when checking auth
    * @return Count of TSystem objects
    * @throws TapisException - for Tapis related exceptions
@@ -1338,8 +1338,11 @@ public class SystemsServiceImpl implements SystemsService
     AuthListType listTypeEnum = AuthListType.valueOf(listType);
 
     // Set some flags for convenience and clarity
-    boolean allItems = AuthListType.ALL.equals(listTypeEnum);
-    boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listTypeEnum);
+    boolean allItems = AuthListType.ALL.equals(listTypeEnum);  // Include everything
+    boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listTypeEnum); // Include only publicly shared
+    boolean sharedOnly = AuthListType.SHARED_DIRECT.equals(listTypeEnum); // Include only shared directly with user
+    boolean mine = AuthListType.MINE.equals(listTypeEnum);                // Include owned and directly shared with user
+    boolean readPermOnly = AuthListType.READ_PERM.equals(listTypeEnum);   // Include only directly granted READ/MODIFY
 
     // Build verified list of search conditions
     var verifiedSearchList = new ArrayList<String>();
@@ -1364,12 +1367,13 @@ public class SystemsServiceImpl implements SystemsService
 
     // If needed, get IDs for items for which requester has READ or MODIFY permission
     Set<String> viewableIDs = new HashSet<>();
-    if (allItems) viewableIDs = getViewableSystemIDs(rUser, oboOrImpersonatedUser);
+    if (allItems || readPermOnly) viewableIDs = getViewableSystemIDs(rUser, oboOrImpersonatedUser);
 
     // If needed, get IDs for items shared with the requester or only shared publicly.
     Set<String> sharedIDs = new HashSet<>();
-    if (allItems) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboOrImpersonatedUser, false);
-    else if (publicOnly) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboOrImpersonatedUser, true);
+    if (allItems) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboOrImpersonatedUser, false, false);
+    else if (publicOnly) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboOrImpersonatedUser, true, false);
+    else if (sharedOnly || mine) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboOrImpersonatedUser, false, true);
 
     // Count all allowed systems matching the search conditions
     return dao.getSystemsCount(rUser, oboOrImpersonatedUser, verifiedSearchList, null, orderByList,
@@ -1423,8 +1427,11 @@ public class SystemsServiceImpl implements SystemsService
     AuthListType listTypeEnum = AuthListType.valueOf(listType);
 
     // Set some flags for convenience and clarity
-    boolean allItems = AuthListType.ALL.equals(listTypeEnum);
-    boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listTypeEnum);
+    boolean allItems = AuthListType.ALL.equals(listTypeEnum);             // Include everything
+    boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listTypeEnum); // Include only publicly shared
+    boolean sharedOnly = AuthListType.SHARED_DIRECT.equals(listTypeEnum); // Include only shared directly with user
+    boolean mine = AuthListType.MINE.equals(listTypeEnum);                // Include owned and directly shared with user
+    boolean readPermOnly = AuthListType.READ_PERM.equals(listTypeEnum);   // Include only directly granted READ/MODIFY
 
     // Build verified list of search conditions
     var verifiedSearchList = new ArrayList<String>();
@@ -1449,12 +1456,13 @@ public class SystemsServiceImpl implements SystemsService
 
     // If needed, get IDs for items for which requester has READ or MODIFY permission
     Set<String> viewableIDs = new HashSet<>();
-    if (allItems) viewableIDs = getViewableSystemIDs(rUser, oboOrImpersonatedUser);
+    if (allItems || readPermOnly) viewableIDs = getViewableSystemIDs(rUser, oboOrImpersonatedUser);
 
     // If needed, get IDs for items shared with the requester or only shared publicly.
     Set<String> sharedIDs = new HashSet<>();
-    if (allItems) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboOrImpersonatedUser, false);
-    else if (publicOnly) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboOrImpersonatedUser, true);
+    if (allItems) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboOrImpersonatedUser, false, false);
+    else if (publicOnly) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboOrImpersonatedUser, true, false);
+    else if (sharedOnly || mine) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboOrImpersonatedUser, false, true);
 
     // Get all allowed systems matching the search conditions
     // If filtering by hasCredentials, turn off limit temporarily.
@@ -1518,8 +1526,11 @@ public class SystemsServiceImpl implements SystemsService
     AuthListType listTypeEnum = AuthListType.valueOf(listType);
 
     // Set some flags for convenience and clarity
-    boolean allItems = AuthListType.ALL.equals(listTypeEnum);
-    boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listTypeEnum);
+    boolean allItems = AuthListType.ALL.equals(listTypeEnum);             // Include everything
+    boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listTypeEnum); // Include only publicly shared
+    boolean sharedOnly = AuthListType.SHARED_DIRECT.equals(listTypeEnum); // Include only shared directly with user
+    boolean mine = AuthListType.MINE.equals(listTypeEnum);                // Include owned and directly shared with user
+    boolean readPermOnly = AuthListType.READ_PERM.equals(listTypeEnum);   // Include only directly granted READ/MODIFY
 
     // Validate and parse the sql string into an abstract syntax tree (AST)
     // NOTE: The activemq parser validates and parses the string into an AST but there does not appear to be a way
@@ -1542,12 +1553,13 @@ public class SystemsServiceImpl implements SystemsService
 
     // If needed, get IDs for items for which requester has READ or MODIFY permission
     Set<String> viewableIDs = new HashSet<>();
-    if (allItems) viewableIDs = getViewableSystemIDs(rUser, oboUser);
+    if (allItems || readPermOnly) viewableIDs = getViewableSystemIDs(rUser, oboUser);
 
     // If needed, get IDs for items shared with the requester or only shared publicly.
     Set<String> sharedIDs = new HashSet<>();
-    if (allItems) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboUser, false);
-    else if (publicOnly) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboUser, true);
+    if (allItems) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboUser, false, false);
+    else if (publicOnly) sharedIDs = authUtils.getSharedSystemIDs(rUser, oboUser, true, false);
+    else if (sharedOnly || mine) sharedIDs = authUtils.getSharedSystemIDs(rUser, rUser.getOboUserId(), false, true);
 
     // Get all allowed systems matching the search conditions
     // If filtering by hasCredentials, turn off limit temporarily.

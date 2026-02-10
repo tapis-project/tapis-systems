@@ -336,6 +336,7 @@ public final class IntegrationUtils
   public static final SystemsServiceImpl.AuthListType listTypeOwned = SystemsServiceImpl.AuthListType.OWNED;
   public static final SystemsServiceImpl.AuthListType listTypeAll = SystemsServiceImpl.AuthListType.ALL;
   public static final SystemsServiceImpl.AuthListType listTypePublic = SystemsServiceImpl.AuthListType.SHARED_PUBLIC;
+  public static final SystemsServiceImpl.AuthListType listTypeSharedDirect = SystemsServiceImpl.AuthListType.SHARED_DIRECT;
 
   public static final String stringWithCtrlChar = "Start\u0001Finish"; // String containing a control-A character
   public static final String stringWithNewlineAtEnd = "StartFinish\n"; // String containing a newline at end

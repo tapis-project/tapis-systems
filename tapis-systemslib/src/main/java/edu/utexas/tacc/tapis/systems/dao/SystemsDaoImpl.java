@@ -1138,20 +1138,24 @@ public class SystemsDaoImpl implements SystemsDao
                              Set<String> sharedIDs)
           throws TapisException
   {
+    // Ensure we have a valid listType
+    if (listType == null) listType = DEFAULT_LIST_TYPE;
+
     // For convenience
     String oboTenant = rUser.getOboTenantId();
     boolean allItems = AuthListType.ALL.equals(listType);
     boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listType);
     boolean ownedOnly = AuthListType.OWNED.equals(listType);
+    boolean sharedOnly = AuthListType.SHARED_DIRECT.equals(listType);
+    boolean mine = AuthListType.MINE.equals(listType);
+    boolean readPermOnly = AuthListType.READ_PERM.equals(listType);
 
     // Ensure we have a valid oboUser
     if (StringUtils.isBlank(oboUser)) oboUser = rUser.getOboUserId();
 
-    // If only looking for public items and there are none in the list we are done.
-    if (publicOnly && (sharedIDs == null || sharedIDs.isEmpty())) return 0;
-
-    // Ensure we have a valid listType
-    if (listType == null) listType = DEFAULT_LIST_TYPE;
+    // If only looking for public items or only looking for directly shared items
+    //   and there are none in the list we are done.
+    if ((publicOnly || sharedOnly) && (sharedIDs == null || sharedIDs.isEmpty())) return 0;
 
     // Ensure we have a non-null orderByList
     List<OrderBy> tmpOrderByList = new ArrayList<>();
@@ -1226,21 +1230,30 @@ public class SystemsDaoImpl implements SystemsDao
     {
       listTypeCondition = SYSTEMS.OWNER.eq(oboUser);
     }
-    else if (publicOnly)
+    else if (publicOnly || sharedOnly)
     {
       // NOTE: We check above for sharedIDs == null or is empty so no need to do it here
       listTypeCondition = SYSTEMS.ID.in(sharedIDs);
     }
+    else if (mine)
+    {
+      // Owned by user or in sharedIDs list
+      listTypeCondition = SYSTEMS.OWNER.eq(oboUser);
+      if (!sharedIDs.isEmpty()) listTypeCondition = listTypeCondition.or(SYSTEMS.ID.in(sharedIDs));
+    }
+    else if (readPermOnly)
+    {
+      // Only those where user was granted READ or MODIFY permission
+      listTypeCondition = SYSTEMS.ID.in(viewableIDs);
+    }
     else if (allItems)
     {
+      // Everything: owned, shared direct, shared public, READ/MODIFY perm
       listTypeCondition = SYSTEMS.OWNER.eq(oboUser);
       var setOfIDs = new HashSet<String>();
       if (sharedIDs != null && !sharedIDs.isEmpty()) setOfIDs.addAll(sharedIDs);
       if (viewableIDs != null && !viewableIDs.isEmpty()) setOfIDs.addAll(viewableIDs);
-      if (!setOfIDs.isEmpty())
-      {
-        listTypeCondition = listTypeCondition.or(SYSTEMS.ID.in(setOfIDs));
-      }
+      if (!setOfIDs.isEmpty()) listTypeCondition = listTypeCondition.or(SYSTEMS.ID.in(setOfIDs));
     }
     whereCondition = whereCondition.and(listTypeCondition);
 //    // TODO If filtering by hasCredentials add the the where clause
@@ -1337,9 +1350,15 @@ public class SystemsDaoImpl implements SystemsDao
     boolean allItems = AuthListType.ALL.equals(listType);
     boolean publicOnly = AuthListType.SHARED_PUBLIC.equals(listType);
     boolean ownedOnly = AuthListType.OWNED.equals(listType);
+    boolean sharedOnly = AuthListType.SHARED_DIRECT.equals(listType);
+    boolean mine = AuthListType.MINE.equals(listType);
+    boolean readPermOnly = AuthListType.READ_PERM.equals(listType);
 
     // If only looking for public items and there are none in the list we are done.
-    if (publicOnly && (sharedIDs == null || sharedIDs.isEmpty())) return retList;
+    // If only looking for public items or only looking for directly shared items
+    //   and there are none in the list we are done.
+    if ((publicOnly || sharedOnly) && (sharedIDs == null || sharedIDs.isEmpty())) return retList;
+    if (readPermOnly && (viewableIDs == null || viewableIDs.isEmpty())) return retList;
 
     // Ensure we have a non-null orderByList
     List<OrderBy> tmpOrderByList = new ArrayList<>();
@@ -1427,13 +1446,25 @@ public class SystemsDaoImpl implements SystemsDao
     {
       listTypeCondition = SYSTEMS.OWNER.eq(oboUser);
     }
-    else if (publicOnly)
+    else if (publicOnly || sharedOnly)
     {
       // NOTE: We check above for sharedIDs == null or is empty so no need to do it here
       listTypeCondition = SYSTEMS.ID.in(sharedIDs);
     }
+    else if (mine)
+    {
+      // Owned by user or in sharedIDs list
+      listTypeCondition = SYSTEMS.OWNER.eq(oboUser);
+      if (!sharedIDs.isEmpty()) listTypeCondition = listTypeCondition.or(SYSTEMS.ID.in(sharedIDs));
+    }
+    else if (readPermOnly)
+    {
+      // Only those where user was granted READ or MODIFY permission
+      listTypeCondition = SYSTEMS.ID.in(viewableIDs);
+    }
     else if (allItems)
     {
+      // Everything: owned, shared direct, shared public, READ/MODIFY perm
       listTypeCondition = SYSTEMS.OWNER.eq(oboUser);
       var setOfIDs = new HashSet<String>();
       if (sharedIDs != null && !sharedIDs.isEmpty()) setOfIDs.addAll(sharedIDs);

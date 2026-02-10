@@ -1027,6 +1027,7 @@ public class SystemsServiceTest
     // owner6 makes system public
     svc.shareSystemPublicly(rOwner6, systems[32].getId());
 
+    // TODO   public static final AppsServiceImpl.AuthListType listTypeSharedDirect = AppsServiceImpl.AuthListType.SHARED_DIRECT;
     List<TSystem> systems;
     // OWNED - should return 1
     systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
@@ -1040,6 +1041,15 @@ public class SystemsServiceTest
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypePublic);
     Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypePublic);
+
+    // TODO SHARED_DIRECT - should return ????
+    systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
+            showDeletedFalse, listTypeSharedDirect.name(), hasCredentialsNull, fetchShareInfoFalse, impersonationIdNull);
+    Assert.assertNotNull(systems, "Returned list of systems should not be null");
+    System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeSharedDirect);
+    // TODO 1????????????????????????????
+    Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypeSharedDirect);
+
     // ALL - should return 4
     systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
             showDeletedFalse, listTypeAll.name(), hasCredentialsNull, fetchShareInfoFalse, impersonationIdNull);

@@ -9,6 +9,16 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
+## 25Q4.3 - 2026-??-??
+
+New feature.
+
+### New features:
+- Add support for new listType values: SHARED_DIRECT, READ_PERM, MINE
+
+### Bug fixes:
+- None
+
 ---------------------------------------------------------------------------
 ## 25Q4.2 - 2025-12-04
 
