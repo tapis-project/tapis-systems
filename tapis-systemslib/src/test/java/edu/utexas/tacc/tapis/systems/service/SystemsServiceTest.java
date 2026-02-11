@@ -1055,6 +1055,13 @@ public class SystemsServiceTest
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeMine);
     Assert.assertEquals(systems.size(), 2, "Wrong number of returned systems for listType=" + listTypeMine);
 
+    // READ_PERM - should return 1 (1 granted by owner4)
+    systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
+            showDeletedFalse, listTypeReadPerm.name(), hasCredentialsNull, fetchShareInfoTrue, impersonationIdNull);
+    Assert.assertNotNull(systems, "Returned list of systems should not be null");
+    System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeSharedDirect);
+    Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypeReadPerm);
+
     // ALL - should return 4
     systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
             showDeletedFalse, listTypeAll.name(), hasCredentialsNull, fetchShareInfoFalse, impersonationIdNull);
