@@ -1040,6 +1040,28 @@ public class SystemsServiceTest
     Assert.assertNotNull(systems, "Returned list of systems should not be null");
     System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypePublic);
     Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypePublic);
+
+    // SHARED_DIRECT - should return 1 (1 shared by owner5)
+    systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
+            showDeletedFalse, listTypeSharedDirect.name(), hasCredentialsNull, fetchShareInfoTrue, impersonationIdNull);
+    Assert.assertNotNull(systems, "Returned list of systems should not be null");
+    System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeSharedDirect);
+    Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypeSharedDirect);
+
+    // MINE - should return 2 (1 owned by owner3 and 1 shared by owner5)
+    systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
+            showDeletedFalse, listTypeMine.name(), hasCredentialsNull, fetchShareInfoFalse, impersonationIdNull);
+    Assert.assertNotNull(systems, "Returned list of systems should not be null");
+    System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeMine);
+    Assert.assertEquals(systems.size(), 2, "Wrong number of returned systems for listType=" + listTypeMine);
+
+    // READ_PERM - should return 1 (1 granted by owner4)
+    systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
+            showDeletedFalse, listTypeReadPerm.name(), hasCredentialsNull, fetchShareInfoTrue, impersonationIdNull);
+    Assert.assertNotNull(systems, "Returned list of systems should not be null");
+    System.out.printf("getSystems returned %d items using listType = %s%n", systems.size(), listTypeSharedDirect);
+    Assert.assertEquals(systems.size(), 1, "Wrong number of returned systems for listType=" + listTypeReadPerm);
+
     // ALL - should return 4
     systems = svc.getSystems(rOwner3, searchListNull, limitNone, orderByListNull, skipZero, startAferEmpty,
             showDeletedFalse, listTypeAll.name(), hasCredentialsNull, fetchShareInfoFalse, impersonationIdNull);

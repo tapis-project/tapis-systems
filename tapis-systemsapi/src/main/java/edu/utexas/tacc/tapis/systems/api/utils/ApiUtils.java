@@ -160,13 +160,13 @@ public class ApiUtils
     try { systemExists = systemsService.checkForSystem(rUser, systemId); }
     catch (Exception e)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_CHECK_ERROR", rUser, systemId, opName, e.getMessage());
+      msg = getMsgAuth("SYSAPI_CHECK_ERROR", rUser, systemId, opName, e.getMessage());
       _log.error(msg, e);
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg)).build();
     }
     if (!systemExists)
     {
-      msg = ApiUtils.getMsgAuth("SYSAPI_NOSYSTEM", rUser, systemId, opName);
+      msg = getMsgAuth("SYSAPI_NOSYSTEM", rUser, systemId, opName);
       _log.error(msg);
       return Response.status(Response.Status.NOT_FOUND).entity(TapisRestUtils.createErrorResponse(msg)).build();
     }
@@ -190,13 +190,13 @@ public class ApiUtils
   {
     if ((!StringUtils.isBlank(secretVal1) && StringUtils.isBlank(secretVal2)))
     {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_CRED_SECRET_MISSING", rUser, systemName, secretType, secretName2, userName);
+      String msg = getMsgAuth("SYSAPI_CRED_SECRET_MISSING", rUser, systemName, secretType, secretName2, userName);
       _log.error(msg);
       return Response.status(Response.Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg)).build();
     }
     if ((StringUtils.isBlank(secretVal1) && !StringUtils.isBlank(secretVal2)))
     {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_CRED_SECRET_MISSING", rUser, systemName, secretType, secretName1, userName);
+      String msg = getMsgAuth("SYSAPI_CRED_SECRET_MISSING", rUser, systemName, secretType, secretName1, userName);
       _log.error(msg);
       return Response.status(Response.Status.BAD_REQUEST).entity(TapisRestUtils.createErrorResponse(msg)).build();
     }
@@ -213,7 +213,7 @@ public class ApiUtils
     // Build list of args passed in
     String argListStr = "";
     if (strParms != null && strParms.length > 0) argListStr = String.join(",", strParms);
-    String msg = ApiUtils.getMsgAuth("SYSAPI_TRACE_REQUEST", rUser, className, opName, reqUrl, argListStr);
+    String msg = getMsgAuth("SYSAPI_TRACE_REQUEST", rUser, className, opName, reqUrl, argListStr);
     _log.trace(msg);
   }
 
@@ -222,7 +222,7 @@ public class ApiUtils
    */
   public static String getListOfErrors(List<String> msgList, ResourceRequestUser rUser, Object... parms) {
     if (msgList == null || msgList.isEmpty()) return "";
-    var sb = new StringBuilder(ApiUtils.getMsgAuth("SYSAPI_CREATE_INVALID_ERRORLIST", rUser, parms));
+    var sb = new StringBuilder(getMsgAuth("SYSAPI_CREATE_INVALID_ERRORLIST", rUser, parms));
     sb.append(System.lineSeparator());
     for (String msg : msgList) { sb.append("  ").append(msg).append(System.lineSeparator()); }
     return sb.toString();
@@ -246,7 +246,7 @@ public class ApiUtils
     // Call that validated credentials should never return null credential or null validationResult
     if (cred == null || cred.getValidationResult() == null)
     {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_CRED_CHECK_ERROR", rUser, systemId, userName, authnMethod, "Invalid null return");
+      String msg = getMsgAuth("SYSAPI_CRED_CHECK_ERROR", rUser, systemId, userName, authnMethod, "Invalid null return");
       _log.error(msg);
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(TapisRestUtils.createErrorResponse(msg)).build();
     }
@@ -254,7 +254,7 @@ public class ApiUtils
     // If credential validation failed return UNAUTHORIZED = 401
     if (Boolean.FALSE.equals(cred.getValidationResult()))
     {
-      String msg = ApiUtils.getMsgAuth("SYSAPI_CRED_VALID_FAIL", rUser, systemId, userName, authnMethod, cred.getValidationMsg());
+      String msg = getMsgAuth("SYSAPI_CRED_VALID_FAIL", rUser, systemId, userName, authnMethod, cred.getValidationMsg());
       return Response.status(Response.Status.UNAUTHORIZED).entity(TapisRestUtils.createErrorResponse(msg)).build();
     }
     return null;

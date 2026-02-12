@@ -169,8 +169,12 @@ public class AuthUtils
 
   /**
    * Determine all systems that are shared with a user.
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param oboUser - Since tenant admin can impersonate, this might be different from rUser.getOboUser()
+   * @param publicOnly - Include only items shared public
+   * @param directOnly - Include only items shared directly with user. Exclude publicly shared items
    */
-  Set<String> getSharedSystemIDs(ResourceRequestUser rUser, String oboUser, boolean publicOnly)
+  Set<String> getSharedSystemIDs(ResourceRequestUser rUser, String oboUser, boolean publicOnly, boolean directOnly)
           throws TapisException, TapisClientException
   {
     var systemIDs = new HashSet<String>();
@@ -180,9 +184,14 @@ public class AuthUtils
     var skParms = new SKShareGetSharesParms();
     skParms.setResourceType(SYS_SHR_TYPE);
     skParms.setTenant(rUser.getOboTenantId());
+
     // Set grantee based on whether we want just public or not.
     if (publicOnly) skParms.setGrantee(SKClient.PUBLIC_GRANTEE);
     else skParms.setGrantee(oboUser);
+
+    // Determine if we should include public or not.
+    if (directOnly) skParms.setIncludePublicGrantees(false);
+    else skParms.setIncludePublicGrantees(true);
 
     // Call SK to get all shared with oboUser and add them to the set
     var skShares = sysUtils.getSKClient(rUser).getShares(skParms);
