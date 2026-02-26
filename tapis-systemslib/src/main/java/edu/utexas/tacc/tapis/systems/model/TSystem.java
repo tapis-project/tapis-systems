@@ -207,6 +207,7 @@ public final class TSystem
   public enum Permission {READ, MODIFY, EXECUTE}
   public enum AuthnMethod {PASSWORD, PKI_KEYS, ACCESS_KEY, TOKEN, TMS_KEYS, CERT}
   public enum SchedulerType {SLURM, CONDOR, PBS, SGE, UGE, TORQUE}
+  public enum ArgInputMode {REQUIRED, FIXED, INCLUDE_ON_DEMAND, INCLUDE_BY_DEFAULT}
 
   // ************************************************************************
   // *********************** Fields *****************************************
