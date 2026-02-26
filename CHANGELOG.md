@@ -11,10 +11,11 @@ https://tapis-project.github.io/live-docs
 
 ## 25Q4.3 - 2026-??-??
 
-New feature.
+New features.
 
 ### New features:
 - Add support for new listType values: SHARED_DIRECT, READ_PERM, MINE
+- Add support for defining *schedulerOptions* as part of a *LogicalQueue*
 
 ### Bug fixes:
 - None

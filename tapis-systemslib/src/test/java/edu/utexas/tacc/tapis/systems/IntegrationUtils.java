@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import edu.utexas.tacc.tapis.systems.model.*;
 import org.jooq.tools.StringUtils;
 import org.testng.Assert;
 import com.google.gson.Gson;
@@ -17,16 +18,7 @@ import com.google.gson.JsonObject;
 import edu.utexas.tacc.tapis.search.parser.ASTNode;
 import edu.utexas.tacc.tapis.shared.threadlocal.OrderBy;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
-import edu.utexas.tacc.tapis.systems.model.Capability;
-import edu.utexas.tacc.tapis.systems.model.Credential;
-import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
-import edu.utexas.tacc.tapis.systems.model.JobRuntime;
-import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
-import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
-import edu.utexas.tacc.tapis.systems.model.ModuleLoadSpec;
-import edu.utexas.tacc.tapis.systems.model.PatchSystem;
-import edu.utexas.tacc.tapis.systems.model.SchedulerProfile;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
+import edu.utexas.tacc.tapis.systems.model.TSystem.ArgInputMode;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
@@ -156,6 +148,13 @@ public final class IntegrationUtils
   public static final String batchSchedulerProfile2 = "schedProfile2";
   public static final String batchSchedulerProfileNull = null;
   public static final String noSuchSchedulerProfile = "noSuchSchedulerProfile";
+  public static final ArgInputMode argInputModeRequired = ArgInputMode.REQUIRED;
+  public static final ArgInputMode argInputModeFixed = ArgInputMode.FIXED;
+  public static final ArgInputMode argInputModeDefault = ArgInputMode.INCLUDE_BY_DEFAULT;
+  public static final JsonObject argNotes1 =
+          TapisGsonUtils.getGson().fromJson("{\"argName\": \"my arg1\", \"argType\": \"bool\"}", JsonObject.class);
+  public static final JsonObject argNotes2 =
+          TapisGsonUtils.getGson().fromJson("{\"argName\": \"my arg2\", \"argType\": \"this, _ has spaces. - testing!@#$%*()[]{}<>:;\"}", JsonObject.class);
   public static final Object notes1 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj1\", \"testdata\": \"abc 1\"}", JsonObject.class);
   public static final Object notes2 = TapisGsonUtils.getGson().fromJson("{\"project\": \"my proj2\", \"testdata\": \"abc 2\"}", JsonObject.class);
   public static final JsonObject notesObj1 = (JsonObject) notes1;
@@ -232,13 +231,26 @@ public final class IntegrationUtils
   public static final List<JobRuntime> jobRuntimes2 = new ArrayList<>(List.of(runtimeA2, runtimeB2));
   public static final List<JobRuntime> jobRuntimesNull= null;
 
+  // Scheduler options
+  public static final ArgSpec schedulerOption1A = new ArgSpec("argValue1A", "schedulerOption1A", "Scheduler option 1A",
+          argInputModeRequired, argNotes1);
+  public static final ArgSpec schedulerOption1B = new ArgSpec("argValue1B", "schedulerOption1B", "Scheduler option 1B",
+          argInputModeFixed, argNotes1);
+  public static final List<ArgSpec> schedulerOptionList1 = new ArrayList<>(List.of(schedulerOption1A, schedulerOption1B));
+  public static final ArgSpec schedulerOption2A = new ArgSpec("argValue2A", "schedulerOption2A", "Scheduler option 2A",
+          argInputModeRequired, argNotes2);
+  public static final ArgSpec schedulerOption2B = new ArgSpec("argValue2B", "schedulerOption2B", "Scheduler option 2B",
+          argInputModeFixed, argNotes2);
+  public static final List<ArgSpec> schedulerOptionList2 = new ArrayList<>(List.of(schedulerOption2A, schedulerOption2B));
+  public static final List<ArgSpec> schedulerOptionListNull = null;
+
   // Logical Queues
-  public static final LogicalQueue queueA1 = new LogicalQueue("lqA1","hqA1", "this is q a1", 1, 1, 0, 1, 0, 1, 0, 1, 0, 1);
-  public static final LogicalQueue queueB1 = new LogicalQueue("lqB1","hqB1", "this is q b1", 2, 2, 0, 2, 0, 2, 0, 2, 0, 2);
-  public static final LogicalQueue queueC1 = new LogicalQueue("lqC1","hqC1", "this is q c1", 3, 3, 0, 3, 0, 3, 0, 3, 0, 3);
+  public static final LogicalQueue queueA1 = new LogicalQueue("lqA1","hqA1", "this is q a1", 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, schedulerOptionList1);
+  public static final LogicalQueue queueB1 = new LogicalQueue("lqB1","hqB1", "this is q b1", 2, 2, 0, 2, 0, 2, 0, 2, 0, 2, schedulerOptionList1);
+  public static final LogicalQueue queueC1 = new LogicalQueue("lqC1","hqC1", "this is q c1", 3, 3, 0, 3, 0, 3, 0, 3, 0, 3, schedulerOptionList1);
   public static final List<LogicalQueue> logicalQueueList1 = new ArrayList<>(List.of(queueA1, queueB1, queueC1));
-  public static final LogicalQueue queueA2 = new LogicalQueue("lqA2","hqA2", "this is q a2", 10, 10, 0, 10, 0, 10, 0, 10, 0, 10);
-  public static final LogicalQueue queueB2 = new LogicalQueue("lqB2","hqB1", "this is q b2", 20, 20, 0, 20, 0, 20, 0, 20, 0, 20);
+  public static final LogicalQueue queueA2 = new LogicalQueue("lqA2","hqA2", "this is q a2", 10, 10, 0, 10, 0, 10, 0, 10, 0, 10, schedulerOptionList2);
+  public static final LogicalQueue queueB2 = new LogicalQueue("lqB2","hqB1", "this is q b2", 20, 20, 0, 20, 0, 20, 0, 20, 0, 20, schedulerOptionList2);
   public static final List<LogicalQueue> logicalQueueList2 = new ArrayList<>(List.of(queueA2, queueB2));
   public static final List<LogicalQueue> logicalQueueListNull = null;
 

@@ -50,7 +50,10 @@
       "minMemoryMB": { "type": "integer" },
       "maxMemoryMB": { "type": "integer" },
       "minMinutes": { "type": "integer" },
-      "maxMinutes": { "type": "integer" }
+      "maxMinutes": { "type": "integer" },
+      "schedulerOptions": {
+        "type": ["array", "null"], "items":  { "$ref": "#/ArgSpec" }
+      }
     }
   },
   "JobRuntime": {
@@ -101,6 +104,19 @@
       "certificate": { "type":  "string" }
     }
   },
+  "ArgSpec": {
+    "type": "object",
+    "required": [ "name" ],
+    "additionalProperties": false,
+    "properties": {
+      "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+      "description": { "type": ["string", "null"], "minLength": 1, "maxLength": 8096 },
+      "inputMode": { "$ref": "#/ArgInputModeEnum" },
+      "arg": { "type": ["string", "null"], "minLength": 1 },
+      "notes": { "type": "object" }
+    }
+  },
   "SchedulerHiddenOptionEnum": { "type": "string", "enum": ["MEM", "PARTITION"] },
-  "KeyValueInputModeEnum": { "type": "string", "enum": [ "REQUIRED", "FIXED", "INCLUDE_ON_DEMAND", "INCLUDE_BY_DEFAULT" ], "default": "INCLUDE_BY_DEFAULT" }
+  "KeyValueInputModeEnum": { "type": "string", "enum": [ "REQUIRED", "FIXED", "INCLUDE_ON_DEMAND", "INCLUDE_BY_DEFAULT" ], "default": "INCLUDE_BY_DEFAULT" },
+  "ArgInputModeEnum": { "type": "string", "enum": [ "REQUIRED", "FIXED", "INCLUDE_ON_DEMAND", "INCLUDE_BY_DEFAULT" ], "default": "INCLUDE_BY_DEFAULT" }
 }
