@@ -9,7 +9,7 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
-## 25Q4.3 - 2026-??-??
+## 26Q1.0 - 2026-03-02
 
 New features.
 
@@ -18,7 +18,7 @@ New features.
 - Add support for defining *schedulerOptions* as part of a *LogicalQueue*
 
 ### Bug fixes:
-- None
+- Fix bug with GET followed by PUT failing due to recently added dynamic attribute *hasCredentials*
 
 ---------------------------------------------------------------------------
 ## 25Q4.2 - 2025-12-04

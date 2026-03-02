@@ -54,6 +54,7 @@
     "sharedWithUsers": { "type": "array", "items": { "type":  "string" } },
     "allowChildren": { "type": "boolean" },
     "isDynamicEffectiveUser": { "type": "boolean" },
+    "hasCredentials": { "type": "boolean" },
     "tenant": { "type":  "string" },
     "uuid": { "type":  "string" },
     "deleted": { "type":  "boolean" },
