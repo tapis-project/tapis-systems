@@ -341,6 +341,7 @@ public final class IntegrationUtils
   public static final ASTNode searchASTNull = null;
   public static final Set<String> setOfIDsNull = null;
   public static final int limitNone = -1;
+  public static final int limitZero = 0;
   public static final List<String> orderByAttrEmptyList = Arrays.asList("");
   public static final List<String> orderByDirEmptyList = Arrays.asList("");
   public static final int skipZero = 0;

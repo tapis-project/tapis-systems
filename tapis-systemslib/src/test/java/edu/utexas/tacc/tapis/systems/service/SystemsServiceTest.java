@@ -998,6 +998,11 @@ public class SystemsServiceTest
     for (TSystem system : systems) {
       System.out.println("Found item with id: " + system.getId() + " and name: " + system.getId());
     }
+    // Check that setting limit = 0 returns an empty list
+    systems = svc.getSystems(rOwner1, searchListNull, limitZero, orderByListNull, skipZero,
+                             startAferEmpty, showDeletedFalse, listTypeNull,
+                             hasCredentialsNull, fetchShareInfoFalse, impersonationIdNull);
+    Assert.assertTrue(systems.isEmpty(), "getSystems with limit=0 did not return an empty list");
   }
 
   // Test getSystems using listType parameter
