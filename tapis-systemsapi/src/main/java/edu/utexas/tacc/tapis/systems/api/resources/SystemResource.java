@@ -1653,7 +1653,7 @@ public class SystemResource {
     // This is a separate call from getSystems() because unlike getSystems() we do not want to include the limit or skip,
     //   and we do not need to fetch all the data. One benefit is that the method is simpler and easier to follow
     //   compared to attempting to fold everything into getSystems().
-    if (computeTotal && limit > 0)
+    if (computeTotal && limit > -1)
     {
       totalCount = service.getSystemsTotalCount(rUser, searchList, orderByList, startAfter, showDeleted,
                                                 filterByHasCredentials, listType, impersonationId);

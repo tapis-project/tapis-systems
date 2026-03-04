@@ -1413,6 +1413,9 @@ public class SystemsServiceImpl implements SystemsService
     //  - allowed for certain Tapis services and for a tenant admin
     if (!StringUtils.isBlank(impersonationId)) authUtils.checkImpersonateUserAllowed(rUser, op, null, impersonationId, tenant);
 
+    // If limit == 0 no need to proceed
+    if (limit == 0) return new ArrayList<>();
+
     // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
     // If no listType provided use the default
     if (StringUtils.isBlank(listType)) listType = DEFAULT_LIST_TYPE.name();
@@ -1511,6 +1514,9 @@ public class SystemsServiceImpl implements SystemsService
                                                              fetchShareInfo, nullImpersonationId);
 
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+
+    // If limit == 0 no need to proceed
+    if (limit == 0) return new ArrayList<>();
 
     // Process listType. Figure out how we will filter based on authorization. OWNED, ALL, etc.
     // If no listType provided use the default
@@ -2022,6 +2028,9 @@ public class SystemsServiceImpl implements SystemsService
   {
     // Start a new list for final result. If filtering by credentials we need to do it here and possibly limit
     List<TSystem> retSystems = new ArrayList<>();
+
+    // If limit == 0 no need to proceed
+    if (limit == 0) return retSystems;
 
     // Loop over full list of systems computing dynamic attributes and possibly filtering and limiting as requested
     int counter = 0;

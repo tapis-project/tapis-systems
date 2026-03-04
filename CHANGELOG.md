@@ -9,7 +9,7 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
-## 26Q1.0 - 2026-03-02
+## 26Q1.0 - 2026-03-04
 
 New features.
 
@@ -19,6 +19,7 @@ New features.
 
 ### Bug fixes:
 - Fix bug with GET followed by PUT failing due to recently added dynamic attribute *hasCredentials*
+- Fix bug in computeTotal when limit = 0.
 
 ---------------------------------------------------------------------------
 ## 25Q4.2 - 2025-12-04
