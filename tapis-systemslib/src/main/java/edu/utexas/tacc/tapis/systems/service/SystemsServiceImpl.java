@@ -1708,9 +1708,11 @@ public class SystemsServiceImpl implements SystemsService
       throw new BadRequestException(msg);
     }
 
+    boolean isStaticEffUser = !system.isDynamicEffectiveUser();
     // We will need credentials. Fetch them now.
-    Credential cred = credUtils.getCredential(rUser, system, system.getEffectiveUserId(), null,
-                                              !system.isDynamicEffectiveUser(), null);
+    // Determine credTargetUser for fetching credential. If static use effectiveUserId, else use oboUser
+    String credTargetUser = (isStaticEffUser) ? system.getEffectiveUserId() : rUser.getOboUserId();
+    Credential cred = credUtils.getCredential(rUser, system, credTargetUser, null, isStaticEffUser, null);
     system.setAuthnCredential(cred);
     return resolveEnvVar(rUser, system, envVarName);
   }
