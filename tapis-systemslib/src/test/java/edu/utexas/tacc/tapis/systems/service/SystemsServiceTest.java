@@ -437,6 +437,11 @@ public class SystemsServiceTest
     checkedCred = svcCred.checkUserCredential(rOwner1, sysId, targetUser, AuthnMethod.PASSWORD);
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
 
+    // Test hostEval in the case where system has dynamic effUser and there is a loginUser mapping.
+    // This was a bug in release 26Q1.0 Github issue: https://github.com/tapis-project/tapis-systems/issues/119
+    homeValue = svc.hostEval(rOwner1, sysId, "HOME");
+    Assert.assertEquals(homeValue, String.format("/home/%s", loginUserMapping));
+
     // Negative credential tests
     // Check with different authnMethod. Should throw NotAuthorized
     pass = false;
@@ -1708,7 +1713,7 @@ public class SystemsServiceTest
   // DATA - System ID TestSys_Svc_011 - owned by "owner1",
   //        starts dynamic effUser, switches to static, then back to dynamic.
   // ======================================================================================================
-  // Credentials created along the way, although sometimes they are delete or loginUserMapping is changed:
+  // Credentials created along the way, although sometimes they are deleted or loginUserMapping is changed:
   // ---------    ---------------- ------------- --------  --------------
   // TapisUser    loginUserMapping hostLoginUser isStatic  Credentials
   // ---------    ---------------- ------------- --------  --------------
@@ -1784,7 +1789,7 @@ public class SystemsServiceTest
     // In this case for owner1, testUser3, testUser5
     // These should all go under the dynamic secret path in SK
     // After each one is created we should have a CredInfo record, so check for that
-    // Cred 1 (for owner)
+    // Cred 1 - for user owner1 with no loginUser mapping
     svcCred.createUserCredential(rOwner1, sysId, owner1, cred1NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     credInfo = dao.getCredInfo(tenantName, sysId, owner1, isStatic);
     IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, owner1, isStatic, cred1NoLoginUser.getLoginUser(),
@@ -1792,7 +1797,7 @@ public class SystemsServiceTest
     List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
     Assert.assertNotNull(ciList);
     Assert.assertEquals(ciList.size(), 1);
-    // Cred 2
+    // Cred 2 - for user testUser3 with no loginUser mapping
     svcCred.createUserCredential(rOwner1, sysId, testUser3, cred3NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     credInfo = dao.getCredInfo(tenantName, sysId, testUser3, isStatic);
     IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, testUser3, isStatic, cred3NoLoginUser.getLoginUser(),
@@ -1800,7 +1805,7 @@ public class SystemsServiceTest
     ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
     Assert.assertNotNull(ciList);
     Assert.assertEquals(ciList.size(), 2);
-    // Cred 3
+    // Cred 3 - for user testUser5 with no loginUser mapping
     svcCred.createUserCredential(rOwner1, sysId, testUser5, cred5A_NoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
     credInfo = dao.getCredInfo(tenantName, sysId, testUser5, isStatic);
     IntegrationUtils.verifyCredInfo(credInfo, tenantName, sysId, testUser5, isStatic, cred5A_NoLoginUser.getLoginUser(),
