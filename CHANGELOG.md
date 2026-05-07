@@ -9,6 +9,16 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
+## 26Q2.0 - 2026-05-07
+
+Bug fix
+
+### New features:
+- None.
+
+### Bug fixes:
+- See 26Q1.1
+
 ## 26Q1.1 - 2026-04-03
 
 Bug fix
