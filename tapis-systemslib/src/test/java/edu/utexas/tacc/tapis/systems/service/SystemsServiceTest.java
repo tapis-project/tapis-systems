@@ -2889,6 +2889,7 @@ public class SystemsServiceTest
   {
     // NOTE: By default seed data has owner as testUser1
     TSystem sys0 = systems[14];
+    String sysId = sys0.getId();
     // Create system for remaining auth access tests
     Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
             "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken",
@@ -2896,32 +2897,46 @@ public class SystemsServiceTest
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // Grant User1 - READ and User2 - MODIFY
-    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser3, testPermsREADEXECUTE, rawDataEmptyJson);
-    svc.grantUserPermissions(rOwner1, sys0.getId(), testUser2, testPermsMODIFY, rawDataEmptyJson);
+    svc.grantUserPermissions(rOwner1, sysId, testUser3, testPermsREADEXECUTE, rawDataEmptyJson);
+    svc.grantUserPermissions(rOwner1, sysId, testUser2, testPermsMODIFY, rawDataEmptyJson);
 
     // READ - allow owner, service, with READ only, with MODIFY only
-    svc.getSystem(rOwner1, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-    svc.getSystem(rOwner1, sys0.getId(), null, true, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-    svc.getSystem(rFilesSvcOwner1, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-    svc.getSystem(rTestUser3, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-    svc.getSystem(rTestUser3, sys0.getId(), null, true, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-    svc.getSystem(rTestUser2, sys0.getId(), null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    svc.getSystem(rOwner1, sysId, null, true, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    svc.getSystem(rFilesSvcOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    svc.getSystem(rTestUser3, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    svc.getSystem(rTestUser3, sysId, null, true, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    svc.getSystem(rTestUser2, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     // Files and Jobs should be allowed to impersonate user and tenant
-    svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, testUser3, sharedCtxNull, tenantName, fetchShareInfoFalse);
-    svc.getSystem(rJobsSvcOwner1, sys0.getId(), null, false, false, testUser3, sharedCtxNull, tenantName, fetchShareInfoFalse);
+    svc.getSystem(rFilesSvcTestUser3, sysId, null, false, false, testUser3, sharedCtxNull, tenantName, fetchShareInfoFalse);
+    svc.getSystem(rJobsSvcOwner1, sysId, null, false, false, testUser3, sharedCtxNull, tenantName, fetchShareInfoFalse);
     // Apps should be allowed to impersonate user
-    svc.getSystem(rAppsSvcOwner1, sys0.getId(), null, false, false, testUser3, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    svc.getSystem(rAppsSvcOwner1, sysId, null, false, false, testUser3, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     // Jobs and Files should be allowed to set sharedAppCtx
-    svc.getSystem(rJobsSvcOwner1, sys0.getId(), null, false, false, impersonationIdNull, sharedCtxOwner, resourceTenantNull, fetchShareInfoFalse);
-    svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, impersonationIdNull, sharedCtxOwner, resourceTenantNull, fetchShareInfoFalse);
+    svc.getSystem(rJobsSvcOwner1, sysId, null, false, false, impersonationIdNull, sharedCtxOwner, resourceTenantNull, fetchShareInfoFalse);
+    svc.getSystem(rFilesSvcTestUser3, sysId, null, false, false, impersonationIdNull, sharedCtxOwner, resourceTenantNull, fetchShareInfoFalse);
 
     // When a service impersonates another user it should be allowed if sharedAppCtx set to true even if normally denied.
-    svc.getSystem(rFilesSvcTestUser3, sys0.getId(), null, false, false, impersonationIdTestUser9, sharedCtxOwner, resourceTenantNull, fetchShareInfoFalse);
+    svc.getSystem(rFilesSvcTestUser3, sysId, null, false, false, impersonationIdTestUser9, sharedCtxOwner, resourceTenantNull, fetchShareInfoFalse);
 
     // When a tenant admin user impersonates another user it should be allowed for getSystem, getSystems.
-    svc.getSystem(rAdminUser, sys0.getId(), null, false, false, testUser3, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    svc.getSystem(rAdminUser, sysId, null, false, false, testUser3, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     svc.getSystems(rAdminUser, searchListNull, limitNone, orderByListNull, skipZero, startAfterNull, false,
                    listTypeNull, hasCredentialsNull, fetchShareInfoFalse, testUser3);
+
+    // Tenant admin user should be allowed all operations, including share / unshare
+    svc.getSystem(rAdminUser, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    svc.getSystem(rAdminUser, sysId, null, true, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+    svc.grantUserPermissions(rAdminUser, sysId, testUser2, testPermsMODIFY, rawDataEmptyJson);
+    svc.deleteSystem(rAdminUser, sysId);
+    svc.undeleteSystem(rAdminUser, sysId);
+    svc.disableSystem(rAdminUser, sysId);
+    svc.enableSystem(rAdminUser, sysId);
+    SystemShare sysShare = svc.getSystemShare(rAdminUser, sysId);
+    svc.shareSystem(rAdminUser, sysId, sysShare);
+    svc.unshareSystem(rAdminUser, sysId, sysShare);
+    svc.shareSystemPublicly(rAdminUser, sysId);
+    svc.unshareSystemPublicly(rAdminUser, sysId);
   }
 
   // ******************************************************************
