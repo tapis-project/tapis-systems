@@ -311,6 +311,13 @@ public class SystemsServiceTest
     Assert.assertNotNull(ci, "No CredInfo created");
     // Check value of hasCredentials
     Assert.assertFalse(ci.hasCredentials(), "hasCredentials should be false");
+    // Validate fetching cred metadata as owner and as tenant admin
+    List<CredentialInfo> credMetadata = svcCred.getCredentialMetadata(rOwner1, sys0.getId());
+    Assert.assertNotNull(credMetadata, "No Cred metadata found");
+    Assert.assertEquals(credMetadata.size(), 1, "Cred metadata should be 1");
+    credMetadata = svcCred.getCredentialMetadata(rAdminUser, sys0.getId());
+    Assert.assertNotNull(credMetadata, "No Cred metadata found");
+    Assert.assertEquals(credMetadata.size(), 1, "Cred metadata should be 1");
   }
 
   // Create a system using minimal attributes:
@@ -2064,6 +2071,14 @@ public class SystemsServiceTest
     // Get system as testUser5 and check cred created above during dynamic effUser phase
     tmpSys = svc.getSystem(rFilesSvcTestUser5, sysId, AuthnMethod.PASSWORD, false, getCredsTrue, impersonationIdNull, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
     checkCredPasswordAndEffectiveUser(tmpSys, cred5B_LoginUser.getPassword(), testUser5, testUser5LinuxUser);
+
+    // Validate fetching cred metadata as owner and as tenant admin
+    List<CredentialInfo> credMetadata = svcCred.getCredentialMetadata(rOwner1, sys0.getId());
+    Assert.assertNotNull(credMetadata, "No Cred metadata found");
+    Assert.assertEquals(credMetadata.size(), 5, "Cred metadata should be 5");
+    credMetadata = svcCred.getCredentialMetadata(rAdminUser, sys0.getId());
+    Assert.assertNotNull(credMetadata, "No Cred metadata found");
+    Assert.assertEquals(credMetadata.size(), 5, "Cred metadata should be 5");
   }
 
   // Test creating, reading and using a TMS ssh key-pair.
@@ -2860,6 +2875,15 @@ public class SystemsServiceTest
     catch (ForbiddenException e)
     {
       Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH_SHAREDAPPCTX"));
+      pass = true;
+    }
+    Assert.assertTrue(pass);
+    pass = false;
+    // User not owner should not be able to call getCredentialMetadata
+    try { svcCred.getCredentialMetadata(rTestUser1, systemId); }
+    catch (ForbiddenException e)
+    {
+      Assert.assertTrue(e.getMessage().startsWith("SYSLIB_UNAUTH"));
       pass = true;
     }
     Assert.assertTrue(pass);

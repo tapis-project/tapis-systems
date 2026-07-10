@@ -1,5 +1,7 @@
 package edu.utexas.tacc.tapis.systems.api.resources;
 
+import edu.utexas.tacc.tapis.systems.api.responses.RespCredentialMetadata;
+import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.grizzly.http.server.Request;
@@ -32,6 +34,7 @@ import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import edu.utexas.tacc.tapis.client.shared.exceptions.TapisClientException;
 import edu.utexas.tacc.tapis.shared.schema.JsonValidator;
@@ -489,6 +492,62 @@ public class CredentialResource
       .entity(TapisRestUtils.createSuccessResponse(ApiUtils.getMsgAuth("SYSAPI_CRED_DELETED", rUser, systemId,
                                                                        userName), resp1))
       .build();
+  }
+
+  /**
+   * getCredentialMetadata
+   * Retrieve credential metadata information for given system. This will return credential metadata records for all
+   * users who have registered credentials for the system.
+   * @return Response
+   */
+  @GET
+  @Path("/{systemId}/metadata")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getCredentialMetadata(@PathParam("systemId") String systemId,
+                                    @Context SecurityContext securityContext) throws TapisClientException
+  {
+    String opName = "getCredentialMetadata";
+    TapisThreadContext threadContext = TapisThreadLocal.tapisThreadContext.get(); // Local thread context
+    // Check that we have all we need from the context
+    // Utility method returns null if all OK and appropriate error response if there was a problem.
+    Response resp = ApiUtils.checkContext(threadContext);
+    if (resp != null) return resp;
+
+    // Create a user that collects together tenant, user and request information needed by the service call
+    ResourceRequestUser rUser = new ResourceRequestUser((AuthenticatedUser) securityContext.getUserPrincipal());
+
+    // Trace this request.
+    if (_log.isTraceEnabled())
+      ApiUtils.logRequest(rUser, className, opName, _request.getRequestURL().toString(), "systemId="+systemId);
+
+    ApiUtils.checkRestrictedSvcs(rUser);
+
+    // ------------------------- Check prerequisites -------------------------
+    // Check that the system exists
+    resp = ApiUtils.checkSystemExists(sysService, rUser, systemId, opName);
+    if (resp != null) return resp;
+
+    // ------------------------- Perform the operation -------------------------
+    // Make the service call to get the credentials
+    List<CredentialInfo> credentialMetadataList;
+    String msg;
+    try { credentialMetadataList = service.getCredentialMetadata(rUser, systemId); }
+    // Pass through not found or not auth to let exception mapper handle it.
+    catch (NotFoundException | NotAuthorizedException | ForbiddenException | BadRequestException | TapisClientException e) { throw e; }
+    // As final fallback
+    catch (Exception e)
+    {
+      msg = ApiUtils.getMsgAuth("SYSAPI_CREDMETA_ERROR", rUser, systemId, opName, e.getMessage());
+      _log.error(msg, e);
+      throw new WebApplicationException(msg);
+    }
+
+    // ---------------------------- Success -------------------------------
+    // Success means we retrieved the information.
+    RespCredentialMetadata resp1 = new RespCredentialMetadata(credentialMetadataList);
+    return Response.status(Status.OK).entity(TapisRestUtils.createSuccessResponse(
+            ApiUtils.getMsgAuth("SYSAPI_CREDMETA_FOUND", rUser, systemId, credentialMetadataList.size()), resp1)).build();
   }
 
   /**

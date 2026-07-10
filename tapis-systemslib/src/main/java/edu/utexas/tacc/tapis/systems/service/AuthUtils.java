@@ -901,6 +901,7 @@ public class AuthUtils
       case undelete:
       case changeOwner:
       case grantPerms:
+      case getCredMeta:
         if (owner.equals(oboOrImpersonatedUser) || hasAdminRole(rUser)) return;
         break;
       case read:

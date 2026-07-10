@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.NotFoundException;
+import java.util.List;
 import java.util.Set;
 
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
@@ -204,6 +205,34 @@ public class CredentialsServiceImpl
 
     // Use utility method to do most of the work
     return credUtils.checkCredentialForUser(rUser, system, credTargetUser, authnMethod, op);
+  }
+
+  /**
+   * Get credential metadata records for given system.
+   * Return empty list if none found.
+   *
+   * @param rUser - ResourceRequestUser containing tenant, user and request info
+   * @param systemId - name of system
+   * @return list of CredInfo objects. Empty list if none found.
+   * @throws TapisException - for Tapis related exceptions
+   */
+  public List<CredentialInfo> getCredentialMetadata(ResourceRequestUser rUser, String systemId)
+          throws TapisException, TapisClientException
+  {
+    TSystem.SystemOperation op = TSystem.SystemOperation.getCredMeta;
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+    if (StringUtils.isBlank(systemId))
+      throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
+
+    // We will need some info from the system, so fetch it.
+    TSystem system = dao.getSystem(rUser.getOboTenantId(), systemId);
+    // If system does not exist or has been deleted then return null
+    if (system == null) return null;
+
+    // ------------------------- Check authorization -------------------------
+    authUtils.checkAuthOwnerKnown(rUser, op, systemId, system.getOwner());
+
+    return dao.getCredInfoRecordsForSystem(system.getTenant(), systemId);
   }
 
   /**
