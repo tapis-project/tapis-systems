@@ -9,9 +9,9 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
-## 26Q2.1 - 2026-??-??
+## 26Q3.0 - 2026-09-18
 
-Incremental improvements.
+Incremental improvements, security patches in shared libraries.
 
 ### New features:
 - None.
