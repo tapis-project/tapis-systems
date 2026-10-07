@@ -97,6 +97,8 @@ public final class IntegrationUtils
   public static final String TMS_CLIENT_KEY_ENV_VAR = "TAPIS_TMS_CLIENT_SECRET";
   public static final String TMS_TEST_HOST_ENV_VAR = "TMS_TEST_HOST";
   public static final String TMS_TEST_USER_ENV_VAR = "TMS_TEST_USER";
+  public static final String TMS_TEST_RP_ENV_VAR = "TMS_TEST_RP";
+  public static final String TMS_TEST_RP_ACCT_ENV_VAR = "TMS_TEST_RP_ACCT";
   public static final String TMS_GETVERSION_ENDPOINT = "v1/tms/version";
   public static final String TMS_CLIENT_USER = "tapisSysIntegTest";
 
@@ -326,9 +328,9 @@ public final class IntegrationUtils
   public static final String invalidPublicSshKey = "testPubSshKey";
 
   public static final Credential credInvalidPrivateSshKey =
-          new Credential(null, null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null, null, null, null, null, null);
+          new Credential(null, null, null, null, null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null, null, null, null, null, null);
   public static final Credential credNoLoginUser =
-          new Credential(null, null, "fakePassword", null, null, null, null, null, null, null, null, null, null);
+          new Credential(null, null, null, null, null, "fakePassword", null, null, null, null, null, null, null, null, null, null);
 
   // Permissions
   public static final Set<TSystem.Permission> testPermsREADMODIFY = new HashSet<>(Set.of(TSystem.Permission.READ, TSystem.Permission.MODIFY));

@@ -108,7 +108,7 @@ public class SystemsServiceTest
   TSystem[] systems = IntegrationUtils.makeSystems(numSystems, testKey);
 
   // Create in-memory objects for credentials used by multiple tests.
-  Credential cred1NoLoginUser = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
+  Credential cred1NoLoginUser = new Credential(null, null, null, null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
           "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1",
           "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert1");
 
@@ -344,11 +344,11 @@ public class SystemsServiceTest
     {
       Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_PASSWORD_ENV_VAR);
     }
-    Credential credFake = new Credential(AuthnMethod.PASSWORD, loginUserMapping, "fakePassword", null, null, null, null, null, null, null, null, null, null);
-    Credential credGoodPasswd = new Credential(null, null, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
-    Credential credGoodWithLoginMapping = new Credential(null, loginUserMapping, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
+    Credential credFake = new Credential(AuthnMethod.PASSWORD, loginUserMapping, null, null, null, "fakePassword", null, null, null, null, null, null, null, null, null, null);
+    Credential credGoodPasswd = new Credential(null, null, null, null, null, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
+    Credential credGoodWithLoginMapping = new Credential(null, loginUserMapping, null, null, null, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
 
-    // Create the system with a static effectiveUserId so we can test creating a system with credentials.
+    // Create the system with a static effectiveUserId, so we can test creating a system with credentials.
     sys0.setEffectiveUserId(staticEffUser);
     sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
     sys0.setHost(TAPIS_TEST_HOST_IP);
@@ -496,7 +496,7 @@ public class SystemsServiceTest
     {
       Assert.fail("Missing cred environment variable. Please set env variables: " + TAPIS_TEST_S3_KEY_ENV_VAR + " and " + TAPIS_TEST_S3_SECRET_ENV_VAR);
     }
-    Credential credFake = new Credential(AuthnMethod.ACCESS_KEY, loginUser, null, null, null, "fakeAccessKey", "fakeAccessSecret", null, null, null, null, null, null);
+    Credential credFake = new Credential(AuthnMethod.ACCESS_KEY, loginUser, null, null, null, null, null, null, "fakeAccessKey", "fakeAccessSecret", null, null, null, null, null, null);
 
     // Cleanup any previous credentials
     svcCred.deleteUserCredential(rOwner1, sys0.getId(), targetUser);
@@ -506,7 +506,7 @@ public class SystemsServiceTest
     Assert.assertEquals(checkedCred.getValidationResult(), Boolean.FALSE);
 
     // Using valid credentials should succeed.
-    Credential credGood = new Credential(null, loginUser, null, null, null, testS3Key, testS3Secret, null, null, null, null, null, null);
+    Credential credGood = new Credential(null, loginUser, null, null, null, null, null, null, testS3Key, testS3Secret, null, null, null, null, null, null);
     sys0.setAuthnCredential(credGood);
 
     // Test create and check with valid credentials
@@ -577,7 +577,7 @@ public class SystemsServiceTest
   {
     TSystem sys0 = systems[1];
     sys0.setJobCapabilities(capList1);
-    Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
+    Credential cred0 = new Credential(null, null, null, null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
             "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken",
             "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
@@ -945,7 +945,7 @@ public class SystemsServiceTest
       Assert.fail("Missing environment variable. Please set env var: " + TAPIS_TEST_PASSWORD_ENV_VAR);
     }
     String systemOwner = owner1;
-    Credential cred0 = new Credential(null, null, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
+    Credential cred0 = new Credential(null, null, null, null, null, testTapisUserP, null, null, null, null, null, null, null, null, null, null);
 
     // Test case data
     // Positive cases
@@ -1202,7 +1202,7 @@ public class SystemsServiceTest
 
     // Create a system with credentials for owner and another user
     sys0 = systems[23];
-    Credential cred0 = new Credential(null, null, null, "fakePrivateKey", "fakePublicKey", null, null, null, null, null, null, null, null);
+    Credential cred0 = new Credential(null, null, null, null, null, null, "fakePrivateKey", "fakePublicKey", null, null, null, null, null, null, null, null);
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
 
@@ -1431,7 +1431,7 @@ public class SystemsServiceTest
     // A minimal system has canExec=false
     TSystem logEffTestSys = makeMinimalSystem(sys0, null);
     logEffTestSys.setEffectiveUserId("testuser3");
-    Credential fakeCred = new Credential(AuthnMethod.PASSWORD, "testuser99", "fakePassword",
+    Credential fakeCred = new Credential(AuthnMethod.PASSWORD, "testuser99", null, null, null, "fakePassword",
         null, null, null, null, null, null, null, null, null, null);
     logEffTestSys.setAuthnCredential(fakeCred);
     try {
@@ -1463,7 +1463,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[24];
     // Set up the system definition such that it looks like it could have valid credentials.
     sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
-    Credential fakeCred = new Credential(AuthnMethod.PASSWORD, null, "fakePassword", null, null, null, null, null, null, null, null, null, null);
+    Credential fakeCred = new Credential(AuthnMethod.PASSWORD, null, null, null, null, "fakePassword", null, null, null, null, null, null, null, null, null, null);
     sys0.setAuthnCredential(fakeCred);
     // Save off the original rootDir, cred and effUser. Used to reset test conditions
     String origRootDir = sys0.getRootDir();
@@ -1763,15 +1763,15 @@ public class SystemsServiceTest
     credUtils.deleteCredentialForUser(rOwner1, tmpSys, testUser4LinuxUser, op);
     credUtils.deleteCredentialForUser(rOwner1, tmpSys, testUser5LinuxUser, op);
     // cred3NoLoginUser - all creds except TMS
-    Credential cred3NoLoginUser = new Credential(null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
+    Credential cred3NoLoginUser = new Credential(null, null, null, null, null, "fakePassword3", "fakePrivateKey3", "fakePublicKey3",
                                        "fakeAccessKey3", "fakeAccessSecret3", "fakeAccessToken3", "fakeRefreshToken3",
                                        null, null, "fakeTmsFingerprint", "fakeCert3");
-    Credential cred3NoLoginUserAccessAuthn = new Credential(null, null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null, null, null, null, null, null);
-    Credential cred4LoginUser = new Credential(null, testUser4LinuxUser, "fakePassword4", null, null, null, null, null, null, null, null, null, null);
-    Credential cred5A_NoLoginUser = new Credential(null, null, "fakePassword5a", null, null, null, null, null, null, null, null, null, null);
-    Credential cred5NoLoginLinuxUser = new Credential(null, null, "fakePassword5LinuxUser", null, null, null, null, null, null, null, null, null, null);
-    Credential cred5NoLoginStatic = new Credential(null, null, "fakePassword5Static", null, null, null, null, null, null, null, null, null, null);
-    Credential cred5B_LoginUser = new Credential(null, testUser5LinuxUser, "fakePassword5b", null, null, null, null, null, null, null, null, null, null);
+    Credential cred3NoLoginUserAccessAuthn = new Credential(null, null, null, null, null, null, null, null, "fakeAccessKey3a", "fakeAccessSecret3a", null, null, null, null, null, null);
+    Credential cred4LoginUser = new Credential(null, testUser4LinuxUser, null, null, null, "fakePassword4", null, null, null, null, null, null, null, null, null, null);
+    Credential cred5A_NoLoginUser = new Credential(null, null, null, null, null, "fakePassword5a", null, null, null, null, null, null, null, null, null, null);
+    Credential cred5NoLoginLinuxUser = new Credential(null, null, null, null, null, "fakePassword5LinuxUser", null, null, null, null, null, null, null, null, null, null);
+    Credential cred5NoLoginStatic = new Credential(null, null, null, null, null, "fakePassword5Static", null, null, null, null, null, null, null, null, null, null);
+    Credential cred5B_LoginUser = new Credential(null, testUser5LinuxUser, null, null, null, "fakePassword5b", null, null, null, null, null, null, null, null, null, null);
 
     // We will be updating credentials for testUser3, testUser5 so allow them READ access to system.
     svc.grantUserPermissions(rOwner1, sysId, testUser3, testPermsREAD, rawDataEmptyJson);
@@ -2091,12 +2091,16 @@ public class SystemsServiceTest
     String tmsClientKey = System.getenv(TMS_CLIENT_KEY_ENV_VAR);
     String tmsTestHost = System.getenv(TMS_TEST_HOST_ENV_VAR);
     String tmsTestUser = System.getenv(TMS_TEST_USER_ENV_VAR);
+    String tmsTestRP = System.getenv(TMS_TEST_RP_ENV_VAR);
+    String tmsTestRPAcct = System.getenv(TMS_TEST_RP_ACCT_ENV_VAR);
     if (StringUtils.isBlank(tmsBaseUrl)) Assert.fail("Missing environment variable. Please set env var: " + TMS_URL_ENV_VAR);
     if (StringUtils.isBlank(tmsTenant)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TENANT_ENV_VAR);
     if (StringUtils.isBlank(tmsClientId)) Assert.fail("Missing environment variable. Please set env var: " + TMS_CLIENT_ID_ENV_VAR);
     if (StringUtils.isBlank(tmsClientKey)) Assert.fail("Missing environment variable. Please set env var: " + TMS_CLIENT_KEY_ENV_VAR);
     if (StringUtils.isBlank(tmsTestHost)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_HOST_ENV_VAR);
     if (StringUtils.isBlank(tmsTestUser)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_USER_ENV_VAR);
+    if (StringUtils.isBlank(tmsTestRP)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_RP_ENV_VAR);
+    if (StringUtils.isBlank(tmsTestRPAcct)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_RP_ACCT_ENV_VAR);
     String privateKeyMasked;
     String respBodyStr;
     //
@@ -2128,8 +2132,9 @@ public class SystemsServiceTest
     int numUses = -1;
     int ttlMinutes = -1;
     String urlCreateKeyPair = String.format("%s/%s", tmsBaseUrl, TMS_CREATEKEYS_ENDPOINT);
-    // Build the request
-    var tmsRequest = new CredUtils.TmsRequest(TMS_CLIENT_USER, tmsTestHost, tmsTestUser, TMS_KEY_TYPE_ED25519, numUses, ttlMinutes);
+    // Build the request TODO is this correct? What are test values for RP and RPAcct?
+    var tmsRequest = new CredUtils.TmsRequest(TMS_CLIENT_USER, tmsTestRP, tmsTestRPAcct, tmsTestHost, tmsTestUser,
+                                              TMS_KEY_TYPE_ED25519, numUses, ttlMinutes);
     String reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsRequest);
     RequestBody body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
     Request.Builder requestBuilder = new Request.Builder().url(urlCreateKeyPair).post(body);
@@ -2284,7 +2289,7 @@ public class SystemsServiceTest
   {
     // Create a system where effectiveUserId is static and credentials are provided with system definition.
     TSystem sys0 = systems[28];
-    Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
+    Credential cred1 = new Credential(null, null, null, null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
                                       "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1",
                                       "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert1");
     sys0.setEffectiveUserId(effectiveUserId1);
@@ -2384,7 +2389,7 @@ public class SystemsServiceTest
     svc.revokeUserPermissions(rOwner1, sys0.getId(), testUser5, testPermsREADMODIFY, rawDataEmptyJson);
 
     // Register credential for owner
-    Credential cred1 = new Credential(null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
+    Credential cred1 = new Credential(null, null, null, null, null, "fakePassword1", "fakePrivateKey1", "fakePublicKey1",
                                       "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1",
                                       "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert1");
     svcCred.createUserCredential(rOwner1, sysId, owner1, cred1, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
@@ -2598,7 +2603,7 @@ public class SystemsServiceTest
 
     // Create credential with no system should throw an exception
     pass = false;
-    cred = new Credential(null, null, null, null, null, "fakeAccessKey2", "fakeAccessSecret2", null, null, null, null, null, null);
+    cred = new Credential(null, null, null, null, null, null, null, null, "fakeAccessKey2", "fakeAccessSecret2", null, null, null, null, null, null);
     try { svcCred.createUserCredential(rOwner1, fakeSystemName, fakeUserName, cred, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson); }
     catch (NotFoundException nfe)
     {
@@ -2648,7 +2653,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
 
     // Create system for remaining auth access tests
-    Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
+    Credential cred0 = new Credential(null, null, null, null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
                                       "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken",
             "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
@@ -2891,7 +2896,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[14];
     String sysId = sys0.getId();
     // Create system for remaining auth access tests
-    Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
+    Credential cred0 = new Credential(null, null, null, null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
             "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken",
             "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
@@ -3220,7 +3225,7 @@ public class SystemsServiceTest
   public void testGetSystemHistory() throws Exception
   {
     TSystem sys0 = systems[26];
-    Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
+    Credential cred0 = new Credential(null, null, null, null, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
                                       "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken",
             "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
@@ -3251,7 +3256,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[27];
     String sysId = sys0.getId();
     ResourceRequestUser ownerUser = rTestUser2;
-    Credential cred0 = new Credential(null, null, "fakePassword", "fakePrivateKey", "fakePublicKey", "fakeAccessKey",
+    Credential cred0 = new Credential(null, null, null, null, null, "fakePassword", "fakePrivateKey", "fakePublicKey", "fakeAccessKey",
                                       "fakeAccessSecret", "fakeAccessToken1", "fakeRefreshToken1",
             "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeCert");
     sys0.setAuthnCredential(cred0);
@@ -3748,7 +3753,8 @@ public class SystemsServiceTest
     String pubKeyStr = readKeyFromFile(localTestFileDir, pubKeyFile);
     String prvKeyStr = readKeyFromFile(localTestFileDir, prvKeyFile);
     // Create the credential object
-    Credential credToCheck = new Credential(AuthnMethod.PKI_KEYS, loginUser, null, prvKeyStr, pubKeyStr, null, null, null, null, null, null, null, null);
+    Credential credToCheck = new Credential(AuthnMethod.PKI_KEYS, loginUser, null, null, null, null, prvKeyStr,
+                                            pubKeyStr, null, null, null, null, null, null, null, null);
     // Check the credential
     Credential retCred = credUtils.verifyCredentials(rOwner1, sys, credToCheck, loginUser, AuthnMethod.PKI_KEYS);
     Assert.assertNotNull(retCred, "Returned verified credential was null for keyType: " + prvKeyFile);

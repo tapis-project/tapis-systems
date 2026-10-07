@@ -9,6 +9,18 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
+---------------------------------------------------------------------------
+## 26Q3.1 - 2026-??-??
+
+Incremental improvements, updates for Trust Manager System (TMS).
+
+### New features:
+- Updates for Trust Manager System (TMS).
+
+### Bug fixes:
+- None.????
+
+---------------------------------------------------------------------------
 ## 26Q3.0 - 2026-09-18
 
 Incremental improvements, security patches in shared libraries.

@@ -50,6 +50,9 @@ public final class Credential
 
   private final AuthnMethod authnMethod; // Authentication method associated with a retrieved credential
   private final String loginUser; // For a system with a dynamic effectiveUserId, this is the host login user.
+  private final String tmsLoginUser; // For a system using TMS_KEYS, this is the host login user.
+  private final String tmsResourceProvider; // For a system using TMS_KEYS, this is the resource provider (tacc, sdsc, etc)
+  private final String tmsResourceProviderAccount; // For a system using TMS_KEYS, this is resource provider account (e.g. someuser@sdsc)
   private final String password; // Password for authnMethod PASSWORD
   private final String privateKey; // Private key for authnMethod PKI_KEYS
   private final String publicKey; // Public key for authnMethod PKI_KEYS
@@ -69,13 +72,17 @@ public final class Credential
   /* ********************************************************************** */
 
   // Simple constructor to populate all attributes
-  public Credential(AuthnMethod authnMethod1, String loginUser1, String password1, String privateKey1, String publicKey1,
+  public Credential(AuthnMethod authnMethod1, String loginUser1, String tmsLoginUser1, String tmsResourceProvider1,
+                    String tmsResourceProviderAccount1, String password1, String privateKey1, String publicKey1,
                     String accessKey1, String accessSecret1, String accessToken1, String refreshToken1,
                     String tmsPrivateKey1, String tmsPublicKey1, String tmsFingerprint1, String cert1,
                     Boolean validationResult1, String validationMsg1)
   {
     authnMethod = authnMethod1;
     loginUser = loginUser1;
+    tmsLoginUser = tmsLoginUser1;
+    tmsResourceProvider = tmsResourceProvider1;
+    tmsResourceProviderAccount = tmsResourceProviderAccount1;
     password = password1;
     privateKey = privateKey1;
     publicKey = publicKey1;
@@ -92,13 +99,17 @@ public final class Credential
   }
   // Simple constructor to populate all attributes except validation result and message.
   // Validation result defaults to FALSE and validation message set to a default value.
-  public Credential(AuthnMethod authnMethod1, String loginUser1, String password1, String privateKey1,
+  public Credential(AuthnMethod authnMethod1, String loginUser1, String tmsLoginUser1, String tmsResourceProvider1,
+                    String tmsResourceProviderAccount1, String password1, String privateKey1,
                     String publicKey1, String accessKey1, String accessSecret1, String accessToken1,
                     String refreshToken1, String tmsPrivateKey1, String tmsPublicKey1, String tmsFingerprint1,
                     String cert1)
   {
     authnMethod = authnMethod1;
     loginUser = loginUser1;
+    tmsLoginUser = tmsLoginUser1;
+    tmsResourceProvider = tmsResourceProvider1;
+    tmsResourceProviderAccount = tmsResourceProviderAccount1;
     password = password1;
     privateKey = privateKey1;
     publicKey = publicKey1;
@@ -136,8 +147,9 @@ public final class Credential
     tmsPublicKey = (!StringUtils.isBlank(cred.getTmsPublicKey())) ? SECRETS_MASK : cred.getTmsPublicKey();
     tmsFingerprint = (!StringUtils.isBlank(cred.getTmsFingerprint())) ? SECRETS_MASK : cred.getTmsFingerprint();
     cert = (!StringUtils.isBlank(cred.getCertificate())) ? SECRETS_MASK : cred.getCertificate();
-    return new Credential(cred.getAuthnMethod(), cred.getLoginUser(), password, privateKey, publicKey,
-                          accessKey, accessSecret, accessToken, refreshToken, tmsPrivateKey, tmsPublicKey,
+    return new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getTmsLoginUser(),
+                          cred.getTmsResourceProvider(), cred.getTmsResourceProviderAccount(), password, privateKey,
+                          publicKey, accessKey, accessSecret, accessToken, refreshToken, tmsPrivateKey, tmsPublicKey,
                           tmsFingerprint, cert, cred.getValidationResult(), cred.getValidationMsg());
   }
 
@@ -146,6 +158,9 @@ public final class Credential
   /* ********************************************************************** */
   public AuthnMethod getAuthnMethod() { return authnMethod; }
   public String getLoginUser() { return loginUser; }
+  public String getTmsLoginUser() { return tmsLoginUser; }
+  public String getTmsResourceProvider() { return tmsResourceProvider; }
+  public String getTmsResourceProviderAccount() { return tmsResourceProviderAccount; }
   public String getPassword() { return password; }
   public String getPrivateKey() { return privateKey; }
   public String getPublicKey() { return publicKey; }
@@ -164,6 +179,9 @@ public final class Credential
   public String toString()
   {
     String l = StringUtils.isBlank(loginUser) ? "<empty>" : loginUser;
+    String tms1 = StringUtils.isBlank(tmsLoginUser) ? "<empty>" : tmsLoginUser;
+    String tms2 = StringUtils.isBlank(tmsLoginUser) ? "<empty>" : tmsLoginUser;
+    String tms3 = StringUtils.isBlank(tmsLoginUser) ? "<empty>" : tmsLoginUser;
     String p = StringUtils.isBlank(password) ? "<empty>" : "*********";
     String pPrivKey = StringUtils.isBlank(privateKey) ? "<empty>" : "*********";
     String pPubKey = StringUtils.isBlank(publicKey) ? "<empty>" : "*********";
@@ -174,8 +192,13 @@ public final class Credential
     String tPrivKey = StringUtils.isBlank(tmsPrivateKey) ? "<empty>" : "*********";
     String tPubKey = StringUtils.isBlank(tmsPublicKey) ? "<empty>" : "*********";
     String tfingerprint = StringUtils.isBlank(tmsFingerprint) ? "<empty>" : "*********";
-    return String.format("Credential:%n  AuthnMethod: %s%n  loginUser: %s%n  password: %s%n  privateKey: %s%n  publicKey: %s%n  accessKey: %s%n  accessSecret: %s%n accessToken: %s%n refreshToken: %s%n  tmsPrivateKey: %s%n  tmsPublicKey: %s%n  tmsFingerPrint: %s%n  validationResult: %B%n  validationMsg: %s%n",
-                         authnMethod, l, p, pPrivKey, pPubKey, aKey, aSecret, aTok, aRefresh, tPrivKey, tPubKey, tfingerprint,
-                         validationResult, validationMsg);
+    String fmtStr = """
+            Credential:%n  AuthnMethod: %s%n  loginUser: %s%n  tmsLoginUser: %s%n  tmsResourceProvider: %s%n
+              tmsResourceProviderAccount: %s%n  password: %s%n  privateKey: %s%n publicKey: %s%n  accessKey: %s%n
+                accessSecret: %s%n accessToken: %s%n refreshToken: %s%n  tmsPrivateKey: %s%n  tmsPublicKey: %s%n
+                  tmsFingerPrint: %s%n  validationResult: %B%n  validationMsg: %s%n
+            """;
+    return String.format(fmtStr, authnMethod, l, tms1, tms2, tms3, p, pPrivKey, pPubKey, aKey, aSecret, aTok, aRefresh,
+                         tPrivKey, tPubKey, tfingerprint, validationResult, validationMsg);
   }
 }

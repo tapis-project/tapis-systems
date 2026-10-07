@@ -287,7 +287,7 @@ public class MigrateJob
     // If secrets found create a credential
     if (secretsFound)
     {
-      credential = new Credential(null, null,
+      credential = new Credential(null, null, null, null, null,
               dataMapFull.get(SK_KEY_PASSWORD),
               dataMapFull.get(SK_KEY_PRIVATE_KEY),
               dataMapFull.get(SK_KEY_PUBLIC_KEY),

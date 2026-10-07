@@ -213,12 +213,12 @@ public class CredentialResource
     }
 
 
-    // Build the credential. Pass in null for authnMethod and all tms attributes
+    // Build the credential. Pass in null for authnMethod, tmsLoginUser, tms key-pair, tmsFingerprint, tmsRP and tmsRPAcct.
     // This makes a convenient wrapper for passing in request data to the service layer code.
     AuthnMethod nullAuthnMethod = null;
-    Credential credential = new Credential(nullAuthnMethod, req.loginUser, req.password, req.privateKey, req.publicKey,
-                                           req.accessKey, req.accessSecret, req.accessToken, req.refreshToken,
-                                           null, null, null, req.certificate);
+    Credential credential = new Credential(nullAuthnMethod, req.loginUser, null, req.tmsResourceProvider,
+                             req.tmsResourceProviderAccount, req.password, req.privateKey, req.publicKey, req.accessKey,
+                             req.accessSecret, req.accessToken, req.refreshToken, null, null, null, req.certificate);
     // If one of PKI keys is missing then reject
     resp = ApiUtils.checkSecrets(rUser, systemId, userName, AuthnMethod.PKI_KEYS.name(), PRIVATE_KEY_FIELD, PUBLIC_KEY_FIELD,
                                  credential.getPrivateKey(), credential.getPublicKey());

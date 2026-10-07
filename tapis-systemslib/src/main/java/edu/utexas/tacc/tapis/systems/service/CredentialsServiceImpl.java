@@ -376,12 +376,13 @@ public class CredentialsServiceImpl
     boolean isStaticEffectiveUser = !system.getEffectiveUserId().equals(APIUSERID_VAR);
 
     // Create credential and save to SK
-    Credential credential = new Credential(null, null, null, null, null, null, null, accessToken, refreshToken, null, null, null, null);
+    Credential credForGlobus = new Credential(null, null, null, null, null, null, null, null, null, null, accessToken,
+                                              refreshToken, null, null, null, null);
     // For Globus type system credentials both the target user and host login user are set to userName.
     // When connecting to Globus there is no username directly set. Username is used when storing the credentials in SK.
     boolean skipCheck = true; // We never check when generating globus tokens
     String hostLoginUser = credTargetUser;
-    credUtils.createCredential(rUser, credential, system, credTargetUser, isStaticEffectiveUser, hostLoginUser,
+    credUtils.createCredential(rUser, credForGlobus, system, credTargetUser, isStaticEffectiveUser, hostLoginUser,
                                skipCheck, false, op);
   }
 

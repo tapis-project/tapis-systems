@@ -131,7 +131,7 @@ public class CredUtils
   public record TmsKeys(String privateKey, String publicKey, String fingerprint) {}
 
   // Wrapper for TmsRequest info used when creating a key pair
-  public record TmsRequest(String client_user_id, String host, String host_account,
+  public record TmsRequest(String tms_identity, String rp_id, String rp_account, String host, String host_account,
                            String key_type, int num_uses, int ttl_minutes) {}
 
   /* **************************************************************************** */
@@ -444,7 +444,8 @@ public class CredUtils
       // Call TMS to create the keypair and fingerprint
       TmsKeys tmsKeys = createTmsKeys(rUser, system, credTargetUser);
       // Add TMS keys info to the full credential
-      retCred = new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
+      retCred = new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getTmsLoginUser(),
+                               cred.getTmsResourceProvider(), cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(),
                                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
                                cred.getAccessToken(), cred.getRefreshToken(),
                                tmsKeys.privateKey, tmsKeys.publicKey, tmsKeys.fingerprint, cred.getCertificate());
@@ -452,8 +453,9 @@ public class CredUtils
     else
     {
       // No TMS keys, create the retCred based on the credential passed in
-      retCred = new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-                               cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
+      retCred = new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getTmsLoginUser(),
+                               cred.getTmsResourceProvider(), cred.getTmsResourceProviderAccount(), cred.getPassword(),
+                               cred.getPrivateKey(), cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
                                cred.getAccessToken(), cred.getRefreshToken(), cred.getTmsPrivateKey(),
                                cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate());
     }
@@ -655,10 +657,10 @@ public class CredUtils
       // Not supported. Return now.
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_SUPPORTED", rUser, systemId, systemType, hostLoginUser, authnMethod);
       log.info(msg);
-      return new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-              cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
-              cred.getAccessToken(), cred.getRefreshToken(), cred.getTmsPrivateKey(), cred.getTmsPublicKey(),
-              cred.getTmsFingerprint(), cred.getCertificate(), Boolean.FALSE, msg);
+      return new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getTmsLoginUser(),
+              cred.getTmsResourceProvider(), cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(),
+              cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
+              cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate(), Boolean.FALSE, msg);
     }
     return verifyConnection(rUser, opName, tSystem1, authnMethod, cred, hostLoginUser);
   }
@@ -841,7 +843,7 @@ public class CredUtils
     return changeCount;
   }
 
-  /**
+  /** TODO Update for TMS
    * Get a credential given system, targetUser, isStatic and authnMethod
    * No checks are done for incoming arguments and the system must exist
    * resourceTenant used when a service is calling as itself and needs to specify the tenant for the resource
@@ -928,9 +930,9 @@ public class CredUtils
         else
           loginUser = credTargetUser;
       }
-
+      String tmsLoginUser = null, tmsResourceProvider = null, tmsResourceProviderAccount = null; // TODO
       // Create a credential
-      credential = new Credential(authnMethod, loginUser,
+      credential = new Credential(authnMethod, loginUser, tmsLoginUser, tmsResourceProvider, tmsResourceProviderAccount,
               dataMap.get(SK_KEY_PASSWORD),
               dataMap.get(SK_KEY_PRIVATE_KEY),
               dataMap.get(SK_KEY_PUBLIC_KEY),
@@ -952,7 +954,7 @@ public class CredUtils
     return credential;
   }
 
-  /**
+  /** TODO/TBD update for tmsLoginUser, tmsRP, tmsRPAcct?
    * Build a TapisSystem client credential based on the TSystem model credential
    * Needed for shared code that expects to use the java wrapper client generated credential model.
    *
@@ -1497,7 +1499,7 @@ public class CredUtils
    *           -H "X-TMS-CLIENT-SECRET: $TMS_CLIENT_KEY" \
    *           $TMS_URL/v1/tms/pubkeys/creds -d @$1
    * Example req body
-   * { "client_user_id": "testuser1", "host": "testhost1", "host_account": "testhostaccount1",
+   * { "tms_identity": "testuser1", "host": "testhost1", "host_account": "testhostaccount1",
    *   "num_uses": -1, "ttl_minutes": -1}
    *
    * @param rUser ResourceRequest user
@@ -1523,8 +1525,9 @@ public class CredUtils
     String tmsHostAccount = credTargetUser;
     int numUses = -1;
     int ttlMinutes = -1;
-    // Build the request
-    var tmsRequest = new TmsRequest(tmsClientUser, tmsHost, tmsHostAccount, TMS_KEY_TYPE_ED25519, numUses, ttlMinutes);
+    // TODO Build the request
+    String tmsRP = null, tmsRPAccount = null; // TODO
+    var tmsRequest = new TmsRequest(tmsClientUser, tmsRP, tmsRPAccount, tmsHost, tmsHostAccount, TMS_KEY_TYPE_ED25519, numUses, ttlMinutes);
     String reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsRequest);
     RequestBody body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
     Request.Builder requestBuilder = new Request.Builder().url(tmsServerReqUrl).post(body);
@@ -1641,10 +1644,10 @@ public class CredUtils
     {
       // System type not supported.
       msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_SUPPORTED", rUser, systemId, systemType, hostLoginUser, authnMethod);
-      retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-              cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(),
-              cred.getRefreshToken(), cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(),
-              cred.getCertificate(), Boolean.FALSE, msg);
+      retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getTmsLoginUser(), cred.getTmsResourceProvider(),
+              cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(), cred.getPublicKey(),
+              cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
+              cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate(), Boolean.FALSE, msg);
       validationResult = "FAILED";
     }
     else if ((doingPki && (StringUtils.isBlank(cred.getPublicKey()) || StringUtils.isBlank(cred.getPrivateKey()))) ||
@@ -1654,10 +1657,10 @@ public class CredUtils
     {
       // We do not have the credentials we need
       msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, opName, systemId, systemType, hostLoginUser, authnMethod);
-      retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-              cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(),
-              cred.getRefreshToken(), cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(),
-              cred.getCertificate(), Boolean.FALSE, msg);
+      retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getTmsLoginUser(), cred.getTmsResourceProvider(),
+              cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(), cred.getPublicKey(),
+              cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
+              cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate(), Boolean.FALSE, msg);
       validationResult = "FAILED";
     }
     else
@@ -1710,10 +1713,11 @@ public class CredUtils
           // We should never get here, but just in case fail the verification
           msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_SUPPORTED", rUser, systemId, systemType, hostLoginUser, authnMethod);
           log.error(msg);
-          return new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-                  cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(),
-                  cred.getRefreshToken(), cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(),
-                  cred.getCertificate(), Boolean.FALSE, msg);
+          return new Credential(authnMethod, cred.getLoginUser(), cred.getTmsLoginUser(), cred.getTmsResourceProvider(),
+                  cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(), cred.getPublicKey(),
+                  cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
+                  cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate(),
+                  Boolean.FALSE, msg);
       }
 
       // We have made the connection attempt. Check the result.
@@ -1721,10 +1725,11 @@ public class CredUtils
       {
         validationResult = "SUCCESS";
         // No problem with connection. Set result to TRUE
-        retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(),
-                cred.getRefreshToken(), cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(),
-                cred.getCertificate(), Boolean.TRUE, null);
+        retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getTmsLoginUser(), cred.getTmsResourceProvider(),
+                cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(), cred.getPublicKey(),
+                cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
+                cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate(),
+                Boolean.TRUE, null);
       }
       else
       {
@@ -1753,10 +1758,10 @@ public class CredUtils
           msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
                   hostLoginUser, authnMethod, eMsg);
         }
-        retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
-                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(),
-                cred.getRefreshToken(), cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(),
-                cred.getCertificate(), Boolean.FALSE, msg);
+        retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getTmsLoginUser(), cred.getTmsResourceProvider(),
+                cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(), cred.getPublicKey(),
+                cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
+                cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate(), Boolean.FALSE, msg);
       }
     }
     log.info(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
