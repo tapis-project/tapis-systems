@@ -45,6 +45,7 @@ import edu.utexas.tacc.tapis.shared.exceptions.TapisSecurityException;
 import edu.utexas.tacc.tapis.shared.exceptions.recoverable.TapisSSHAuthException;
 import edu.utexas.tacc.tapis.shared.exceptions.runtime.TapisRuntimeException;
 import edu.utexas.tacc.tapis.shared.s3.S3Connection;
+import edu.utexas.tacc.tapis.shared.security.TenantManager;
 import edu.utexas.tacc.tapis.shared.ssh.apache.SSHConnection;
 import edu.utexas.tacc.tapis.shared.utils.PathUtils;
 import edu.utexas.tacc.tapis.shared.utils.TapisGsonUtils;
@@ -63,6 +64,7 @@ import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemType;
+import edu.utexas.tacc.tapis.tenants.client.gen.model.Tenant;
 
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.model.CredInfoFSM.CREDINFO_INIT_TMP_CSV_FILE;
@@ -366,10 +368,10 @@ public class CredUtils
   }
 
   /**
-   * Store or update credential for given system and target user.
+   * Store or update credential for given system and target user. TODO TMS
    * Optionally verify the credential. If verification fails, credentials are not registered.
    * Return null if skipping cred check, else return checked credential with validation result set
-   * NOTE that credential returned even if invalid. Caller must check Credential.getValidationResult()
+   * NOTE that credential is returned even if invalid. Caller must check Credential.getValidationResult()
    * <p>
    * NOTE Return null if we skip cred check.
    * <p>
@@ -386,12 +388,14 @@ public class CredUtils
    * <p>
    * A CredentialInfo record is created and persisted, unless skipCheck=false and the verification fails.
    * <p>
-   * If createTmsKeys is true then system must:
+   * If createTmsKeys is true then the tenant must support TMS and the system must:
    *    - be of type LINUX
-   *    - have a dynamic effectiveUserId
-   *    - NOT have a loginUser mapping
-   * This is for security reasons. Without these restrictions anyone could create a TMS-enabled system and login
-   *   to the TMS-enabled as someone other than their Tapis user id.
+   *    - have a dynamic effectiveUserId (for security reasons)
+   *    - NOT have a loginUser mapping (for security reasons)
+   *    - include a resource provider (if tmsMode=ExplicitTrust)
+   *    - include a resource provider account
+   * Some of these restrictions are for security reasons. Without these restrictions anyone could create a TMS-enabled
+   *   system and login to the TMS-enabled as someone other than their Tapis user id.
    * <p>
    * If createTmsKeys is false and defaultAuthnMethod for system is TMS then it is an error.
    *
@@ -435,8 +439,10 @@ public class CredUtils
     // Secrets get stored on different paths based on this
     boolean isStaticEffectiveUser = !sysEffUser.equals(APIUSERID_VAR);
 
-    // Validate credential info provided as part of a user request.
-    validateCreateCredReq(rUser, system, cred, credTargetUser, isStaticEffectiveUser, createTmsKeys);
+    // For TMS get the tenant. We will need tmsMode and if mode is ImplicitTrust we will need resourceProvider name.
+    Tenant sysTenant =  createTmsKeys ? TenantManager.getInstance().getTenant(system.getTenant()): null;
+    // Validate credential info provided as part of a user request. TODO Update for latest TMS
+    validateCreateCredReq(rUser, system, cred, credTargetUser, isStaticEffectiveUser, createTmsKeys, sysTenant);
     // If TMS keys requested check that system allows for it, create the keys and add the keys to the Credential
     // Note that we must create the keys in the TMS server before verifying the credentials.
     if (createTmsKeys)
@@ -709,8 +715,9 @@ public class CredUtils
     if (StringUtils.isBlank(newHostLoginUser)) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_HOST_LOGIN", rUser));
     String credLoginUserMapping = credential.getLoginUser();
 
-    // Validate credential info provided as part of a user request
-    validateCreateCredReq(rUser, sys, credential, credTargetUser, isStatic, createTmsKeys);
+    // TODO Validate credential info provided as part of a user request. For TMS get the tenant, we will need it.
+    Tenant sysTenant =  createTmsKeys ? TenantManager.getInstance().getTenant(sys.getTenant()): null;
+    validateCreateCredReq(rUser, sys, credential, credTargetUser, isStatic, createTmsKeys, sysTenant);
 
 
     // For CredentialInfo record, if static then tapisUser is sys owner, if dynamic then tapisUser is targetUser
@@ -1406,18 +1413,19 @@ public class CredUtils
   /*                                Private Methods                               */
   /* **************************************************************************** */
 
-  /*
+  /* TODO Update for latest tms
    * Validate credential info provided as part of a user request.
    *  Throws a BadRequestException for invalid data
    * This routine checks (in this order):
    *   - LoginUser field should not be provided for system with static effective user.
    *   - For static effUser the credTargetUser must be the same as the current effUser defined for the system
    *   - If TMS keys requested check:
-   *     - tenant allows for it
-   *     - Tapis is configured for TMS
+   *     - TODO tenant is configured for TMS
    *     - system type allows for TMS
    *     - there is no login user mapping
    *     - effectiveUserId is not static
+   *     - TODO resourceProviderAccount is provided
+   *     - TODO if tmsMode=ExplicitTrust resourceProvider is provided
    *   - If createTmsKeys false and defaultAuthnMethod for system should not be TMS
    * This method is called when a user:
    *   - Registers credentials using endpoint /v3/systems/credential/<sysId>/user/<userName>
@@ -1425,7 +1433,7 @@ public class CredUtils
    *   - Generates GLOBUS credentials using endpoint systems /v3/systems/credential/<sysId>/user/<userName>/globus ...
    */
   private void validateCreateCredReq(ResourceRequestUser rUser, TSystem sys, Credential cred, String credTargetUser,
-                                     boolean isStaticEffUser, boolean createTmsKeys)
+                                     boolean isStaticEffUser, boolean createTmsKeys, Tenant sysTenant)
   {
     String sysEffUser = sys.getEffectiveUserId();
     String sysId = sys.getId();
@@ -1455,28 +1463,25 @@ public class CredUtils
   }
 
   /*
-   * Make sure we are configured for TMS keys and that system allows for it
+   * Make sure we are configured for TMS keys and that system allows for it TODO TMS
    * Check:
    *  - TMS is allowed for tenant
-   *  - we are configured for TMS
    *  - system type allows for TMS
    *  - there is no login user mapping
    *  - effectiveUserId is not static
+   *  - if tms mode is implicit then rp_id is not provided
+   *  - if tms mode is explicit then both rp_id and rp_acct are provided
    */
-   private void validateTmsConfig(ResourceRequestUser rUser, String sysTenant, String sysId, SystemType sysType,
-                                  String loginUserMapping, boolean isStaticEffUsr )
+   private void validateTmsConfig(ResourceRequestUser rUser, Tenant sysTenant, String sysId, SystemType sysType,
+                                  String loginUserMapping, boolean isStaticEffUsr)
    {
      String msg;
-     // Check if TMS is allowed for the tenant. Not all tenants are allowed to create TMS credentials
-     if (!RuntimeParameters.getInstance().getTmsAllowedTenants().contains(sysTenant))
+     // TODO Check if TMS is supported for the tenant. Not all tenants are allowed to create TMS credentials
+     // TODO replace with:
+//     if (SystemsServiceImpl.TmsModeType.UNSUPPORTED.equals(sysTenant.getTmsMode()))
+     if (!RuntimeParameters.getInstance().getTmsAllowedTenants().contains(sysTenant.getTenantId()))
      {
-       msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_TENANT_NOT_ALLOWED", rUser, sysTenant, sysId);
-       throw new BadRequestException(msg);
-     }
-     // Make sure we are configured for TMS support
-     if (!CredUtils.tmsEnabled)
-     {
-       msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_NOT_CFG", rUser, sysId);
+       msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_TENANT_NOT_ALLOWED", rUser, sysTenant.getTenantId(), sysId);
        throw new BadRequestException(msg);
      }
      if (!SystemType.LINUX.equals(sysType))
@@ -1489,6 +1494,14 @@ public class CredUtils
        msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_NOT_ALLOWED", rUser, sysId, loginUserMapping, isStaticEffUsr);
        throw new BadRequestException(msg);
      }
+     // Make sure we are configured for TMS support TODO remove and replace with:
+     // TODO if tmsMode is explicit and rpAccount not provided.
+     if (!CredUtils.tmsEnabled)
+     {
+       msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_NOT_CFG", rUser, sysId);
+       throw new BadRequestException(msg);
+     }
+     // TODO if tmsMOde is implicit and rpId is provided
    }
 
   /**

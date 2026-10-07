@@ -112,6 +112,8 @@ public class SystemsServiceImpl implements SystemsService
   public enum AuthListType  {OWNED, SHARED_DIRECT, SHARED_PUBLIC, MINE, READ_PERM, ALL}
   public static final AuthListType DEFAULT_LIST_TYPE = AuthListType.OWNED;
 
+  public enum TmsModeType  {UNSUPPORTED, EXPLICIT_TRUST, IMPLICIT_TRUST}
+
   // ************************************************************************
   // *********************** Fields *****************************************
   // ************************************************************************
