@@ -88,22 +88,22 @@ public class CredentialsServiceImpl
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param systemId - name of system
    * @param credTargetUser - Target user for operation
-   * @param cred - Credentials to be stored
+   * @param reqCreateCred - Credentials to be stored
    * @param createTmsKeys - Indicates if TMS keys should be created and stored
    * @param skipCredCheck - Indicates if cred check should happen (for LINUX, S3)
    * @param rawData - Client provided text used to create the credential - secrets should be scrubbed. Saved in update record.
    * @return null if skipping credCheck, else checked credential with validation result set
    * @throws TapisException - for Tapis related exceptions
    */
-  public Credential createUserCredential(ResourceRequestUser rUser, String systemId, String credTargetUser, Credential cred,
-                                         boolean createTmsKeys, boolean skipCredCheck, String rawData)
+  public Credential createUserCredential(ResourceRequestUser rUser, String systemId, String credTargetUser,
+                       ReqCreateCredential reqCreateCred, boolean createTmsKeys, boolean skipCredCheck, String rawData)
           throws TapisException, TapisClientException, IllegalStateException
   {
     TSystem.SystemOperation op = TSystem.SystemOperation.setCred;
 
     // Check inputs. If anything null or empty throw an exception
     if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
-    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(credTargetUser) || cred == null)
+    if (StringUtils.isBlank(systemId) || StringUtils.isBlank(credTargetUser) || reqCreateCred == null)
       throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT", rUser));
 
     // If system does not exist or has been deleted then throw an exception
@@ -118,7 +118,7 @@ public class CredentialsServiceImpl
     authUtils.checkAuth(rUser, op, systemId, nullOwner, credTargetUser, nullPermSet);
 
     // Use utility method to do most of the work
-    return credUtils.createCredentialForUser(rUser, systemId, credTargetUser, cred, createTmsKeys, skipCredCheck, rawData);
+    return credUtils.createCredentialForUser(rUser, systemId, credTargetUser, reqCreateCred, createTmsKeys, skipCredCheck, rawData);
   }
 
   /**

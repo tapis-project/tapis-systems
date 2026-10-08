@@ -49,6 +49,7 @@ import edu.utexas.tacc.tapis.systems.api.responses.RespGlobusAuthUrl;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.GlobusAuthInfo;
+import edu.utexas.tacc.tapis.systems.model.ReqCreateCredential;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.service.CredentialsServiceImpl;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
@@ -212,36 +213,33 @@ public class CredentialResource
       _log.trace(ApiUtils.getMsgAuth("SYSAPI_CRED_LOGINUSER", rUser, systemId, userName, req.loginUser));
     }
 
-
-    // Build the credential. Pass in null for authnMethod, tmsLoginUser, tms key-pair, tmsFingerprint, tmsRP and tmsRPAcct.
+    // Build the object containing all the request info.
     // This makes a convenient wrapper for passing in request data to the service layer code.
-    AuthnMethod nullAuthnMethod = null;
-    Credential credential = new Credential(nullAuthnMethod, req.loginUser, null, req.tmsResourceProvider,
-                             req.tmsResourceProviderAccount, req.password, req.privateKey, req.publicKey, req.accessKey,
-                             req.accessSecret, req.accessToken, req.refreshToken, null, null, null, req.certificate);
+    ReqCreateCredential reqCreateCred = new ReqCreateCredential(req.password, req.privateKey, req.publicKey, req.accessKey, req.accessSecret,
+            req.accessToken, req.refreshToken,req.certificate, req.loginUser, req.tmsResourceProvider, req.tmsResourceProviderAccount);
     // If one of PKI keys is missing then reject
     resp = ApiUtils.checkSecrets(rUser, systemId, userName, AuthnMethod.PKI_KEYS.name(), PRIVATE_KEY_FIELD, PUBLIC_KEY_FIELD,
-                                 credential.getPrivateKey(), credential.getPublicKey());
+                                 reqCreateCred.getPrivateKey(), reqCreateCred.getPublicKey());
     if (resp != null) return resp;
     // If one of Access key or Access secret is missing then reject
     resp = ApiUtils.checkSecrets(rUser, systemId, userName, AuthnMethod.ACCESS_KEY.name(), ACCESS_KEY_FIELD, ACCESS_SECRET_FIELD,
-                                 credential.getAccessKey(), credential.getAccessSecret());
+                                 reqCreateCred.getAccessKey(), reqCreateCred.getAccessSecret());
     if (resp != null) return resp;
     // If one of Access token or Refresh token is missing then reject
     resp = ApiUtils.checkSecrets(rUser, systemId, userName, AuthnMethod.TOKEN.name(), ACCESS_TOKEN_FIELD, REFRESH_TOKEN_FIELD,
-            credential.getAccessToken(), credential.getRefreshToken());
+            reqCreateCred.getAccessToken(), reqCreateCred.getRefreshToken());
     if (resp != null) return resp;
 
     // Create json with secrets masked out. This is recorded by the service as part of the update record.
-    Credential maskedCredential = Credential.createMaskedCredential(credential);
-    String scrubbedJson = TapisGsonUtils.getGson().toJson(maskedCredential);
+    ReqCreateCredential maskedReqCredential = ReqCreateCredential.createMaskedReqCreateCredential(reqCreateCred);
+    String scrubbedJson = TapisGsonUtils.getGson().toJson(maskedReqCredential);
 
     // ------------------------- Perform the operation -------------------------
     // Make the service call to create or update the credential
     Credential checkedCred;
     try
     {
-      checkedCred = service.createUserCredential(rUser, systemId, userName, credential, createTmsKeys, skipCredCheck, scrubbedJson);
+      checkedCred = service.createUserCredential(rUser, systemId, userName, reqCreateCred, createTmsKeys, skipCredCheck, scrubbedJson);
     }
     // Pass through not found or not auth to let exception mapper handle it.
     // Class edu.utexas.tacc.tapis.sharedapi.providers.ApiExceptionMapper

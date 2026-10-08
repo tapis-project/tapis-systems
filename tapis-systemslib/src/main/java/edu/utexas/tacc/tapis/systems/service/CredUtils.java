@@ -54,7 +54,6 @@ import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
-import edu.utexas.tacc.tapis.systems.migrate.CredInfoInitJob;
 import edu.utexas.tacc.tapis.systems.model.CredInfoFSM;
 import edu.utexas.tacc.tapis.systems.model.Credential;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
@@ -68,7 +67,6 @@ import edu.utexas.tacc.tapis.tenants.client.gen.model.Tenant;
 
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.model.CredInfoFSM.CREDINFO_INIT_TMP_CSV_FILE;
-import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_SECRET;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_ACCESS_TOKEN;
@@ -80,6 +78,7 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_FINGERPR
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_PRIVATE_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_PUBLIC_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
+import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.NOT_FOUND;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.nullLoginUserMapping;
 
@@ -140,130 +139,67 @@ public class CredUtils
   /*                                Public Methods                                */
   /* **************************************************************************** */
 
-  /*
-   * Given attributes read directly from Vault, create or update a CredInfo record.
-   * Final status will be COMPLETED.
-   *
-   * NOTE/WARNING
-   *   It is possible for the vault record to have isStatic=true even though the system is defined with
-   *   effectiveUserId=${apiUserId}. This means the credential was created when isStatic=true and then
-   *   the system definition was updated to have effectiveUserId=${apiUserId}. So we must detect this
-   *   and set hostLoginUser to the static user registered at the time of credential creation.
-   *
-   * From the vault attributes we have some of the primary key values for table: tenant, sysId, isStatic
-   * We also have values for the credential metadata, (has_credentials, has_pki_keys, etc.).
-   *
-   * But we still need to figure out values for tapisUser, hostLoginUser and loginUserMapping
-   * tapisUser is fairly straightforward, see below. For others:
-   *
-   * Two cases:
-   *    a. CredInfo in the DB:
-   *         loginUserMapping : from DB, might be null
-   *         hostLoginUser : if isStatic=true use effectiveUserId from system
-   *                         if isStatic=false and loginUserMapping!=null, use loginUserMapping from the DB
-   *                         if isStatic=false and loginUserMapping=null, use credTargetUser from the record
-   *    b. CredInfo not in DB:
-   *         loginUserMapping : not available, use null
-   *         hostLoginUser : if isStatic=true use effectiveUserId from system
-   *                         if isStatic=false use credTargetUser from the record
-   */
-  public CredentialInfo initCredInfoRecordFromVaultMetadata(ResourceRequestUser rUser, String tenant, TSystem sys,
-                                                            boolean isStatic, CredInfoInitJob.SecretMetaInfo sm)
+  // Determine hostLoginUser
+  public String determineHostLoginUser(boolean isStatic, String effUser, String loginUserMapping, String credTargetUser)
   {
-    String opName = "createCredInfoRecordFromVaultMetadata";
-    CredentialInfo credInfo;
-    AuthnMethod authnMethod = sys.getDefaultAuthnMethod();
-    String credTargetUser = sm.targetUser();
-    // Determine if credentials are registered for defaultAuthnMethod of the system
-    boolean hasCredentials = (AuthnMethod.PASSWORD.equals(authnMethod) && sm.hasPassword()) ||
-          (AuthnMethod.PKI_KEYS.equals(authnMethod) && sm.hasPkiKeys()) ||
-          (AuthnMethod.ACCESS_KEY.equals(authnMethod) && sm.hasAccessKey()) ||
-          (AuthnMethod.TOKEN.equals(authnMethod) && sm.hasToken() ) ||
-          (AuthnMethod.TMS_KEYS.equals(authnMethod) && sm.hasTmsKeys());
+    // If static use system effUsr else use credTargetUser or loginUserMapping
+    if (isStatic) return effUser;
+    else return (StringUtils.isBlank(loginUserMapping)) ? credTargetUser : loginUserMapping;
+  }
 
-    int sysSeqId = sys.getSeqId();
+  /*
+   * Update CredentialInfo record to COMPLETED
+   * Check that transition from current status to COMPLETED is allowed.
+   */
+  public CredentialInfo updateCredInfoToCompleted(ResourceRequestUser rUser, CredentialInfo credInfo)
+  {
+    String opName = "updateCredInfoToCompleted";
+    SyncStatus oldSyncStatus = credInfo.getSyncStatus();
+    SyncStatus newSyncStatus = SyncStatus.COMPLETED;
+    log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, credInfo.getTenant(), credInfo.getSystemId(),
+            credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(), oldSyncStatus, newSyncStatus, opName));
 
-    // Compute tapisUser, hostLoginUser and loginUserMapping
-    String tapisUser, hostLoginUser, loginUserMapping;
-    // tapisUser.
-    // For dynamic always credTargetUser.
-    // For static, tapisUser should always be the system owner.
-    if (!isStatic) tapisUser = credTargetUser; else tapisUser = sys.getOwner();
+    // Validate transition from current state to new state
+    CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
 
-    // We are mutating a CredInfo record so synchronize around the class
-    synchronized (CredUtils.class)
-    {
-      String msg;
-      CredentialInfo credInfoDB = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStatic);
-      if (credInfoDB != null)
-      {
-        msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_VAULT", credInfoDB.getTenant(), credInfoDB.getSystemId(),
-                              credInfoDB.getTapisUser(), credInfoDB.getHostLoginUser(), credInfoDB.isStatic(),
-                              credInfoDB.getLoginUserMapping(), opName);
-        log.warn(String.format("%s IN-DB", msg));
-        // Record is already in the DB, set status to PENDING and then IN_PROGRESS.
-        updateCredInfoStatus(rUser, credInfoDB, SyncStatus.PENDING, opName);
-        updateCredInfoStatus(rUser, credInfoDB, SyncStatus.IN_PROGRESS, opName);
-        // Compute loginUserMapping and hostLoginUser.
-        loginUserMapping = credInfoDB.getLoginUserMapping();
+    // Update CredInfo attributes, including reset of Failure info.
+    credInfo.setSyncFailCount(0);
+    credInfo.setSyncFailMessage("");
+    credInfo.setSyncFailed(null);
+    LocalDateTime updated = TapisUtils.getUTCTimeNow();
+    credInfo.setSyncStatus(newSyncStatus);
+    credInfo.setUpdated(updated.toInstant(ZoneOffset.UTC));
+    // Persist the update
+    dao.updateCredInfoRecord(credInfo, updated);
+    return credInfo;
+  }
 
-        // Determine hostLoginUser
-        if (isStatic && APIUSERID_VAR.equals(sys.getEffectiveUserId()))
-        {
-          // Exceptional case. Vault record is static but system has effectiveUserId = ${apiUserId} This means that
-          //   although the system is currently dynamic we still need to use credTargetUser as the host login user.
-          hostLoginUser = credTargetUser;
-        }
-        else
-        {
-          // Normal case
-          hostLoginUser = determineHostLoginUser(isStatic, sys.getEffectiveUserId(), loginUserMapping, credTargetUser);
-        }
+  /*
+   * Update CredentialInfo status. Use this for most updates of status so status transition is validated.
+   * NOTE Other methods that update status and check transition: updateCredInfoToCompleted, updateCredInfoToFailed
+   * If old and new status are the same then it is a NO-OP, simply return.
+   *
+   * The provided credInfo object is updated and returned.
+   *
+   * Other syncStatus and updated timestamp, other attributes are not changed.
+   * Check that transition from current status to new status is allowed.
+   */
+  public CredentialInfo updateCredInfoStatus(ResourceRequestUser rUser, CredentialInfo credInfo, SyncStatus newSyncStatus, String opName)
+  {
+    SyncStatus oldSyncStatus = credInfo.getSyncStatus();
+    if (oldSyncStatus.equals(newSyncStatus)) return credInfo;
 
-        // We now have all attributes, use them to create a CredInfo record in memory
-        credInfo = new CredentialInfo(sysSeqId, credInfoDB.getTenant(), credInfoDB.getSystemId(),
-                                      tapisUser, isStatic, hostLoginUser, loginUserMapping,
-                                      hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
-                                      sm.hasTmsKeys(), credInfoDB.getSyncStatus(), credInfoDB.getSyncFailCount(),
-                                      credInfoDB.getSyncFailMessage(), credInfoDB.getSyncFailed(),
-                                      credInfoDB.getCreated(), credInfoDB.getCreated());
-        dao.updateCredInfoRecord(credInfo, null);
-      }
-      else
-      {
-        // No record in DB, create one with status of IN_PROGRESS
-        // Compute loginUserMapping and hostLoginUser.
-        loginUserMapping = null;
-        // Determine hostLoginUser
-        if (isStatic && APIUSERID_VAR.equals(sys.getEffectiveUserId()))
-        {
-          // Exceptional case. Vault record is static but system has effectiveUserId = ${apiUserId}. This means that
-          //   although the system is currently dynamic we still need to use credTargetUser as the host login user.
-          hostLoginUser = credTargetUser;
-        }
-        else
-        {
-          // Normal case. If static use system effUsr else use credTargetUser
-          hostLoginUser = determineHostLoginUser(isStatic, sys.getEffectiveUserId(), loginUserMapping, credTargetUser);
-        }
-        int syncFailCount = 0;
-        String syncFailMsg = null;
-        Instant syncFailTimestamp = null;
-        Instant utcNow = TapisUtils.getUTCTimeNow().toInstant(ZoneOffset.UTC);
-        // We now have all attributes, use them to create a CredInfo record in memory
-        credInfo = new CredentialInfo(sysSeqId, tenant, sys.getId(), tapisUser, isStatic, hostLoginUser, loginUserMapping,
-                                 hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
-                                 sm.hasTmsKeys(), SyncStatus.IN_PROGRESS, syncFailCount, syncFailMsg, syncFailTimestamp,
-                                 utcNow, utcNow);
-        msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_VAULT", credInfo.getTenant(), credInfo.getSystemId(),
-                              credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(),
-                              credInfo.getLoginUserMapping(), opName);
-        log.warn(String.format("%s NOT-IN-DB", msg));
-        credInfo = dao.createCredInfo(rUser, credInfo);
-      }
-      // Update record to COMPLETED
-      updateCredInfoToCompleted(rUser, credInfo);
-    }
+    log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, credInfo.getTenant(), credInfo.getSystemId(),
+            credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(), oldSyncStatus, newSyncStatus, opName));
+
+    // Validate transition from current state to new state
+    CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
+    // Update CredInfo attributes
+    LocalDateTime updated = TapisUtils.getUTCTimeNow();
+    credInfo.setUpdated(updated.toInstant(ZoneOffset.UTC));
+    credInfo.setSyncStatus(newSyncStatus);
+    // Persist the update
+    dao.updateCredInfoStatus(credInfo, newSyncStatus, updated);
     return credInfo;
   }
 
@@ -450,20 +386,20 @@ public class CredUtils
       // Call TMS to create the keypair and fingerprint
       TmsKeys tmsKeys = createTmsKeys(rUser, system, credTargetUser);
       // Add TMS keys info to the full credential
-      retCred = new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getTmsLoginUser(),
-                               cred.getTmsResourceProvider(), cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(),
+      retCred = new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
                                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
-                               cred.getAccessToken(), cred.getRefreshToken(),
-                               tmsKeys.privateKey, tmsKeys.publicKey, tmsKeys.fingerprint, cred.getCertificate());
+                               cred.getAccessToken(), cred.getRefreshToken(), cred.getCertificate(),
+                               tmsKeys.privateKey, tmsKeys.publicKey, tmsKeys.fingerprint,
+                               cred.getTmsResourceProvider(), cred.getTmsResourceProviderAccount());
     }
     else
     {
       // No TMS keys, create the retCred based on the credential passed in
-      retCred = new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getTmsLoginUser(),
-                               cred.getTmsResourceProvider(), cred.getTmsResourceProviderAccount(), cred.getPassword(),
-                               cred.getPrivateKey(), cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
-                               cred.getAccessToken(), cred.getRefreshToken(), cred.getTmsPrivateKey(),
-                               cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate());
+      retCred = new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
+                               cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(),
+                               cred.getRefreshToken(), cred.getCertificate(), cred.getTmsPrivateKey(),
+                               cred.getTmsPublicKey(), cred.getTmsFingerprint(),
+                               cred.getTmsResourceProvider(), cred.getTmsResourceProviderAccount());
     }
 
     // Determine the host login user, i.e. the resolved effectiveUserId
@@ -663,10 +599,10 @@ public class CredUtils
       // Not supported. Return now.
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_SUPPORTED", rUser, systemId, systemType, hostLoginUser, authnMethod);
       log.info(msg);
-      return new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getTmsLoginUser(),
-              cred.getTmsResourceProvider(), cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(),
+      return new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
               cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
-              cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate(), Boolean.FALSE, msg);
+              cred.getCertificate(), cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(),
+              cred.getTmsResourceProvider(), cred.getTmsResourceProviderAccount(), Boolean.FALSE, msg);
     }
     return verifyConnection(rUser, opName, tSystem1, authnMethod, cred, hostLoginUser);
   }
@@ -708,14 +644,14 @@ public class CredUtils
    */
   CredentialInfo createCredential(ResourceRequestUser rUser, Credential credential, TSystem sys, String credTargetUser,
                                   boolean isStatic, String newHostLoginUser, boolean skipCredCheck, boolean createTmsKeys,
-                                  SystemOperation op)
+                                  SystemOperation op) throws TapisException
   {
     // There are other checks for missing hostLoginUser. This is a good backup check in case the code changes.
     // If missing it is a hard error.
     if (StringUtils.isBlank(newHostLoginUser)) throw new IllegalArgumentException(LibUtils.getMsgAuth("SYSLIB_NULL_INPUT_HOST_LOGIN", rUser));
     String credLoginUserMapping = credential.getLoginUser();
 
-    // TODO Validate credential info provided as part of a user request. For TMS get the tenant, we will need it.
+    // Validate credential info provided as part of a user request. For TMS get the tenant, we will need it.
     Tenant sysTenant =  createTmsKeys ? TenantManager.getInstance().getTenant(sys.getTenant()): null;
     validateCreateCredReq(rUser, sys, credential, credTargetUser, isStatic, createTmsKeys, sysTenant);
 
@@ -918,10 +854,12 @@ public class CredUtils
       Map<String, String> dataMap = skSecret.getSecretMap();
       if (dataMap == null) return null;
 
-      // Determine the loginUser associated with the credential.
-      // If static or dynamic and there is no mapping then it is targetUser
-      //   else look up mapping
-      String loginUser;
+      // Determine the loginUser and tms attributes associated with the credential.
+      // Get the full CredInfo record. Needed for creating the returned credential.
+      CredentialInfo ci = dao.getCredInfo(oboTenant, systemId, credTargetUser, isStaticEffectiveUser);
+      // If static there is no mapping and tms is not relevant, it is targetUser.
+      // If dynamic then need to also consider TMS.
+      String loginUser = null;
       if (isStaticEffectiveUser)
       {
         loginUser = credTargetUser;
@@ -929,17 +867,26 @@ public class CredUtils
       else
       {
         // This is the dynamic case, so targetUser must be a Tapis user.
-        // See if the target Tapis user has a mapping to a host login user.
-        String mappedLoginUser = dao.getLoginUserMapping(oboTenant, systemId, credTargetUser, isStaticEffectiveUser);
-        // If so then the mapped value becomes loginUser, else loginUser=targetUser
-        if (!StringUtils.isBlank(mappedLoginUser))
-          loginUser = mappedLoginUser;
+        // If TMS we use tmsLoginUser, else if so then the mapped value becomes loginUser, else loginUser=targetUser
+        if (authnMethod.equals(AuthnMethod.TMS_KEYS))
+        {
+          loginUser = ci.getTmsLoginUser();
+
+        }
         else
-          loginUser = credTargetUser;
+        {
+          // See if the target Tapis user has a mapping to a host login user.
+          String mappedLoginUser = ci.getLoginUserMapping();
+          if (!StringUtils.isBlank(mappedLoginUser))
+            loginUser = mappedLoginUser;
+          else
+            loginUser = credTargetUser;
+        }
       }
       String tmsLoginUser = null, tmsResourceProvider = null, tmsResourceProviderAccount = null; // TODO
       // Create a credential
-      credential = new Credential(authnMethod, loginUser, tmsLoginUser, tmsResourceProvider, tmsResourceProviderAccount,
+      String nullCert = null;
+      credential = new Credential(authnMethod, loginUser,
               dataMap.get(SK_KEY_PASSWORD),
               dataMap.get(SK_KEY_PRIVATE_KEY),
               dataMap.get(SK_KEY_PUBLIC_KEY),
@@ -947,10 +894,11 @@ public class CredUtils
               dataMap.get(SK_KEY_ACCESS_SECRET),
               dataMap.get(SK_KEY_ACCESS_TOKEN),
               dataMap.get(SK_KEY_REFRESH_TOKEN),
+              nullCert,  //dataMap.get(CERT) NOTE: get ssh certificate when supported
               dataMap.get(SK_KEY_TMS_PRIVATE_KEY),
               dataMap.get(SK_KEY_TMS_PUBLIC_KEY),
               dataMap.get(SK_KEY_TMS_FINGERPRINT),
-              null); //dataMap.get(CERT) NOTE: get ssh certificate when supported
+              tmsResourceProvider, tmsResourceProviderAccount);
     }
     catch (TapisClientException | TapisException tce)
     {
@@ -1032,35 +980,6 @@ public class CredUtils
     // Log end and current number of records in table
     totalCount = dao.getCredInfoTotalCount();
     log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_END", totalCount));
-  }
-
-  /*
-   * Update CredentialInfo status. Use this for most updates of status so status transition is validated.
-   * NOTE Other methods that update status and check transition: updateCredInfoToCompleted, updateCredInfoToFailed
-   * If old and new status are the same then it is a NO-OP, simply return.
-   *
-   * The provided credInfo object is updated and returned.
-   *
-   * Other syncStatus and updated timestamp, other attributes are not changed.
-   * Check that transition from current status to new status is allowed.
-   */
-  CredentialInfo updateCredInfoStatus(ResourceRequestUser rUser, CredentialInfo credInfo, SyncStatus newSyncStatus, String opName)
-  {
-    SyncStatus oldSyncStatus = credInfo.getSyncStatus();
-    if (oldSyncStatus.equals(newSyncStatus)) return credInfo;
-
-    log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, credInfo.getTenant(), credInfo.getSystemId(),
-          credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(), oldSyncStatus, newSyncStatus, opName));
-
-    // Validate transition from current state to new state
-    CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
-    // Update CredInfo attributes
-    LocalDateTime updated = TapisUtils.getUTCTimeNow();
-    credInfo.setUpdated(updated.toInstant(ZoneOffset.UTC));
-    credInfo.setSyncStatus(newSyncStatus);
-    // Persist the update
-    dao.updateCredInfoStatus(credInfo, newSyncStatus, updated);
-    return credInfo;
   }
 
   /*
@@ -1657,10 +1576,10 @@ public class CredUtils
     {
       // System type not supported.
       msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_SUPPORTED", rUser, systemId, systemType, hostLoginUser, authnMethod);
-      retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getTmsLoginUser(), cred.getTmsResourceProvider(),
-              cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(), cred.getPublicKey(),
-              cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
-              cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate(), Boolean.FALSE, msg);
+      retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(), cred.getPublicKey(),
+              cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(), cred.getCertificate(),
+              cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getTmsResourceProvider(),
+              cred.getTmsResourceProviderAccount(), Boolean.FALSE, msg);
       validationResult = "FAILED";
     }
     else if ((doingPki && (StringUtils.isBlank(cred.getPublicKey()) || StringUtils.isBlank(cred.getPrivateKey()))) ||
@@ -1670,10 +1589,10 @@ public class CredUtils
     {
       // We do not have the credentials we need
       msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_FOUND", rUser, opName, systemId, systemType, hostLoginUser, authnMethod);
-      retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getTmsLoginUser(), cred.getTmsResourceProvider(),
-              cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(), cred.getPublicKey(),
-              cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
-              cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate(), Boolean.FALSE, msg);
+      retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(), cred.getPublicKey(),
+              cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(), cred.getCertificate(),
+              cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getTmsResourceProvider(),
+              cred.getTmsResourceProviderAccount(), Boolean.FALSE, msg);
       validationResult = "FAILED";
     }
     else
@@ -1726,11 +1645,10 @@ public class CredUtils
           // We should never get here, but just in case fail the verification
           msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_SUPPORTED", rUser, systemId, systemType, hostLoginUser, authnMethod);
           log.error(msg);
-          return new Credential(authnMethod, cred.getLoginUser(), cred.getTmsLoginUser(), cred.getTmsResourceProvider(),
-                  cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(), cred.getPublicKey(),
-                  cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
-                  cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate(),
-                  Boolean.FALSE, msg);
+          return new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
+                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
+                cred.getCertificate(), cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(),
+                cred.getTmsResourceProvider(), cred.getTmsResourceProviderAccount(), Boolean.FALSE, msg);
       }
 
       // We have made the connection attempt. Check the result.
@@ -1738,11 +1656,10 @@ public class CredUtils
       {
         validationResult = "SUCCESS";
         // No problem with connection. Set result to TRUE
-        retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getTmsLoginUser(), cred.getTmsResourceProvider(),
-                cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(), cred.getPublicKey(),
-                cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
-                cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate(),
-                Boolean.TRUE, null);
+        retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
+                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
+                cred.getCertificate(), cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(),
+                cred.getTmsResourceProvider(), cred.getTmsResourceProviderAccount(), Boolean.TRUE, null);
       }
       else
       {
@@ -1771,23 +1688,15 @@ public class CredUtils
           msg = LibUtils.getMsgAuth("SYSLIB_CRED_CONN_FAIL", rUser, tSystem1.getId(), tSystem1.getSystemType(), host,
                   hostLoginUser, authnMethod, eMsg);
         }
-        retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getTmsLoginUser(), cred.getTmsResourceProvider(),
-                cred.getTmsResourceProviderAccount(), cred.getPassword(), cred.getPrivateKey(), cred.getPublicKey(),
-                cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
-                cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(), cred.getCertificate(), Boolean.FALSE, msg);
+        retCred = new Credential(authnMethod, cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
+                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(), cred.getAccessToken(), cred.getRefreshToken(),
+                cred.getCertificate(), cred.getTmsPrivateKey(), cred.getTmsPublicKey(), cred.getTmsFingerprint(),
+                cred.getTmsResourceProvider(), cred.getTmsResourceProviderAccount(), Boolean.FALSE, msg);
       }
     }
     log.info(LibUtils.getMsgAuth("SYSLIB_CRED_VERIFY_END", rUser, tSystem1.getId(), tSystem1.getSystemType(),
              hostLoginUser, authnMethod, validationResult, msg));
     return retCred;
-  }
-
-  // Determine hostLoginUser
-  private String determineHostLoginUser(boolean isStatic, String effUser, String loginUserMapping, String credTargetUser)
-  {
-    // If static use system effUsr else use credTargetUser or loginUserMapping
-    if (isStatic) return effUser;
-    else return (StringUtils.isBlank(loginUserMapping)) ? credTargetUser : loginUserMapping;
   }
 
   /*
@@ -1998,33 +1907,6 @@ public class CredUtils
         credInfo = dao.createCredInfo(rUser, credInfo);
       }
     }
-    return credInfo;
-  }
-
-  /*
-   * Update CredentialInfo record to COMPLETED
-   * Check that transition from current status to COMPLETED is allowed.
-   */
-  private CredentialInfo updateCredInfoToCompleted(ResourceRequestUser rUser, CredentialInfo credInfo)
-  {
-    String opName = "updateCredInfoToCompleted";
-    SyncStatus oldSyncStatus = credInfo.getSyncStatus();
-    SyncStatus newSyncStatus = SyncStatus.COMPLETED;
-    log.trace(LibUtils.getMsgAuth("SYSLIB_CREDINFO_STAT_CHANGE", rUser, credInfo.getTenant(), credInfo.getSystemId(),
-              credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(), oldSyncStatus, newSyncStatus, opName));
-
-    // Validate transition from current state to new state
-    CredInfoFSM.checkForAllowedTransition(rUser, oldSyncStatus, newSyncStatus);
-
-    // Update CredInfo attributes, including reset of Failure info.
-    credInfo.setSyncFailCount(0);
-    credInfo.setSyncFailMessage("");
-    credInfo.setSyncFailed(null);
-    LocalDateTime updated = TapisUtils.getUTCTimeNow();
-    credInfo.setSyncStatus(newSyncStatus);
-    credInfo.setUpdated(updated.toInstant(ZoneOffset.UTC));
-    // Persist the update
-    dao.updateCredInfoRecord(credInfo, updated);
     return credInfo;
   }
 
