@@ -126,7 +126,7 @@ public class CredUtils
   private SysUtils sysUtils;
 
   // Wrapper for TmsKeys info.
-  public record TmsKeys(String privateKey, String publicKey, String fingerprint) {}
+  public record TmsKeys(String privateKey, String publicKey, String fingerprint, String tmsLoginUser) {}
 
   // Wrapper for TmsRequest info used when creating a key pair
   public record TmsRequest(String tms_identity, String rp_id, String rp_account, String host, String host_account,
@@ -350,7 +350,10 @@ public class CredUtils
     Credential retCred; // Unless skipping credCheck, the full Credential that is returned, including TMS keys if generated.
     String msg;
 
-    // Convert reqCreateCred to a credential
+    // Convert reqCreateCred to a credential TODO Is there where some tms attrs are set?
+    //                                       TODO for TMS reqCreateCred should have at a minimum rpAccount, but maybe not rpId if it is ImplicitTrust
+    // TODO where do we fetch rpId from the tenant if we need to do that.
+    //      and where do we pick up tmsLoginUser. It will be returned by the createCred call to TMS
     Credential cred = CredUtils.buildCred(reqCreateCred);
 
     // Extract some attributes for convenience and clarity
@@ -385,7 +388,7 @@ public class CredUtils
     if (createTmsKeys)
     {
       // Call TMS to create the keypair and fingerprint
-      TmsKeys tmsKeys = createTmsKeys(rUser, system, credTargetUser);
+      TmsKeys tmsKeys = createTmsKeys(rUser, system, credTargetUser); // TODO should now have tmsLoginUser in TmsKeys record
       // Add TMS keys info to the full credential
       retCred = new Credential(cred.getAuthnMethod(), cred.getLoginUser(), cred.getPassword(), cred.getPrivateKey(),
                                cred.getPublicKey(), cred.getAccessKey(), cred.getAccessSecret(),
@@ -668,7 +671,7 @@ public class CredUtils
     synchronized (CredUtils.class)
     {
       // 1. Create/update CredInfo record to status PENDING
-      // Construct a credInfo record to be used for create/update. TODO update for TMS, null is probably not right
+      // Construct a credInfo record to be used for create/update. TODO update for TMS, nulls may not be right
       credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStatic, newHostLoginUser,
                                     credLoginUserMapping, nullTmsLoginUser, nullTmsResourceProvider, nullTmsResourceProviderAccount,
                                     SyncStatus.PENDING);
@@ -677,6 +680,17 @@ public class CredUtils
       if (credInfoDB == null)
       {
         // Record does not already exist, create it with status of PENDING
+        // TODO If TMS, will need to fetch the tms attributes from the TMS credential server
+        if (createTmsKeys)
+        {
+          String tmsLoginUser = null; //TODO BUT WAIT, NO. We should already have this after the creation of a credential. Need to update that part,
+                                      //        which hopefully has already happened
+          String tmsResourceProvider = null; //TODO
+          String tmsResourceProviderAccount = null; // TODO
+          credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStatic, newHostLoginUser,
+                           credLoginUserMapping, tmsLoginUser, tmsResourceProvider, tmsResourceProviderAccount, SyncStatus.PENDING);
+
+        }
         credInfo = dao.createCredInfo(rUser, credInfo);
       }
       else
@@ -1558,7 +1572,7 @@ public class CredUtils
     msg = LibUtils.getMsgAuth("SYSLIB_CRED_TMS_KEYS_DATA", rUser, system.getId(), credTargetUser, tmsServerReqUrl,
                               httpRespCode, privateKeyMasked, tmsPublicKey, tmsPublicKeyFingerprint);
     log.debug(msg);
-    return new TmsKeys(tmsPrivateKey, tmsPublicKey, tmsPublicKeyFingerprint);
+    return new TmsKeys(tmsPrivateKey, tmsPublicKey, tmsPublicKeyFingerprint); // TODO
   }
 
   /*
