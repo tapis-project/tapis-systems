@@ -5,13 +5,15 @@ import org.apache.commons.lang3.StringUtils;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 
 /*
- * Class representing request attributes that can be contained in a credential creation request.
+ * Class representing request attributes that can be contained in a credential creation request that is part
+ *   of a Tapis systems definition. This is only supported for static effect user id, so only the secrets are
+ *   involved. No mapped loginUser and no TMS attributes.
  * Immutable
  * This class is intended to represent an immutable object.
  * Please keep it immutable.
  *
  */
-public final class ReqCreateCredential
+public final class ReqSysCreateCredential
 {
   /* ********************************************************************** */
   /*                               Constants                                */
@@ -27,18 +29,14 @@ public final class ReqCreateCredential
   private final String accessToken; // Access token for authnMethod TOKEN
   private final String refreshToken; // Refresh token for authnMethod TOKEN
   private final String certificate; // SSH certificate for authnMethod is CERT
-  private final String loginUser; // For a system with a dynamic effectiveUserId, this is the host login user.
-  private final String tmsResourceProvider; // For a system using TMS_KEYS, this is the resource provider (tacc, sdsc, etc)
-  private final String tmsResourceProviderAccount; // For a system using TMS_KEYS, this is resource provider account (e.g. someuser@sdsc)
 
   /* ********************************************************************** */
   /*                           Constructors                                 */
   /* ********************************************************************** */
 
   // Simple constructor to populate all attributes
-  public ReqCreateCredential(String password1, String privateKey1, String publicKey1, String accessKey1,
-                             String accessSecret1, String accessToken1, String refreshToken1, String cert1,
-                             String loginUser1, String tmsResourceProvider1, String tmsResourceProviderAccount1)
+  public ReqSysCreateCredential(String password1, String privateKey1, String publicKey1, String accessKey1,
+                                String accessSecret1, String accessToken1, String refreshToken1, String cert1)
   {
     password = password1;
     privateKey = privateKey1;
@@ -48,9 +46,6 @@ public final class ReqCreateCredential
     accessToken = accessToken1;
     refreshToken = refreshToken1;
     certificate = cert1;
-    loginUser = loginUser1;
-    tmsResourceProvider = tmsResourceProvider1;
-    tmsResourceProviderAccount = tmsResourceProviderAccount1;
   }
 
   /* ********************************************************************** */
@@ -60,7 +55,7 @@ public final class ReqCreateCredential
   /**
    * Create a credential with secrets masked out
    */
-  public static ReqCreateCredential createMaskedReqCreateCredential(ReqCreateCredential reqCreateCred)
+  public static ReqSysCreateCredential createMaskedReqCreateCredential(ReqSysCreateCredential reqCreateCred)
   {
     if (reqCreateCred == null) return null;
     String accessToken, refreshToken, accessKey, accessSecret, password, privateKey, publicKey, cert;
@@ -72,8 +67,7 @@ public final class ReqCreateCredential
     privateKey = (!StringUtils.isBlank(reqCreateCred.getPrivateKey())) ? SECRETS_MASK : reqCreateCred.getPrivateKey();
     publicKey = (!StringUtils.isBlank(reqCreateCred.getPublicKey())) ? SECRETS_MASK : reqCreateCred.getPublicKey();
     cert = (!StringUtils.isBlank(reqCreateCred.getCertificate())) ? SECRETS_MASK : reqCreateCred.getCertificate();
-    return new ReqCreateCredential(password, privateKey, publicKey, accessKey, accessSecret, accessToken, refreshToken, cert,
-            reqCreateCred.getLoginUser(), reqCreateCred.getTmsResourceProvider(), reqCreateCred.getTmsResourceProviderAccount());
+    return new ReqSysCreateCredential(password, privateKey, publicKey, accessKey, accessSecret, accessToken, refreshToken, cert);
   }
 
   /* ********************************************************************** */
@@ -87,9 +81,6 @@ public final class ReqCreateCredential
   public String getAccessToken() { return accessToken; }
   public String getRefreshToken() { return refreshToken; }
   public String getCertificate() { return certificate; }
-  public String getLoginUser() { return loginUser; }
-  public String getTmsResourceProvider() { return tmsResourceProvider; }
-  public String getTmsResourceProviderAccount() { return tmsResourceProviderAccount; }
 
   @Override
   public String toString()
@@ -102,14 +93,11 @@ public final class ReqCreateCredential
     String aTok = StringUtils.isBlank(accessToken) ? "<empty>" : "*********";
     String aRefresh = StringUtils.isBlank(refreshToken) ? "<empty>" : "*********";
     String c = StringUtils.isBlank(certificate) ? "<empty>" : "*********";
-    String l = StringUtils.isBlank(loginUser) ? "<empty>" : loginUser;
-    String tms1 = StringUtils.isBlank(getTmsResourceProvider()) ? "<empty>" : tmsResourceProvider;
-    String tms2 = StringUtils.isBlank(getTmsResourceProviderAccount()) ? "<empty>" : tmsResourceProviderAccount;
     String fmtStr = """
             ReqCreateCredential:%n
               password: %s%n  privateKey: %s%n publicKey: %s%n  accessKey: %s%n  accessSecret: %s%n accessToken: %s%n
-                refreshToken: %s%n  certificate: %s%n  loginUser: %s%n  tmsResourceProvider: %s%n  tmsResourceProviderAccount: %s%n
+                refreshToken: %s%n certificate: %s%n
             """;
-    return String.format(fmtStr, p, pPrivKey, pPubKey, aKey, aSecret, aTok, aRefresh, c, l, tms1, tms2);
+    return String.format(fmtStr, p, pPrivKey, pPubKey, aKey, aSecret, aTok, aRefresh, c);
   }
 }

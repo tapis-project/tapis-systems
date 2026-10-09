@@ -32,6 +32,7 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 
+import edu.utexas.tacc.tapis.systems.model.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -75,11 +76,7 @@ import edu.utexas.tacc.tapis.systems.api.responses.RespSystemHistory;
 import edu.utexas.tacc.tapis.systems.api.responses.RespSystems;
 import edu.utexas.tacc.tapis.systems.api.utils.ApiUtils;
 import edu.utexas.tacc.tapis.systems.service.SystemsService;
-import edu.utexas.tacc.tapis.systems.model.PatchSystem;
-import edu.utexas.tacc.tapis.systems.model.SystemHistoryItem;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
-import edu.utexas.tacc.tapis.systems.model.UnlinkInfo;
 
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.*;
@@ -1509,6 +1506,8 @@ public class SystemResource {
   {
     // Extract Notes from the raw json.
     Object notes = extractNotes(rawJson);
+    // Convert authnCredential from ReqSysCreateCredential to Credential
+    Credential cred = buildCred(req.authnCredential);
     var tSystem = new TSystem(-1, tenantId, req.id, req.description, req.systemType, req.owner, req.host,
                        req.enabled, req.effectiveUserId, req.defaultAuthnMethod, req.bucketName, req.rootDir,
                        req.port, req.useProxy, req.proxyHost, req.proxyPort,
@@ -1518,7 +1517,7 @@ public class SystemResource {
                        req.batchLogicalQueues, req.batchDefaultLogicalQueue, req.batchSchedulerProfile, req.jobCapabilities,
                        req.tags, notes, req.importRefId, null, false,
                        req.allowChildren, null, null, null);
-    tSystem.setAuthnCredential(req.authnCredential);
+    tSystem.setAuthnCredential(cred);
     return tSystem;
   }
 
@@ -1530,6 +1529,7 @@ public class SystemResource {
     // Extract Notes from the raw json.
     Object notes = extractNotes(rawJson);
     // NOTE: Following attributes are not updatable and must be filled in on service side.
+    //       Also, we can ignore authnCredential since it not updatable.
     TSystem.SystemType systemTypeNull = null;
     String ownerNull = null;
     boolean enabledTrue = true;
@@ -1545,7 +1545,6 @@ public class SystemResource {
             req.canRunBatch, req.enableCmdPrefix, req.mpiCmd, req.batchScheduler, req.batchLogicalQueues, req.batchDefaultLogicalQueue,
             req.batchSchedulerProfile, req.jobCapabilities, req.tags, notes, req.importRefId, null, false,
             req.allowChildren, req.parentId, null, null);
-    tSystem.setAuthnCredential(req.authnCredential);
     return tSystem;
   }
 
@@ -1595,7 +1594,7 @@ public class SystemResource {
     return sysObj.toString();
   }
 
-  /**
+  /*
    * If the Json object contains a non-blank value for the field then replace the value with the mask value.
    */
   private static void maskSecret(JsonObject credObj, String field)
@@ -1703,5 +1702,16 @@ public class SystemResource {
     return (selectList.contains(IS_PUBLIC_FIELD) ||
             selectList.contains(SHARED_WITH_USERS_FIELD) ||
             selectList.contains(SEL_ALL_ATTRS));
+  }
+
+  /*
+   * Build a Credential object from a ReqSysCreateCredential
+   */
+  private static Credential buildCred(ReqSysCreateCredential r)
+  {
+    if (r == null) return null;
+    return new Credential(null, null, r.getPassword(), r.getPrivateKey(), r.getPublicKey(),
+            r.getAccessKey(), r.getAccessSecret(), r.getAccessToken(), r.getRefreshToken(), r.getCertificate(),
+            null, null, null, null, null);
   }
 }

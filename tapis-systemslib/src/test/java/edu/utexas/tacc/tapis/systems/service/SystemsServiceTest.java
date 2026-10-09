@@ -3756,8 +3756,9 @@ public class SystemsServiceTest
     String pubKeyStr = readKeyFromFile(localTestFileDir, pubKeyFile);
     String prvKeyStr = readKeyFromFile(localTestFileDir, prvKeyFile);
     // Create the credential object
-    Credential credToCheck = new Credential(AuthnMethod.PKI_KEYS, loginUser, null, null, null, null, prvKeyStr,
-                                            pubKeyStr, null, null, null, null, null, null, null, null);
+    Credential credToCheck = new Credential(AuthnMethod.PKI_KEYS, loginUser, null, prvKeyStr, pubKeyStr,
+            null, null, null, null, null, null,
+            null, null, null, null);
     // Check the credential
     Credential retCred = credUtils.verifyCredentials(rOwner1, sys, credToCheck, loginUser, AuthnMethod.PKI_KEYS);
     Assert.assertNotNull(retCred, "Returned verified credential was null for keyType: " + prvKeyFile);

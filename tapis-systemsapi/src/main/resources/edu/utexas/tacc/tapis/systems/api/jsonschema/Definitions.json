@@ -104,6 +104,20 @@
       "certificate": { "type":  "string" }
     }
   },
+  "ReqSysCreateCredential": {
+    "type": ["object", "null"],
+    "additionalProperties": false,
+    "properties": {
+      "password": { "type":  "string" },
+      "privateKey": { "type":  "string" },
+      "publicKey": { "type":  "string" },
+      "accessKey": { "type":  "string" },
+      "accessSecret": { "type":  "string" },
+      "accessToken": { "type":  "string" },
+      "refreshToken": { "type":  "string" },
+      "certificate": { "type":  "string" }
+    }
+  },
   "ArgSpec": {
     "type": "object",
     "required": [ "name" ],

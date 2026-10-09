@@ -16,6 +16,8 @@ import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
+
+import edu.utexas.tacc.tapis.systems.model.*;
 import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
@@ -54,11 +56,7 @@ import edu.utexas.tacc.tapis.sharedapi.security.ResourceRequestUser;
 import edu.utexas.tacc.tapis.systems.client.gen.model.AuthnEnum;
 import edu.utexas.tacc.tapis.systems.config.RuntimeParameters;
 import edu.utexas.tacc.tapis.systems.dao.SystemsDao;
-import edu.utexas.tacc.tapis.systems.model.CredInfoFSM;
-import edu.utexas.tacc.tapis.systems.model.Credential;
-import edu.utexas.tacc.tapis.systems.model.CredentialInfo;
 import edu.utexas.tacc.tapis.systems.model.CredentialInfo.SyncStatus;
-import edu.utexas.tacc.tapis.systems.model.TSystem;
 import edu.utexas.tacc.tapis.systems.utils.LibUtils;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SystemOperation;
@@ -338,7 +336,7 @@ public class CredUtils
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param sysId - Tapis system Id
    * @param credTargetUser - Target user for operation
-   * @param cred - Credentials to be stored
+   * @param reqCreateCred - Request object provided with credential details
    * @param createTmsKeys - Indicates if TMS keys should be created and stored
    * @param skipCheck - Indicates if cred check should happen (for LINUX, S3)
    * @param rawData - Client provided text used to create the credential - secrets should be scrubbed. Saved in update record.
@@ -346,12 +344,16 @@ public class CredUtils
    * @throws TapisException - for Tapis related exceptions
    */
   Credential createCredentialForUser(ResourceRequestUser rUser, String sysId, String credTargetUser,
-                                     Credential cred, boolean createTmsKeys, boolean skipCheck, String rawData)
+                                     ReqCreateCredential reqCreateCred, boolean createTmsKeys, boolean skipCheck, String rawData)
           throws TapisException
   {
     SystemOperation op = SystemOperation.setCred;
     Credential retCred; // Unless skipping credCheck, the full Credential that is returned, including TMS keys if generated.
     String msg;
+
+    // Convert reqCreateCred to a credential
+    Credential cred = CredUtils.buildCred(reqCreateCred);
+
     // Extract some attributes for convenience and clarity
     String credLoginUserMapping = cred.getLoginUser(); // Host login mapping from provided credential
     String oboTenant = rUser.getOboTenantId();
@@ -870,7 +872,7 @@ public class CredUtils
         // If TMS we use tmsLoginUser, else if so then the mapped value becomes loginUser, else loginUser=targetUser
         if (authnMethod.equals(AuthnMethod.TMS_KEYS))
         {
-          loginUser = ci.getTmsLoginUser();
+          loginUser = null; // TODO ci.getTmsLoginUser();
 
         }
         else
@@ -1370,8 +1372,9 @@ public class CredUtils
       throw new BadRequestException(msg);
     }
 
-    // If TMS keys requested check that system tenant allow for it
-    if (createTmsKeys) validateTmsConfig(rUser, sys.getTenant(), sysId, sys.getSystemType(), cred.getLoginUser(), isStaticEffUser);
+    // If TMS keys requested check that system tenant allows for it
+//TODO    if (createTmsKeys) validateTmsConfig(rUser, sys.getTenant(), sysId, sys.getSystemType(), cred.getLoginUser(), isStaticEffUser);
+    if (createTmsKeys) validateTmsConfig(rUser, null, sysId, sys.getSystemType(), cred.getLoginUser(), isStaticEffUser);
 
     // If createTmsKeys is false and defaultAuthnMethod for system is TMS then it is an error.
     if (!createTmsKeys && AuthnMethod.TMS_KEYS.equals(sys.getDefaultAuthnMethod()))
@@ -2339,5 +2342,16 @@ public class CredUtils
   private static String getTargetUserSecretPath(String credTargetUser, boolean isStatic)
   {
     return String.format("%s+%s", isStatic ? "static" : "dynamic", credTargetUser);
+  }
+
+  /*
+   * Build a Credential object from a ReqCreateCredential
+   */
+  private static Credential buildCred(ReqCreateCredential r)
+  {
+    if (r == null) return null;
+    return new Credential(null, r.getLoginUser(), r.getPassword(), r.getPrivateKey(), r.getPublicKey(),
+            r.getAccessKey(), r.getAccessSecret(), r.getAccessToken(), r.getRefreshToken(), r.getCertificate(),
+            null, null, null, r.getTmsResourceProvider(), r.getTmsResourceProviderAccount());
   }
 }

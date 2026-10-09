@@ -1,10 +1,6 @@
 package edu.utexas.tacc.tapis.systems.api.requests;
 
-import edu.utexas.tacc.tapis.systems.model.Capability;
-import edu.utexas.tacc.tapis.systems.model.Credential;
-import edu.utexas.tacc.tapis.systems.model.JobRuntime;
-import edu.utexas.tacc.tapis.systems.model.KeyValuePair;
-import edu.utexas.tacc.tapis.systems.model.LogicalQueue;
+import edu.utexas.tacc.tapis.systems.model.*;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
 
@@ -30,7 +26,7 @@ public final class ReqPutSystem
   public String effectiveUserId = DEFAULT_EFFECTIVEUSERID;
   public String parentId;
   public AuthnMethod defaultAuthnMethod;
-  public Credential authnCredential;
+  public ReqSysCreateCredential authnCredential;
   public int port = DEFAULT_PORT;
   public boolean useProxy = DEFAULT_USEPROXY;
   public String proxyHost = DEFAULT_PROXYHOST;

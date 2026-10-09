@@ -15,7 +15,7 @@
     "enabled": { "type": "boolean", "default": true },
     "effectiveUserId": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/UserName" },
     "defaultAuthnMethod": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/AuthnMethodEnum" },
-    "authnCredential": {"$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/Credential" },
+    "authnCredential": {"$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/ReqSysCreateCredential" },
     "bucketName": { "type": ["string", "null"], "maxLength": 63 },
     "rootDir": { "$ref": "resource:///edu/utexas/tacc/tapis/systems/api/jsonschema/Definitions.json#/DirPathRootDir" },
     "port": { "type": "integer" },

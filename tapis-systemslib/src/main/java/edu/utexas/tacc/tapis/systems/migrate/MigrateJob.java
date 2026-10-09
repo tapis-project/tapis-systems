@@ -287,7 +287,7 @@ public class MigrateJob
     // If secrets found create a credential
     if (secretsFound)
     {
-      credential = new Credential(null, null, null, null, null,
+      credential = new Credential(null, null,
               dataMapFull.get(SK_KEY_PASSWORD),
               dataMapFull.get(SK_KEY_PRIVATE_KEY),
               dataMapFull.get(SK_KEY_PUBLIC_KEY),
@@ -295,10 +295,11 @@ public class MigrateJob
               dataMapFull.get(SK_KEY_ACCESS_SECRET),
               dataMapFull.get(SK_KEY_ACCESS_TOKEN),
               dataMapFull.get(SK_KEY_REFRESH_TOKEN),
+              null, // No support yet for ssh certificates
               dataMapFull.get(SK_KEY_TMS_PRIVATE_KEY),
               dataMapFull.get(SK_KEY_TMS_PUBLIC_KEY),
               dataMapFull.get(SK_KEY_TMS_FINGERPRINT),
-              null); // No support yet for ssh certificates
+              null, null);
     }
     return credential;
   }
