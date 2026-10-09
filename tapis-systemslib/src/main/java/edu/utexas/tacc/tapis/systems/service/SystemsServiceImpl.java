@@ -97,6 +97,9 @@ public class SystemsServiceImpl implements SystemsService
   // Named and typed null values to make it clear what is being passed in to a method
   static final String nullTargetUser = null;
   static final String nullLoginUserMapping = null;
+  public static final String nullTmsLoginUser = null;
+  public static final String nullTmsResourceProvider = null;
+  public static final String nullTmsResourceProviderAccount = null;
   private static final String nullOwner = null;
   private static final AuthnMethod nullAuthnMethod = null;
   private static final String nullImpersonationId = null;
@@ -2298,7 +2301,7 @@ public class SystemsServiceImpl implements SystemsService
     String defaultValue = m.group(3);
 
     // We will need to make an ssh connection to the host.
-    // Easiest way to do that is to use TapisRunCommand, which requires a client base TapisSystem object.
+    // Easiest way to do that is to use TapisRunCommand, which requires a client based TapisSystem object.
     TapisSystem tapisSystem = createClientTapisSystemFromTSystem(system);
     // Run the command on the host system.
     String cmd = String.format("echo $%s", varName);
@@ -2363,7 +2366,7 @@ public class SystemsServiceImpl implements SystemsService
     }
 
     // We will need to make an ssh connection to the host.
-    // Easiest way to do that is to use TapisRunCommand, which requires a client base TapisSystem object.
+    // Easiest way to do that is to use TapisRunCommand, which requires a client based TapisSystem object.
     TapisSystem tapisSystem = createClientTapisSystemFromTSystem(system);
     // Run the command on the host system.
     String cmd = String.format("echo $%s", varName);

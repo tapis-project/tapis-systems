@@ -16,11 +16,11 @@ import java.util.function.Function;
 
 import org.jooq.Field;
 import org.jooq.ForeignKey;
-import org.jooq.Function19;
+import org.jooq.Function22;
 import org.jooq.Name;
 import org.jooq.Record;
 import org.jooq.Records;
-import org.jooq.Row19;
+import org.jooq.Row22;
 import org.jooq.Schema;
 import org.jooq.SelectField;
 import org.jooq.Table;
@@ -149,6 +149,23 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
      */
     public final TableField<SystemsCredInfoRecord, String> SYNC_FAIL_MESSAGE = createField(DSL.name("sync_fail_message"), SQLDataType.CLOB, this, "");
 
+    /**
+     * The column <code>tapis_sys.systems_cred_info.tms_login_user</code>.
+     */
+    public final TableField<SystemsCredInfoRecord, String> TMS_LOGIN_USER = createField(DSL.name("tms_login_user"), SQLDataType.CLOB, this, "");
+
+    /**
+     * The column
+     * <code>tapis_sys.systems_cred_info.tms_resource_provider</code>.
+     */
+    public final TableField<SystemsCredInfoRecord, String> TMS_RESOURCE_PROVIDER = createField(DSL.name("tms_resource_provider"), SQLDataType.CLOB, this, "");
+
+    /**
+     * The column
+     * <code>tapis_sys.systems_cred_info.tms_resource_provider_account</code>.
+     */
+    public final TableField<SystemsCredInfoRecord, String> TMS_RESOURCE_PROVIDER_ACCOUNT = createField(DSL.name("tms_resource_provider_account"), SQLDataType.CLOB, this, "");
+
     private SystemsCredInfo(Name alias, Table<SystemsCredInfoRecord> aliased) {
         this(alias, aliased, null);
     }
@@ -251,18 +268,18 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
     }
 
     // -------------------------------------------------------------------------
-    // Row19 type methods
+    // Row22 type methods
     // -------------------------------------------------------------------------
 
     @Override
-    public Row19<Integer, String, String, String, String, LocalDateTime, LocalDateTime, String, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, SyncStatus, LocalDateTime, Integer, String> fieldsRow() {
-        return (Row19) super.fieldsRow();
+    public Row22<Integer, String, String, String, String, LocalDateTime, LocalDateTime, String, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, Boolean, SyncStatus, LocalDateTime, Integer, String, String, String, String> fieldsRow() {
+        return (Row22) super.fieldsRow();
     }
 
     /**
      * Convenience mapping calling {@link SelectField#convertFrom(Function)}.
      */
-    public <U> SelectField<U> mapping(Function19<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super String, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super SyncStatus, ? super LocalDateTime, ? super Integer, ? super String, ? extends U> from) {
+    public <U> SelectField<U> mapping(Function22<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super String, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super SyncStatus, ? super LocalDateTime, ? super Integer, ? super String, ? super String, ? super String, ? super String, ? extends U> from) {
         return convertFrom(Records.mapping(from));
     }
 
@@ -270,7 +287,7 @@ public class SystemsCredInfo extends TableImpl<SystemsCredInfoRecord> {
      * Convenience mapping calling {@link SelectField#convertFrom(Class,
      * Function)}.
      */
-    public <U> SelectField<U> mapping(Class<U> toType, Function19<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super String, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super SyncStatus, ? super LocalDateTime, ? super Integer, ? super String, ? extends U> from) {
+    public <U> SelectField<U> mapping(Class<U> toType, Function22<? super Integer, ? super String, ? super String, ? super String, ? super String, ? super LocalDateTime, ? super LocalDateTime, ? super String, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super Boolean, ? super SyncStatus, ? super LocalDateTime, ? super Integer, ? super String, ? super String, ? super String, ? super String, ? extends U> from) {
         return convertFrom(toType, Records.mapping(from));
     }
 }

@@ -29,6 +29,7 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.SystemType;
 
 import static edu.utexas.tacc.tapis.shared.threadlocal.SearchParameters.*;
 import static edu.utexas.tacc.tapis.systems.IntegrationUtils.*;
+import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.*;
 
 /**
  * Test the SystemsDao class against a DB running locally
@@ -380,7 +381,8 @@ public class SystemsDaoTest
     // Create/fetch a couple of CredInfo records
     String hostLoginUser = loginUserMapping1;
     CredentialInfo credInfo1 = new CredentialInfo(sys.getSeqId(), tenantName, sysId, tapisUser, isStaticFalse,
-                                                  hostLoginUser, loginUserMapping1, CredentialInfo.SyncStatus.PENDING);
+                                      hostLoginUser, loginUserMapping1, nullTmsLoginUser, nullTmsResourceProvider,
+                                      nullTmsResourceProviderAccount, CredentialInfo.SyncStatus.PENDING);
     dao.createCredInfo(rOwner1, credInfo1);
     CredentialInfo ci = dao.getCredInfo(tenantName, sysId, tapisUser, isStaticFalse);
     Assert.assertNotNull(ci);
@@ -393,7 +395,8 @@ public class SystemsDaoTest
     Assert.assertEquals(loginUser, loginUserMapping1);
     hostLoginUser = owner2;
     CredentialInfo credInfo2 = new CredentialInfo(sys.getSeqId(), tenantName, sysId, tapisUser, isStaticTrue,
-                                                  hostLoginUser, null, CredentialInfo.SyncStatus.PENDING);
+                                            hostLoginUser, nullTmsLoginUser, nullTmsLoginUser, nullTmsResourceProvider,
+                                            nullTmsResourceProviderAccount, CredentialInfo.SyncStatus.PENDING);
     dao.createCredInfo(rOwner1, credInfo2);
     ci = dao.getCredInfo(credInfo2);
     Assert.assertNotNull(ci);

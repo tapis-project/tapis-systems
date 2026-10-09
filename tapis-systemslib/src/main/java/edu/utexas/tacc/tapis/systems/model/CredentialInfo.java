@@ -1,17 +1,18 @@
 package edu.utexas.tacc.tapis.systems.model;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 
 /*
  * Class representing metadata for credentials stored in the Security Kernel.
- * Credentials are tied to a specific system and user.
- * Also includes login user associated with the credential.
+ * Credentials are tied to a specific system and Tapis user.
+ * Includes login user associated with the credential (host_login_user).
+ *
+ * Systems service maintains the mapping of Tapis user to has login user if there is one (login_user_mapping)
+ * Systems stores attributes related to TMS_KEYS: tms_login_user, tms_resource_provider, tms_resource_provider_account
+ *
+ * If a System has a static effectiveUserId then there will be no mapping to either login_user_mapping or tms_login_user.
  *
  * Secrets are not persisted by the Systems Service. Actual secrets are managed by the Security Kernel.
- *
- * Systems service does store a mapping of tapis user to login user if they are different.
- * If a System has a static effectiveUserId then there will be no mapping.
  *
  * Note that we do not make this class fully immutable because we need to keep the in-memory object in sync
  *   with the DB record
@@ -45,6 +46,9 @@ public class CredentialInfo
   private final boolean isStatic; // Indicates if record is for the static or dynamic effectiveUserId case.
 
   private final String loginUserMapping; // For case of dynamic effectiveUserId, this is an optional mapping to host login user.
+  private final String tmsLoginUser; // TODO Host login user as provided by TMS credential server.
+  private final String tmsResourceProvider; // TODO Resource provider (such as tacc) associated with the credential.
+  private final String tmsResourceProviderAccount; // TODO Resource provider account (such as someuser@tacc.utexas.edu) associated with the credential.
   private String hostLoginUser; // Username used when connecting to host
   private boolean hasCredentials; // Indicates if system has credentials registered for the current defaultAuthnMethod
   private boolean hasPassword; // Indicates if credentials for PASSWORD have been registered.
@@ -67,10 +71,11 @@ public class CredentialInfo
    * Simple constructor to populate all attributes
    */
   public CredentialInfo(int systemSeqId1, String tenant1, String systemId1, String tapisUser1, boolean isStatic1,
-                        String hostLoginUser1, String loginUserMapping1, boolean hasCredentials1, boolean hasPassword1,
-                        boolean hasPkiKeys1, boolean hasAccessKey1, boolean hasToken1, boolean hasTmsKeys1,
-                        SyncStatus syncStatus1, int syncFailCount1, String syncFailMessage1, Instant syncFailed1,
-                        Instant created1, Instant updated1)
+                        String hostLoginUser1, String loginUserMapping1,
+                        String tmsLoginUser1, String tmsResourceProvider1, String tmsResourceProviderAccount1,
+                        boolean hasCredentials1, boolean hasPassword1, boolean hasPkiKeys1, boolean hasAccessKey1,
+                        boolean hasToken1, boolean hasTmsKeys1, SyncStatus syncStatus1, int syncFailCount1,
+                        String syncFailMessage1, Instant syncFailed1, Instant created1, Instant updated1)
   {
     systemSeqId = systemSeqId1;
     tenant = tenant1;
@@ -79,6 +84,9 @@ public class CredentialInfo
     isStatic = isStatic1;
     hostLoginUser = hostLoginUser1;
     loginUserMapping = loginUserMapping1;
+    tmsLoginUser = tmsLoginUser1;
+    tmsResourceProvider = tmsResourceProvider1;
+    tmsResourceProviderAccount = tmsResourceProviderAccount1;
     hasCredentials = hasCredentials1;
     hasPassword = hasPassword1;
     hasPkiKeys = hasPkiKeys1;
@@ -98,7 +106,8 @@ public class CredentialInfo
    * For initial state of the record.
    */
   public CredentialInfo(int systemSeqId1, String tenant1, String systemId1, String tapisUser1, boolean isStatic1,
-                        String hostLoginUser1, String loginUserMapping1, SyncStatus syncStatus1)
+                        String hostLoginUser1, String loginUserMapping1, String tmsLoginUser1,
+                        String tmsResourceProvider1, String tmsResourceProviderAccount1, SyncStatus syncStatus1)
   {
     systemSeqId = systemSeqId1;
     tenant = tenant1;
@@ -107,6 +116,9 @@ public class CredentialInfo
     isStatic = isStatic1;
     hostLoginUser = hostLoginUser1;
     loginUserMapping = loginUserMapping1;
+    tmsLoginUser = tmsLoginUser1;
+    tmsResourceProvider = tmsResourceProvider1;
+    tmsResourceProviderAccount = tmsResourceProviderAccount1;
     hasCredentials = false;
     hasPassword = false;
     hasPkiKeys = false;
@@ -178,16 +190,20 @@ public class CredentialInfo
   /* ********************************************************************** */
   /*                               Accessors                                */
   /* ********************************************************************** */
+  // Immutable values
   public int getSystemSeqId() { return systemSeqId; }
   public String getTenant() { return tenant; }
   public String getSystemId() { return systemId; }
   public String getTapisUser() { return tapisUser; }
   public boolean isStatic() { return isStatic; }
+  public String getLoginUserMapping() { return loginUserMapping; }
+  public String getTmsLoginUser() { return tmsLoginUser; }
+  public String getTmsResourceProvider() { return tmsResourceProvider; }
+  public String getTmsResourceProviderAccount() { return tmsResourceProviderAccount; }
 
+  // Mutable values
   public String getHostLoginUser() { return hostLoginUser; }
   public void setHostLoginUser(String s) { hostLoginUser = s; }
-
-  public String getLoginUserMapping() { return loginUserMapping; }
 
   public boolean hasCredentials() { return hasCredentials; }
   public void setHasCredentials(boolean b) { hasCredentials = b; }

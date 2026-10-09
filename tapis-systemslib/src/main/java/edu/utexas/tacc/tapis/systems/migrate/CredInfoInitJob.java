@@ -52,6 +52,7 @@ import edu.utexas.tacc.tapis.systems.service.SysUtils;
 
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
+import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.*;
 
 /*
  * CredInfoInitJob used to initialize the CredInfo table based on the records in Vault and SK.
@@ -273,8 +274,8 @@ public class CredInfoInitJob
         }
 
         // We now have all attributes, use them to create a CredInfo record in memory
-        credInfo = new CredentialInfo(sysSeqId, credInfoDB.getTenant(), credInfoDB.getSystemId(),
-                tapisUser, isStatic, hostLoginUser, loginUserMapping,
+        credInfo = new CredentialInfo(sysSeqId, credInfoDB.getTenant(), credInfoDB.getSystemId(), tapisUser, isStatic,
+                hostLoginUser, loginUserMapping, nullTmsLoginUser, nullTmsResourceProvider, nullTmsResourceProviderAccount,
                 hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
                 sm.hasTmsKeys(), credInfoDB.getSyncStatus(), credInfoDB.getSyncFailCount(),
                 credInfoDB.getSyncFailMessage(), credInfoDB.getSyncFailed(),
@@ -304,6 +305,7 @@ public class CredInfoInitJob
         Instant utcNow = TapisUtils.getUTCTimeNow().toInstant(ZoneOffset.UTC);
         // We now have all attributes, use them to create a CredInfo record in memory
         credInfo = new CredentialInfo(sysSeqId, tenant, sys.getId(), tapisUser, isStatic, hostLoginUser, loginUserMapping,
+                nullTmsLoginUser, nullTmsResourceProvider, nullTmsResourceProviderAccount,
                 hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
                 sm.hasTmsKeys(), CredentialInfo.SyncStatus.IN_PROGRESS, syncFailCount, syncFailMsg, syncFailTimestamp,
                 utcNow, utcNow);

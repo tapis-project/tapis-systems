@@ -205,6 +205,28 @@
         </locations>
       </configuration>
     </plugin>
+
+      <!-- **************** Use mvn helper to set path generated code **************** -->
+    <plugin>
+      <groupId>org.codehaus.mojo</groupId>
+      <artifactId>build-helper-maven-plugin</artifactId>
+      <version>3.6.0</version>
+      <executions>
+        <execution>
+          <id>add-jooq-sources</id>
+          <phase>generate-sources</phase>
+          <goals>
+            <goal>add-source</goal>
+          </goals>
+          <configuration>
+            <sources>
+              <source>${project.build.sourceDirectory}/edu/utexas/tacc/tapis/systems/gen/jooq</source>
+            </sources>
+          </configuration>
+        </execution>
+      </executions>
+    </plugin>
+
     <!-- **************** Run jOOQ **************** -->
     <plugin>
       <groupId>org.jooq</groupId>
@@ -239,6 +261,7 @@
                 <inputSchema>tapis_sys</inputSchema>
                 <!-- Include everything from the schema -->
                 <includes>.*</includes>
+<!--  TODO               <excludes>flyway_schema_history</excludes>-->
                 <!-- All elements that are excluded from your schema
                      (A Java regular expression. Use the pipe to separate several expressions).
                      Excludes match before includes, i.e. excludes have a higher priority -->
@@ -330,6 +353,13 @@
           </configuration>
         </execution>
       </executions>
+      <dependencies>
+        <dependency>
+          <groupId>org.postgresql</groupId>
+          <artifactId>postgresql</artifactId>
+          <version>42.7.4</version>
+        </dependency>
+      </dependencies>
     </plugin>
     </plugins>
     </build>

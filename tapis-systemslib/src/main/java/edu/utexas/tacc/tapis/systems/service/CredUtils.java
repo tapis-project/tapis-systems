@@ -77,8 +77,7 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_PRIVATE_
 import static edu.utexas.tacc.tapis.systems.model.Credential.SK_KEY_TMS_PUBLIC_KEY;
 import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NAME;
 import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
-import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.NOT_FOUND;
-import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.nullLoginUserMapping;
+import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.*;
 
 /*
    Utility class containing Tapis credential related methods needed by the
@@ -669,9 +668,10 @@ public class CredUtils
     synchronized (CredUtils.class)
     {
       // 1. Create/update CredInfo record to status PENDING
-      // Construct a credInfo record to be used for create/update.
+      // Construct a credInfo record to be used for create/update. TODO update for TMS, null is probably not right
       credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStatic, newHostLoginUser,
-                                    credLoginUserMapping, SyncStatus.PENDING);
+                                    credLoginUserMapping, nullTmsLoginUser, nullTmsResourceProvider, nullTmsResourceProviderAccount,
+                                    SyncStatus.PENDING);
       // Now determine if we already have a record.
       CredentialInfo credInfoDB = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStatic);
       if (credInfoDB == null)
@@ -788,7 +788,7 @@ public class CredUtils
     return changeCount;
   }
 
-  /** TODO Update for TMS
+  /*
    * Get a credential given system, targetUser, isStatic and authnMethod
    * No checks are done for incoming arguments and the system must exist
    * resourceTenant used when a service is calling as itself and needs to specify the tenant for the resource
@@ -861,7 +861,10 @@ public class CredUtils
       CredentialInfo ci = dao.getCredInfo(oboTenant, systemId, credTargetUser, isStaticEffectiveUser);
       // If static there is no mapping and tms is not relevant, it is targetUser.
       // If dynamic then need to also consider TMS.
-      String loginUser = null;
+      String loginUser;
+      String tmsLoginUser = ci.getTmsLoginUser();
+      String tmsResourceProvider = ci.getTmsResourceProvider();
+      String tmsResourceProviderAccount = ci.getTmsResourceProviderAccount();
       if (isStaticEffectiveUser)
       {
         loginUser = credTargetUser;
@@ -872,7 +875,7 @@ public class CredUtils
         // If TMS we use tmsLoginUser, else if so then the mapped value becomes loginUser, else loginUser=targetUser
         if (authnMethod.equals(AuthnMethod.TMS_KEYS))
         {
-          loginUser = null; // TODO ci.getTmsLoginUser();
+          loginUser = tmsLoginUser;
 
         }
         else
@@ -885,7 +888,6 @@ public class CredUtils
             loginUser = credTargetUser;
         }
       }
-      String tmsLoginUser = null, tmsResourceProvider = null, tmsResourceProviderAccount = null; // TODO
       // Create a credential
       String nullCert = null;
       credential = new Credential(authnMethod, loginUser,
@@ -911,7 +913,7 @@ public class CredUtils
     return credential;
   }
 
-  /** TODO/TBD update for tmsLoginUser, tmsRP, tmsRPAcct?
+  /**
    * Build a TapisSystem client credential based on the TSystem model credential
    * Needed for shared code that expects to use the java wrapper client generated credential model.
    *
@@ -938,6 +940,8 @@ public class CredUtils
     c.setTmsFingerprint(cred.getTmsFingerprint());
     c.setCertificate(cred.getCertificate());
     c.setLoginUser(cred.getLoginUser());
+    c.setTmsResourceProvider(cred.getTmsResourceProvider());
+    c.setTmsResourceProviderAccount(cred.getTmsResourceProvider());
     return c;
   }
 
@@ -1243,14 +1247,17 @@ public class CredUtils
        // Create/update CredInfo record
        credInfo = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser);
        String loginUserMapping = (credInfo == null) ? null : credInfo.getLoginUserMapping();
+       String tmsLoginUser = (credInfo == null) ? null : credInfo.getTmsLoginUser();
+       String tmsResourceProvider = (credInfo == null) ? null : credInfo.getTmsResourceProvider();
+       String tmsResourceProviderAccount = (credInfo == null) ? null : credInfo.getTmsResourceProviderAccount();
        if (credInfo == null)
        {
          // Record does not already exist, create it. Note we go through all states PENDING->IN_PROGRESS->COMPLETED
          //   because we want to make sure we never violate allowed state transitions.
          // Determine hostLogin user based on isStatic and loginUserMapping
          String hostLoginUser = determineHostLoginUser(isStaticEffUser, sys.getEffectiveUserId(), loginUserMapping, tapisUser);
-         credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser,
-                                       hostLoginUser, loginUserMapping, SyncStatus.PENDING);
+         credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser, hostLoginUser,
+                           loginUserMapping, tmsLoginUser, tmsResourceProvider, tmsResourceProviderAccount, SyncStatus.PENDING);
          credInfo = dao.createCredInfo(rUser, credInfo);
          updateCredInfoStatus(rUser, credInfo, SyncStatus.IN_PROGRESS, opName);
          updateCredInfoStatus(rUser, credInfo, SyncStatus.COMPLETED, opName);
@@ -1298,7 +1305,8 @@ public class CredUtils
           throw new WebApplicationException(msg);
         }
         credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser,
-              hostLoginUser, nullLoginUserMapping, SyncStatus.PENDING);
+                         hostLoginUser, nullLoginUserMapping, nullTmsLoginUser, nullTmsResourceProvider,
+                         nullTmsResourceProviderAccount, SyncStatus.PENDING);
       }
       else
       {
@@ -1310,9 +1318,10 @@ public class CredUtils
         Instant syncFailTimestamp = null;
         Instant utcNow = TapisUtils.getUTCTimeNow().toInstant(ZoneOffset.UTC);
         credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStaticEffUser,
-                             hostLoginUser, nullLoginUserMapping, credInfo.hasCredentials(), credInfo.hasPassword(),
-                             credInfo.hasPkiKeys(), credInfo.hasAccessKey(), credInfo.hasToken(), credInfo.hasTmsKeys(),
-                             SyncStatus.PENDING, syncFailCount, syncFailMsg, syncFailTimestamp, utcNow, utcNow);
+                hostLoginUser, nullLoginUserMapping, nullTmsLoginUser, nullTmsResourceProvider,
+                nullTmsResourceProviderAccount, credInfo.hasCredentials(), credInfo.hasPassword(), credInfo.hasPkiKeys(),
+                credInfo.hasAccessKey(), credInfo.hasToken(), credInfo.hasTmsKeys(),
+                SyncStatus.PENDING, syncFailCount, syncFailMsg, syncFailTimestamp, utcNow, utcNow);
       }
       // Now create the record in the DB
       // Note we go through all states PENDING->IN_PROGRESS->COMPLETED because we want to make sure we never
@@ -1322,7 +1331,8 @@ public class CredUtils
       updateCredInfoStatus(rUser, credInfo, SyncStatus.COMPLETED, opName);
       // Log successful operation
       String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_CREATED", rUser, credInfo.getTenant(), credInfo.getSystemId(),
-            credInfo.getTapisUser(), isStaticEffUser, hostLoginUser, nullLoginUserMapping);
+              credInfo.getTapisUser(), isStaticEffUser, hostLoginUser, nullLoginUserMapping,
+              nullTmsLoginUser, nullTmsResourceProvider, nullTmsResourceProviderAccount);
       log.debug(msg);
     }
   }
@@ -1722,196 +1732,203 @@ public class CredUtils
     return hostLoginUser;
   }
 
-  /*
-   * NOTE: Original plan used this during service startup. Instead, now it is handled by the standalone utility
-   * CredInfoInitJob.java
-   * Originally called from initCredInfo() using:
-   *    // Read list of records from a file and create in PENDING state.
-   *    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_BEGIN"));
-   *    int numRecords = credInfoInitFromFile(rUser);
-   *    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_END", numRecords));
-   * Read list of records from a file and create/update CredInfo records in PENDING state.
-   * Log errors but otherwise ignore them.
-   * Look for records in file /tmp/tapis_sys_cred_info_init.csv
-   * Records must have this format:
-   *     tenant,sysId,credTargetUser,isStatic,authnMethod
-   * Note that authnMethod is not used.
-   * Note that the cvs file can (and usually will be) generated by running the SKUtility program.
-   * Code is in tapis-security repo. For code and instructions please see SKUtility.java and SkUtilityParameters.java.
-   *
-   * From the record in the file we have the primary key values for table: tenant, sysId, isStatic
-   * Most of the other values (has_credentials, has_pki_keys, etc.) will be filled in from SK during a sync.
-   *
-   * But we still need to figure out values for tapisUser, hostLoginUser, loginUserMapping
-   *
-   * Two scenarios:
-   *
-   * 1. This method is mainly intended for initializing the CredInfo table during the initial upgrade of Tapis
-   *    from a previous version that did not support CredInfo tracking. In this case of a first run any existing
-   *    CredInfo records will have been migrated from the old loginUserMapping table. They will all have a
-   *    loginUserMapping and isStatic=false.
-   *   For each record in the CVS file a CredInfo record may or may not be in the DB:
-   *    a. CredInfo in the DB: From previous loginUserMapping record. In this case
-   *         loginUserMapping : from DB, should never be null
-   *         hostLoginUser    : if isStatic=true use effectiveUserId from system
-   *                            if isStatic=false use loginUserMapping from the DB
-   *    b. CredInfo not in DB. In this case
-   *         loginUserMapping : never set by tapisUser, use null
-   *         hostLoginUser    : if isStatic=true use effectiveUserId from system
-   *                            if isStatic=false use credTargetUser from the record
-   *
-   * 2. In addition to support for the initial upgrade, this method can also be used to force records into the
-   *    pending state or add records that somehow have been missed.
-   *    a. CredInfo in the DB: In this case
-   *         loginUserMapping : from DB, might be null
-   *         hostLoginUser    : if isStatic=true use effectiveUserId from system
-   *                            if isStatic=false and loginUserMapping!=null, use loginUserMapping from the DB
-   *                            if isStatic=false and loginUserMapping=null, use credTargetUser from the record
-   *    b. CredInfo not in DB. In this case
-   *         loginUserMapping : not available, use null
-   *         hostLoginUser    : if isStatic=true use effectiveUserId from system
-   *                            if isStatic=false use credTargetUser from the record
-   *
-   * Note that the second algorithm can be used for both scenarios, which is good, since there is no way to
-   * detect the scenario, and we want to support both scenarios.
-   */
-  private int credInfoInitFromFile(ResourceRequestUser rUser)
-  {
-    int retCount = 0;
-    Path filePath = Path.of(CREDINFO_INIT_TMP_CSV_FILE);
-    // If no file then we are done
-    if (!Files.isRegularFile(filePath))
-    {
-      log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_NOFILE", filePath.toString()));
-      return retCount;
-    }
-    // Read CSV records from file. If incorrect format log message and continue.
-    try (BufferedReader reader = Files.newBufferedReader(filePath))
-    {
-      CSVReader csvReader = new CSVReader(reader);
-      CredentialInfo credInfo;
-      // Read and process lines until done
-      do
-      {
-        credInfo = csvReadLineAndCreateCredInfoRecord(rUser, csvReader);
-      }
-      while (credInfo != null);
-    }
-    catch (Exception e)
-    {
-      log.error(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_ERR", e.getMessage()));
-    }
-    return retCount;
-  }
-
-  /*
-   * Use openCSV library to read a line and parse the fields.
-   * One record per line, a CredentialInfo object is created from the data.
-   * If a CredentialInfo object already exists in the DB then status is updated to PENDING,
-   * else a new CredentialInfo record is persisted to the DB.
-   * Records must have this format:
-   *     tenant,sysId,targetUser,isStatic,authnMethod
-   * Strings are trimmed before being processed
-   * If there is an error processing a line a non-null CredInfo is still returned so processing will continue.
-   */
-  private CredentialInfo csvReadLineAndCreateCredInfoRecord(ResourceRequestUser rUser, CSVReader reader)
-  {
-    String opName = "csvReadLineAndCreateRecord";
-    String [] nextRecord;
-    CredentialInfo credInfo;
-    try
-    {
-      // Get and parse next line
-      nextRecord = reader.readNext();
-      // If last record processed then return
-      if (nextRecord == null) return null;
-
-      // Extract and validate attributes from the record
-      if (nextRecord.length != 5)
-      {
-        throw new Exception(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_LINE_PARSE_ERR", "Incorrect number of csv fields"));
-      }
-      String tenant = nextRecord[0].trim();
-      String sysId = nextRecord[1].trim();
-      String credTargetUser = nextRecord[2].trim();
-      boolean isStatic = Boolean.parseBoolean(nextRecord[3].trim());
-      String authnMethod = nextRecord[4].trim(); // Not used, ignore
-      credInfo = createUpdatePendingCredInfoRecordFromCSVRecord(rUser, tenant, sysId, credTargetUser, isStatic);
-    }
-    catch (Exception e)
-    {
-      // On error log message but continue;
-      log.error(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_LINE_ERR", e.getMessage()));
-      // Return non-null credInfo so calling loop will continue.
-      credInfo = new CredentialInfo(-1, "", "", "", true, "", "", SyncStatus.FAILED);
-    }
-    return credInfo;
-  }
-
-  /*
-   * Create or update a CredInfo record with status of PENDING.
-   * Called when service is starting up and CredInfo records are being initialized by reading csv data from a file.
-   *
-   * From the record in the file we have some of the primary key values for table: tenant, sysId, isStatic
-   * Most of the other values (has_credentials, has_pki_keys, etc.) will be filled in from SK during a sync.
-   *
-   * But we still need to figure out values for tapisUser, hostLoginUser and loginUserMapping
-   * tapisUser is fairly straightforward, see below. For others:
-   *
-   * Two cases:
-   *    a. CredInfo in the DB:
-   *         loginUserMapping : from DB, might be null
-   *         hostLoginUser : if isStatic=true use effectiveUserId from system
-   *                         if isStatic=false and loginUserMapping!=null, use loginUserMapping from the DB
-   *                         if isStatic=false and loginUserMapping=null, use credTargetUser from the record
-   *    b. CredInfo not in DB:
-   *         loginUserMapping : not available, use null
-   *         hostLoginUser : if isStatic=true use effectiveUserId from system
-   *                         if isStatic=false use credTargetUser from the record
-   */
-  private CredentialInfo createUpdatePendingCredInfoRecordFromCSVRecord(ResourceRequestUser rUser, String tenant, String sysId,
-                                                                        String credTargetUser, boolean isStatic)
-  {
-    String opName = "createUpdatePendingCredInfoRecordFromCSVRecord";
-    CredentialInfo credInfo;
-    // Fetch the system, we will use the seqId and owner
-    TSystem sys = dao.getSystem(tenant, sysId); // For seqId, owner
-
-    // Compute tapisUser, hostLoginUser and loginUserMapping
-    String tapisUser, hostLoginUser, loginUserMapping;
-    // tapisUser.
-    // For dynamic always credTargetUser.
-    // For static use system owner, that is who will most likely have registered the credential.
-    //   In practice, if it was not the owner, but instead it was a tenant admin, for example, it should not matter
-    //   since anyone using the system will get the credential for the static effUserId.
-    if (!isStatic) tapisUser = credTargetUser; else tapisUser = sys.getOwner();
-
-    // We are mutating a CredInfo record so synchronize around the class
-    synchronized (CredUtils.class)
-    {
-      CredentialInfo credInfoDB = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStatic);
-      if (credInfoDB != null)
-      {
-        // Record is already in the DB, just need to update status to PENDING
-        credInfo = updateCredInfoStatus(rUser, credInfoDB, SyncStatus.PENDING, opName);
-      }
-      else
-      {
-        // No record in DB, create one with status of PENDING.
-        // loginUserMapping not available, use null
-        loginUserMapping = null;
-
-        // Determine hostLoginUser. If dynamic, credTargetUser, if static, system effectiveUserId
-        hostLoginUser = determineHostLoginUser(isStatic, sys.getEffectiveUserId(), nullLoginUserMapping, credTargetUser);
-
-        // Create and persist the record
-        credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStatic,
-                                      hostLoginUser, loginUserMapping, SyncStatus.PENDING);
-        credInfo = dao.createCredInfo(rUser, credInfo);
-      }
-    }
-    return credInfo;
-  }
+//  /*
+//   * NOTE: No longer used (but double check)
+//   * NOTE: Original plan used this during service startup. Instead, now it is handled by the standalone utility
+//   * CredInfoInitJob.java
+//   * Originally called from initCredInfo() using:
+//   *    // Read list of records from a file and create in PENDING state.
+//   *    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_BEGIN"));
+//   *    int numRecords = credInfoInitFromFile(rUser);
+//   *    log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_END", numRecords));
+//   * Read list of records from a file and create/update CredInfo records in PENDING state.
+//   * Log errors but otherwise ignore them.
+//   * Look for records in file /tmp/tapis_sys_cred_info_init.csv
+//   * Records must have this format:
+//   *     tenant,sysId,credTargetUser,isStatic,authnMethod
+//   * Note that authnMethod is not used.
+//   * Note that the cvs file can (and usually will be) generated by running the SKUtility program.
+//   * Code is in tapis-security repo. For code and instructions please see SKUtility.java and SkUtilityParameters.java.
+//   *
+//   * From the record in the file we have the primary key values for table: tenant, sysId, isStatic
+//   * Most of the other values (has_credentials, has_pki_keys, etc.) will be filled in from SK during a sync.
+//   *
+//   * But we still need to figure out values for tapisUser, hostLoginUser, loginUserMapping
+//   *
+//   * Two scenarios:
+//   *
+//   * 1. This method is mainly intended for initializing the CredInfo table during the initial upgrade of Tapis
+//   *    from a previous version that did not support CredInfo tracking. In this case of a first run any existing
+//   *    CredInfo records will have been migrated from the old loginUserMapping table. They will all have a
+//   *    loginUserMapping and isStatic=false.
+//   *   For each record in the CVS file a CredInfo record may or may not be in the DB:
+//   *    a. CredInfo in the DB: From previous loginUserMapping record. In this case
+//   *         loginUserMapping : from DB, should never be null
+//   *         hostLoginUser    : if isStatic=true use effectiveUserId from system
+//   *                            if isStatic=false use loginUserMapping from the DB
+//   *    b. CredInfo not in DB. In this case
+//   *         loginUserMapping : never set by tapisUser, use null
+//   *         hostLoginUser    : if isStatic=true use effectiveUserId from system
+//   *                            if isStatic=false use credTargetUser from the record
+//   *
+//   * 2. In addition to support for the initial upgrade, this method can also be used to force records into the
+//   *    pending state or add records that somehow have been missed.
+//   *    a. CredInfo in the DB: In this case
+//   *         loginUserMapping : from DB, might be null
+//   *         hostLoginUser    : if isStatic=true use effectiveUserId from system
+//   *                            if isStatic=false and loginUserMapping!=null, use loginUserMapping from the DB
+//   *                            if isStatic=false and loginUserMapping=null, use credTargetUser from the record
+//   *    b. CredInfo not in DB. In this case
+//   *         loginUserMapping : not available, use null
+//   *         hostLoginUser    : if isStatic=true use effectiveUserId from system
+//   *                            if isStatic=false use credTargetUser from the record
+//   *
+//   * Note that the second algorithm can be used for both scenarios, which is good, since there is no way to
+//   * detect the scenario, and we want to support both scenarios.
+//   */
+//  private int credInfoInitFromFile(ResourceRequestUser rUser)
+//  {
+//    int retCount = 0;
+//    Path filePath = Path.of(CREDINFO_INIT_TMP_CSV_FILE);
+//    // If no file then we are done
+//    if (!Files.isRegularFile(filePath))
+//    {
+//      log.info(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_NOFILE", filePath.toString()));
+//      return retCount;
+//    }
+//    // Read CSV records from file. If incorrect format log message and continue.
+//    try (BufferedReader reader = Files.newBufferedReader(filePath))
+//    {
+//      CSVReader csvReader = new CSVReader(reader);
+//      CredentialInfo credInfo;
+//      // Read and process lines until done
+//      do
+//      {
+//        credInfo = csvReadLineAndCreateCredInfoRecord(rUser, csvReader);
+//      }
+//      while (credInfo != null);
+//    }
+//    catch (Exception e)
+//    {
+//      log.error(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_ERR", e.getMessage()));
+//    }
+//    return retCount;
+//  }
+//
+//  /*
+//   * NOTE: No longer used (but double check)
+//   *       Only called from credInfoInitFromFile()
+//   * Use openCSV library to read a line and parse the fields.
+//   * One record per line, a CredentialInfo object is created from the data.
+//   * If a CredentialInfo object already exists in the DB then status is updated to PENDING,
+//   * else a new CredentialInfo record is persisted to the DB.
+//   * Records must have this format:
+//   *     tenant,sysId,targetUser,isStatic,authnMethod
+//   * Strings are trimmed before being processed
+//   * If there is an error processing a line a non-null CredInfo is still returned so processing will continue.
+//   */
+//  private CredentialInfo csvReadLineAndCreateCredInfoRecord(ResourceRequestUser rUser, CSVReader reader)
+//  {
+//    String opName = "csvReadLineAndCreateRecord";
+//    String [] nextRecord;
+//    CredentialInfo credInfo;
+//    try
+//    {
+//      // Get and parse next line
+//      nextRecord = reader.readNext();
+//      // If last record processed then return
+//      if (nextRecord == null) return null;
+//
+//      // Extract and validate attributes from the record
+//      if (nextRecord.length != 5)
+//      {
+//        throw new Exception(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_LINE_PARSE_ERR", "Incorrect number of csv fields"));
+//      }
+//      String tenant = nextRecord[0].trim();
+//      String sysId = nextRecord[1].trim();
+//      String credTargetUser = nextRecord[2].trim();
+//      boolean isStatic = Boolean.parseBoolean(nextRecord[3].trim());
+//      String authnMethod = nextRecord[4].trim(); // Not used, ignore
+//      credInfo = createUpdatePendingCredInfoRecordFromCSVRecord(rUser, tenant, sysId, credTargetUser, isStatic);
+//    }
+//    catch (Exception e)
+//    {
+//      // On error log message but continue;
+//      log.error(LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_FILE_LINE_ERR", e.getMessage()));
+//      // Return non-null credInfo so calling loop will continue.
+//      credInfo = new CredentialInfo(-1, "", "", "", true, "",
+//                    "", null, null, null, SyncStatus.FAILED);
+//    }
+//    return credInfo;
+//  }
+//
+//  /*
+//   * NOTE: No longer used (but double check)
+//   *       Only called from csvReadLineAndCreateCredInfoRecord() which is only called from credInfoInitFromFile()
+//   * Create or update a CredInfo record with status of PENDING.
+//   * Called when service is starting up and CredInfo records are being initialized by reading csv data from a file.
+//   *
+//   * From the record in the file we have some of the primary key values for table: tenant, sysId, isStatic
+//   * Most of the other values (has_credentials, has_pki_keys, etc.) will be filled in from SK during a sync.
+//   *
+//   * But we still need to figure out values for tapisUser, hostLoginUser and loginUserMapping
+//   * tapisUser is fairly straightforward, see below. For others:
+//   *
+//   * Two cases:
+//   *    a. CredInfo in the DB:
+//   *         loginUserMapping : from DB, might be null
+//   *         hostLoginUser : if isStatic=true use effectiveUserId from system
+//   *                         if isStatic=false and loginUserMapping!=null, use loginUserMapping from the DB
+//   *                         if isStatic=false and loginUserMapping=null, use credTargetUser from the record
+//   *    b. CredInfo not in DB:
+//   *         loginUserMapping : not available, use null
+//   *         hostLoginUser : if isStatic=true use effectiveUserId from system
+//   *                         if isStatic=false use credTargetUser from the record
+//   */
+//  private CredentialInfo createUpdatePendingCredInfoRecordFromCSVRecord(ResourceRequestUser rUser, String tenant, String sysId,
+//                                                                        String credTargetUser, boolean isStatic)
+//  {
+//    String opName = "createUpdatePendingCredInfoRecordFromCSVRecord";
+//    CredentialInfo credInfo;
+//    // Fetch the system, we will use the seqId and owner
+//    TSystem sys = dao.getSystem(tenant, sysId); // For seqId, owner
+//
+//    // Compute tapisUser, hostLoginUser and loginUserMapping
+//    String tapisUser, hostLoginUser, loginUserMapping;
+//    // tapisUser.
+//    // For dynamic always credTargetUser.
+//    // For static use system owner, that is who will most likely have registered the credential.
+//    //   In practice, if it was not the owner, but instead it was a tenant admin, for example, it should not matter
+//    //   since anyone using the system will get the credential for the static effUserId.
+//    if (!isStatic) tapisUser = credTargetUser; else tapisUser = sys.getOwner();
+//
+//    // We are mutating a CredInfo record so synchronize around the class
+//    synchronized (CredUtils.class)
+//    {
+//      CredentialInfo credInfoDB = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStatic);
+//      if (credInfoDB != null)
+//      {
+//        // Record is already in the DB, just need to update status to PENDING
+//        credInfo = updateCredInfoStatus(rUser, credInfoDB, SyncStatus.PENDING, opName);
+//      }
+//      else
+//      {
+//        // No record in DB, create one with status of PENDING.
+//        // loginUserMapping and tms attributes not available, use null
+//        loginUserMapping = null;
+//
+//        // Determine hostLoginUser. If dynamic, credTargetUser, if static, system effectiveUserId
+//        hostLoginUser = determineHostLoginUser(isStatic, sys.getEffectiveUserId(), nullLoginUserMapping, credTargetUser);
+//
+//        // Create and persist the record
+//        credInfo = new CredentialInfo(sys.getSeqId(), sys.getTenant(), sys.getId(), tapisUser, isStatic, hostLoginUser,
+//                        loginUserMapping, nullLoginUserMapping, nullTmsResourceProvider, nullTmsResourceProviderAccount,
+//                        SyncStatus.PENDING);
+//        credInfo = dao.createCredInfo(rUser, credInfo);
+//      }
+//    }
+//    return credInfo;
+//  }
 
   /*
    * Update CredentialInfo to FAILED
