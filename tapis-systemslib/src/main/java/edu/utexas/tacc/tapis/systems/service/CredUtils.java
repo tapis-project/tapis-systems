@@ -1263,7 +1263,8 @@ public class CredUtils
          updateCredInfoStatus(rUser, credInfo, SyncStatus.COMPLETED, opName);
          // Log successful operation
          String msg = LibUtils.getMsgAuth("SYSLIB_CREDINFO_CREATED", rUser, credInfo.getTenant(), credInfo.getSystemId(),
-                                          credInfo.getTapisUser(), isStaticEffUser, hostLoginUser, loginUserMapping);
+                                          credInfo.getTapisUser(), isStaticEffUser, hostLoginUser, loginUserMapping,
+                                          tmsLoginUser, tmsResourceProvider, tmsResourceProviderAccount);
          log.debug(msg);
        }
      }

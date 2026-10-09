@@ -1858,6 +1858,9 @@ public class SystemsDaoImpl implements SystemsDao
               .set(SYSTEMS_CRED_INFO.TAPIS_USER, credInfo.getTapisUser())
               .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, credInfo.getHostLoginUser())
               .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, credInfo.getLoginUserMapping())
+              .set(SYSTEMS_CRED_INFO.TMS_LOGIN_USER, credInfo.getTmsLoginUser())
+              .set(SYSTEMS_CRED_INFO.TMS_RESOURCE_PROVIDER, credInfo.getTmsResourceProvider())
+              .set(SYSTEMS_CRED_INFO.TMS_RESOURCE_PROVIDER_ACCOUNT, credInfo.getTmsResourceProviderAccount())
               .set(SYSTEMS_CRED_INFO.CREATED, utcNow)
               .set(SYSTEMS_CRED_INFO.UPDATED, utcNow)
               .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, credInfo.hasCredentials())
@@ -1882,7 +1885,8 @@ public class SystemsDaoImpl implements SystemsDao
       // Close out and commit
       LibUtils.closeAndCommitDB(conn, null, null);
       log.trace(LibUtils.getMsg("SYSLIB_CREDINFO_DB_CREATE", credInfo.getTenant(), credInfo.getSystemId(),
-            credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(), credInfo.getLoginUserMapping()));
+            credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(), credInfo.getLoginUserMapping(),
+              credInfo.getTmsLoginUser(), credInfo.getTmsResourceProvider(), credInfo.getTmsResourceProviderAccount()));
     }
     catch (Exception e)
     {
@@ -2150,6 +2154,9 @@ public class SystemsDaoImpl implements SystemsDao
       db.update(SYSTEMS_CRED_INFO)
             .set(SYSTEMS_CRED_INFO.HOST_LOGIN_USER, credInfo.getHostLoginUser())
             .set(SYSTEMS_CRED_INFO.LOGIN_USER_MAPPING, credInfo.getLoginUserMapping())
+            .set(SYSTEMS_CRED_INFO.TMS_LOGIN_USER, credInfo.getTmsLoginUser())
+            .set(SYSTEMS_CRED_INFO.TMS_RESOURCE_PROVIDER, credInfo.getTmsResourceProvider())
+            .set(SYSTEMS_CRED_INFO.TMS_RESOURCE_PROVIDER_ACCOUNT, credInfo.getTmsResourceProviderAccount())
             .set(SYSTEMS_CRED_INFO.HAS_CREDENTIALS, credInfo.hasCredentials())
             .set(SYSTEMS_CRED_INFO.IS_STATIC, credInfo.isStatic())
             .set(SYSTEMS_CRED_INFO.HAS_PASSWORD, credInfo.hasPassword())
