@@ -54,6 +54,8 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.TOP_LEVEL_SECRET_NA
 import static edu.utexas.tacc.tapis.systems.model.TSystem.APIUSERID_VAR;
 import static edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.*;
 
+// NOTE: Comment out most of the code, so we do not have to consider it when enhancing and refactoring.
+//       For example, if we need this code to support TMS it needs updating.
 /*
  * CredInfoInitJob used to initialize the CredInfo table based on the records in Vault and SK.
  *
@@ -224,100 +226,100 @@ public class CredInfoInitJob
                                                             boolean isStatic, CredInfoInitJob.SecretMetaInfo sm)
   {
     String opName = "createCredInfoRecordFromVaultMetadata";
-    CredentialInfo credInfo;
-    TSystem.AuthnMethod authnMethod = sys.getDefaultAuthnMethod();
-    String credTargetUser = sm.targetUser();
-    // Determine if credentials are registered for defaultAuthnMethod of the system
-    boolean hasCredentials = (TSystem.AuthnMethod.PASSWORD.equals(authnMethod) && sm.hasPassword()) ||
-            (TSystem.AuthnMethod.PKI_KEYS.equals(authnMethod) && sm.hasPkiKeys()) ||
-            (TSystem.AuthnMethod.ACCESS_KEY.equals(authnMethod) && sm.hasAccessKey()) ||
-            (TSystem.AuthnMethod.TOKEN.equals(authnMethod) && sm.hasToken() ) ||
-            (TSystem.AuthnMethod.TMS_KEYS.equals(authnMethod) && sm.hasTmsKeys());
-
-    int sysSeqId = sys.getSeqId();
-
-    // Compute tapisUser, hostLoginUser and loginUserMapping
-    String tapisUser, hostLoginUser, loginUserMapping;
-    // tapisUser.
-    // For dynamic always credTargetUser.
-    // For static, tapisUser should always be the system owner.
-    if (!isStatic) tapisUser = credTargetUser; else tapisUser = sys.getOwner();
-
-    // We are mutating a CredInfo record so synchronize around the class
-    synchronized (CredUtils.class)
-    {
-      String msg;
-      CredentialInfo credInfoDB = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStatic);
-      if (credInfoDB != null)
-      {
-        msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_VAULT", credInfoDB.getTenant(), credInfoDB.getSystemId(),
-                credInfoDB.getTapisUser(), credInfoDB.getHostLoginUser(), credInfoDB.isStatic(),
-                credInfoDB.getLoginUserMapping(), opName);
-        log.warn(String.format("%s IN-DB", msg));
-        // Record is already in the DB, set status to PENDING and then IN_PROGRESS.
-        credUtils.updateCredInfoStatus(rUser, credInfoDB, CredentialInfo.SyncStatus.PENDING, opName);
-        credUtils.updateCredInfoStatus(rUser, credInfoDB, CredentialInfo.SyncStatus.IN_PROGRESS, opName);
-        // Compute loginUserMapping and hostLoginUser.
-        loginUserMapping = credInfoDB.getLoginUserMapping();
-
-        // Determine hostLoginUser
-        if (isStatic && APIUSERID_VAR.equals(sys.getEffectiveUserId()))
-        {
-          // Exceptional case. Vault record is static but system has effectiveUserId = ${apiUserId} This means that
-          //   although the system is currently dynamic we still need to use credTargetUser as the host login user.
-          hostLoginUser = credTargetUser;
-        }
-        else
-        {
-          // Normal case
-          hostLoginUser = credUtils.determineHostLoginUser(isStatic, sys.getEffectiveUserId(), loginUserMapping, credTargetUser);
-        }
-
-        // We now have all attributes, use them to create a CredInfo record in memory
-        credInfo = new CredentialInfo(sysSeqId, credInfoDB.getTenant(), credInfoDB.getSystemId(), tapisUser, isStatic,
-                hostLoginUser, loginUserMapping, nullTmsLoginUser, nullTmsResourceProvider, nullTmsResourceProviderAccount,
-                hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
-                sm.hasTmsKeys(), credInfoDB.getSyncStatus(), credInfoDB.getSyncFailCount(),
-                credInfoDB.getSyncFailMessage(), credInfoDB.getSyncFailed(),
-                credInfoDB.getCreated(), credInfoDB.getCreated());
-        dao.updateCredInfoRecord(credInfo, null);
-      }
-      else
-      {
-        // No record in DB, create one with status of IN_PROGRESS
-        // Compute loginUserMapping and hostLoginUser.
-        loginUserMapping = null;
-        // Determine hostLoginUser
-        if (isStatic && APIUSERID_VAR.equals(sys.getEffectiveUserId()))
-        {
-          // Exceptional case. Vault record is static but system has effectiveUserId = ${apiUserId}. This means that
-          //   although the system is currently dynamic we still need to use credTargetUser as the host login user.
-          hostLoginUser = credTargetUser;
-        }
-        else
-        {
-          // Normal case. If static use system effUsr else use credTargetUser
-          hostLoginUser = credUtils.determineHostLoginUser(isStatic, sys.getEffectiveUserId(), loginUserMapping, credTargetUser);
-        }
-        int syncFailCount = 0;
-        String syncFailMsg = null;
-        Instant syncFailTimestamp = null;
-        Instant utcNow = TapisUtils.getUTCTimeNow().toInstant(ZoneOffset.UTC);
-        // We now have all attributes, use them to create a CredInfo record in memory
-        credInfo = new CredentialInfo(sysSeqId, tenant, sys.getId(), tapisUser, isStatic, hostLoginUser, loginUserMapping,
-                nullTmsLoginUser, nullTmsResourceProvider, nullTmsResourceProviderAccount,
-                hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
-                sm.hasTmsKeys(), CredentialInfo.SyncStatus.IN_PROGRESS, syncFailCount, syncFailMsg, syncFailTimestamp,
-                utcNow, utcNow);
-        msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_VAULT", credInfo.getTenant(), credInfo.getSystemId(),
-                credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(),
-                credInfo.getLoginUserMapping(), opName);
-        log.warn(String.format("%s NOT-IN-DB", msg));
-        credInfo = dao.createCredInfo(rUser, credInfo);
-      }
-      // Update record to COMPLETED
-      credUtils.updateCredInfoToCompleted(rUser, credInfo);
-    }
+    CredentialInfo credInfo = null;
+//    TSystem.AuthnMethod authnMethod = sys.getDefaultAuthnMethod();
+//    String credTargetUser = sm.targetUser();
+//    // Determine if credentials are registered for defaultAuthnMethod of the system
+//    boolean hasCredentials = (TSystem.AuthnMethod.PASSWORD.equals(authnMethod) && sm.hasPassword()) ||
+//            (TSystem.AuthnMethod.PKI_KEYS.equals(authnMethod) && sm.hasPkiKeys()) ||
+//            (TSystem.AuthnMethod.ACCESS_KEY.equals(authnMethod) && sm.hasAccessKey()) ||
+//            (TSystem.AuthnMethod.TOKEN.equals(authnMethod) && sm.hasToken() ) ||
+//            (TSystem.AuthnMethod.TMS_KEYS.equals(authnMethod) && sm.hasTmsKeys());
+//
+//    int sysSeqId = sys.getSeqId();
+//
+//    // Compute tapisUser, hostLoginUser and loginUserMapping
+//    String tapisUser, hostLoginUser, loginUserMapping;
+//    // tapisUser.
+//    // For dynamic always credTargetUser.
+//    // For static, tapisUser should always be the system owner.
+//    if (!isStatic) tapisUser = credTargetUser; else tapisUser = sys.getOwner();
+//
+//    // We are mutating a CredInfo record so synchronize around the class
+//    synchronized (CredUtils.class)
+//    {
+//      String msg;
+//      CredentialInfo credInfoDB = dao.getCredInfo(sys.getTenant(), sys.getId(), tapisUser, isStatic);
+//      if (credInfoDB != null)
+//      {
+//        msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_VAULT", credInfoDB.getTenant(), credInfoDB.getSystemId(),
+//                credInfoDB.getTapisUser(), credInfoDB.getHostLoginUser(), credInfoDB.isStatic(),
+//                credInfoDB.getLoginUserMapping(), opName);
+//        log.warn(String.format("%s IN-DB", msg));
+//        // Record is already in the DB, set status to PENDING and then IN_PROGRESS.
+//        credUtils.updateCredInfoStatus(rUser, credInfoDB, CredentialInfo.SyncStatus.PENDING, opName);
+//        credUtils.updateCredInfoStatus(rUser, credInfoDB, CredentialInfo.SyncStatus.IN_PROGRESS, opName);
+//        // Compute loginUserMapping and hostLoginUser.
+//        loginUserMapping = credInfoDB.getLoginUserMapping();
+//
+//        // Determine hostLoginUser
+//        if (isStatic && APIUSERID_VAR.equals(sys.getEffectiveUserId()))
+//        {
+//          // Exceptional case. Vault record is static but system has effectiveUserId = ${apiUserId} This means that
+//          //   although the system is currently dynamic we still need to use credTargetUser as the host login user.
+//          hostLoginUser = credTargetUser;
+//        }
+//        else
+//        {
+//          // Normal case
+//          hostLoginUser = credUtils.determineHostLoginUser(isStatic, sys.getEffectiveUserId(), loginUserMapping, credTargetUser);
+//        }
+//
+//        // We now have all attributes, use them to create a CredInfo record in memory
+//        credInfo = new CredentialInfo(sysSeqId, credInfoDB.getTenant(), credInfoDB.getSystemId(), tapisUser, isStatic,
+//                hostLoginUser, loginUserMapping, nullTmsLoginUser, nullTmsResourceProvider, nullTmsResourceProviderAccount,
+//                hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
+//                sm.hasTmsKeys(), credInfoDB.getSyncStatus(), credInfoDB.getSyncFailCount(),
+//                credInfoDB.getSyncFailMessage(), credInfoDB.getSyncFailed(),
+//                credInfoDB.getCreated(), credInfoDB.getCreated());
+//        dao.updateCredInfoRecord(credInfo, null);
+//      }
+//      else
+//      {
+//        // No record in DB, create one with status of IN_PROGRESS
+//        // Compute loginUserMapping and hostLoginUser.
+//        loginUserMapping = null;
+//        // Determine hostLoginUser
+//        if (isStatic && APIUSERID_VAR.equals(sys.getEffectiveUserId()))
+//        {
+//          // Exceptional case. Vault record is static but system has effectiveUserId = ${apiUserId}. This means that
+//          //   although the system is currently dynamic we still need to use credTargetUser as the host login user.
+//          hostLoginUser = credTargetUser;
+//        }
+//        else
+//        {
+//          // Normal case. If static use system effUsr else use credTargetUser
+//          hostLoginUser = credUtils.determineHostLoginUser(isStatic, sys.getEffectiveUserId(), loginUserMapping, credTargetUser);
+//        }
+//        int syncFailCount = 0;
+//        String syncFailMsg = null;
+//        Instant syncFailTimestamp = null;
+//        Instant utcNow = TapisUtils.getUTCTimeNow().toInstant(ZoneOffset.UTC);
+//        // We now have all attributes, use them to create a CredInfo record in memory
+//        credInfo = new CredentialInfo(sysSeqId, tenant, sys.getId(), tapisUser, isStatic, hostLoginUser, loginUserMapping,
+//                nullTmsLoginUser, nullTmsResourceProvider, nullTmsResourceProviderAccount,
+//                hasCredentials, sm.hasPassword(), sm.hasPkiKeys(), sm.hasAccessKey(), sm.hasToken(),
+//                sm.hasTmsKeys(), CredentialInfo.SyncStatus.IN_PROGRESS, syncFailCount, syncFailMsg, syncFailTimestamp,
+//                utcNow, utcNow);
+//        msg = LibUtils.getMsg("SYSLIB_CREDINFO_INIT_FROM_VAULT", credInfo.getTenant(), credInfo.getSystemId(),
+//                credInfo.getTapisUser(), credInfo.getHostLoginUser(), credInfo.isStatic(),
+//                credInfo.getLoginUserMapping(), opName);
+//        log.warn(String.format("%s NOT-IN-DB", msg));
+//        credInfo = dao.createCredInfo(rUser, credInfo);
+//      }
+//      // Update record to COMPLETED
+//      credUtils.updateCredInfoToCompleted(rUser, credInfo);
+//    }
     return credInfo;
   }
 

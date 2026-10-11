@@ -108,6 +108,7 @@ public class SystemsServiceImpl implements SystemsService
   private static final Set<Permission> nullPermSet = null;
   private static final SystemShare nullSystemShare = null;
   private static final Credential nullCredential = null;
+  private static final boolean createTmsKeysFalse = false;
   
   // ************************************************************************
   // *********************** Enums ******************************************
@@ -316,7 +317,7 @@ public class SystemsServiceImpl implements SystemsService
     // NOTE: If effectiveUserId is dynamic then request has already been rejected above during
     //       call to validateTSystem(). See method TSystem.checkAttrMisc().
     //       But we include isStaticEffUser here anyway in case that ever changes.
-    if (!isStaticEffUser && cred != null)
+    if (cred != null && !isStaticEffUser)
     {
       String msg = LibUtils.getMsgAuth("SYSLIB_CRED_NOT_ALLOWED", rUser, sysId);
       log.warn(msg);
@@ -407,7 +408,7 @@ public class SystemsServiceImpl implements SystemsService
         // This is createSystem, so isStatic is true so credTargetUser and hostLoginUser are the eff user id.
         // Note that a CredInfo record will be created. NOTE: Never TMS, so no need be concerned with tms attributes.
         credInfo = credUtils.createCredential(rUser, cred, retSystem, credTargetUser, isStaticEffUser, hostLoginUser,
-                                              skipCredCheck, false, op);
+                                              skipCredCheck, createTmsKeysFalse, op);
       }
 
       // If no credInfo record yet then create one
@@ -416,7 +417,7 @@ public class SystemsServiceImpl implements SystemsService
         // We did not create a credInfo as part of manageCredentials, so create one now to be sure we always have a
         //  CredInfo record associated with the owner for a newly created system.
         // Tapis user for this initial record is system owner, hostLoginUser is resolved effUser and
-        //    userLoginMapping is null since no credential was provided.
+        //    userLoginMapping is null since no credential was provided. All tms attributes will be null
         credInfo = credUtils.createCredInfoForOwnerAsNeeded(rUser, retSystem, isStaticEffUser, op.name());
       }
     }

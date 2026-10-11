@@ -63,6 +63,7 @@ public class CredentialsServiceImpl
   // ************************************************************************
 
   /**
+   * NOTE: This method is only called by CredentialResource (and tests)
    * Store or update credential for given system and target user.
    * <p>
    * NOTE Return null if we skip cred check.
