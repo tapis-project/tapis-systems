@@ -377,7 +377,7 @@ public final class RuntimeParameters implements EmailClientParameters
     catch (Exception e) {
       String msg = MsgUtils.getMsg("TAPIS_SERVICE_PARM_INITIALIZATION_FAILED",
               TapisConstants.SERVICE_NAME_SYSTEMS,
-              "emalProviderType",
+              "emailProviderType",
               e.getMessage());
       _log.error(msg, e);
       throw new TapisRuntimeException(msg, e);

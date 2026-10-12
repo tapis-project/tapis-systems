@@ -379,12 +379,15 @@ public class CredentialsServiceImpl
     // Create credential and save to SK
     Credential credForGlobus = new Credential(null, null, null, null, null, null, null, null, null,
                                               accessToken, refreshToken, null, null, null, null, null, null);
-    // For Globus type system credentials both the target user and host login user are set to userName.
+    // For Globus type system credentials, both the target user and host login user are set to userName.
     // When connecting to Globus there is no username directly set. Username is used when storing the credentials in SK.
+    // TMS is not relevant.
     boolean skipCheck = true; // We never check when generating globus tokens
     String hostLoginUser = credTargetUser;
+    CredUtils.validateCreateCredReq(rUser, system, credForGlobus, credTargetUser, isStaticEffectiveUser,
+                                     false, null, null);
     credUtils.createCredential(rUser, credForGlobus, system, credTargetUser, isStaticEffectiveUser, hostLoginUser,
-                               skipCheck, false, op);
+                               skipCheck, false, null, null, null, op);
   }
 
   // ************************************************************************

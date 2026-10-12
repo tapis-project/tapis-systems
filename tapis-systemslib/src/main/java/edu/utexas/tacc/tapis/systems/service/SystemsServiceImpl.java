@@ -281,7 +281,7 @@ public class SystemsServiceImpl implements SystemsService
     //          Ordering of setting defaults, resolving variables and validating attributes is critical.
     // ==========================================================================================================
 
-    // Make sure owner, effectiveUserId, notes, tags, jobEnvVariables and batchDefaultLogincalQueue. are all set.
+    // Make sure owner, effectiveUserId, notes, tags, jobEnvVariables and batchDefaultLogincalQueue are all set.
     // Note that this is done before auth so owner can get resolved and used during auth check.
     system.setDefaults();
 
@@ -292,11 +292,11 @@ public class SystemsServiceImpl implements SystemsService
     system.resolveVariablesAtCreate(rUser.getOboUserId());
 
     // Now we can extract effUser and owner, for convenience and clarity. NOTE: Unresolved effUser.
-    String sysEffUserId = system.getEffectiveUserId();
+    String unresolvedEffUserId = system.getEffectiveUserId();
     String sysOwner = system.getOwner();
 
     // Determine if effectiveUserId is static
-    boolean isStaticEffUser = !APIUSERID_VAR.equals(sysEffUserId);
+    boolean isStaticEffUser = !APIUSERID_VAR.equals(unresolvedEffUserId);
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerKnown(rUser, op, sysId, sysOwner);
@@ -332,13 +332,13 @@ public class SystemsServiceImpl implements SystemsService
     {
       // NOTE: At this point we know it is static effUser, so for hostLoginUser and credTargetUser we can use effUser.
       //       If that ever changes, and we make calls for dynamic effUser, we would need to do final resolve of effUser.
-      hostLoginUser = sysEffUserId;
-      credTargetUser = sysEffUserId;
+      hostLoginUser = unresolvedEffUserId;
+      credTargetUser = unresolvedEffUserId;
       // Skip check if not LINUX or S3
       if (!SystemType.LINUX.equals(sysType) && !SystemType.S3.equals(sysType)) skipCredCheck = true;
 
       // static effectiveUser case. Credential must not contain loginUser
-      credUtils.checkCredentialForInvalidLoginUser(rUser, system, cred, isStaticEffUser);
+      CredUtils.checkCredentialForInvalidLoginUser(rUser, system, cred, isStaticEffUser);
 
       // ---------------- Verify credentials if not skipped
       if (!skipCredCheck)
@@ -404,11 +404,15 @@ public class SystemsServiceImpl implements SystemsService
       // Store credentials in Security Kernel if cred provided and effectiveUser is static
       if (manageCredentials)
       {
+        // Validate request.
+        CredUtils.validateCreateCredReq(rUser, retSystem, verifiedCred, credTargetUser, isStaticEffUser,
+                                        createTmsKeysFalse, null, null);
         // Use internal method instead of public API to skip auth and other checks not needed here.
         // This is createSystem, so isStatic is true so credTargetUser and hostLoginUser are the eff user id.
         // Note that a CredInfo record will be created. NOTE: Never TMS, so no need be concerned with tms attributes.
         credInfo = credUtils.createCredential(rUser, cred, retSystem, credTargetUser, isStaticEffUser, hostLoginUser,
-                                              skipCredCheck, createTmsKeysFalse, op);
+                                              skipCredCheck, createTmsKeysFalse, nullTmsResourceProvider,
+                                              nullTmsResourceProviderAccount, nullTmsLoginUser, op);
       }
 
       // If no credInfo record yet then create one
