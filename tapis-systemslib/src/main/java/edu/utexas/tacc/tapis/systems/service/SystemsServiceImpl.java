@@ -75,21 +75,12 @@ public class SystemsServiceImpl implements SystemsService
   // Default interval in minutes for running the maintenance background task
   public static final int DEFAULT_SVC_MAINT_INTERVAL = 60;
 
-  // Long names for certain operations
-  static final String CREATE_SYS_OP = "createSystem";
-  public static final String PUT_SYS_OP = "putSystem";
-  public static final String GET_SYS_OP = "getSystem";
-  public static final String GET_SYSF_OP = "getSystemsFinal";
-
   // Allow interrupt when shutting down executor services.
   private static final boolean mayInterruptIfRunning = true;
 
   // Message keys
   static final String NOT_FOUND = "SYSLIB_NOT_FOUND";
   static final String ERROR_ROLLBACK = "SYSLIB_ERROR_ROLLBACK";
-
-  // SFTP client throws IOException containing this string if a path does not exist.
-  private static final String NO_SUCH_FILE = "no such file";
 
   // Compiled regex for splitting around ":"
   private static final Pattern COLON_SPLIT = Pattern.compile(":");
@@ -422,7 +413,8 @@ public class SystemsServiceImpl implements SystemsService
         //  CredInfo record associated with the owner for a newly created system.
         // Tapis user for this initial record is system owner, hostLoginUser is resolved effUser and
         //    userLoginMapping is null since no credential was provided. All tms attributes will be null
-        credInfo = credUtils.createCredInfoForOwnerAsNeeded(rUser, retSystem, isStaticEffUser, op.name());
+        credUtils.createCredInfoForOwnerAsNeeded(rUser, retSystem, isStaticEffUser, op.name());
+        credInfo = credUtils.getCredInfo(rUser, retSystem, rUser.getOboUserId(), isStaticEffUser);
       }
     }
     catch (Exception e0)
@@ -1084,11 +1076,10 @@ public class SystemsServiceImpl implements SystemsService
    * @param rUser - ResourceRequestUser containing tenant, user and request info
    * @param tenant - Tenant containing resources.
    * @param systemId - name of system
-   * @return Number of items deleted
    * @throws TapisException - for Tapis related exceptions
    * @throws TapisClientException - for Tapis related exceptions
    */
-  int hardDeleteSystem(ResourceRequestUser rUser, String tenant, String systemId)
+  void hardDeleteSystem(ResourceRequestUser rUser, String tenant, String systemId)
           throws TapisException, TapisClientException
   {
     SystemOperation op = SystemOperation.hardDelete;
@@ -1098,7 +1089,7 @@ public class SystemsServiceImpl implements SystemsService
 
     // If system does not exist then 0 changes
     TSystem system = dao.getSystem(tenant, systemId, true);
-    if (system == null) return 0;
+    if (system == null) return;
 
     // ------------------------- Check authorization -------------------------
     authUtils.checkAuthOwnerUnkown(rUser, op, systemId);
@@ -1111,7 +1102,7 @@ public class SystemsServiceImpl implements SystemsService
     credUtils.deleteAllCredentialsForSystem(rUser, system, op);
 
     // Delete the system from the DB
-    return dao.hardDeleteSystem(tenant, systemId);
+    dao.hardDeleteSystem(tenant, systemId);
   }
 
   /**
@@ -1516,14 +1507,14 @@ public class SystemsServiceImpl implements SystemsService
                                                    Boolean filterByHasCredentials, boolean fetchShareInfo)
           throws TapisException, TapisClientException
   {
+    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
+
     String oboUser = rUser.getOboUserId();
     // If search string is empty delegate to getSystems()
     Boolean filterByHasCredentialsTmp=null;
     if (StringUtils.isBlank(sqlSearchStr)) return getSystems(rUser, null, limit, orderByList, skip, startAfter,
                                                              includeDeleted, listType, filterByHasCredentialsTmp,
                                                              fetchShareInfo, nullImpersonationId);
-
-    if (rUser == null) throw new IllegalArgumentException(LibUtils.getMsg("SYSLIB_NULL_INPUT_AUTHUSR"));
 
     // If limit == 0 no need to proceed
     if (limit == 0) return new ArrayList<>();
