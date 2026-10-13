@@ -88,70 +88,78 @@ public class SystemsServiceTest
           rJobsSvcOwner1, rAppsSvcOwner1, rRestrictedSvc;
 
   // Create test system definitions and scheduler profiles in memory
-  String testKey = "Svc";
-  int numSystems = 42; // UNUSED SYSTEMS: None
-  int numSchedulerProfiles = 7;
-  TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
-  TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
-  TSystem s3System1 = IntegrationUtils.makeS3System(testKey+"1"); // Used in testCredCheckS3
-  TSystem s3System2 = IntegrationUtils.makeS3System(testKey+"2"); // Used in testCreateInvalidHostEvalRootDir
-  TSystem[] systems = IntegrationUtils.makeSystems(numSystems, testKey);
+  static final String testKey = "Svc";
+  static final int numSystems = 42; // UNUSED SYSTEMS: None
+  static final int numSchedulerProfiles = 7;
+  static final TSystem dtnSystem1 = IntegrationUtils.makeDtnSystem1(testKey);
+  static final TSystem dtnSystem2 = IntegrationUtils.makeDtnSystem2(testKey);
+  static final TSystem s3System1 = IntegrationUtils.makeS3System(testKey+"1"); // Used in testCredCheckS3
+  static final TSystem s3System2 = IntegrationUtils.makeS3System(testKey+"2"); // Used in testCreateInvalidHostEvalRootDir
+  static final TSystem[] systems = IntegrationUtils.makeSystems(numSystems, testKey);
 
   // Get various usernames and credentials from environment
-  String testTapisLoginUserMapping = System.getenv(TAPIS_TEST_USERNAME_ENV_VAR);
-  String testTapisUserP = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
-  String loginUserS3 = TAPIS_TEST_S3_HOST_LOGIN_USER;
-  String testS3Key = System.getenv(TAPIS_TEST_S3_KEY_ENV_VAR);
-  String testS3Secret = System.getenv(TAPIS_TEST_S3_SECRET_ENV_VAR);
+  static final String testTapisLoginUserMapping = System.getenv(TAPIS_TEST_USERNAME_ENV_VAR);
+  static final String testTapisUserP = System.getenv(TAPIS_TEST_PASSWORD_ENV_VAR);
+  static final String loginUserS3 = TAPIS_TEST_S3_HOST_LOGIN_USER;
+  static final String testS3Key = System.getenv(TAPIS_TEST_S3_KEY_ENV_VAR);
+  static final String testS3Secret = System.getenv(TAPIS_TEST_S3_SECRET_ENV_VAR);
 
   // Create most Credential and ReqCreateCredential objects here. Some are shared.
   // ReqCreateCredentials
-  ReqCreateCredential reqCreateCredGoodPasswd = new ReqCreateCredential(testTapisUserP, null, null,
+  static final ReqCreateCredential reqCreateCredGoodPasswd = new ReqCreateCredential(testTapisUserP, null, null,
           null, null, null, null, null, testTapisLoginUserMapping,
           null, null);
-  ReqCreateCredential reqCreateCredFakeNoLoginUser = new ReqCreateCredential("fakePassword1", "fakePrivateKey1", "fakePublicKey1",
+  static final ReqCreateCredential reqCreateCredFakeNoLoginUser = new ReqCreateCredential("fakePassword1", "fakePrivateKey1", "fakePublicKey1",
           "fakeAccessKey1", "fakeAccessSecret1", "fakeAccessToken1", "fakeRefreshToken1", "fakeCert1",
           null, null, null);
-  ReqCreateCredential reqCredFake = new ReqCreateCredential("fakePassword", null, null,
+  static final ReqCreateCredential reqCredFake = new ReqCreateCredential("fakePassword", null, null,
           null, null, null, null, null, testTapisLoginUserMapping,
           null, null);
-  ReqCreateCredential reqCredGoodWithLoginMapping = new ReqCreateCredential(testTapisUserP, null, null,
+  static final ReqCreateCredential reqCredGoodWithLoginMapping = new ReqCreateCredential(testTapisUserP, null, null,
           null, null, null, null, null, testTapisLoginUserMapping,
           null, null);
-  ReqCreateCredential reqCreateCredGoodS3 = new ReqCreateCredential(null, null, null,
+  static final ReqCreateCredential reqCreateCredGoodS3 = new ReqCreateCredential(null, null, null,
           testS3Key, testS3Secret, null, null, null, loginUserS3,
           null, null);
-  ReqCreateCredential reqCreateCredFakeS3 = new ReqCreateCredential(null, null, null,
+  static final ReqCreateCredential reqCreateCredFakeS3 = new ReqCreateCredential(null, null, null,
           "fakeAccessKey", "fakeAccessSecret", null, null, null, loginUserS3,
           null, null);
 
   // Special cases for testUserCredentials
   // cred3NoLoginUser - all creds except TMS
-  ReqCreateCredential reqCreateCred3NoLoginUser = new ReqCreateCredential("fakePassword3", "fakePrivateKey3", "fakePublicKey3",
+  static final ReqCreateCredential reqCreateCred3NoLoginUser = new ReqCreateCredential("fakePassword3", "fakePrivateKey3", "fakePublicKey3",
           "fakeAccessKey3", "fakeAccessSecret3", "fakeAccessToken", "fakeRefreshToken", "fakeCert3",
           null, null, null);
-  ReqCreateCredential reqCreateCred3NoLoginUserAccessAuthn = new ReqCreateCredential(null, null, null,
+  static final ReqCreateCredential reqCreateCred3NoLoginUserAccessAuthn = new ReqCreateCredential(null, null, null,
           "fakeAccessKey3a", "fakeAccessSecret3a", null, null, null, null,
           null, null);
-  ReqCreateCredential reqCreateCred4LoginUser = new ReqCreateCredential("fakePassword4", null, null,
+  static final ReqCreateCredential reqCreateCred4LoginUser = new ReqCreateCredential("fakePassword4", null, null,
           null, null, null, null, null, testUser4LinuxUser,
           null, null);
-  ReqCreateCredential cred5A_NoLoginUser = new ReqCreateCredential("fakePassword5a", null, null,
+  static final ReqCreateCredential cred5A_NoLoginUser = new ReqCreateCredential("fakePassword5a", null, null,
           null, null, null, null, null, null,
           null, null);
-  ReqCreateCredential cred5NoLoginLinuxUser = new ReqCreateCredential("fakePassword5LinuxUser", null, null,
+  static final ReqCreateCredential cred5NoLoginLinuxUser = new ReqCreateCredential("fakePassword5LinuxUser", null, null,
           null, null, null, null, null, null,
           null, null);
-  ReqCreateCredential cred5B_LoginUser = new ReqCreateCredential("fakePassword5b", null, null,
+  static final ReqCreateCredential cred5B_LoginUser = new ReqCreateCredential("fakePassword5b", null, null,
           null, null, null, null, null, testUser5LinuxUser,
           null, null);
 
   // Credentials
-  Credential fakeCred = new Credential(AuthnMethod.PASSWORD, "fakeLoginUser", "fakePassword", "fakePrivateKey", "fakePublicKey",
+  static final Credential credInvalidPrivateSshKey =
+          new Credential(null, null, null, invalidPrivateSshKey, invalidPublicSshKey, null, null, null, null, null, null, null, null, null, null);
+  static final Credential credNoLoginUser =
+          new Credential(null, null, "fakePassword", null, null, null, null, null, null, null, null, null, null, null, null);
+
+  static final Credential fakeCred = new Credential(AuthnMethod.PASSWORD, "fakeLoginUser", "fakePassword", "fakePrivateKey", "fakePublicKey",
+          "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken", "fakeCert",
+          "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeRP", "fakeRPAccount");
+  static final Credential fakeCredNoLoginUserMapping = new Credential(AuthnMethod.PASSWORD, null, "fakePassword", "fakePrivateKey", "fakePublicKey",
                        "fakeAccessKey", "fakeAccessSecret", "fakeAccessToken", "fakeRefreshToken", "fakeCert",
                        "fakeTmsPrivateKey", "fakeTmsPublicKey", "fakeTmsFingerprint", "fakeRP", "fakeRPAccount");
-  Credential credGoodPasswd = new Credential(AuthnMethod.PASSWORD, null, testTapisUserP, null, null, null, null, null, null, null, null, null, null, null, null);
-  Credential credGoodS3 = new Credential(AuthnMethod.ACCESS_KEY, loginUserS3, null, null, null, testS3Key, testS3Secret, null, null, null, null, null, null, null, null);
+  static final Credential credGoodPasswd = new Credential(AuthnMethod.PASSWORD, null, testTapisUserP, null, null, null, null, null, null, null, null, null, null, null, null);
+  static final Credential credGoodS3 = new Credential(AuthnMethod.ACCESS_KEY, loginUserS3, null, null, null, testS3Key, testS3Secret, null, null, null, null, null, null, null, null);
 
   List<TSystem> parentSystems = new ArrayList<>();
   SchedulerProfile[] schedulerProfiles = IntegrationUtils.makeSchedulerProfiles(numSchedulerProfiles, testKey);
@@ -608,7 +616,7 @@ public class SystemsServiceTest
   {
     TSystem sys0 = systems[1];
     sys0.setJobCapabilities(capList1);
-    Credential cred0 = fakeCred;
+    Credential cred0 = fakeCredNoLoginUserMapping;
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // Retrieve system as owner, without and with requireExecPerm
@@ -1232,7 +1240,7 @@ public class SystemsServiceTest
 
     // Create a system with credentials for owner and another user
     sys0 = systems[23];
-    sys0.setAuthnCredential(fakeCred);
+    sys0.setAuthnCredential(fakeCredNoLoginUserMapping);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
 
     // Delete the system
@@ -1488,7 +1496,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[24];
     // Set up the system definition such that it looks like it could have valid credentials.
     sys0.setDefaultAuthnMethod(AuthnMethod.PASSWORD);
-    sys0.setAuthnCredential(fakeCred);
+    sys0.setAuthnCredential(fakeCredNoLoginUserMapping);
     // Save off the original rootDir, cred and effUser. Used to reset test conditions
     String origRootDir = sys0.getRootDir();
     String origEffUser = sys0.getEffectiveUserId();
@@ -1773,7 +1781,7 @@ public class SystemsServiceTest
     boolean isStatic = false;
     // Create the system
     TSystem tmpSys = svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
-    // Make sure credInfo record created for owner, not $apiUser. Bug at one point, make sure not back.
+    // Make sure credInfo record created for owner, not $apiUser. Bug at one point, make sure bug is not back.
     CredentialInfo credInfo = dao.getCredInfo(tenantName, sysId, sysOwner, isStatic);
     Assert.assertNotNull(credInfo, "No CredInfo initial record");
     Assert.assertEquals(credInfo.getHostLoginUser(), sysOwner);
@@ -2303,7 +2311,7 @@ public class SystemsServiceTest
   {
     // Create a system where effectiveUserId is static and credentials are provided with system definition.
     TSystem sys0 = systems[28];
-    Credential cred1 = fakeCred;
+    Credential cred1 = fakeCredNoLoginUserMapping;
     sys0.setEffectiveUserId(effectiveUserId1);
     sys0.setAuthnCredential(cred1);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
@@ -2664,7 +2672,7 @@ public class SystemsServiceTest
     Assert.assertTrue(pass);
 
     // Create system for remaining auth access tests
-    Credential cred0 = fakeCred;
+    Credential cred0 = fakeCredNoLoginUserMapping;
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // Grant testUesr3 - READ
@@ -2905,7 +2913,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[14];
     String sysId = sys0.getId();
     // Create system for remaining auth access tests
-    Credential cred0 = fakeCred;
+    Credential cred0 = fakeCredNoLoginUserMapping;
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     // Grant User1 - READ and User2 - MODIFY
@@ -3232,7 +3240,7 @@ public class SystemsServiceTest
   public void testGetSystemHistory() throws Exception
   {
     TSystem sys0 = systems[26];
-    Credential cred0 = fakeCred;
+    Credential cred0 = fakeCredNoLoginUserMapping;
     sys0.setAuthnCredential(cred0);
     svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
     
@@ -3261,7 +3269,7 @@ public class SystemsServiceTest
     TSystem sys0 = systems[27];
     String sysId = sys0.getId();
     ResourceRequestUser ownerUser = rTestUser2;
-    Credential cred0 = fakeCred;
+    Credential cred0 = fakeCredNoLoginUserMapping;
     sys0.setAuthnCredential(cred0);
     sys0.setOwner(testUser2);
     sys0.setJobRuntimes(jobRuntimes1);

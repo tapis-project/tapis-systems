@@ -68,7 +68,7 @@ public class CredentialsServiceImpl
    * <p>
    * NOTE Return null if we skip cred check.
    * <p>
-   * Required: rUser, systemId, targetUser, credential.
+   * Required: rUser, systemId, credTargetUser, ReqCreateCredential.
    * <p>
    * Secret path depends on whether effUser type is dynamic or static
    * <p>

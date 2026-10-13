@@ -1277,8 +1277,7 @@ public class SystemsServiceImpl implements SystemsService
       else
         credTargetUser = oboOrImpersonatedUser;
       // Use internal method instead of public API to skip auth and other checks not needed here.
-      Credential cred = credUtils.getCredential(rUser, system, credTargetUser, tmpAuthnMethod, isStaticEffUser,
-                                                resourceTenant);
+      Credential cred = credUtils.getCredential(rUser, system, credTargetUser, tmpAuthnMethod, isStaticEffUser, resourceTenant);
       system.setAuthnCredential(cred);
     }
 

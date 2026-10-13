@@ -895,9 +895,9 @@ public class CredUtils
       // If static there is no mapping and tms is not relevant, it is targetUser.
       // If dynamic then need to also consider TMS.
       String loginUser;
-      String tmsLoginUser = ci.getTmsLoginUser();
-      String tmsResourceProvider = ci.getTmsResourceProvider();
-      String tmsResourceProviderAccount = ci.getTmsResourceProviderAccount();
+      String tmsLoginUser = (ci==null) ? null : ci.getTmsLoginUser();
+      String tmsResourceProvider = (ci==null) ? null : ci.getTmsResourceProvider();
+      String tmsResourceProviderAccount = (ci==null) ? null : ci.getTmsResourceProviderAccount();
       if (isStaticEffectiveUser)
       {
         loginUser = credTargetUser;
@@ -1384,9 +1384,10 @@ public class CredUtils
   {
     String hostLoginUser = null;
     // Determine hostLoginUser.
-    // If static then return ???
+    // If static then return effectiveUserId is credTargetUser
     // else if TMS then return tmsLoginUser
-    // else check for mapping and return mapping if present.
+    // else if dynamic and there is a login user mapping return login user mapping
+    // else if dynamic and no login user mapping return credTargetUser
     if (isStatic)
     {
       hostLoginUser = credTargetUser;
@@ -1400,9 +1401,14 @@ public class CredUtils
     else
     {
       // Since this is a cred create operation, the host login user mapping might be in the DB or part of the incoming
-      //   credential or both. The one in the credential has priority because it will be replacing the DB record
+      //   credential or in both or in neither. The one in the credential has priority because it will be replacing the DB record
       if (StringUtils.isBlank(credLoginUserMapping)) credLoginUserMapping = dao.getLoginUserMapping(sysTenant, sysId, credTargetUser, isStatic);
       if (!StringUtils.isBlank(credLoginUserMapping)) hostLoginUser = credLoginUserMapping;
+      // If there was no mapping in Cred or in DB then it is the target user
+      if (StringUtils.isBlank(hostLoginUser))
+      {
+        hostLoginUser = credTargetUser;
+      }
     }
     return hostLoginUser;
   }
