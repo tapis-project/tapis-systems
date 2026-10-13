@@ -104,17 +104,18 @@ public final class IntegrationUtils
   public static final String TAPIS_TEST_S3_HOST = "cics3.tacc.utexas.edu"; // NOTE: could be an env var
   public static final String TAPIS_TEST_S3_HOST_LOGIN_USER = "scblack"; // NOTE: could be an env var
   public static final String TAPIS_TEST_S3_BUCKET = "smoketest";
+
   // TMS settings
-  public static final String TMS_URL_ENV_VAR = "TAPIS_TMS_SERVER_URL";
-  public static final String TMS_TENANT_ENV_VAR = "TAPIS_TMS_TENANT";
-  public static final String TMS_CLIENT_ID_ENV_VAR = "TAPIS_TMS_CLIENT_ID";
-  public static final String TMS_CLIENT_KEY_ENV_VAR = "TAPIS_TMS_CLIENT_SECRET";
-  public static final String TMS_TEST_HOST_ENV_VAR = "TMS_TEST_HOST";
-  public static final String TMS_TEST_USER_ENV_VAR = "TMS_TEST_USER";
+  public static final String TMS_TEST_URL_ENV_VAR = "TMS_TEST_SERVER_URL";
+  public static final String TMS_TEST_CLIENT_ID_ENV_VAR = "TMS_TEST_CLIENT_ID";
+  public static final String TMS_TEST_CLIENT_SECRET_ENV_VAR = "TMS_TEST_CLIENT_SECRET";
+  public static final String TMS_TEST_TMS_IDENTITY_ENV_VAR = "TMS_TEST_TMS_IDENTITY";
   public static final String TMS_TEST_RP_ENV_VAR = "TMS_TEST_RP";
   public static final String TMS_TEST_RP_ACCT_ENV_VAR = "TMS_TEST_RP_ACCT";
+  public static final String TMS_TEST_HOST_ENV_VAR = "TMS_TEST_HOST";
+  public static final String TMS_TEST_HOST_ACCT_ENV_VAR = "TMS_TEST_HOST_ACCT";
+
   public static final String TMS_GETVERSION_ENDPOINT = "v1/tms/version";
-  public static final String TMS_CLIENT_USER = "tapisSysIntegTest";
 
   public static final String sysNamePrefix = "TestSys";
   public static final String schedProfileNamePrefix = "TestSchedProfile";

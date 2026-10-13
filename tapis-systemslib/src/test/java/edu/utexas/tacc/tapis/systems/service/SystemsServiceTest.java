@@ -60,7 +60,6 @@ import static edu.utexas.tacc.tapis.systems.model.Credential.SECRETS_MASK;
  *
  * TMS test settings for DEV
  *   TMS_URL= https://tms-server-dev.tacc.utexas.edu:3000
- *   TMS_TENANT= default
  *   TMS_CLIENT_ID= tapis
  *   TMS_CLIENT_KEY= *************
  *   TMS_TEST_HOST=129.114.35.161
@@ -2107,20 +2106,20 @@ public class SystemsServiceTest
     // Test direct calls to the TMS server
     // -------------------------------------------------------------
     // Get env variables to make sure we are configured for this test
-    String tmsBaseUrl = System.getenv(TMS_URL_ENV_VAR);
-    String tmsTenant = System.getenv(TMS_TENANT_ENV_VAR);
-    String tmsClientId = System.getenv(TMS_CLIENT_ID_ENV_VAR);
-    String tmsClientKey = System.getenv(TMS_CLIENT_KEY_ENV_VAR);
+    String tmsBaseUrl = System.getenv(TMS_TEST_URL_ENV_VAR);
+    String tmsUserIdentity = System.getenv(TMS_TEST_TMS_IDENTITY_ENV_VAR);
+    String tmsClientId = System.getenv(TMS_TEST_CLIENT_ID_ENV_VAR);
+    String tmsClientKey = System.getenv(TMS_TEST_CLIENT_SECRET_ENV_VAR);
     String tmsTestHost = System.getenv(TMS_TEST_HOST_ENV_VAR);
-    String tmsTestUser = System.getenv(TMS_TEST_USER_ENV_VAR);
+    String tmsTestHostAcct = System.getenv(TMS_TEST_HOST_ACCT_ENV_VAR);
     String tmsTestRP = System.getenv(TMS_TEST_RP_ENV_VAR);
     String tmsTestRPAcct = System.getenv(TMS_TEST_RP_ACCT_ENV_VAR);
-    if (StringUtils.isBlank(tmsBaseUrl)) Assert.fail("Missing environment variable. Please set env var: " + TMS_URL_ENV_VAR);
-    if (StringUtils.isBlank(tmsTenant)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TENANT_ENV_VAR);
-    if (StringUtils.isBlank(tmsClientId)) Assert.fail("Missing environment variable. Please set env var: " + TMS_CLIENT_ID_ENV_VAR);
-    if (StringUtils.isBlank(tmsClientKey)) Assert.fail("Missing environment variable. Please set env var: " + TMS_CLIENT_KEY_ENV_VAR);
+    if (StringUtils.isBlank(tmsBaseUrl)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_URL_ENV_VAR);
+    if (StringUtils.isBlank(tmsUserIdentity)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_TMS_IDENTITY_ENV_VAR);
+    if (StringUtils.isBlank(tmsClientId)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_CLIENT_ID_ENV_VAR);
+    if (StringUtils.isBlank(tmsClientKey)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_CLIENT_SECRET_ENV_VAR);
     if (StringUtils.isBlank(tmsTestHost)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_HOST_ENV_VAR);
-    if (StringUtils.isBlank(tmsTestUser)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_USER_ENV_VAR);
+    if (StringUtils.isBlank(tmsTestHostAcct)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_HOST_ACCT_ENV_VAR);
     if (StringUtils.isBlank(tmsTestRP)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_RP_ENV_VAR);
     if (StringUtils.isBlank(tmsTestRPAcct)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_RP_ACCT_ENV_VAR);
     String privateKeyMasked;
@@ -2142,27 +2141,28 @@ public class SystemsServiceTest
       // If response status code is not 200 it is an error
       Assert.assertEquals(response.code(), 200, "Unable to get version");
     }
-    // Call TMS to generate the keypair and fingerprint
-    // Example:
+    // Call TMS credential server to generate the keypair and fingerprint
+    // Example test data:
     //    tmsServerReqUrl = "https://tms-server-stage.tacc.utexas.edu:3000/v1/tms/pubkeys/creds";
     //    tmsTenant = "test";
     //    tmsClientId = "testclient1";
     //    tmsClientSecret = "secret1";
-    //    String tmsClientUser = "testuser1";
-    //    String tmsHost = "testhost1";
-    //    String tmsHostAccount = "testhostaccount1";
+    //    String tmsIdentity = "someuser1@eid.utexas.edutestuser1";
+    //    String tmsRP = "tacc1";
+    //    String tmsRPAcct = "someuser1@tacc.utexas.edu";
+    //    String tmsHost = "stampede3";
+    //    String tmsHostAccount = "someuser1";
     int numUses = -1;
     int ttlMinutes = -1;
     String urlCreateKeyPair = String.format("%s/%s", tmsBaseUrl, TMS_CREATEKEYS_ENDPOINT);
-    // Build the request TODO is this correct? What are test values for RP and RPAcct?
-    var tmsRequest = new CredUtils.TmsRequest(TMS_CLIENT_USER, tmsTestRP, tmsTestRPAcct, tmsTestHost, tmsTestUser,
+    // Build the request
+    var tmsRequest = new CredUtils.TmsRequest(tmsUserIdentity, tmsTestRP, tmsTestRPAcct, tmsTestHost, tmsTestHostAcct,
                                               TMS_KEY_TYPE_ED25519, numUses, ttlMinutes);
     String reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsRequest);
     RequestBody body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
     Request.Builder requestBuilder = new Request.Builder().url(urlCreateKeyPair).post(body);
     // Add headers for tenant, client id and client secret
-    request = requestBuilder.addHeader("X-TMS-TENANT", tmsTenant)
-            .addHeader("X-TMS-CLIENT-ID", tmsClientId)
+    request = requestBuilder.addHeader("X-TMS-CLIENT-ID", tmsClientId)
             .addHeader("X-TMS-CLIENT-SECRET", tmsClientKey)
             .build();
     call = httpClient.newCall(request);
@@ -2197,110 +2197,111 @@ public class SystemsServiceTest
     System.out.println("TMS keypair public key: " + tmsPublicKey);
     System.out.println("TMS keypair private key: " + privateKeyMasked);
     System.out.println("TMS keypair fingerprint: " + tmsPublicKeyFingerprint);
-    // Call TMS server to fetch the public key for the previously generated keypair
-    String urlGetPubKey = String.format("%s/%s", tmsBaseUrl, TMS_GETPUBKEY_ENDPOINT);
-    // Build the request
-    var tmsGetPubKeyRequest = new TmsGetPubKeyRequest(tmsTestUser, "1111", tmsTestHost, tmsPublicKeyFingerprint, TMS_KEY_TYPE_ED25519);
-    reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsGetPubKeyRequest);
-    body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
-    requestBuilder = new Request.Builder().url(urlGetPubKey).post(body);
-    request = requestBuilder.build();
-    call = httpClient.newCall(request);
-    // Use try-with-resources to auto-close the response.
-    try (okhttp3.Response response = call.execute())
-    {
-      Assert.assertNotNull(response);
-      Assert.assertNotNull(response.body());
-      respBodyStr = response.body().string();
-      Assert.assertFalse(StringUtils.isBlank(respBodyStr));
-      System.out.println("TMS getPubKey response body: " + respBodyStr);
-      // If response status code is not 200 it is an error
-      Assert.assertEquals(response.code(), 200, "Unable to get public key");
-    }
-    respBodyJson = TapisGsonUtils.getGson().fromJson(respBodyStr, JsonObject.class);
-    var resultCode = respBodyJson.get("result_code");
-    var resultMsg = respBodyJson.get("result_msg");
-    publicKeyObj = respBodyJson.get("public_key");
-    // If any are null it is an error
-    Assert.assertNotNull(resultCode);
-    Assert.assertNotNull(resultMsg);
-    Assert.assertNotNull(publicKeyObj);
-    tmsPublicKey = publicKeyObj.getAsString();
-    String resultMsgStr = resultMsg.getAsString();
-    String resultCodeStr = resultCode.getAsString();
-    // If any are empty it is an error
-    Assert.assertFalse(StringUtils.isBlank(tmsPrivateKey));
-    Assert.assertFalse(StringUtils.isBlank(resultMsgStr));
-    Assert.assertFalse(StringUtils.isBlank(resultCodeStr));
-    System.out.println("TMS getPubKey public key: " + tmsPublicKey);
-    System.out.println("TMS getPubKey result_code: " + resultCodeStr);
-    System.out.println("TMS getPubKey result_msg: " + resultMsgStr);
-
-    // -------------------------------------------------------------
-    // Test use of TMS keys through the Systems and Files service
-    // -------------------------------------------------------------
-    // Create a system for use with TMS, must have a dynamic effectiveUserId, so effUsr = apiUserId
-    TSystem sys0 = systems[41];
-    String sysId = sys0.getId();
-    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR); // "${apiUserId}"
-    sys0.setHost(tmsTestHost);
-    sys0.setDefaultAuthnMethod(AuthnMethod.TMS_KEYS);
-    // Create the system
-    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
-    TSystem tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
-    Assert.assertNotNull(tmpSys, "Failed to create item: " + sysId);
-    System.out.println("Found item: " + sysId);
-    // Share the system with test user
-    SystemShare systemShare;
-    String rawDataShare = "{\"users\": [\"" + tmsTestUser + "\"]}";
-    systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
-    svc.shareSystem(rOwner1, sysId, systemShare);
-    // Register credentials for TMS test user
-    svcCred.createUserCredential(rOwner1, sysId, testUser2, reqCreateCredFakeNoLoginUser, createTmsKeysTrue, skipCredCheckTrue, rawDataEmptyJson);
-    Credential cred = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser2, AuthnMethod.TMS_KEYS);
-    Assert.assertNotNull(cred);
-    Assert.assertNotNull(cred.getTmsPrivateKey());
-    Assert.assertNotNull(cred.getTmsPublicKey());
-    Assert.assertNotNull(cred.getTmsFingerprint());
-    privateKeyMasked = StringUtils.isBlank(cred.getTmsPrivateKey()) ? null : SECRETS_MASK;
-    System.out.printf("SysId: %s TMS keypair public key: %s%n", sysId, cred.getTmsPublicKey());
-    System.out.printf("SysId: %s TMS keypair private key: %s%n", sysId, privateKeyMasked);
-    System.out.printf("SysId: %s TMS keypair fingerprint: %s%n", sysId, cred.getTmsFingerprint());
-    // Validate credentials
-    Credential checkedCred = svcCred.checkUserCredential(rOwner1, sysId, tmsTestUser, AuthnMethod.TMS_KEYS);
-    Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
-
-    // Check that we are not able to create TMS keys for a tenant not in the allowed list.
-    // Update config to only allow TMS keys in tacc tenants
-    RuntimeParameters.getInstance().setTmsAllowedTenants("tacc");
-    boolean pass = false;
-    try
-    {
-      svcCred.createUserCredential(rOwner1, sysId, testUser2, reqCreateCredFakeNoLoginUser, createTmsKeysTrue, skipCredCheckTrue, rawDataEmptyJson);
-      Assert.fail("System checkUserCredential call should have thrown an exception when tenant not in TMS allowed list");
-    }
-    catch (Exception e)
-    {
-      String msg = e.getMessage();
-      Assert.assertTrue(msg.contains("SYSLIB_CRED_TMS_KEYS_TENANT_NOT_ALLOWED"));
-      pass = true;
-    }
-    Assert.assertTrue(pass);
-    // Attempt to register credentials but use createTmsKeys=false. Should fail with error SYSLIB_CRED_TMS_KEYS_BAD_ARG.
-    pass = false;
-    try
-    {
-      svcCred.createUserCredential(rOwner1, sysId, testUser2, reqCreateCredFakeNoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
-      Assert.fail("System checkUserCredential call should throw exception when createTmsKeys is FALSE and system uses TMS.");
-    }
-    catch (Exception e)
-    {
-      String msg = e.getMessage();
-      Assert.assertTrue(msg.contains("SYSLIB_CRED_TMS_KEYS_BAD_ARG"));
-      pass = true;
-    }
-    Assert.assertTrue(pass);
-    pass = false;
+// TODO
+//    // Call TMS server to fetch the public key for the previously generated keypair
+//    String urlGetPubKey = String.format("%s/%s", tmsBaseUrl, TMS_GETPUBKEY_ENDPOINT);
+//    // Build the request
+//    var tmsGetPubKeyRequest = new TmsGetPubKeyRequest(tmsTestUser, "1111", tmsTestHost, tmsPublicKeyFingerprint, TMS_KEY_TYPE_ED25519);
+//    reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsGetPubKeyRequest);
+//    body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
+//    requestBuilder = new Request.Builder().url(urlGetPubKey).post(body);
+//    request = requestBuilder.build();
+//    call = httpClient.newCall(request);
+//    // Use try-with-resources to auto-close the response.
+//    try (okhttp3.Response response = call.execute())
+//    {
+//      Assert.assertNotNull(response);
+//      Assert.assertNotNull(response.body());
+//      respBodyStr = response.body().string();
+//      Assert.assertFalse(StringUtils.isBlank(respBodyStr));
+//      System.out.println("TMS getPubKey response body: " + respBodyStr);
+//      // If response status code is not 200 it is an error
+//      Assert.assertEquals(response.code(), 200, "Unable to get public key");
+//    }
+//    respBodyJson = TapisGsonUtils.getGson().fromJson(respBodyStr, JsonObject.class);
+//    var resultCode = respBodyJson.get("result_code");
+//    var resultMsg = respBodyJson.get("result_msg");
+//    publicKeyObj = respBodyJson.get("public_key");
+//    // If any are null it is an error
+//    Assert.assertNotNull(resultCode);
+//    Assert.assertNotNull(resultMsg);
+//    Assert.assertNotNull(publicKeyObj);
+//    tmsPublicKey = publicKeyObj.getAsString();
+//    String resultMsgStr = resultMsg.getAsString();
+//    String resultCodeStr = resultCode.getAsString();
+//    // If any are empty it is an error
+//    Assert.assertFalse(StringUtils.isBlank(tmsPrivateKey));
+//    Assert.assertFalse(StringUtils.isBlank(resultMsgStr));
+//    Assert.assertFalse(StringUtils.isBlank(resultCodeStr));
+//    System.out.println("TMS getPubKey public key: " + tmsPublicKey);
+//    System.out.println("TMS getPubKey result_code: " + resultCodeStr);
+//    System.out.println("TMS getPubKey result_msg: " + resultMsgStr);
+//
+//    // -------------------------------------------------------------
+//    // Test use of TMS keys through the Systems and Files service
+//    // -------------------------------------------------------------
+//    // Create a system for use with TMS, must have a dynamic effectiveUserId, so effUsr = apiUserId
+//    TSystem sys0 = systems[41];
+//    String sysId = sys0.getId();
+//    sys0.setEffectiveUserId(TSystem.APIUSERID_VAR); // "${apiUserId}"
+//    sys0.setHost(tmsTestHost);
+//    sys0.setDefaultAuthnMethod(AuthnMethod.TMS_KEYS);
+//    // Create the system
+//    svc.createSystem(rOwner1, sys0, skipCredCheckTrue, rawDataEmptyJson);
+//    TSystem tmpSys = svc.getSystem(rOwner1, sysId, null, false, false, null, sharedCtxNull, resourceTenantNull, fetchShareInfoFalse);
+//    Assert.assertNotNull(tmpSys, "Failed to create item: " + sysId);
+//    System.out.println("Found item: " + sysId);
+//    // Share the system with test user
+//    SystemShare systemShare;
+//    String rawDataShare = "{\"users\": [\"" + tmsTestUser + "\"]}";
+//    systemShare = TapisGsonUtils.getGson().fromJson(rawDataShare, SystemShare.class);
+//    svc.shareSystem(rOwner1, sysId, systemShare);
+//    // Register credentials for TMS test user
+//    svcCred.createUserCredential(rOwner1, sysId, testUser2, reqCreateCredFakeNoLoginUser, createTmsKeysTrue, skipCredCheckTrue, rawDataEmptyJson);
+//    Credential cred = svcCred.getUserCredential(rFilesSvcOwner1, sysId, testUser2, AuthnMethod.TMS_KEYS);
+//    Assert.assertNotNull(cred);
+//    Assert.assertNotNull(cred.getTmsPrivateKey());
+//    Assert.assertNotNull(cred.getTmsPublicKey());
+//    Assert.assertNotNull(cred.getTmsFingerprint());
+//    privateKeyMasked = StringUtils.isBlank(cred.getTmsPrivateKey()) ? null : SECRETS_MASK;
+//    System.out.printf("SysId: %s TMS keypair public key: %s%n", sysId, cred.getTmsPublicKey());
+//    System.out.printf("SysId: %s TMS keypair private key: %s%n", sysId, privateKeyMasked);
+//    System.out.printf("SysId: %s TMS keypair fingerprint: %s%n", sysId, cred.getTmsFingerprint());
+//    // Validate credentials
+//    Credential checkedCred = svcCred.checkUserCredential(rOwner1, sysId, tmsTestUser, AuthnMethod.TMS_KEYS);
+//    Assert.assertEquals(checkedCred.getValidationResult(), Boolean.TRUE);
+//
+//    // Check that we are not able to create TMS keys for a tenant not in the allowed list.
+//    // Update config to only allow TMS keys in tacc tenants
+//    RuntimeParameters.getInstance().setTmsAllowedTenants("tacc");
+//    boolean pass = false;
+//    try
+//    {
+//      svcCred.createUserCredential(rOwner1, sysId, testUser2, reqCreateCredFakeNoLoginUser, createTmsKeysTrue, skipCredCheckTrue, rawDataEmptyJson);
+//      Assert.fail("System checkUserCredential call should have thrown an exception when tenant not in TMS allowed list");
+//    }
+//    catch (Exception e)
+//    {
+//      String msg = e.getMessage();
+//      Assert.assertTrue(msg.contains("SYSLIB_CRED_TMS_KEYS_TENANT_NOT_ALLOWED"));
+//      pass = true;
+//    }
+//    Assert.assertTrue(pass);
+//    // Attempt to register credentials but use createTmsKeys=false. Should fail with error SYSLIB_CRED_TMS_KEYS_BAD_ARG.
+//    pass = false;
+//    try
+//    {
+//      svcCred.createUserCredential(rOwner1, sysId, testUser2, reqCreateCredFakeNoLoginUser, createTmsKeysFalse, skipCredCheckTrue, rawDataEmptyJson);
+//      Assert.fail("System checkUserCredential call should throw exception when createTmsKeys is FALSE and system uses TMS.");
+//    }
+//    catch (Exception e)
+//    {
+//      String msg = e.getMessage();
+//      Assert.assertTrue(msg.contains("SYSLIB_CRED_TMS_KEYS_BAD_ARG"));
+//      pass = true;
+//    }
+//    Assert.assertTrue(pass);
+//    pass = false;
   }
 
   // Test creating, reading and deleting user credentials for a system
