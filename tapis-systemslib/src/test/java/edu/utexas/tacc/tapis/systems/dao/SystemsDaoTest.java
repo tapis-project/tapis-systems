@@ -378,7 +378,7 @@ public class SystemsDaoTest
     Assert.assertTrue(itemCreated, "Item not created, id: " + sysId);
     TSystem sys = dao.getSystem(tenantName, sysId);
 
-    // Create/fetch a couple of CredInfo records
+    // Create/fetch a few of CredInfo records
     String hostLoginUser = loginUserMapping1;
     CredentialInfo credInfo1 = new CredentialInfo(sys.getSeqId(), tenantName, sysId, tapisUser, isStaticFalse,
                                       hostLoginUser, loginUserMapping1, nullTmsLoginUser, nullTmsResourceProvider,
@@ -389,13 +389,17 @@ public class SystemsDaoTest
     Assert.assertEquals(ci.getTapisUser(), tapisUser);
     Assert.assertEquals(ci.getHostLoginUser(), hostLoginUser);
     Assert.assertEquals(ci.getLoginUserMapping(), loginUserMapping1);
+    Assert.assertNull(ci.getTmsLoginUser());
+    Assert.assertNull(ci.getTmsResourceProvider());
+    Assert.assertNull(ci.getTmsResourceProviderAccount());
     Assert.assertEquals(ci.isStatic(), isStaticFalse);
     Assert.assertEquals(ci.getSyncStatus(), CredentialInfo.SyncStatus.PENDING);
     String loginUser = dao.getLoginUserMapping(tenantName, sysId, tapisUser, isStaticFalse);
     Assert.assertEquals(loginUser, loginUserMapping1);
+
     hostLoginUser = owner2;
     CredentialInfo credInfo2 = new CredentialInfo(sys.getSeqId(), tenantName, sysId, tapisUser, isStaticTrue,
-                                            hostLoginUser, nullTmsLoginUser, nullTmsLoginUser, nullTmsResourceProvider,
+                                            hostLoginUser, nullLoginUserMapping, nullTmsLoginUser, nullTmsResourceProvider,
                                             nullTmsResourceProviderAccount, CredentialInfo.SyncStatus.PENDING);
     dao.createCredInfo(rOwner1, credInfo2);
     ci = dao.getCredInfo(credInfo2);
@@ -403,27 +407,76 @@ public class SystemsDaoTest
     Assert.assertEquals(ci.getTapisUser(), tapisUser);
     Assert.assertEquals(ci.getHostLoginUser(), hostLoginUser);
     Assert.assertNull(ci.getLoginUserMapping());
+    Assert.assertNull(ci.getTmsLoginUser());
+    Assert.assertNull(ci.getTmsResourceProvider());
+    Assert.assertNull(ci.getTmsResourceProviderAccount());
     Assert.assertEquals(ci.isStatic(), isStaticTrue);
+    Assert.assertEquals(ci.getSyncStatus(), CredentialInfo.SyncStatus.PENDING);
+
+    // Add 2 TMS records
+    String tmsRP = tmsResourceProvider;
+    String tmsRPAcct = tmsResourceProviderAccount1;
+    String tmsLoginUser = tmsLoginUser1;
+    String tmsTapisUser = tmsTapisUser1;
+    hostLoginUser = tmsLoginUser;
+    CredentialInfo credInfo3 = new CredentialInfo(sys.getSeqId(), tenantName, sysId, tmsTapisUser, isStaticFalse,
+            hostLoginUser, nullLoginUserMapping, tmsLoginUser, tmsRP, tmsRPAcct, CredentialInfo.SyncStatus.PENDING);
+    dao.createCredInfo(rOwner1, credInfo3);
+    ci = dao.getCredInfo(credInfo3);
+    Assert.assertNotNull(ci);
+    Assert.assertEquals(ci.getTapisUser(), tmsTapisUser);
+    Assert.assertEquals(ci.getHostLoginUser(), hostLoginUser);
+    Assert.assertNull(ci.getLoginUserMapping());
+    Assert.assertEquals(ci.getTmsLoginUser(), tmsLoginUser);
+    Assert.assertEquals(ci.getTmsResourceProvider(), tmsRP);
+    Assert.assertEquals(ci.getTmsResourceProviderAccount(), tmsRPAcct);
+    Assert.assertEquals(ci.isStatic(), isStaticFalse);
+    Assert.assertEquals(ci.getSyncStatus(), CredentialInfo.SyncStatus.PENDING);
+
+    tmsRPAcct = tmsResourceProviderAccount2;
+    tmsLoginUser = tmsLoginUser2;
+    tmsTapisUser = tmsTapisUser2;
+    hostLoginUser = tmsLoginUser;
+    CredentialInfo credInfo4 = new CredentialInfo(sys.getSeqId(), tenantName, sysId, tmsTapisUser, isStaticFalse,
+            hostLoginUser, nullLoginUserMapping, tmsLoginUser, tmsRP, tmsRPAcct, CredentialInfo.SyncStatus.PENDING);
+    dao.createCredInfo(rOwner1, credInfo4);
+    ci = dao.getCredInfo(credInfo4);
+    Assert.assertNotNull(ci);
+    Assert.assertEquals(ci.getTapisUser(), tmsTapisUser);
+    Assert.assertEquals(ci.getHostLoginUser(), hostLoginUser);
+    Assert.assertNull(ci.getLoginUserMapping());
+    Assert.assertEquals(ci.getTmsLoginUser(), tmsLoginUser);
+    Assert.assertEquals(ci.getTmsResourceProvider(), tmsRP);
+    Assert.assertEquals(ci.getTmsResourceProviderAccount(), tmsRPAcct);
+    Assert.assertEquals(ci.isStatic(), isStaticFalse);
     Assert.assertEquals(ci.getSyncStatus(), CredentialInfo.SyncStatus.PENDING);
 
     // Check total count
     int totalCount = dao.getCredInfoTotalCount();
     System.out.println("CredInfo total count: " + totalCount);
-    Assert.assertTrue((totalCount >= 2));
+    Assert.assertTrue((totalCount >= 4));
 
     // Check listing and deletion
     List<CredentialInfo> ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
     Assert.assertNotNull(ciList);
-    Assert.assertEquals(ciList.size(), 2);
+    Assert.assertEquals(ciList.size(), 4);
     dao.deleteCredInfo(credInfo1.getTenant(), credInfo1.getSystemId(), credInfo1.getTapisUser(), credInfo1.isStatic());
     ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
     Assert.assertNotNull(ciList);
-    Assert.assertEquals(ciList.size(), 1);
+    Assert.assertEquals(ciList.size(), 3);
     dao.deleteCredInfoRecord(credInfo2);
     ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
     Assert.assertNotNull(ciList);
+    Assert.assertEquals(ciList.size(), 2);
+    dao.deleteCredInfoRecord(credInfo3);
+    ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
+    Assert.assertNotNull(ciList);
+    Assert.assertEquals(ciList.size(), 1);
+    dao.deleteCredInfoRecord(credInfo4);
+    ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
+    Assert.assertNotNull(ciList);
     Assert.assertEquals(ciList.size(), 0);
-    dao.createCredInfo(rOwner1, credInfo2);
+    dao.createCredInfo(rOwner1, credInfo4);
     ciList = dao.getCredInfoRecordsForSystem(tenantName, sysId);
     Assert.assertNotNull(ciList);
     Assert.assertEquals(ciList.size(), 1);

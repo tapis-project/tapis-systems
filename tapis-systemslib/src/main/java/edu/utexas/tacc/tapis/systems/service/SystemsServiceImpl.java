@@ -87,7 +87,7 @@ public class SystemsServiceImpl implements SystemsService
 
   // Named and typed null values to make it clear what is being passed in to a method
   static final String nullTargetUser = null;
-  static final String nullLoginUserMapping = null;
+  public static final String nullLoginUserMapping = null;
   public static final String nullTmsLoginUser = null;
   public static final String nullTmsResourceProvider = null;
   public static final String nullTmsResourceProviderAccount = null;

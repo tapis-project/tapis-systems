@@ -22,6 +22,7 @@ import edu.utexas.tacc.tapis.systems.model.TSystem.ArgInputMode;
 import edu.utexas.tacc.tapis.systems.model.TSystem.AuthnMethod;
 import edu.utexas.tacc.tapis.systems.model.TSystem.SchedulerType;
 import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl;
+import edu.utexas.tacc.tapis.systems.service.SystemsServiceImpl.TmsModeType;
 import static edu.utexas.tacc.tapis.systems.model.TSystem.DEFAULT_NOTES;
 import static edu.utexas.tacc.tapis.systems.model.KeyValuePair.DEFAULT_INPUT_MODE;
 
@@ -73,6 +74,19 @@ public final class IntegrationUtils
   public static final String apiUser = "testApiUser";
   public static final boolean isStaticTrue = true;
   public static final boolean isStaticFalse = false;
+
+  // TMS test data
+  public static final TmsModeType tmsModeNull = null;
+  public static final TmsModeType tmsModeUnsupported = TmsModeType.UNSUPPORTED;
+  public static final TmsModeType tmsModeExplicitTrust = TmsModeType.EXPLICIT_TRUST;
+  public static final TmsModeType tmsModeImplicitTrust = TmsModeType.IMPLICIT_TRUST;
+  public static final String tmsResourceProvider = "tacc1";
+  public static final String tmsResourceProviderAccount1 = "someuser1@tacc.utexas.edu";
+  public static final String tmsResourceProviderAccount2 = "someuser2@tacc.utexas.edu";
+  public static final String tmsTapisUser1 = "someuser1@eid.utexas.edu";
+  public static final String tmsTapisUser2 = "someuser2@eid.utexas.edu";
+  public static final String tmsLoginUser1 = "someuser1";
+  public static final String tmsLoginUser2 = "someuser2";
 
   // Properties for one of the Tapis v3 test VMs
   public static final String TAPIS_TEST_HOST_LOGIN_USER = testUser3;
