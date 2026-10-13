@@ -2124,8 +2124,9 @@ public class SystemsServiceTest
     if (StringUtils.isBlank(tmsTestRPAcct)) Assert.fail("Missing environment variable. Please set env var: " + TMS_TEST_RP_ACCT_ENV_VAR);
     String privateKeyMasked;
     String respBodyStr;
-    //
+    // ====================================
     // Call TMS server to get version
+    // ====================================
     // Build the request and make the call
     String urlGetVersion = String.format("%s/%s", tmsBaseUrl, TMS_GETVERSION_ENDPOINT);
     Request request = new Request.Builder().url(urlGetVersion).build();
@@ -2141,7 +2142,9 @@ public class SystemsServiceTest
       // If response status code is not 200 it is an error
       Assert.assertEquals(response.code(), 200, "Unable to get version");
     }
+    // ====================================
     // Call TMS credential server to generate the keypair and fingerprint
+    // ====================================
     // Example test data:
     //    tmsServerReqUrl = "https://tms-server-stage.tacc.utexas.edu:3000/v1/tms/pubkeys/creds";
     //    tmsTenant = "test";
@@ -2197,46 +2200,51 @@ public class SystemsServiceTest
     System.out.println("TMS keypair public key: " + tmsPublicKey);
     System.out.println("TMS keypair private key: " + privateKeyMasked);
     System.out.println("TMS keypair fingerprint: " + tmsPublicKeyFingerprint);
-// TODO
-//    // Call TMS server to fetch the public key for the previously generated keypair
-//    String urlGetPubKey = String.format("%s/%s", tmsBaseUrl, TMS_GETPUBKEY_ENDPOINT);
-//    // Build the request
-//    var tmsGetPubKeyRequest = new TmsGetPubKeyRequest(tmsTestUser, "1111", tmsTestHost, tmsPublicKeyFingerprint, TMS_KEY_TYPE_ED25519);
-//    reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsGetPubKeyRequest);
-//    body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
-//    requestBuilder = new Request.Builder().url(urlGetPubKey).post(body);
-//    request = requestBuilder.build();
-//    call = httpClient.newCall(request);
-//    // Use try-with-resources to auto-close the response.
-//    try (okhttp3.Response response = call.execute())
-//    {
-//      Assert.assertNotNull(response);
-//      Assert.assertNotNull(response.body());
-//      respBodyStr = response.body().string();
-//      Assert.assertFalse(StringUtils.isBlank(respBodyStr));
-//      System.out.println("TMS getPubKey response body: " + respBodyStr);
-//      // If response status code is not 200 it is an error
-//      Assert.assertEquals(response.code(), 200, "Unable to get public key");
-//    }
-//    respBodyJson = TapisGsonUtils.getGson().fromJson(respBodyStr, JsonObject.class);
-//    var resultCode = respBodyJson.get("result_code");
-//    var resultMsg = respBodyJson.get("result_msg");
-//    publicKeyObj = respBodyJson.get("public_key");
-//    // If any are null it is an error
-//    Assert.assertNotNull(resultCode);
-//    Assert.assertNotNull(resultMsg);
-//    Assert.assertNotNull(publicKeyObj);
-//    tmsPublicKey = publicKeyObj.getAsString();
-//    String resultMsgStr = resultMsg.getAsString();
-//    String resultCodeStr = resultCode.getAsString();
-//    // If any are empty it is an error
-//    Assert.assertFalse(StringUtils.isBlank(tmsPrivateKey));
-//    Assert.assertFalse(StringUtils.isBlank(resultMsgStr));
-//    Assert.assertFalse(StringUtils.isBlank(resultCodeStr));
-//    System.out.println("TMS getPubKey public key: " + tmsPublicKey);
-//    System.out.println("TMS getPubKey result_code: " + resultCodeStr);
-//    System.out.println("TMS getPubKey result_msg: " + resultMsgStr);
-//
+
+    // ====================================
+    // Call TMS server to fetch the public key for the keypair generated above
+    // ====================================
+    String urlGetPubKey = String.format("%s/%s", tmsBaseUrl, TMS_GETPUBKEY_ENDPOINT);
+    // Build the request
+    var tmsGetPubKeyRequest = new TmsGetPubKeyRequest(tmsTestHostAcct, "1111", tmsTestHost, tmsPublicKeyFingerprint, TMS_KEY_TYPE_ED25519);
+    reqJsonStr = TapisGsonUtils.getGson(true).toJson(tmsGetPubKeyRequest);
+    body = RequestBody.create(reqJsonStr, MediaType.parse("application/json"));
+    requestBuilder = new Request.Builder().url(urlGetPubKey).post(body);
+    request = requestBuilder.build();
+    call = httpClient.newCall(request);
+    // Use try-with-resources to auto-close the response.
+    try (okhttp3.Response response = call.execute())
+    {
+      Assert.assertNotNull(response);
+      Assert.assertNotNull(response.body());
+      respBodyStr = response.body().string();
+      Assert.assertFalse(StringUtils.isBlank(respBodyStr));
+      System.out.println("TMS getPubKey response body: " + respBodyStr);
+      // If response status code is not 200 it is an error
+      Assert.assertEquals(response.code(), 200, "Unable to get public key");
+    }
+    respBodyJson = TapisGsonUtils.getGson().fromJson(respBodyStr, JsonObject.class);
+    var resultCode = respBodyJson.get("result_code");
+    var resultMsg = respBodyJson.get("result_msg");
+    publicKeyObj = respBodyJson.get("public_key");
+    // If any are null it is an error
+    Assert.assertNotNull(resultCode);
+    Assert.assertNotNull(resultMsg);
+    Assert.assertNotNull(publicKeyObj);
+    tmsPublicKey = publicKeyObj.getAsString();
+    String resultMsgStr = resultMsg.getAsString();
+    String resultCodeStr = resultCode.getAsString();
+    // If any are empty it is an error
+    Assert.assertFalse(StringUtils.isBlank(tmsPrivateKey));
+    Assert.assertFalse(StringUtils.isBlank(resultMsgStr));
+    Assert.assertFalse(StringUtils.isBlank(resultCodeStr));
+    System.out.println("TMS getPubKey public key: " + tmsPublicKey);
+    System.out.println("TMS getPubKey result_code: " + resultCodeStr);
+    System.out.println("TMS getPubKey result_msg: " + resultMsgStr);
+    // TODO *********************************************************************************
+    // TODO *********************************************************************************
+    // TODO *********************************************************************************
+//TODO
 //    // -------------------------------------------------------------
 //    // Test use of TMS keys through the Systems and Files service
 //    // -------------------------------------------------------------
