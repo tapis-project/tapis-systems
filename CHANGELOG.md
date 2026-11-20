@@ -9,6 +9,18 @@ https://tapis.readthedocs.io/en/latest/technical/systems.html
 You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
+---------------------------------------------------------------------------
+## 26Q4.0 - 2026-11-20
+
+Shared code updates.
+
+### New features:
+- None.
+
+### Bug fixes:
+- None.
+
+---------------------------------------------------------------------------
 ## 26Q3.0 - 2026-09-18
 
 Incremental improvements, security patches in shared libraries.
@@ -29,6 +41,7 @@ Bug fix
 ### Bug fixes:
 - See 26Q1.1
 
+---------------------------------------------------------------------------
 ## 26Q1.1 - 2026-04-03
 
 Bug fix
@@ -39,6 +52,7 @@ Bug fix
 ### Bug fixes:
 - Fix bug with hostEval for the case of a dynamic effectiveUserId with a loginUser mapping.
 
+---------------------------------------------------------------------------
 ## 26Q1.0 - 2026-03-04
 
 New features.
