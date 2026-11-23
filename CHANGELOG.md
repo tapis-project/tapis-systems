@@ -10,7 +10,7 @@ You may also reference live-docs based on the openapi specification here:
 https://tapis-project.github.io/live-docs
 
 ---------------------------------------------------------------------------
-## 26Q3.1 - 2026-??-??
+## 26Q4.1 - 2026-??-??
 
 Incremental improvements, updates for Trust Manager System (TMS).
 
@@ -18,7 +18,18 @@ Incremental improvements, updates for Trust Manager System (TMS).
 - Updates for Trust Manager System (TMS).
 
 ### Bug fixes:
-- None.????
+- None.
+
+---------------------------------------------------------------------------
+## 26Q4.0 - 2026-11-20
+
+Shared code updates.
+
+### New features:
+- None.
+
+### Bug fixes:
+- None.
 
 ---------------------------------------------------------------------------
 ## 26Q3.0 - 2026-09-18
@@ -31,6 +42,7 @@ Incremental improvements, security patches in shared libraries.
 ### Bug fixes:
 - None.
 
+---------------------------------------------------------------------------
 ## 26Q2.0 - 2026-05-07
 
 Bug fix
@@ -41,6 +53,7 @@ Bug fix
 ### Bug fixes:
 - See 26Q1.1
 
+---------------------------------------------------------------------------
 ## 26Q1.1 - 2026-04-03
 
 Bug fix
@@ -51,6 +64,7 @@ Bug fix
 ### Bug fixes:
 - Fix bug with hostEval for the case of a dynamic effectiveUserId with a loginUser mapping.
 
+---------------------------------------------------------------------------
 ## 26Q1.0 - 2026-03-04
 
 New features.
